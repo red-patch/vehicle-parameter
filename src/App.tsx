@@ -1,0 +1,101 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { ConfigProvider, message, Select } from 'antd';
+import ErrorBoundary from './components/ErrorBoundary';
+import zhCN from 'antd/locale/zh_CN';
+import MainLayout from './components/Layout/MainLayout';
+import ExcelUploader from './components/FileUpload/ExcelUploader';
+import ParametersTable from './components/DiffViewer/ParametersTable';
+import { useVehicleStore } from './store/vehicleStore';
+import { compareSheets } from './utils/comparator';
+import DiffResultView from './components/DiffViewer/DiffResultView';
+import SmartLayout from './components/SmartFiller/SmartLayout';
+
+const App: React.FC = () => {
+  const { baseFile, targetFile, setDiffResult } = useVehicleStore();
+  const [activeTab, setActiveTab] = React.useState('diff');
+  // Base Preview Sheet State
+  const [selectedBaseSheet, setSelectedBaseSheet] = useState<string>('all');
+
+  // Computed Base Sheets and Filtered Data
+  const baseSheets = useMemo(() => {
+    if (!baseFile) return [];
+    const sheets = new Set<string>();
+    baseFile.data.forEach(p => p.originSheet && sheets.add(p.originSheet));
+    return Array.from(sheets).sort();
+  }, [baseFile]);
+
+  const filteredBaseData = useMemo(() => {
+    if (!baseFile) return [];
+    if (selectedBaseSheet === 'all') return baseFile.data;
+    return baseFile.data.filter(p => p.originSheet === selectedBaseSheet);
+  }, [baseFile, selectedBaseSheet]);
+
+  // Auto-run diff when both files are present
+  useEffect(() => {
+    if (baseFile && targetFile) {
+      try {
+        const result = compareSheets(baseFile, targetFile);
+        setDiffResult(result);
+      } catch (err) {
+        console.error('Comparison error:', err);
+        message.error('比对失败，请检查文件格式或数据完整性');
+      }
+    }
+  }, [baseFile, targetFile, setDiffResult]);
+
+  return (
+    <ConfigProvider locale={zhCN}>
+      <ErrorBoundary>
+        <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
+          {/* ... Content ... */}
+          {activeTab === 'diff' ? (
+            <>
+              <ExcelUploader />
+
+              {baseFile && !targetFile && (
+                <div className="mt-8">
+                  <div className="flex justify-between items-center mb-4">
+                     <h3 className="text-lg font-bold">基准版预览</h3>
+                     {baseSheets.length > 0 && (
+                        <div className="flex items-center gap-2">
+                           <span>按工作表筛选:</span>
+                           <Select
+                             value={selectedBaseSheet}
+                             onChange={setSelectedBaseSheet}
+                             style={{ width: 220 }}
+                             options={[
+                               { label: '全部工作表 (All Sheets)', value: 'all' },
+                               ...baseSheets.map(s => ({ label: s, value: s }))
+                             ]}
+                           />
+                        </div>
+                     )}
+                  </div>
+                  <ParametersTable data={filteredBaseData} />
+                </div>
+              )}
+
+              {targetFile && !baseFile && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-bold mb-4">新版本预览</h3>
+                  <ParametersTable data={targetFile.data} />
+                </div>
+              )}
+
+              {baseFile && targetFile && (
+                <div className="mt-8">
+                  <DiffResultView />
+                </div>
+              )}
+            </>
+          ) : (
+            <SmartLayout />
+          )}
+
+        </MainLayout>
+      </ErrorBoundary>
+    </ConfigProvider>
+  );
+};
+
+export default App;
