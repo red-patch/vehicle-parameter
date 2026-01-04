@@ -9,9 +9,10 @@ import { useVehicleStore } from './store/vehicleStore';
 import { compareSheets } from './utils/comparator';
 import DiffResultView from './components/DiffViewer/DiffResultView';
 import SmartLayout from './components/SmartFiller/SmartLayout';
+import AnnouncementQuery from './components/AnnouncementQuery/AnnouncementQuery';
 
 const App: React.FC = () => {
-  const { baseFile, targetFile, setDiffResult } = useVehicleStore();
+  const { baseFile, targetFile, setDiffResult, compareMode } = useVehicleStore();
   const [activeTab, setActiveTab] = React.useState('diff');
   // Base Preview Sheet State
   const [selectedBaseSheet, setSelectedBaseSheet] = useState<string>('all');
@@ -30,25 +31,25 @@ const App: React.FC = () => {
     return baseFile.data.filter(p => p.originSheet === selectedBaseSheet);
   }, [baseFile, selectedBaseSheet]);
 
-  // Auto-run diff when both files are present
+  // Auto-run diff when both files are present or mode changes
   useEffect(() => {
     if (baseFile && targetFile) {
       try {
-        const result = compareSheets(baseFile, targetFile);
+        const result = compareSheets(baseFile, targetFile, compareMode);
         setDiffResult(result);
       } catch (err) {
         console.error('Comparison error:', err);
         message.error('比对失败，请检查文件格式或数据完整性');
       }
     }
-  }, [baseFile, targetFile, setDiffResult]);
+  }, [baseFile, targetFile, setDiffResult, compareMode]);
 
   return (
     <ConfigProvider locale={zhCN}>
       <ErrorBoundary>
         <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
-          {/* ... Content ... */}
-          {activeTab === 'diff' ? (
+          {/* Tab内容渲染 */}
+          {activeTab === 'diff' && (
             <>
               <ExcelUploader />
 
@@ -88,9 +89,11 @@ const App: React.FC = () => {
                 </div>
               )}
             </>
-          ) : (
-            <SmartLayout />
           )}
+
+          {activeTab === 'search' && <SmartLayout />}
+
+          {activeTab === 'announcement' && <AnnouncementQuery />}
 
         </MainLayout>
       </ErrorBoundary>

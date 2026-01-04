@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Table, Tag, Select, Progress, Button, message } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
 import type { MatchItem } from '../../types';
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 
 
@@ -62,6 +62,35 @@ const MatchResultTable: React.FC = () => {
             .catch(err => {
                 message.error('复制失败: ' + err);
             });
+    };
+
+    const handleDownload = async () => {
+        if (!matchResults.length) {
+            message.warning('暂无内容可下载');
+            return;
+        }
+
+        // Prepare data for export
+        const headers = ['需求参数名', '匹配库参数名', '填报值', '置信度', '状态'];
+        const rows = matchResults.map(m => {
+            const val = m.matchedParam?.value;
+            const displayValue = (val !== undefined && val !== null) ? String(val) : '';
+
+            return [
+                m.requirementName,
+                m.matchedParam?.name || '(未匹配)',
+                displayValue,
+                (m.confidence * 100).toFixed(0) + '%',
+                m.matchedParam ? '已匹配' : '未匹配'
+            ];
+        });
+
+        const data = [headers, ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const csvOutput = XLSX.utils.sheet_to_csv(ws);
+
+        const { downloadCsv } = await import('../../utils/downloadCsv');
+        await downloadCsv(csvOutput, '智能填报结果.csv');
     };
 
     const columns = [
@@ -130,9 +159,14 @@ const MatchResultTable: React.FC = () => {
                     <CheckCircleOutlined className="text-green-600" />
                     匹配结果预览
                 </h3>
-                <Button type="primary" onClick={handleCopy}>
-                    复制填报结果 (CSV)
-                </Button>
+                <div className="flex gap-2">
+                    <Button onClick={handleCopy}>
+                        复制填报结果 (CSV)
+                    </Button>
+                    <Button type="primary" icon={<DownloadOutlined />} onClick={handleDownload}>
+                        下载 CSV
+                    </Button>
+                </div>
             </div>
 
             <Table

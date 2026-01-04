@@ -1,6 +1,6 @@
 import React, { type ReactNode } from 'react';
 import { Layout as AntLayout, Typography, Menu } from 'antd';
-import { CarOutlined, FileSearchOutlined, DiffOutlined } from '@ant-design/icons';
+import { CarOutlined, FileSearchOutlined, DiffOutlined, GlobalOutlined } from '@ant-design/icons';
 
 const { Header, Content, Footer } = AntLayout;
 const { Title } = Typography;
@@ -21,6 +21,11 @@ const items = [
         key: 'search',
         icon: <FileSearchOutlined />,
         label: '智能检索与填充',
+    },
+    {
+        key: 'announcement',
+        icon: <GlobalOutlined />,
+        label: '公告号查询',
     },
 ];
 
@@ -49,7 +54,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'diff', o
                 </div>
             </Content>
             <Footer className="text-center text-gray-500 bg-gray-50">
-                Vehicle Parameter Manager ©{new Date().getFullYear()} Created by 计皓琛2025.12
+                Vehicle Parameter Manager v1.4.0 ©{new Date().getFullYear()} Created by 计皓琛
             </Footer>
         </AntLayout>
     );
