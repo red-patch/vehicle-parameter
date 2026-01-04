@@ -33,3 +33,7 @@ export interface MatchItem {
     isManual: boolean; // If true, user manually selected this
 }
 
+// V1.3: 对比模式
+// 'content' - 按字段内容对比（根据 name 匹配，支持同义词）- 默认模式
+// 'miit' - 仅公告号数据对比（以工信部数据为模版）
+export type CompareMode = 'content' | 'miit';
