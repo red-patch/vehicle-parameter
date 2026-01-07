@@ -8,3 +8,112 @@ body {
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* ===== Custom Table Styles ===== */
+
+/* Table row hover effect - subtle gray */
+.ant-table-tbody > tr:hover > td {
+  background-color: #fafafa !important;
+  transition: background-color 0.15s ease;
+}
+
+/* Required field with empty value - highlight with subtle red background */
+.ant-table-tbody > tr.required-empty > td {
+  background-color: #fef2f2 !important;
+}
+
+.ant-table-tbody > tr.required-empty:hover > td {
+  background-color: #fee2e2 !important;
+}
+
+/* ===== Card hover effects ===== */
+.ant-card {
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== Upload area enhancement ===== */
+.ant-upload-drag {
+  transition: border-color 0.3s ease, background-color 0.3s ease;
+}
+
+.ant-upload-drag:hover {
+  border-color: #1677ff !important;
+  background-color: #f0f5ff !important;
+}
+
+/* ===== Button micro-interactions ===== */
+.ant-btn-primary {
+  transition: all 0.2s ease;
+}
+
+.ant-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(22, 119, 255, 0.3);
+}
+
+.ant-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* ===== Smooth page transitions ===== */
+.ant-layout-content > div {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Dark Mode Overrides ===== */
+.dark .ant-table-tbody > tr:hover > td {
+  background-color: #1f2937 !important;
+}
+
+.dark .ant-table-tbody > tr.required-row > td {
+  background: linear-gradient(90deg, #422006 0%, #292524 5%, #1f2937 20%) !important;
+  border-left: 3px solid #f59e0b;
+}
+
+.dark .ant-table-tbody > tr.required-row:hover > td {
+  background: linear-gradient(90deg, #78350f 0%, #44403c 5%, #374151 20%) !important;
+}
+
+.dark .ant-card {
+  background-color: #1f2937;
+  border-color: #374151;
+}
+
+.dark .ant-upload-drag {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+}
+
+.dark .ant-upload-drag:hover {
+  border-color: #3b82f6 !important;
+  background-color: #1e3a5f !important;
+}
+
+.dark .ant-steps-item-title,
+.dark .ant-steps-item-description {
+  color: #e5e7eb !important;
+}
+
+.dark .ant-select-selector {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+.dark .ant-input {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+
+.dark .ant-input::placeholder {
+  color: #9ca3af !important;
+}

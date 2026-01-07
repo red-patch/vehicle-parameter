@@ -199,7 +199,7 @@ const DiffResultView: React.FC = () => {
             width: 80,
             render: (_: unknown, record: { oldParam: { name: string }, newParam: { name: string } }) => {
                 const required = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
-                return required ? <Tag color="red">必填</Tag> : <Tag>选填</Tag>;
+                return required ? <Tag color="orange">必填</Tag> : <Tag color="default">选填</Tag>;
             },
             filters: [
                 { text: '必填', value: true },
@@ -287,7 +287,7 @@ const DiffResultView: React.FC = () => {
             width: 80,
             render: (_: unknown, record: { targetName: string; baseName: string }) => {
                 const required = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
-                return required ? <Tag color="red">必填</Tag> : <Tag>选填</Tag>;
+                return required ? <Tag color="orange">必填</Tag> : <Tag color="default">选填</Tag>;
             },
             filters: [
                 { text: '必填', value: true },
@@ -377,7 +377,7 @@ const DiffResultView: React.FC = () => {
                         bordered
                         rowClassName={(record) => {
                              const isRequired = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
-                             return isRequired ? 'bg-yellow-50 font-medium' : '';
+                             return isRequired ? 'required-row' : '';
                         }}
                     />
                 </div>
@@ -410,7 +410,7 @@ const DiffResultView: React.FC = () => {
             <div className="mb-4 flex items-center gap-4">
                 <Tag color="green">一致: {miitComparisonData.filter(r => r.status === 'matched').length}</Tag>
                 <Tag color="orange">差异: {miitComparisonData.filter(r => r.status === 'modified').length}</Tag>
-                <Tag color="red">缺失: {miitComparisonData.filter(r => r.status === 'missing').length}</Tag>
+                <Tag color="volcano">缺失: {miitComparisonData.filter(r => r.status === 'missing').length}</Tag>
             </div>
             <Table
                 dataSource={filteredMiitData}
@@ -421,10 +421,6 @@ const DiffResultView: React.FC = () => {
                 bordered
                 rowClassName={(record) => {
                     const isRequired = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
-                    // Combine status color with required highlight (using border or font weight since background is taken)
-                    // Priority: Status Background > Required Highlight (using border-left or similar if possible, but here we just append class)
-                    // If we want to highlight required fields distinctively even with status colors:
-                    // We can use a thicker border or bold font.
                     
                     let className = '';
                     if (record.status === 'matched') className += 'bg-green-50 ';
@@ -432,7 +428,7 @@ const DiffResultView: React.FC = () => {
                     if (record.status === 'missing') className += 'bg-red-50 ';
                     
                     if (isRequired) {
-                        className += 'font-bold border-l-4 border-l-red-500 '; // Using left border to indicate required
+                        className += 'required-row ';
                     }
                     
                     return className;
