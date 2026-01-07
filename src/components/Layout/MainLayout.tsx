@@ -41,6 +41,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'diff', o
                     <Title level={4} style={{ margin: 0, color: isDarkMode ? '#60a5fa' : '#2563eb' }}>
                         车辆参数工具
                     </Title>
+                    <span className={`text-xs px-2 py-0.5 rounded ${isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-500'}`}>
+                        v2.0.0
+                    </span>
                 </div>
                 <div className="flex items-center gap-4">
                     <Menu
