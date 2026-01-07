@@ -122,3 +122,8 @@
 ### V1.4
 
 - feature：新增公告号数据查询功能，查询网址。https://service.miit-eidc.org.cn/miitxxgk/gonggao/xxgk/index（研究下使用什么技术获取更轻量，测试公告号 DNC5037XXYBEVP1）
+
+### V1.5
+
+- feature：在版本对比模块中，新增字段「是否必填」，如果是必填字段整行需要高亮突出显示，具体字段的选填必填性质以 @字段是否必填性质.csv 文件的内容为准。
+- feature：在公告号对比模式中，需要支持字段搜索功能。
