@@ -4,6 +4,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import ParametersTable from './ParametersTable';
 import type { CompareMode } from '../../types';
+import { isFieldRequired } from '../../assets/requiredFields';
 
 const { Text } = Typography;
 
@@ -33,6 +34,7 @@ const DiffResultView: React.FC = () => {
     const { diffResult, baseFile, targetFile, compareMode, setCompareMode } = useVehicleStore();
     const [selectedSheet, setSelectedSheet] = useState<string>('all');
     const [modifiedSearchText, setModifiedSearchText] = useState<string>('');
+    const [miitSearchText, setMiitSearchText] = useState<string>('');
 
     // 检测是否可以使用 MIIT 模式（targetFile 来自工信部）
     const isMiitModeAvailable = useMemo(() => {
@@ -142,6 +144,18 @@ const DiffResultView: React.FC = () => {
         return rows;
     }, [compareMode, filteredDiff, targetFile]);
 
+    // Filter MIIT Data based on search
+    const filteredMiitData = useMemo(() => {
+        if (!miitSearchText) return miitComparisonData;
+        const lower = miitSearchText.toLowerCase();
+        return miitComparisonData.filter(item => 
+            item.targetName.toLowerCase().includes(lower) ||
+            item.targetValue.toLowerCase().includes(lower) ||
+            item.baseName.toLowerCase().includes(lower) ||
+            item.baseValue.toLowerCase().includes(lower)
+        );
+    }, [miitComparisonData, miitSearchText]);
+
     if (!diffResult || !filteredDiff) return null;
 
     const { added, removed, modified } = filteredDiff;
@@ -178,6 +192,23 @@ const DiffResultView: React.FC = () => {
                 const isDifferent = record.oldParam.name !== record.newParam.name;
                 return isDifferent ? <Text type="warning">{text}</Text> : <Text type="secondary">{text}</Text>;
             }
+        },
+        {
+            title: '是否必填',
+            key: 'isRequired',
+            width: 80,
+            render: (_: unknown, record: { oldParam: { name: string }, newParam: { name: string } }) => {
+                const required = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
+                return required ? <Tag color="red">必填</Tag> : <Tag>选填</Tag>;
+            },
+            filters: [
+                { text: '必填', value: true },
+                { text: '选填', value: false },
+            ],
+            onFilter: (value: unknown, record: { oldParam: { name: string }, newParam: { name: string } }) => {
+                const required = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
+                return required === value;
+            },
         },
         {
             title: '基准值',
@@ -249,6 +280,23 @@ const DiffResultView: React.FC = () => {
                 if (record.status === 'modified') return <Text delete type="danger">{text}</Text>;
                 return <Text>{text}</Text>;
             }
+        },
+        {
+            title: '是否必填',
+            key: 'isRequired',
+            width: 80,
+            render: (_: unknown, record: { targetName: string; baseName: string }) => {
+                const required = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
+                return required ? <Tag color="red">必填</Tag> : <Tag>选填</Tag>;
+            },
+            filters: [
+                { text: '必填', value: true },
+                { text: '选填', value: false },
+            ],
+            onFilter: (value: unknown, record: { targetName: string; baseName: string }) => {
+                const required = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
+                return required === value;
+            },
         },
     ];
 
@@ -327,6 +375,10 @@ const DiffResultView: React.FC = () => {
                         pagination={{ pageSize: 20 }}
                         size="small"
                         bordered
+                        rowClassName={(record) => {
+                             const isRequired = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
+                             return isRequired ? 'bg-yellow-50 font-medium' : '';
+                        }}
                     />
                 </div>
             )
@@ -346,23 +398,44 @@ const DiffResultView: React.FC = () => {
     // MIIT 模式专用视图
     const miitView = (
         <div>
+           <div className="mb-4">
+                <Input
+                    prefix={<SearchOutlined />}
+                    placeholder="搜索公告字段名、值..."
+                    onChange={e => setMiitSearchText(e.target.value)}
+                    allowClear
+                    className="max-w-md"
+                />
+            </div>
             <div className="mb-4 flex items-center gap-4">
                 <Tag color="green">一致: {miitComparisonData.filter(r => r.status === 'matched').length}</Tag>
                 <Tag color="orange">差异: {miitComparisonData.filter(r => r.status === 'modified').length}</Tag>
                 <Tag color="red">缺失: {miitComparisonData.filter(r => r.status === 'missing').length}</Tag>
             </div>
             <Table
-                dataSource={miitComparisonData}
+                dataSource={filteredMiitData}
                 columns={miitColumns}
                 rowKey="key"
                 pagination={{ pageSize: 20 }}
                 size="small"
                 bordered
                 rowClassName={(record) => {
-                    if (record.status === 'matched') return 'bg-green-50';
-                    if (record.status === 'modified') return 'bg-orange-50';
-                    if (record.status === 'missing') return 'bg-red-50';
-                    return '';
+                    const isRequired = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
+                    // Combine status color with required highlight (using border or font weight since background is taken)
+                    // Priority: Status Background > Required Highlight (using border-left or similar if possible, but here we just append class)
+                    // If we want to highlight required fields distinctively even with status colors:
+                    // We can use a thicker border or bold font.
+                    
+                    let className = '';
+                    if (record.status === 'matched') className += 'bg-green-50 ';
+                    if (record.status === 'modified') className += 'bg-orange-50 ';
+                    if (record.status === 'missing') className += 'bg-red-50 ';
+                    
+                    if (isRequired) {
+                        className += 'font-bold border-l-4 border-l-red-500 '; // Using left border to indicate required
+                    }
+                    
+                    return className;
                 }}
             />
         </div>

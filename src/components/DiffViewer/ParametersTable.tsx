@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Table, Input, Tag } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { VehicleParameter } from '../../types';
+import { isFieldRequired } from '../../assets/requiredFields';
 import type { ColumnsType } from 'antd/es/table';
 
 interface ParametersTableProps {
@@ -63,6 +64,24 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 width: 200,
                 fixed: 'left',
                 sorter: (a, b) => a.name.localeCompare(b.name),
+            },
+            {
+                title: '是否必填',
+                key: 'isRequired',
+                width: 90,
+                fixed: 'left',
+                render: (_: unknown, record: { name: string }) => {
+                    const required = isFieldRequired(record.name);
+                    return required ? <Tag color="red">必填</Tag> : <Tag>选填</Tag>;
+                },
+                filters: [
+                    { text: '必填', value: true },
+                    { text: '选填', value: false },
+                ],
+                onFilter: (value: unknown, record: { name: string }) => {
+                    const required = isFieldRequired(record.name);
+                    return required === value;
+                },
             }
         ];
 
@@ -118,6 +137,10 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 size="small"
                 scroll={{ x: 'max-content' }} // Enable horizontal scroll for many products
                 bordered
+                rowClassName={(record) => {
+                    const isRequired = isFieldRequired(record.name);
+                    return isRequired ? 'bg-yellow-50 font-medium' : '';
+                }}
             />
         </div>
     );
