@@ -1,18 +1,21 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ConfigProvider, message, Select } from 'antd';
+import { ConfigProvider, message, Select, Steps, theme } from 'antd';
 import ErrorBoundary from './components/ErrorBoundary';
 import zhCN from 'antd/locale/zh_CN';
 import MainLayout from './components/Layout/MainLayout';
 import ExcelUploader from './components/FileUpload/ExcelUploader';
 import ParametersTable from './components/DiffViewer/ParametersTable';
 import { useVehicleStore } from './store/vehicleStore';
+import { useThemeStore } from './store/themeStore';
 import { compareSheets } from './utils/comparator';
 import DiffResultView from './components/DiffViewer/DiffResultView';
 import SmartLayout from './components/SmartFiller/SmartLayout';
 import AnnouncementQuery from './components/AnnouncementQuery/AnnouncementQuery';
+import { UploadOutlined, FileSearchOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 const App: React.FC = () => {
   const { baseFile, targetFile, setDiffResult, compareMode } = useVehicleStore();
+  const { isDarkMode } = useThemeStore();
   const [activeTab, setActiveTab] = React.useState('diff');
   // Base Preview Sheet State
   const [selectedBaseSheet, setSelectedBaseSheet] = useState<string>('all');
@@ -44,13 +47,49 @@ const App: React.FC = () => {
     }
   }, [baseFile, targetFile, setDiffResult, compareMode]);
 
+  // Calculate current step for the Steps component
+  const currentStep = useMemo(() => {
+    if (baseFile && targetFile) return 2;
+    if (baseFile || targetFile) return 1;
+    return 0;
+  }, [baseFile, targetFile]);
+
   return (
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider 
+      locale={zhCN}
+      theme={{
+        algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
+      }}
+    >
       <ErrorBoundary>
         <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
           {/* Tab内容渲染 */}
           {activeTab === 'diff' && (
             <>
+              {/* Steps Flow Guide */}
+              <div className="mb-6">
+                <Steps
+                  current={currentStep}
+                  items={[
+                    {
+                      title: '上传基准版本',
+                      description: baseFile ? baseFile.fileName : '请上传Excel文件',
+                      icon: <UploadOutlined />,
+                    },
+                    {
+                      title: '上传新版本',
+                      description: targetFile ? targetFile.fileName : '请上传对比文件',
+                      icon: <FileSearchOutlined />,
+                    },
+                    {
+                      title: '查看差异',
+                      description: baseFile && targetFile ? '对比结果已生成' : '等待文件上传',
+                      icon: <CheckCircleOutlined />,
+                    },
+                  ]}
+                />
+              </div>
+
               <ExcelUploader />
 
               {baseFile && !targetFile && (

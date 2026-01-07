@@ -1,6 +1,7 @@
 import React, { type ReactNode } from 'react';
-import { Layout as AntLayout, Typography, Menu } from 'antd';
-import { CarOutlined, FileSearchOutlined, DiffOutlined, GlobalOutlined } from '@ant-design/icons';
+import { Layout as AntLayout, Typography, Menu, Switch, Tooltip } from 'antd';
+import { FileSearchOutlined, DiffOutlined, GlobalOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
+import { useThemeStore } from '../../store/themeStore';
 
 const { Header, Content, Footer } = AntLayout;
 const { Title } = Typography;
@@ -30,31 +31,43 @@ const items = [
 ];
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'diff', onTabChange }) => {
+    const { isDarkMode, toggleDarkMode } = useThemeStore();
+
     return (
-        <AntLayout className="min-h-screen">
-            <Header className="flex items-center justify-between px-6 bg-white border-b border-gray-200">
+        <AntLayout className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
+            <Header className={`flex items-center justify-between px-6 border-b ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-2">
-                    <CarOutlined className="text-2xl text-blue-600" />
-                    <Title level={4} style={{ margin: 0, color: '#2563eb' }}>
+                    <img src="/app-icon.png" alt="logo" className="w-8 h-8 rounded" />
+                    <Title level={4} style={{ margin: 0, color: isDarkMode ? '#60a5fa' : '#2563eb' }}>
                         车辆参数工具
                     </Title>
                 </div>
-                <Menu
-                    theme="light"
-                    mode="horizontal"
-                    selectedKeys={[activeTab]}
-                    items={items}
-                    className="flex-1 justify-end border-none min-w-[300px]"
-                    onClick={(info) => onTabChange && onTabChange(info.key)}
-                />
+                <div className="flex items-center gap-4">
+                    <Menu
+                        theme={isDarkMode ? 'dark' : 'light'}
+                        mode="horizontal"
+                        selectedKeys={[activeTab]}
+                        items={items}
+                        className={`flex-1 justify-end border-none min-w-[300px] ${isDarkMode ? 'bg-gray-900' : ''}`}
+                        onClick={(info) => onTabChange && onTabChange(info.key)}
+                    />
+                    <Tooltip title={isDarkMode ? '切换亮色模式' : '切换暗色模式'}>
+                        <Switch
+                            checked={isDarkMode}
+                            onChange={toggleDarkMode}
+                            checkedChildren={<MoonOutlined />}
+                            unCheckedChildren={<SunOutlined />}
+                        />
+                    </Tooltip>
+                </div>
             </Header>
-            <Content className="p-6 bg-gray-50">
-                <div className="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-sm min-h-[calc(100vh-160px)]">
+            <Content className={`p-6 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                <div className={`max-w-7xl mx-auto p-6 rounded-lg shadow-sm min-h-[calc(100vh-160px)] ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white'}`}>
                     {children}
                 </div>
             </Content>
-            <Footer className="text-center text-gray-500 bg-gray-50">
-                Vehicle Parameter Manager v1.4.0 ©{new Date().getFullYear()} Created by 计皓琛
+            <Footer className={`text-center ${isDarkMode ? 'text-gray-400 bg-gray-800' : 'text-gray-500 bg-gray-50'}`}>
+                Vehicle Parameter Manager v2.0.0 ©{new Date().getFullYear()} Created by 计皓琛
             </Footer>
         </AntLayout>
     );
