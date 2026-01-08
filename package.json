@@ -1,14 +1,15 @@
 {
   "name": "shining-lagoon",
   "private": true,
-  "version": "2.0.0",
+  "version": "3.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release": "./scripts/release.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.1",
@@ -20,6 +21,7 @@
     "clsx": "^2.1.1",
     "file-saver": "^2.0.5",
     "fuse.js": "^7.1.0",
+    "html2canvas": "^1.4.1",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
     "lodash": "^4.17.21",
