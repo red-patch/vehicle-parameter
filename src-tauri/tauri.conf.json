@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "vehicle-parameter",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "identifier": "com.vehicle.parameter",
   "build": {
     "frontendDist": "../dist",
