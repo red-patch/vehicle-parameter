@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Table, Tag, Select, Progress, Button, message, Input, Space, Switch } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
 import type { MatchItem } from '../../types';
-import { CheckCircleOutlined, DownloadOutlined, SearchOutlined, EditOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DownloadOutlined, EditOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 
 
@@ -35,20 +35,28 @@ const MatchResultTable: React.FC = () => {
         let results = matchResults;
         
         // 字段搜索
-        if (searchText) {
-            const lower = searchText.toLowerCase();
-            results = results.filter(m => 
-                m.requirementName.toLowerCase().includes(lower) ||
-                m.matchedParam?.name?.toLowerCase().includes(lower) ||
-                String(m.matchedParam?.value || '').toLowerCase().includes(lower)
-            );
+        if (searchText.trim()) {
+            const keywords = searchText
+                .split('\n')
+                .map(k => k.trim().toLowerCase())
+                .filter(k => k.length > 0);
+            
+            if (keywords.length > 0) {
+                results = results.filter(m => 
+                    keywords.some(keyword => 
+                        m.requirementName.toLowerCase().includes(keyword) ||
+                        m.matchedParam?.name?.toLowerCase().includes(keyword) ||
+                        String(m.matchedParam?.value || '').toLowerCase().includes(keyword)
+                    )
+                );
+            }
         }
         
         // 匹配度过滤
         if (confidenceFilter === 'perfect') {
-            results = results.filter(m => m.confidence === 1);
+            results = results.filter(m => Math.round(m.confidence * 100) === 100);
         } else if (confidenceFilter === 'imperfect') {
-            results = results.filter(m => m.confidence < 1);
+            results = results.filter(m => Math.round(m.confidence * 100) < 100);
         }
         
         return results;
@@ -247,15 +255,15 @@ const MatchResultTable: React.FC = () => {
 
             {/* V3.0: 过滤器区域 */}
             <div className="mb-4 flex items-center gap-4 flex-wrap">
-                <Space>
-                    <span className="text-gray-500">搜索:</span>
-                    <Input
-                        prefix={<SearchOutlined />}
-                        placeholder="搜索参数名、匹配名或值..."
+                <Space align="start">
+                    <span className="text-gray-500 mt-1">搜索:</span>
+                    <Input.TextArea
+                        placeholder="搜索参数名、匹配名或值... (支持换行搜索多个)"
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
                         allowClear
-                        style={{ width: 280 }}
+                        autoSize={{ minRows: 1, maxRows: 4 }}
+                        style={{ width: 320 }}
                     />
                 </Space>
                 <Space>
