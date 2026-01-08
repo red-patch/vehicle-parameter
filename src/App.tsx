@@ -11,14 +11,15 @@ import { compareSheets } from './utils/comparator';
 import DiffResultView from './components/DiffViewer/DiffResultView';
 import SmartLayout from './components/SmartFiller/SmartLayout';
 import AnnouncementQuery from './components/AnnouncementQuery/AnnouncementQuery';
+import AttributeDedup from './components/AttributeDedup/AttributeDedup';
 import { UploadOutlined, FileSearchOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 const App: React.FC = () => {
   const { baseFile, targetFile, setDiffResult, compareMode } = useVehicleStore();
   const { isDarkMode } = useThemeStore();
   const [activeTab, setActiveTab] = React.useState('diff');
-  // Base Preview Sheet State
-  const [selectedBaseSheet, setSelectedBaseSheet] = useState<string>('all');
+  // V3.0: 多工作表筛选（改为数组支持多选）
+  const [selectedBaseSheets, setSelectedBaseSheets] = useState<string[]>([]);
 
   // Computed Base Sheets and Filtered Data
   const baseSheets = useMemo(() => {
@@ -28,11 +29,12 @@ const App: React.FC = () => {
     return Array.from(sheets).sort();
   }, [baseFile]);
 
+  // V3.0: 支持多工作表筛选
   const filteredBaseData = useMemo(() => {
     if (!baseFile) return [];
-    if (selectedBaseSheet === 'all') return baseFile.data;
-    return baseFile.data.filter(p => p.originSheet === selectedBaseSheet);
-  }, [baseFile, selectedBaseSheet]);
+    if (selectedBaseSheets.length === 0) return baseFile.data; // 未选择则显示全部
+    return baseFile.data.filter(p => p.originSheet && selectedBaseSheets.includes(p.originSheet));
+  }, [baseFile, selectedBaseSheets]);
 
   // Auto-run diff when both files are present or mode changes
   useEffect(() => {
@@ -100,13 +102,14 @@ const App: React.FC = () => {
                         <div className="flex items-center gap-2">
                            <span>按工作表筛选:</span>
                            <Select
-                             value={selectedBaseSheet}
-                             onChange={setSelectedBaseSheet}
-                             style={{ width: 220 }}
-                             options={[
-                               { label: '全部工作表 (All Sheets)', value: 'all' },
-                               ...baseSheets.map(s => ({ label: s, value: s }))
-                             ]}
+                             mode="multiple"
+                             value={selectedBaseSheets}
+                             onChange={setSelectedBaseSheets}
+                             style={{ minWidth: 280 }}
+                             placeholder="全部工作表"
+                             allowClear
+                             maxTagCount={2}
+                             options={baseSheets.map(s => ({ label: s, value: s }))}
                            />
                         </div>
                      )}
@@ -133,6 +136,8 @@ const App: React.FC = () => {
           {activeTab === 'search' && <SmartLayout />}
 
           {activeTab === 'announcement' && <AnnouncementQuery />}
+
+          {activeTab === 'dedup' && <AttributeDedup />}
 
         </MainLayout>
       </ErrorBoundary>

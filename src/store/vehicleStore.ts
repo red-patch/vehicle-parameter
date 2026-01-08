@@ -20,6 +20,7 @@ interface VehicleStore {
     setMatchResults: (results: MatchItem[]) => void;
     setSelectedProduct: (product: string | null) => void;
     updateMatchResult: (id: string, param: VehicleParameter | null) => void;
+    updateManualValue: (id: string, value: string) => void;
 
     // MIIT Data Import
     miitData: SheetData | null;
@@ -49,7 +50,12 @@ export const useVehicleStore = create<VehicleStore>((set) => ({
     setSelectedProduct: (product) => set({ selectedProduct: product }),
     updateMatchResult: (id, param) => set((state) => ({
         matchResults: state.matchResults.map(m =>
-            m.id === id ? { ...m, matchedParam: param, isManual: true, confidence: 1 } : m
+            m.id === id ? { ...m, matchedParam: param, isManual: true, confidence: 1, manualValue: undefined } : m
+        )
+    })),
+    updateManualValue: (id, value) => set((state) => ({
+        matchResults: state.matchResults.map(m =>
+            m.id === id ? { ...m, manualValue: value, isManual: true } : m
         )
     })),
 

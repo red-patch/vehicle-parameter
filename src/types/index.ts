@@ -31,6 +31,7 @@ export interface MatchItem {
     matchedParam: VehicleParameter | null; // The matched parameter from our library
     confidence: number; // 0-1 score
     isManual: boolean; // If true, user manually selected this
+    manualValue?: string; // V3.0: 手动输入的参数值（用于库中不存在的情况）
 }
 
 // V1.3: 对比模式
