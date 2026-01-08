@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # 手动触发
   push:
     tags:
-      - "v*.*.*" # 版本标签触发
+      - "v*" # 任何v开头的标签触发
 
 jobs:
   build-windows:
