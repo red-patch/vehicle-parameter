@@ -1,18 +1,23 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Table, Input, Tag, Checkbox, Dropdown, Button, Space } from 'antd';
-import { SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { Table, Input, Tag, Checkbox, Dropdown, Button, Space, message } from 'antd';
+import { SettingOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { VehicleParameter } from '../../types';
 import { isFieldRequired } from '../../assets/requiredFields';
 import type { ColumnsType } from 'antd/es/table';
+import * as XLSX from 'xlsx';
+
+const { TextArea } = Input;
 
 interface ParametersTableProps {
     data: VehicleParameter[];
 }
 
 const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
+    // V3.0: 改为多字段搜索（换行分隔）
     const [searchText, setSearchText] = useState('');
     const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
     const [pageSize, setPageSize] = useState(20);
+
     // Pivot Data Logic
     const { tableData, productColumns, allProductNames } = useMemo(() => {
         // 1. Identify all unique product names
@@ -28,12 +33,9 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     key: rowKey,
                     group: p.group,
                     name: p.name,
-                    // Initialize product values as empty or handle dynamically
                 });
             }
             const row = rowMap.get(rowKey);
-            // If we have a product name, assign value to that column. 
-            // If not (legacy/single col), assign to 'value'
             if (p.productName) {
                 row[p.productName] = p.value;
             } else {
@@ -53,10 +55,6 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 fixed: 'left',
                 render: (text: string) => <Tag color="blue">{text}</Tag>,
                 sorter: (a, b) => a.group.localeCompare(b.group),
-                onCell: () => {
-                    // Simple merge logic if sorted could be added here, but keeping it simple for now
-                    return {};
-                }
             },
             {
                 title: '参数名',
@@ -89,15 +87,13 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         if (products.length > 0) {
             products.forEach(prod => {
                 cols.push({
-                    title: prod, // Product Name as Header
+                    title: prod,
                     dataIndex: prod,
                     key: prod,
                     width: 200,
-                    // Optional: render customization
                 });
             });
         } else {
-            // Fallback for flat list without product names
             cols.push({
                 title: '参数值',
                 dataIndex: 'value',
@@ -119,7 +115,6 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
     const displayColumns = useMemo(() => {
         if (visibleColumns.length === 0) return productColumns;
         
-        // Fixed columns (group, name, isRequired) + visible product columns
         const fixedKeys = ['group', 'name', 'isRequired'];
         return productColumns.filter(col => {
             const key = col.key as string;
@@ -147,34 +142,119 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         </div>
     );
 
+    // V3.0: 多字段搜索逻辑（换行分隔，任一匹配即显示）
     const filteredData = useMemo(() => {
-        if (!searchText) return tableData;
-        const lower = searchText.toLowerCase();
-        return tableData.filter(item =>
-            item.name.toLowerCase().includes(lower) ||
-            item.group.toLowerCase().includes(lower) ||
-            allProductNames.some(prod => String(item[prod] || '').toLowerCase().includes(lower))
-        );
+        if (!searchText.trim()) return tableData;
+        
+        // 按换行符分割搜索关键词
+        const keywords = searchText
+            .split('\n')
+            .map(k => k.trim().toLowerCase())
+            .filter(k => k.length > 0);
+        
+        if (keywords.length === 0) return tableData;
+        
+        return tableData.filter(item => {
+            // 任一关键词匹配即显示
+            return keywords.some(keyword => 
+                item.name.toLowerCase().includes(keyword) ||
+                item.group.toLowerCase().includes(keyword) ||
+                allProductNames.some(prod => String(item[prod] || '').toLowerCase().includes(keyword))
+            );
+        });
     }, [tableData, searchText, allProductNames]);
+
+    // V3.0: 复制数据
+    const handleCopy = () => {
+        if (!filteredData.length) {
+            message.warning('暂无数据可复制');
+            return;
+        }
+
+        const columnsToExport = visibleColumns.length > 0 ? visibleColumns : allProductNames;
+        const headers = ['分组', '参数名', '是否必填', ...columnsToExport];
+        
+        const rows = filteredData.map(item => [
+            item.group,
+            item.name,
+            isFieldRequired(item.name) ? '必填' : '选填',
+            ...columnsToExport.map(col => String(item[col] || ''))
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const csvOutput = XLSX.utils.sheet_to_csv(ws);
+
+        navigator.clipboard.writeText(csvOutput)
+            .then(() => message.success('数据已复制到剪贴板'))
+            .catch(err => message.error('复制失败: ' + err));
+    };
+
+    // V3.0: 下载CSV
+    const handleDownload = async () => {
+        if (!filteredData.length) {
+            message.warning('暂无数据可下载');
+            return;
+        }
+
+        const columnsToExport = visibleColumns.length > 0 ? visibleColumns : allProductNames;
+        const headers = ['分组', '参数名', '是否必填', ...(columnsToExport.length > 0 ? columnsToExport : ['参数值'])];
+        
+        const rows = filteredData.map(item => [
+            item.group,
+            item.name,
+            isFieldRequired(item.name) ? '必填' : '选填',
+            ...(columnsToExport.length > 0 
+                ? columnsToExport.map(col => String(item[col] || ''))
+                : [String(item.value || '')])
+        ]);
+
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const csvOutput = XLSX.utils.sheet_to_csv(ws);
+
+        const { downloadCsv } = await import('../../utils/downloadCsv');
+        await downloadCsv(csvOutput, '参数表导出.csv');
+    };
 
     return (
         <div>
-            <div className="mb-4 flex items-center gap-4">
-                <Input
-                    prefix={<SearchOutlined />}
-                    placeholder="搜索参数名、分组或值..."
-                    onChange={e => setSearchText(e.target.value)}
-                    allowClear
-                    className="max-w-md"
-                />
-                {allProductNames.length > 1 && (
-                    <Dropdown dropdownRender={() => columnSelectorContent} trigger={['click']}>
-                        <Button icon={<SettingOutlined />}>
-                            列显示 ({visibleColumns.length}/{allProductNames.length})
-                        </Button>
-                    </Dropdown>
-                )}
+            <div className="mb-4 flex items-center gap-4 flex-wrap">
+                {/* V3.0: 多字段搜索 */}
+                <div className="flex-1 min-w-[300px]">
+                    <TextArea
+                        placeholder="搜索参数名、分组或值...（支持多个关键词，换行分隔）"
+                        value={searchText}
+                        onChange={e => setSearchText(e.target.value)}
+                        autoSize={{ minRows: 1, maxRows: 4 }}
+                        allowClear
+                    />
+                </div>
+                
+                <Space>
+                    {allProductNames.length > 1 && (
+                        <Dropdown dropdownRender={() => columnSelectorContent} trigger={['click']}>
+                            <Button icon={<SettingOutlined />}>
+                                列显示 ({visibleColumns.length}/{allProductNames.length})
+                            </Button>
+                        </Dropdown>
+                    )}
+                    
+                    {/* V3.0: 复制和下载按钮 */}
+                    <Button icon={<CopyOutlined />} onClick={handleCopy}>
+                        复制
+                    </Button>
+                    <Button icon={<DownloadOutlined />} onClick={handleDownload}>
+                        下载CSV
+                    </Button>
+                </Space>
             </div>
+
+            {/* 搜索结果提示 */}
+            {searchText && (
+                <div className="mb-2 text-gray-500 text-sm">
+                    搜索结果：{filteredData.length} / {tableData.length} 条
+                </div>
+            )}
+
             <Table
                 dataSource={filteredData}
                 columns={displayColumns}
@@ -187,24 +267,22 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     onShowSizeChange: (_current, size) => setPageSize(size),
                 }}
                 size="small"
-                scroll={{ x: 'max-content' }} // Enable horizontal scroll for many products
+                scroll={{ x: 'max-content' }}
                 bordered
                 rowClassName={(record) => {
                     const isRequired = isFieldRequired(record.name);
                     if (!isRequired) return '';
                     
-                    // Check if value is considered empty
+                    // Check if value is considered empty: 空值、"-"、"NA"
                     const isEmpty = (val: unknown) => 
                         val === undefined || val === null || val === '' || 
-                        val === '/' || val === '\\' || val === '无' || val === '-' || val === 'NA';
+                        val === '-' || val === 'NA';
                     
-                    // Check only VISIBLE columns - highlight if ANY visible column has empty value
                     const columnsToCheck = visibleColumns.length > 0 ? visibleColumns : allProductNames;
                     const hasEmptyInVisible = columnsToCheck.length > 0
                         ? columnsToCheck.some(prod => isEmpty(record[prod]))
                         : isEmpty(record.value);
                     
-                    // Highlight if required AND has empty value in visible columns
                     return hasEmptyInVisible ? 'required-empty' : '';
                 }}
             />

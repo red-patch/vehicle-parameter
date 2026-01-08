@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Table, Tabs, Tag, Badge, Typography, Descriptions, Select, Radio, Input, Tooltip } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { Table, Tabs, Tag, Badge, Typography, Descriptions, Select, Radio, Input, Tooltip, Button, message } from 'antd';
+import { SearchOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import ParametersTable from './ParametersTable';
 import type { CompareMode } from '../../types';
@@ -155,6 +155,102 @@ const DiffResultView: React.FC = () => {
             item.baseValue.toLowerCase().includes(lower)
         );
     }, [miitComparisonData, miitSearchText]);
+
+    // V3.0: PDF导出功能
+    const handleExportPdf = async () => {
+        if (!diffResult || !baseFile || !targetFile) {
+            message.warning('暂无对比结果可导出');
+            return;
+        }
+
+        try {
+            message.loading({ content: '正在生成PDF...', key: 'pdfExport' });
+            
+            // 动态导入jsPDF
+            const { default: jsPDF } = await import('jspdf');
+            const { default: autoTable } = await import('jspdf-autotable');
+
+            const doc = new jsPDF();
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            // 标题
+            doc.setFontSize(16);
+            doc.text('Vehicle Parameter Comparison Report', 14, 20);
+            
+            // 文件信息
+            doc.setFontSize(10);
+            doc.text(`Base File: ${baseFile.fileName}`, 14, 30);
+            doc.text(`Target File: ${targetFile.fileName}`, 14, 37);
+            doc.text(`Generated: ${dateStr}`, 14, 44);
+
+            // 统计概览
+            doc.setFontSize(12);
+            doc.text('Summary', 14, 55);
+            doc.setFontSize(10);
+            doc.text(`Added: ${countUniqueParameters(diffResult.added)}`, 14, 62);
+            doc.text(`Removed: ${countUniqueParameters(diffResult.removed)}`, 70, 62);
+            doc.text(`Modified: ${countUniqueModified(diffResult.modified)}`, 130, 62);
+            doc.text(`Unchanged: ${countUniqueParameters(diffResult.unchanged)}`, 14, 69);
+
+            let yPos = 80;
+
+            // 变更内容表格
+            if (diffResult.modified.length > 0) {
+                doc.setFontSize(12);
+                doc.text('Modified Parameters', 14, yPos);
+                
+                const modifiedData = diffResult.modified.slice(0, 50).map(m => [
+                    m.oldParam.name.substring(0, 30),
+                    String(m.oldParam.value).substring(0, 25),
+                    String(m.newParam.value).substring(0, 25)
+                ]);
+
+                autoTable(doc, {
+                    startY: yPos + 5,
+                    head: [['Parameter', 'Old Value', 'New Value']],
+                    body: modifiedData,
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    headStyles: { fillColor: [255, 152, 0] },
+                    columnStyles: {
+                        0: { cellWidth: 60 },
+                        1: { cellWidth: 55 },
+                        2: { cellWidth: 55 }
+                    }
+                });
+
+                yPos = (doc as any).lastAutoTable.finalY + 15;
+            }
+
+            // 新增内容（如果还有空间）
+            if (diffResult.added.length > 0 && yPos < 240) {
+                doc.setFontSize(12);
+                doc.text('Added Parameters', 14, yPos);
+                
+                const addedData = diffResult.added.slice(0, 20).map(p => [
+                    p.name.substring(0, 40),
+                    String(p.value).substring(0, 40)
+                ]);
+
+                autoTable(doc, {
+                    startY: yPos + 5,
+                    head: [['Parameter', 'Value']],
+                    body: addedData,
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    headStyles: { fillColor: [76, 175, 80] },
+                });
+            }
+
+            // 保存PDF
+            const fileName = `comparison_report_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.pdf`;
+            doc.save(fileName);
+            
+            message.success({ content: `PDF已导出: ${fileName}`, key: 'pdfExport' });
+        } catch (err) {
+            console.error('PDF export error:', err);
+            message.error({ content: 'PDF导出失败', key: 'pdfExport' });
+        }
+    };
 
     if (!diffResult || !filteredDiff) return null;
 
@@ -452,6 +548,17 @@ const DiffResultView: React.FC = () => {
                     <span className="font-mono mx-2">{baseFile?.fileName}</span>
                     vs
                     <span className="font-mono mx-2">{targetFile?.fileName}</span>
+                </div>
+
+                {/* V3.0: PDF导出按钮 */}
+                <div className="mt-4">
+                    <Button 
+                        type="primary" 
+                        icon={<FilePdfOutlined />}
+                        onClick={handleExportPdf}
+                    >
+                        导出PDF
+                    </Button>
                 </div>
             </div>
 

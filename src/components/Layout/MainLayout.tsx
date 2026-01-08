@@ -1,6 +1,6 @@
 import React, { type ReactNode } from 'react';
 import { Layout as AntLayout, Typography, Menu, Switch, Tooltip } from 'antd';
-import { FileSearchOutlined, DiffOutlined, GlobalOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
+import { FileSearchOutlined, DiffOutlined, GlobalOutlined, SunOutlined, MoonOutlined, FilterOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 
 const { Header, Content, Footer } = AntLayout;
@@ -27,6 +27,11 @@ const items = [
         key: 'announcement',
         icon: <GlobalOutlined />,
         label: '公告号查询',
+    },
+    {
+        key: 'dedup',
+        icon: <FilterOutlined />,
+        label: '属性去重',
     },
 ];
 
