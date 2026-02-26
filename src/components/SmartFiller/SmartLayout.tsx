@@ -1,8 +1,50 @@
 import React from 'react';
+import { Tabs } from 'antd';
+import { FormOutlined, DatabaseOutlined, AppstoreOutlined } from '@ant-design/icons';
 import RequirementUploader from './RequirementUploader';
 import MatchResultTable from './MatchResultTable';
+import EnumDictionary from './EnumDictionary';
+import MultiVehicleOrganizer from './MultiVehicleOrganizer';
 
 const SmartLayout: React.FC = () => {
+    const items = [
+        {
+            key: 'filler',
+            label: (
+                <span>
+                    <FormOutlined />
+                    智能填报
+                </span>
+            ),
+            children: (
+                <>
+                    <RequirementUploader />
+                    <MatchResultTable />
+                </>
+            )
+        },
+        {
+            key: 'multi',
+            label: (
+                <span>
+                    <AppstoreOutlined />
+                    多车型整理
+                </span>
+            ),
+            children: <MultiVehicleOrganizer />
+        },
+        {
+            key: 'dictionary',
+            label: (
+                <span>
+                    <DatabaseOutlined />
+                    枚举字典
+                </span>
+            ),
+            children: <EnumDictionary />
+        }
+    ];
+
     return (
         <div className="max-w-7xl mx-auto p-4">
             <div className="mb-6">
@@ -12,8 +54,7 @@ const SmartLayout: React.FC = () => {
                 </p>
             </div>
 
-            <RequirementUploader />
-            <MatchResultTable />
+            <Tabs items={items} defaultActiveKey="filler" />
         </div>
     );
 };

@@ -1,38 +1,35 @@
-import Fuse from 'fuse.js';
 import type { VehicleParameter, MatchItem } from '../types';
+import { findBestMatch } from './matchingEngine';
 
 export const findMatches = (
     requirements: string[],
     library: VehicleParameter[],
     threshold: number = 0.4
 ): MatchItem[] => {
-    // Setup Fuse.js
-    const fuse = new Fuse(library, {
-        keys: ['name', 'group'], // Weighted? maybe ['name'] is enough
-        includeScore: true,
-        threshold: threshold,
-    });
-
     return requirements.map((reqName, index) => {
-        // Clean the requirement name (remove punctuation, etc if needed)
-        // For now take as is.
-        const results = fuse.search(reqName);
-
-        let match: VehicleParameter | null = null;
-        let score = 0;
-
-        if (results.length > 0) {
-            match = results[0].item;
-            // Fuse js score: 0 is perfect, 1 is mismatch. We invert to confidence.
-            const fuseScore = results[0].score ?? 1;
-            score = 1 - fuseScore;
+        // 使用统一匹配引擎
+        const matchResult = findBestMatch(reqName, library, threshold);
+        
+        // 转换分数为置信度 (Confidence): 1 - score (假设 score 0是完美，1是不匹配)
+        // 或者是直接使用匹配类型来决定置信度
+        let confidence = 0;
+        
+        if (matchResult.matchedParam) {
+            if (matchResult.matchType === 'exact') confidence = 1.0;
+            else if (matchResult.matchType === 'normalized') confidence = 0.95;
+            else if (matchResult.matchType === 'alias') confidence = 0.9;
+            else if (matchResult.matchType === 'fuzzy') {
+                // Fuse score: 0=Perfect, 1=Mismatch
+                // Confidence = 1 - score
+                confidence = Math.max(0, 1 - matchResult.score);
+            }
         }
 
         return {
             id: `req-${index}`,
             requirementName: reqName,
-            matchedParam: match,
-            confidence: score,
+            matchedParam: matchResult.matchedParam || null,
+            confidence: parseFloat(confidence.toFixed(2)),
             isManual: false
         };
     });

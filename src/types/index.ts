@@ -38,3 +38,25 @@ export interface MatchItem {
 // 'content' - 按字段内容对比（根据 name 匹配，支持同义词）- 默认模式
 // 'miit' - 仅公告号数据对比（以工信部数据为模版）
 export type CompareMode = 'content' | 'miit';
+
+// Excel 预览数据（每个 Sheet）
+export interface SheetPreview {
+    sheetName: string;
+    rows: string[][];       // 原始二维数组数据（前 100 行）
+    totalRows: number;      // 实际总行数
+    totalCols: number;      // 实际总列数
+    merges: { s: { r: number; c: number }; e: { r: number; c: number } }[]; // 合并单元格
+}
+
+// 列角色
+export type ColumnRole = 'name' | 'group' | 'product' | 'skip';
+
+// 用户自定义解析配置（按 Sheet）
+export interface SheetParseConfig {
+    sheetName: string;
+    headerRows: number[];      // 表头行索引（0-based），如 [0, 1]
+    dataStartRow: number;      // 数据起始行索引（0-based）
+    nameColIndex: number;      // 参数名列索引
+    groupColIndex: number;     // 分组列索引，-1 表示无
+    productColumns: { index: number; name: string }[]; // 产品值列
+}

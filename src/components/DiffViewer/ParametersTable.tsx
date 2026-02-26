@@ -23,6 +23,10 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         // 1. Identify all unique product names
         const products = Array.from(new Set(data.map(p => p.productName).filter(Boolean))) as string[];
 
+        // DEBUG
+        console.log('[ParametersTable] products:', products);
+        console.log('[ParametersTable] data sample:', data.slice(0, 2));
+
         // 2. Group by "Group + Name" to create rows
         const rowMap = new Map<string, any>();
 
@@ -36,7 +40,11 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 });
             }
             const row = rowMap.get(rowKey);
-            if (p.productName) {
+            
+            // CRITICAL FIX: If only 1 product, always use 'value' key for simpler column mapping
+            if (products.length <= 1) {
+                row['value'] = p.value;
+            } else if (p.productName) {
                 row[p.productName] = p.value;
             } else {
                 row['value'] = p.value;
@@ -51,8 +59,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 title: '分组',
                 dataIndex: 'group',
                 key: 'group',
-                width: 150,
-                fixed: 'left',
+                width: 100,
                 render: (text: string) => <Tag color="blue">{text}</Tag>,
                 sorter: (a, b) => a.group.localeCompare(b.group),
             },
@@ -60,18 +67,17 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 title: '参数名',
                 dataIndex: 'name',
                 key: 'name',
-                width: 200,
+                width: 160,
                 fixed: 'left',
                 sorter: (a, b) => a.name.localeCompare(b.name),
             },
             {
-                title: '是否必填',
+                title: '必填',
                 key: 'isRequired',
-                width: 90,
-                fixed: 'left',
+                width: 60,
                 render: (_: unknown, record: { name: string }) => {
                     const required = isFieldRequired(record.name);
-                    return required ? <Tag color="orange">必填</Tag> : <Tag color="default">选填</Tag>;
+                    return required ? <Tag color="orange">是</Tag> : <span className="text-gray-400">-</span>;
                 },
                 filters: [
                     { text: '必填', value: true },
@@ -84,20 +90,23 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
             }
         ];
 
-        if (products.length > 0) {
+        // CRITICAL FIX: If only 1 product (or none), use simple 参数值 column
+        if (products.length <= 1) {
+            cols.push({
+                title: products[0] || '参数值',
+                dataIndex: 'value',
+                key: 'value',
+                ellipsis: true,
+            });
+        } else {
             products.forEach(prod => {
                 cols.push({
                     title: prod,
                     dataIndex: prod,
                     key: prod,
-                    width: 200,
+                    width: 180,
+                    ellipsis: true,
                 });
-            });
-        } else {
-            cols.push({
-                title: '参数值',
-                dataIndex: 'value',
-                key: 'value',
             });
         }
 
@@ -113,6 +122,9 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
 
     // Filter columns based on visibility selection
     const displayColumns = useMemo(() => {
+        // 如果只有一个产品或没有产品，直接返回所有列（包括 value 列）
+        if (allProductNames.length <= 1) return productColumns;
+        
         if (visibleColumns.length === 0) return productColumns;
         
         const fixedKeys = ['group', 'name', 'isRequired'];
@@ -121,7 +133,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
             if (fixedKeys.includes(key)) return true;
             return visibleColumns.includes(key);
         });
-    }, [productColumns, visibleColumns]);
+    }, [productColumns, visibleColumns, allProductNames]);
 
     // Column visibility dropdown content
     const columnSelectorContent = (
