@@ -27,6 +27,22 @@ interface VehicleStore {
     setMiitData: (data: SheetData | null) => void;
 
     reset: () => void;
+
+    // V3.0 Unified Pool
+    uploadedFiles: SheetData[];
+    selectedProductNames: string[];
+    addFile: (file: SheetData) => void;
+    removeFile: (fileName: string) => void;
+    clearFiles: () => void;
+    setSelectedProductNames: (names: string[]) => void;
+    
+    // V3.1 产品置信度管理
+    confirmedProducts: string[];      // 用户确认的产品（低置信度但有效）
+    excludedProducts: string[];       // 用户排除的产品（误识别的）
+    confirmProduct: (name: string) => void;
+    excludeProduct: (name: string) => void;
+    resetProductStatus: (name: string) => void;
+    renameProduct: (oldName: string, newName: string) => void;
 }
 
 
@@ -54,15 +70,96 @@ export const useVehicleStore = create<VehicleStore>((set) => ({
         )
     })),
     updateManualValue: (id, value) => set((state) => ({
-        matchResults: state.matchResults.map(m =>
-            m.id === id ? { ...m, manualValue: value, isManual: true } : m
-        )
+        matchResults: state.matchResults.map(m => {
+            if (m.id !== id) return m;
+            
+            // 智能检测：如果修改后的值等于自动匹配的值，清除manualValue
+            const autoMatchValue = m.matchedParam?.value?.toString() || '';
+            if (value === autoMatchValue) {
+                // 恢复为自动匹配状态
+                return { ...m, manualValue: undefined, isManual: false };
+            }
+            
+            // 否则标记为手动修改
+            return { ...m, manualValue: value, isManual: true };
+        })
     })),
 
     // MIIT Data Import State
     miitData: null,
     setMiitData: (data) => set({ miitData: data }),
 
-    reset: () => set({ baseFile: null, targetFile: null, diffResult: null, requirementFile: null, matchResults: [], selectedProduct: null, compareMode: 'content', miitData: null }),
+    // Unified File Pool (V3.0)
+    uploadedFiles: [],
+    selectedProductNames: [],
+    
+    addFile: (file) => set((state) => {
+        // Dedup by filename
+        if (state.uploadedFiles.some(f => f.fileName === file.fileName)) {
+            return state;
+        }
+        return { uploadedFiles: [...state.uploadedFiles, file] };
+    }),
+    removeFile: (fileName) => set((state) => ({
+        uploadedFiles: state.uploadedFiles.filter(f => f.fileName !== fileName)
+    })),
+    clearFiles: () => set({ uploadedFiles: [] }),
+    setSelectedProductNames: (names) => set({ selectedProductNames: names }),
+
+    // V3.1 产品置信度管理
+    confirmedProducts: [],
+    excludedProducts: [],
+    
+    confirmProduct: (name) => set((state) => ({
+        confirmedProducts: state.confirmedProducts.includes(name) 
+            ? state.confirmedProducts 
+            : [...state.confirmedProducts, name],
+        excludedProducts: state.excludedProducts.filter(n => n !== name),
+        // 同时添加到选中列表
+        selectedProductNames: state.selectedProductNames.includes(name)
+            ? state.selectedProductNames
+            : [...state.selectedProductNames, name]
+    })),
+    
+    excludeProduct: (name) => set((state) => ({
+        excludedProducts: state.excludedProducts.includes(name)
+            ? state.excludedProducts
+            : [...state.excludedProducts, name],
+        confirmedProducts: state.confirmedProducts.filter(n => n !== name),
+        // 从选中列表移除
+        selectedProductNames: state.selectedProductNames.filter(n => n !== name)
+    })),
+    
+    resetProductStatus: (name) => set((state) => ({
+        confirmedProducts: state.confirmedProducts.filter(n => n !== name),
+        excludedProducts: state.excludedProducts.filter(n => n !== name)
+    })),
+
+    renameProduct: (oldName, newName) => set((state) => ({
+        uploadedFiles: state.uploadedFiles.map(file => ({
+            ...file,
+            data: file.data.map(p => p.productName === oldName ? { ...p, productName: newName } : p)
+        })),
+        selectedProductNames: state.selectedProductNames.map(n => n === oldName ? newName : n),
+        confirmedProducts: state.confirmedProducts.map(n => n === oldName ? newName : n),
+        excludedProducts: state.excludedProducts.map(n => n === oldName ? newName : n),
+    })),
+
+    reset: () => set({ 
+        baseFile: null, 
+        targetFile: null, 
+        diffResult: null, 
+        requirementFile: null, 
+        matchResults: [], 
+        selectedProduct: null, 
+        compareMode: 'content', 
+        miitData: null,
+        // V3.0
+        uploadedFiles: [],
+        selectedProductNames: [],
+        // V3.1
+        confirmedProducts: [],
+        excludedProducts: []
+    }),
 }));
 

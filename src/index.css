@@ -1,12 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Ant Design Reset / Override if needed */
+/* Clean, Minimal Theme */
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: #F9FAFB;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 /* ===== Custom Table Styles ===== */
@@ -69,51 +90,292 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ===== Dark Mode Overrides ===== */
+
+/* ====================================================================
+   Dark Mode Theme — 精致暗色方案
+   色阶：#0d1117 → #161b22 → #21262d → #30363d → #484f58 → #8b949e → #c9d1d9 → #f0f6fc
+   参考 GitHub Dark 配色
+   ==================================================================== */
+
+/* Scrollbar */
+.dark ::-webkit-scrollbar-thumb { background: #484f58; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #8b949e; }
+
+/* Base Layout */
+.dark .ant-layout       { background-color: #0d1117 !important; }
+.dark .ant-layout-header { background-color: #161b22 !important; border-color: #30363d !important; }
+.dark .ant-layout-content { background-color: #0d1117 !important; }
+.dark .ant-layout-footer { background-color: transparent !important; color: #484f58 !important; }
+
+/* ---- Tables ---- */
+.dark .ant-table-wrapper { background: transparent !important; }
+.dark .ant-table         { background: #161b22 !important; color: #c9d1d9 !important; }
+
+.dark .ant-table-thead > tr > th,
+.dark .ant-table-thead > tr > td {
+  background: #21262d !important;
+  color: #c9d1d9 !important;
+  border-color: #30363d !important;
+  font-weight: 600;
+}
+
+.dark .ant-table-tbody > tr > td {
+  border-color: #21262d !important;
+  color: #c9d1d9 !important;
+  background: #161b22 !important;
+}
+
 .dark .ant-table-tbody > tr:hover > td {
-  background-color: #1f2937 !important;
+  background-color: #1c2128 !important;
+}
+
+.dark .ant-table-tbody > tr.required-empty > td {
+  background-color: rgba(248, 81, 73, 0.1) !important;
+}
+
+.dark .ant-table-tbody > tr.bg-yellow-50 > td {
+  background-color: rgba(210, 153, 34, 0.1) !important;
 }
 
 .dark .ant-table-tbody > tr.required-row > td {
-  background: linear-gradient(90deg, #422006 0%, #292524 5%, #1f2937 20%) !important;
-  border-left: 3px solid #f59e0b;
+  background: linear-gradient(90deg, rgba(210,153,34,0.15) 0%, #161b22 15%) !important;
+  border-left: 3px solid #d29922;
 }
 
 .dark .ant-table-tbody > tr.required-row:hover > td {
-  background: linear-gradient(90deg, #78350f 0%, #44403c 5%, #374151 20%) !important;
+  background: linear-gradient(90deg, rgba(210,153,34,0.25) 0%, #1c2128 15%) !important;
 }
 
+.dark .ant-table-cell-fix-left,
+.dark .ant-table-cell-fix-right {
+  background: inherit !important;
+}
+
+.dark .ant-table-placeholder {
+  background: #161b22 !important;
+}
+
+.dark .ant-empty-description {
+  color: #8b949e !important;
+}
+
+/* ---- Cards & Panels ---- */
 .dark .ant-card {
-  background-color: #1f2937;
-  border-color: #374151;
+  background-color: #161b22 !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
 }
 
+.dark .ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .bg-white         { background-color: #161b22 !important; }
+.dark .bg-gray-50       { background-color: #0d1117 !important; }
+.dark .bg-gray-100      { background-color: #161b22 !important; }
+.dark .border-gray-200  { border-color: #30363d !important; }
+.dark .border-gray-100  { border-color: #21262d !important; }
+.dark .shadow,
+.dark .shadow-sm        { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+
+/* Hover states from Tailwind */
+.dark .hover\:bg-gray-50:hover  { background-color: #21262d !important; }
+.dark .hover\:bg-gray-100:hover { background-color: #21262d !important; }
+.dark .hover\:bg-white:hover    { background-color: #21262d !important; }
+
+/* Selected / active states */
+.dark .bg-blue-50       { background-color: rgba(88,166,255,0.1) !important; }
+.dark .border-blue-200  { border-color: rgba(88,166,255,0.4) !important; }
+.dark .border-blue-500  { border-color: #58a6ff !important; }
+
+/* ---- Text colors ---- */
+.dark .text-gray-900,
+.dark .text-gray-800    { color: #f0f6fc !important; }
+.dark .text-gray-700    { color: #c9d1d9 !important; }
+.dark .text-gray-600    { color: #8b949e !important; }
+.dark .text-gray-500    { color: #8b949e !important; }
+.dark .text-gray-400    { color: #484f58 !important; }
+.dark .text-gray-300    { color: #30363d !important; }
+
+/* ---- Forms ---- */
+.dark .ant-select .ant-select-selector,
+.dark .ant-select-selector {
+  background-color: #0d1117 !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
+}
+
+.dark .ant-select-multiple .ant-select-selector {
+  background-color: #0d1117 !important;
+}
+
+.dark .ant-select-multiple .ant-select-selection-item {
+  background-color: #21262d !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
+}
+
+.dark .ant-select-selection-search-input {
+  color: #c9d1d9 !important;
+}
+
+.dark .ant-select-selection-placeholder { color: #484f58 !important; }
+.dark .ant-select-selection-item  { color: #c9d1d9 !important; }
+.dark .ant-select-arrow           { color: #484f58 !important; }
+.dark .ant-select-clear           { background: #21262d !important; color: #8b949e !important; }
+.dark .ant-select-selection-item-remove { color: #8b949e !important; }
+
+.dark .ant-select-focused .ant-select-selector {
+  border-color: #58a6ff !important;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15) !important;
+}
+
+.dark .ant-input,
+.dark .ant-input-affix-wrapper,
+.dark .ant-input-number {
+  background-color: #0d1117 !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
+}
+
+.dark .ant-input::placeholder,
+.dark .ant-input-number-input::placeholder { color: #484f58 !important; }
+
+.dark .ant-input:focus,
+.dark .ant-input-affix-wrapper:focus,
+.dark .ant-input-affix-wrapper-focused {
+  border-color: #58a6ff !important;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15) !important;
+}
+
+/* ---- Menu ---- */
+.dark .ant-menu-horizontal        { border-bottom: none !important; background: transparent !important; }
+.dark .ant-menu-item               { color: #8b949e !important; }
+.dark .ant-menu-item:hover         { color: #c9d1d9 !important; }
+.dark .ant-menu-item-selected      { color: #58a6ff !important; }
+.dark .ant-menu-item-selected::after { border-color: #58a6ff !important; }
+.dark .ant-menu-title-content      { color: inherit !important; }
+
+/* ---- Tags ---- */
+.dark .ant-tag {
+  background-color: #21262d !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
+}
+
+.dark .ant-tag-blue    { background-color: rgba(88,166,255,0.15) !important; border-color: rgba(88,166,255,0.4) !important; color: #58a6ff !important; }
+.dark .ant-tag-green   { background-color: rgba(63,185,80,0.15) !important; border-color: rgba(63,185,80,0.4) !important; color: #3fb950 !important; }
+.dark .ant-tag-orange  { background-color: rgba(210,153,34,0.15) !important; border-color: rgba(210,153,34,0.4) !important; color: #d29922 !important; }
+.dark .ant-tag-red     { background-color: rgba(248,81,73,0.15) !important; border-color: rgba(248,81,73,0.4) !important; color: #f85149 !important; }
+.dark .ant-tag-cyan    { background-color: rgba(57,211,211,0.15) !important; border-color: rgba(57,211,211,0.4) !important; color: #39d3d3 !important; }
+
+/* ---- Buttons ---- */
+.dark .ant-btn-default {
+  background-color: #21262d !important;
+  border-color: #30363d !important;
+  color: #c9d1d9 !important;
+}
+
+.dark .ant-btn-default:hover {
+  background-color: #30363d !important;
+  border-color: #484f58 !important;
+  color: #f0f6fc !important;
+}
+
+.dark .ant-btn-primary:hover {
+  box-shadow: 0 4px 8px rgba(88, 166, 255, 0.25) !important;
+}
+
+.dark .ant-btn-text { color: #8b949e !important; }
+.dark .ant-btn-text:hover { color: #c9d1d9 !important; background: rgba(255,255,255,0.05) !important; }
+
+/* ---- Upload ---- */
 .dark .ant-upload-drag {
-  background-color: #111827 !important;
-  border-color: #374151 !important;
+  background-color: #0d1117 !important;
+  border-color: #30363d !important;
 }
 
 .dark .ant-upload-drag:hover {
-  border-color: #3b82f6 !important;
-  background-color: #1e3a5f !important;
+  border-color: #58a6ff !important;
+  background-color: rgba(88, 166, 255, 0.05) !important;
 }
 
-.dark .ant-steps-item-title,
-.dark .ant-steps-item-description {
-  color: #e5e7eb !important;
+.dark .ant-upload-text  { color: #c9d1d9 !important; }
+.dark .ant-upload-hint  { color: #8b949e !important; }
+
+/* ---- Segmented ---- */
+.dark .ant-segmented {
+  background-color: #21262d !important;
+  color: #8b949e !important;
 }
 
-.dark .ant-select-selector {
-  background-color: #1f2937 !important;
-  border-color: #374151 !important;
+.dark .ant-segmented-item-label { color: inherit !important; }
+
+.dark .ant-segmented-item-selected {
+  background-color: #0d1117 !important;
+  color: #f0f6fc !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
 }
 
-.dark .ant-input {
-  background-color: #1f2937 !important;
-  border-color: #374151 !important;
-  color: #e5e7eb !important;
+/* ---- Dropdown / Select ---- */
+.dark .ant-dropdown-menu,
+.dark .ant-select-dropdown {
+  background-color: #161b22 !important;
+  border: 1px solid #30363d !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
 }
 
-.dark .ant-input::placeholder {
-  color: #9ca3af !important;
+.dark .ant-select-item          { color: #c9d1d9 !important; }
+.dark .ant-select-item-option-active { background-color: #21262d !important; }
+.dark .ant-select-item-option-selected { background-color: rgba(88,166,255,0.15) !important; }
+
+/* ---- Checkbox / Switch ---- */
+.dark .ant-checkbox-inner        { background-color: #0d1117 !important; border-color: #30363d !important; }
+.dark .ant-switch                { background-color: #484f58 !important; }
+
+/* ---- Pagination ---- */
+.dark .ant-pagination-item       { background: #21262d !important; border-color: #30363d !important; }
+.dark .ant-pagination-item a     { color: #c9d1d9 !important; }
+.dark .ant-pagination-item-active { border-color: #58a6ff !important; }
+.dark .ant-pagination-item-active a { color: #58a6ff !important; }
+.dark .ant-pagination-prev .ant-pagination-item-link,
+.dark .ant-pagination-next .ant-pagination-item-link { color: #8b949e !important; }
+
+/* ---- Tabs (inner) ---- */
+.dark .ant-tabs-tab               { color: #8b949e !important; }
+.dark .ant-tabs-tab-active        { color: #58a6ff !important; }
+.dark .ant-tabs-ink-bar           { background: #58a6ff !important; }
+
+/* ---- Tooltip ---- */
+.dark .ant-tooltip-inner { background-color: #30363d !important; color: #f0f6fc !important; }
+
+/* ---- Alert ---- */
+.dark .ant-alert-info {
+  background-color: rgba(88,166,255,0.08) !important;
+  border-color: rgba(88,166,255,0.3) !important;
 }
+
+.dark .ant-alert-info .ant-alert-message { color: #58a6ff !important; }
+.dark .ant-alert-info .ant-alert-description { color: #8b949e !important; }
+
+/* ---- Steps ---- */
+.dark .ant-steps-item-title       { color: #c9d1d9 !important; }
+.dark .ant-steps-item-description { color: #8b949e !important; }
+
+/* ---- Progress ---- */
+.dark .ant-progress-text { color: #c9d1d9 !important; }
+
+/* ---- Popover ---- */
+.dark .ant-popover-inner { background: #161b22 !important; }
+.dark .ant-popover-arrow::before { background: #161b22 !important; }
+
+/* ---- Divider ---- */
+.dark .ant-divider { border-color: #21262d !important; }
+
+/* ---- Badge ---- */
+.dark .ant-badge-count { box-shadow: 0 0 0 1px #161b22 !important; }
+
+/* ---- Highlight overrides for yellow/blue backgrounds ---- */
+.dark .bg-yellow-100 { background-color: rgba(210,153,34,0.15) !important; }
+.dark .bg-yellow-50  { background-color: rgba(210,153,34,0.08) !important; }
+.dark .bg-blue-50    { background-color: rgba(88,166,255,0.08) !important; }

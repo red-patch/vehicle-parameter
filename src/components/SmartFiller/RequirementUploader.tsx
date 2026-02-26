@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Upload, Card, Typography, Spin, message, Button, Select, Tabs, Input } from 'antd';
-import { UploadOutlined, FileExcelOutlined, FileTextOutlined } from '@ant-design/icons';
+import { UploadOutlined, FileExcelOutlined, FileTextOutlined, HistoryOutlined } from '@ant-design/icons';
 import { parseRequirementExcel } from '../../utils/excelParser';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { findMatches } from '../../utils/matcher';
+import type { MatchItem } from '../../types';
+import * as XLSX from 'xlsx';
 
 const { Text } = Typography;
 const { Dragger } = Upload;
@@ -109,6 +111,86 @@ const RequirementUploader: React.FC = () => {
         return false;
     };
 
+    // 导入历史CSV：从之前导出的CSV恢复编辑状态
+    const handleImportHistory = async (file: File) => {
+        setLoading(true);
+        try {
+            const buffer = await file.arrayBuffer();
+            const workbook = XLSX.read(buffer, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            if (rows.length < 2) {
+                message.error('CSV文件为空或格式错误');
+                setLoading(false);
+                return false;
+            }
+
+            // 解析表头
+            const headers = rows[0];
+            const reqNameIdx = headers.findIndex(h => h?.includes('需求参数'));
+            const valueIdx = headers.findIndex(h => h?.includes('填报值'));
+            const statusIdx = headers.findIndex(h => h?.includes('状态'));
+
+            if (reqNameIdx === -1 || valueIdx === -1) {
+                message.error('CSV格式错误：缺少"需求参数名"或"填报值"列');
+                setLoading(false);
+                return false;
+            }
+
+            // 解析数据行，恢复为MatchItem
+            const matchItems: MatchItem[] = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || !row[reqNameIdx]) continue;
+
+                const requirementName = String(row[reqNameIdx]).trim();
+                const fillValue = row[valueIdx] !== undefined ? String(row[valueIdx]).trim() : '';
+                const status = statusIdx !== -1 && row[statusIdx] ? String(row[statusIdx]).trim() : '';
+                const isManual = status.includes('手动');
+
+                matchItems.push({
+                    id: `HISTORY_${i}`,
+                    requirementName,
+                    matchedParam: null, // 不重新匹配，仅恢复填报值
+                    confidence: 1,
+                    isManual: isManual || fillValue !== '',
+                    manualValue: fillValue || undefined
+                });
+            }
+
+            if (matchItems.length === 0) {
+                message.error('未能从CSV中解析出有效数据');
+                setLoading(false);
+                return false;
+            }
+
+            // 创建虚拟SheetData用于显示
+            const virtualData = {
+                fileName: `历史导入: ${file.name}`,
+                rawHeaders: ['导入参数'],
+                data: matchItems.map(m => ({
+                    id: m.id,
+                    group: 'History',
+                    name: m.requirementName,
+                    value: m.manualValue || '',
+                    originSheet: 'Import'
+                }))
+            };
+
+            setRequirementFile(virtualData);
+            setMatchResults(matchItems);
+            message.success(`已恢复 ${matchItems.length} 个字段的编辑状态`);
+
+        } catch (error) {
+            console.error(error);
+            message.error(`导入失败: ${(error as Error).message}`);
+        } finally {
+            setLoading(false);
+        }
+        return false;
+    };
+
     if (requirementFile) {
         return (
             <div className="flex flex-col items-center justify-center py-6 bg-blue-50 rounded border border-blue-200 mb-6">
@@ -161,6 +243,23 @@ const RequirementUploader: React.FC = () => {
         </div>
     );
 
+    const renderHistoryImport = () => (
+        <Dragger
+            name="file"
+            accept=".csv,.xlsx,.xls"
+            showUploadList={false}
+            beforeUpload={handleImportHistory}
+            disabled={loading}
+            className="bg-green-50 hover:bg-green-100 transition-colors"
+        >
+            <p className="ant-upload-drag-icon">
+                <HistoryOutlined className="text-green-500" />
+            </p>
+            <p className="ant-upload-text">导入历史填报文件</p>
+            <p className="ant-upload-hint">上传之前导出的CSV文件，恢复编辑状态继续修改</p>
+        </Dragger>
+    );
+
     return (
         <Spin spinning={loading} tip="正在解析并匹配...">
             <Card title="上传招标文件 (Requirement Upload)" className="mb-6">
@@ -180,8 +279,9 @@ const RequirementUploader: React.FC = () => {
                     activeKey={activeTab}
                     onChange={setActiveTab}
                     items={[
-                        { label: '文件上传 (File Upload)', key: 'file', children: renderFileUploader() },
-                        { label: '文本输入 (Text Input)', key: 'text', children: renderTextInput() }
+                        { label: '文件上传', key: 'file', children: renderFileUploader() },
+                        { label: '文本输入', key: 'text', children: renderTextInput() },
+                        { label: <span><HistoryOutlined /> 导入历史</span>, key: 'history', children: renderHistoryImport() }
                     ]}
                 />
             </Card>

@@ -36,8 +36,25 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Vehicle Parameter Tool ${{ github.ref_name }}"
           releaseBody: |
-            ## Windows 安装包
+            ## Vehicle Parameter Tool ${{ github.ref_name }}
 
+            ### 更新内容
+
+            #### V4.0 — 参数工作台重构 & 体验升级
+            - 🔧 **顶部导航栏扁平化** — 所有功能模块并排显示
+            - 📊 **数据预览改为概览卡片** — 统计指标 + 分组分布 + 必填缺失提醒
+            - 🔍 **版本对比支持单车型查看** — 取消 ≥2 限制，单车型即可查看
+            - ⚡ **版本对比默认选中** — 切换 Tab 自动全选已选车型
+            - 📋 **版本对比高级筛选** — 全部/差异/一致/必填 + 搜索
+            - 📄 **PDF 对比报告导出** — 分页裁剪方案，体积优化至 2-5MB
+            - 🌙 **暗色模式全面修复** — GitHub Dark 配色 + ConfigProvider token
+
+            #### V3.1 — 智能填报增强
+            - 📥 车上云系统模板导出
+            - ⚠️ 枚举值异常检测 & 一键复制
+            - 🔄 数据源切换自动联动刷新
+
+            ---
             下载 `.msi` 安装程序或 `.exe` 可执行文件。
           releaseDraft: true
           prerelease: false

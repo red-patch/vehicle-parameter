@@ -1,34 +1,49 @@
-import React, { useMemo, useState } from 'react';
-import { Table, Tag, Select, Progress, Button, message, Input, Space, Switch } from 'antd';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Table, Tag, Select, Progress, Button, message, Input, Space, Switch, Tooltip } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
 import type { MatchItem } from '../../types';
-import { CheckCircleOutlined, DownloadOutlined, EditOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, FilterOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
+import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
+import { preloadFieldLists, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 
+interface MatchResultTableProps {
+    productName?: string | null;
+}
 
-const MatchResultTable: React.FC = () => {
-    const { matchResults, baseFile, updateMatchResult, updateManualValue, selectedProduct } = useVehicleStore();
+const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
+    const { matchResults, updateManualValue } = useVehicleStore();
     
     // V3.0: 过滤状态
     const [searchText, setSearchText] = useState('');
     const [confidenceFilter, setConfidenceFilter] = useState<'all' | 'perfect' | 'imperfect'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'filled' | 'empty'>('all'); // 新增状态过滤
     // 记录哪些行处于手动输入模式
     const [manualInputMode, setManualInputMode] = useState<Record<string, boolean>>({});
+    // V3.1: 枚举数据加载状态
+    const [enumLoaded, setEnumLoaded] = useState(isEnumDataLoaded());
+    // V3.1: 字段列表加载状态
+    const [fieldListsLoaded, setFieldListsLoaded] = useState(false);
+    // V3.1: 快捷筛选状态
+    const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'enum_mismatch'>('none');
 
-    // Prepare options for the Select dropdown (memoized)
-    const libraryOptions = useMemo(() => {
-        if (!baseFile) return [];
-        let data = baseFile.data;
-        if (selectedProduct) {
-            data = data.filter(p => p.productName === selectedProduct);
+    // 预加载枚举数据
+    useEffect(() => {
+        if (!enumLoaded) {
+            preloadEnumData().then(() => {
+                setEnumLoaded(true);
+            });
         }
-        return data.map(p => ({
-            value: p.id,
-            label: `${p.name} (${p.value})`,
-            group: p.group,
-            param: p
-        }));
-    }, [baseFile, selectedProduct]);
+    }, [enumLoaded]);
+
+    // V3.1: 预加载字段列表
+    useEffect(() => {
+        preloadFieldLists().then(() => {
+            setFieldListsLoaded(true);
+        });
+    }, []);
+
+
 
     // V3.0: 过滤后的数据
     const filteredResults = useMemo(() => {
@@ -58,9 +73,35 @@ const MatchResultTable: React.FC = () => {
         } else if (confidenceFilter === 'imperfect') {
             results = results.filter(m => Math.round(m.confidence * 100) < 100);
         }
+
+        // 状态过滤 (V3.0 新增)
+        if (statusFilter === 'filled') {
+            results = results.filter(m => m.matchedParam || m.manualValue !== undefined);
+        } else if (statusFilter === 'empty') {
+            // "未填报" = 既没有自动匹配，也没有手动输入
+            results = results.filter(m => !m.matchedParam && m.manualValue === undefined);
+        }
+
+        // V3.1: 快捷字段筛选（精确匹配）
+        if (quickFilter === 'system' && fieldListsLoaded) {
+            const systemFields = new Set(getSystemRequiredFieldsSync());
+            results = results.filter(m => systemFields.has(m.requirementName));
+        } else if (quickFilter === 'quality' && fieldListsLoaded) {
+            const qualityFields = new Set(getQualityCheckFieldsSync());
+            results = results.filter(m => qualityFields.has(m.requirementName));
+        } else if (quickFilter === 'enum_mismatch' && enumLoaded) {
+            results = results.filter(m => {
+                const value = m.manualValue !== undefined
+                    ? m.manualValue
+                    : (m.matchedParam?.value?.toString() || '');
+                if (!value) return false;
+                const enums = getEnumValuesSync(m.requirementName);
+                return enums.length > 0 && !enums.includes(value);
+            });
+        }
         
         return results;
-    }, [matchResults, searchText, confidenceFilter]);
+    }, [matchResults, searchText, confidenceFilter, statusFilter, quickFilter, fieldListsLoaded]);
 
     const handleCopy = () => {
         if (!filteredResults.length) {
@@ -168,70 +209,113 @@ const MatchResultTable: React.FC = () => {
             }
         },
         {
-            title: '匹配库参数 (可修正)',
+            title: '匹配库参数',
             key: 'matchedParam',
-            width: 300,
+            width: 250,
             render: (_: unknown, record: MatchItem) => {
-                const isManualMode = manualInputMode[record.id];
-                
+                // 只读展示自动匹配的参数信息
+                if (!record.matchedParam) {
+                    return <span className="text-gray-400">未匹配</span>;
+                }
                 return (
-                    <div className="flex items-center gap-2">
-                        {isManualMode ? (
-                            <Input
-                                placeholder="手动输入参数值..."
-                                value={record.manualValue || ''}
-                                onChange={(e) => updateManualValue(record.id, e.target.value)}
-                                style={{ flex: 1 }}
-                            />
-                        ) : (
-                            <Select
-                                showSearch
-                                style={{ flex: 1 }}
-                                placeholder="选择匹配参数"
-                                optionFilterProp="label"
-                                value={record.matchedParam?.id}
-                                onChange={(value) => {
-                                    const selected = libraryOptions.find(o => o.value === value);
-                                    if (selected) {
-                                        updateMatchResult(record.id, selected.param);
-                                    }
-                                }}
-                                options={libraryOptions.map(o => ({ value: o.value, label: o.label }))}
-                                className={!record.matchedParam ? "border-red-300 rounded" : ""}
-                                status={!record.matchedParam ? "error" : ""}
-                            />
-                        )}
-                        <Switch
-                            checkedChildren={<EditOutlined />}
-                            unCheckedChildren="选"
-                            checked={isManualMode}
-                            onChange={() => toggleManualMode(record.id)}
-                            title={isManualMode ? "切换为选择模式" : "切换为手动输入模式"}
-                        />
-                    </div>
+                    <Tooltip title={`${record.matchedParam.group} / ${record.matchedParam.name}`}>
+                        <span className="text-gray-700">
+                            {record.matchedParam.name}
+                            <span className="text-gray-400 ml-1">({record.matchedParam.value})</span>
+                        </span>
+                    </Tooltip>
                 );
             }
         },
         {
-            title: '填报值',
+            title: '填报值 (可修正)',
             key: 'value',
-            width: 200,
+            width: 320,
             render: (_: unknown, record: MatchItem) => {
-                // 优先显示手动输入的值
-                const displayValue = record.manualValue !== undefined 
+                const isManualMode = manualInputMode[record.id];
+                
+                // 当前值：优先手动值，其次自动匹配值
+                const currentValue = record.manualValue !== undefined 
                     ? record.manualValue 
-                    : (record.matchedParam?.value || '-');
-                const isManual = record.manualValue !== undefined;
+                    : (record.matchedParam?.value?.toString() || '');
+                const isModified = record.manualValue !== undefined;
+                
+                // 获取枚举值
+                const enumValues = enumLoaded ? getEnumValuesSync(record.requirementName) : [];
+                const hasEnums = enumValues.length > 0;
                 
                 return (
-                    <span className={`font-mono px-2 py-1 rounded ${isManual ? 'bg-blue-50 text-blue-700' : 'bg-gray-50'}`}>
-                        {displayValue}
-                        {isManual && <Tag color="blue" className="ml-2">手动</Tag>}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        {isManualMode ? (
+                            // 手动输入模式
+                            <Input
+                                value={currentValue}
+                                onChange={(e) => updateManualValue(record.id, e.target.value)}
+                                placeholder="手动输入..."
+                                style={{ flex: 1, minWidth: 0 }}
+                                className={isModified ? 'border-blue-400' : ''}
+                                suffix={isModified ? <Tag color="blue" className="mr-0">已修改</Tag> : null}
+                            />
+                        ) : hasEnums ? (
+                            // 枚举选择模式
+                            <>
+                            <Select
+                                showSearch
+                                style={{ flex: 1, minWidth: 0 }}
+                                placeholder="选择填报值"
+                                optionFilterProp="label"
+                                value={currentValue || undefined}
+                                onChange={(value) => updateManualValue(record.id, String(value))}
+                                options={enumValues.map(v => ({ value: v, label: v }))}
+                                suffixIcon={<DatabaseOutlined style={{ color: '#1890ff' }} />}
+                                status={currentValue && !enumValues.includes(currentValue) ? 'error' : (!currentValue ? 'warning' : undefined)}
+                            />
+                            {currentValue && !enumValues.includes(currentValue) && (
+                                <Tooltip title={`“${currentValue}”不在枚举列表中，需更新字典`}>
+                                    <WarningOutlined style={{ color: '#faad14', fontSize: 16 }} />
+                                </Tooltip>
+                            )}
+                            </>
+                        ) : (
+                            // 无枚举时默认输入框
+                            <Input
+                                value={currentValue}
+                                onChange={(e) => updateManualValue(record.id, e.target.value)}
+                                placeholder="输入填报值"
+                                style={{ flex: 1, minWidth: 0 }}
+                                className={`font-mono ${isModified ? 'border-blue-400' : ''}`}
+                            />
+                        )}
+                        {/* 模式切换开关 */}
+                        {hasEnums && (
+                            <Tooltip title={isManualMode ? '切换为枚举选择' : '切换为手动输入'}>
+                                <Switch
+                                    size="small"
+                                    checkedChildren={<EditOutlined />}
+                                    unCheckedChildren={<DatabaseOutlined />}
+                                    checked={isManualMode}
+                                    onChange={() => toggleManualMode(record.id)}
+                                />
+                            </Tooltip>
+                        )}
+                    </div>
                 );
             }
         }
     ];
+
+    // 计算枚举不匹配的记录
+    const enumMismatchItems = useMemo(() => {
+        if (!enumLoaded) return [];
+        return filteredResults.filter(m => {
+            const value = m.manualValue !== undefined
+                ? m.manualValue
+                : (m.matchedParam?.value?.toString() || '');
+            if (!value) return false;
+            const enums = getEnumValuesSync(m.requirementName);
+            return enums.length > 0 && !enums.includes(value);
+        });
+    }, [filteredResults, enumLoaded]);
 
     if (!matchResults.length) return null;
 
@@ -243,12 +327,57 @@ const MatchResultTable: React.FC = () => {
                     匹配结果预览
                     <Tag>{filteredResults.length}/{matchResults.length}</Tag>
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                     <Button onClick={handleCopy}>
                         复制填报结果 (CSV)
                     </Button>
-                    <Button type="primary" icon={<DownloadOutlined />} onClick={handleDownload}>
+                    <Button icon={<DownloadOutlined />} onClick={handleDownload}>
                         下载 CSV
+                    </Button>
+                    {enumMismatchItems.length > 0 && (
+                        <Button
+                            icon={<CopyOutlined />}
+                            danger
+                            onClick={() => {
+                                const lines = enumMismatchItems.map(m => {
+                                    const value = m.manualValue !== undefined
+                                        ? m.manualValue
+                                        : (m.matchedParam?.value?.toString() || '');
+                                    return `${m.requirementName}\t${value}`;
+                                });
+                                navigator.clipboard.writeText('参数名\t当前值\n' + lines.join('\n'))
+                                    .then(() => message.success(`已复制 ${enumMismatchItems.length} 个枚举异常字段`))
+                                    .catch(() => message.error('复制失败'));
+                            }}
+                        >
+                            复制枚举异常字段 ({enumMismatchItems.length})
+                        </Button>
+                    )}
+                    <Button
+                        type="primary"
+                        icon={<CloudUploadOutlined />}
+                        onClick={() => {
+                            if (!filteredResults.length) { message.warning('暂无内容可导出'); return; }
+                            const rows = filteredResults.map(m => {
+                                const value = m.manualValue !== undefined
+                                    ? m.manualValue
+                                    : ((m.matchedParam?.value !== undefined && m.matchedParam?.value !== null)
+                                        ? String(m.matchedParam.value) : '');
+                                return [m.requirementName, value];
+                            });
+                            const data = [['参数项名称', '参数值'], ...rows];
+                            const ws = XLSX.utils.aoa_to_sheet(data);
+                            // 设置列宽
+                            ws['!cols'] = [{ wch: 30 }, { wch: 40 }];
+                            const wb = XLSX.utils.book_new();
+                            XLSX.utils.book_append_sheet(wb, ws, '产品准入导入模版');
+                            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                            const name = productName || '未命名车型';
+                            XLSX.writeFile(wb, `车上云系统导入_${name}_${date}.xlsx`);
+                            message.success('导出成功');
+                        }}
+                    >
+                        车上云系统模板导出
                     </Button>
                 </div>
             </div>
@@ -278,6 +407,52 @@ const MatchResultTable: React.FC = () => {
                             { label: '<100%匹配', value: 'imperfect' },
                         ]}
                     />
+                </Space>
+                <Space>
+                    <span className="text-gray-500">状态:</span>
+                    <Select
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                        style={{ width: 140 }}
+                        options={[
+                            { label: '全部', value: 'all' },
+                            { label: '已填报', value: 'filled' },
+                            { label: '未填报', value: 'empty' },
+                        ]}
+                    />
+                </Space>
+
+                {/* V3.1: 快捷筛选按钮 */}
+                <Space>
+                    <span className="text-gray-500">快捷:</span>
+                    <Button
+                        type={quickFilter === 'system' ? 'primary' : 'default'}
+                        size="small"
+                        icon={<FilterOutlined />}
+                        onClick={() => setQuickFilter(quickFilter === 'system' ? 'none' : 'system')}
+                        loading={!fieldListsLoaded}
+                    >
+                        系统必填 ({getSystemRequiredFieldsSync().length})
+                    </Button>
+                    <Button
+                        type={quickFilter === 'quality' ? 'primary' : 'default'}
+                        size="small"
+                        icon={<FilterOutlined />}
+                        onClick={() => setQuickFilter(quickFilter === 'quality' ? 'none' : 'quality')}
+                        loading={!fieldListsLoaded}
+                    >
+                        质量验车 ({getQualityCheckFieldsSync().length})
+                    </Button>
+                    <Button
+                        type={quickFilter === 'enum_mismatch' ? 'primary' : 'default'}
+                        size="small"
+                        danger={quickFilter !== 'enum_mismatch' && enumMismatchItems.length > 0}
+                        icon={<WarningOutlined />}
+                        onClick={() => setQuickFilter(quickFilter === 'enum_mismatch' ? 'none' : 'enum_mismatch')}
+                        loading={!enumLoaded}
+                    >
+                        枚举异常 ({enumMismatchItems.length})
+                    </Button>
                 </Space>
             </div>
 

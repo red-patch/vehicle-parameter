@@ -35,6 +35,8 @@ const DiffResultView: React.FC = () => {
     const [selectedSheet, setSelectedSheet] = useState<string>('all');
     const [modifiedSearchText, setModifiedSearchText] = useState<string>('');
     const [miitSearchText, setMiitSearchText] = useState<string>('');
+    // V3.0: PDF导出状态
+    const [isExporting, setIsExporting] = useState(false);
 
     // 检测是否可以使用 MIIT 模式（targetFile 来自工信部）
     const isMiitModeAvailable = useMemo(() => {
@@ -156,7 +158,7 @@ const DiffResultView: React.FC = () => {
         );
     }, [miitComparisonData, miitSearchText]);
 
-    // V3.0: PDF导出功能
+    // V3.0 美化版PDF导出：使用 html2canvas 渲染整个报告
     const handleExportPdf = async () => {
         if (!diffResult || !baseFile || !targetFile) {
             message.warning('暂无对比结果可导出');
@@ -164,93 +166,66 @@ const DiffResultView: React.FC = () => {
         }
 
         try {
-            message.loading({ content: '正在生成PDF...', key: 'pdfExport' });
+            setIsExporting(true); // 显示隐藏的报告模版
+            message.loading({ content: '正在生成高清PDF报告...', key: 'pdfExport' });
             
-            // 动态导入jsPDF
+            // 给React一点时间渲染DOM
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const element = document.getElementById('pdf-report-container');
+            if (!element) {
+                throw new Error('Report container not found');
+            }
+
+            const { default: html2canvas } = await import('html2canvas');
             const { default: jsPDF } = await import('jspdf');
-            const { default: autoTable } = await import('jspdf-autotable');
 
-            const doc = new jsPDF();
-            const now = new Date();
-            const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const canvas = await html2canvas(element, {
+                scale: 2, // 提高清晰度
+                useCORS: true,
+                logging: false,
+                windowWidth: element.scrollWidth,
+                windowHeight: element.scrollHeight
+            });
 
-            // 标题
-            doc.setFontSize(16);
-            doc.text('Vehicle Parameter Comparison Report', 14, 20);
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
             
-            // 文件信息
-            doc.setFontSize(10);
-            doc.text(`Base File: ${baseFile.fileName}`, 14, 30);
-            doc.text(`Target File: ${targetFile.fileName}`, 14, 37);
-            doc.text(`Generated: ${dateStr}`, 14, 44);
+            // A4 尺寸
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            const imgWidth = pdfWidth;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-            // 统计概览
-            doc.setFontSize(12);
-            doc.text('Summary', 14, 55);
-            doc.setFontSize(10);
-            doc.text(`Added: ${countUniqueParameters(diffResult.added)}`, 14, 62);
-            doc.text(`Removed: ${countUniqueParameters(diffResult.removed)}`, 70, 62);
-            doc.text(`Modified: ${countUniqueModified(diffResult.modified)}`, 130, 62);
-            doc.text(`Unchanged: ${countUniqueParameters(diffResult.unchanged)}`, 14, 69);
+            let heightLeft = imgHeight;
+            let position = 0;
 
-            let yPos = 80;
+            // 第一页
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
 
-            // 变更内容表格
-            if (diffResult.modified.length > 0) {
-                doc.setFontSize(12);
-                doc.text('Modified Parameters', 14, yPos);
-                
-                const modifiedData = diffResult.modified.slice(0, 50).map(m => [
-                    m.oldParam.name.substring(0, 30),
-                    String(m.oldParam.value).substring(0, 25),
-                    String(m.newParam.value).substring(0, 25)
-                ]);
-
-                autoTable(doc, {
-                    startY: yPos + 5,
-                    head: [['Parameter', 'Old Value', 'New Value']],
-                    body: modifiedData,
-                    styles: { fontSize: 8, cellPadding: 2 },
-                    headStyles: { fillColor: [255, 152, 0] },
-                    columnStyles: {
-                        0: { cellWidth: 60 },
-                        1: { cellWidth: 55 },
-                        2: { cellWidth: 55 }
-                    }
-                });
-
-                yPos = (doc as any).lastAutoTable.finalY + 15;
+            // 如果内容超过一页，分页处理
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
             }
 
-            // 新增内容（如果还有空间）
-            if (diffResult.added.length > 0 && yPos < 240) {
-                doc.setFontSize(12);
-                doc.text('Added Parameters', 14, yPos);
-                
-                const addedData = diffResult.added.slice(0, 20).map(p => [
-                    p.name.substring(0, 40),
-                    String(p.value).substring(0, 40)
-                ]);
-
-                autoTable(doc, {
-                    startY: yPos + 5,
-                    head: [['Parameter', 'Value']],
-                    body: addedData,
-                    styles: { fontSize: 8, cellPadding: 2 },
-                    headStyles: { fillColor: [76, 175, 80] },
-                });
-            }
-
-            // 保存PDF
+            const now = new Date();
             const fileName = `comparison_report_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.pdf`;
-            doc.save(fileName);
+            pdf.save(fileName);
             
             message.success({ content: `PDF已导出: ${fileName}`, key: 'pdfExport' });
         } catch (err) {
             console.error('PDF export error:', err);
             message.error({ content: 'PDF导出失败', key: 'pdfExport' });
+        } finally {
+            setIsExporting(false);
         }
     };
+
 
     if (!diffResult || !filteredDiff) return null;
 
@@ -600,6 +575,154 @@ const DiffResultView: React.FC = () => {
 
 
             {compareMode === 'miit' ? miitView : <Tabs defaultActiveKey="all" items={items} />}
+
+            {/* V3.0: 隐藏的PDF导出模版 - 为了支持中文和更好看的排版 */}
+            {isExporting && diffResult && (
+                <div 
+                    id="pdf-report-container" 
+                    className="fixed left-0 top-0 bg-white p-8"
+                    style={{ 
+                        width: '1000px', 
+                        // 导出时置顶显示，确保 html2canvas 能完整捕获
+                        zIndex: 9999, 
+                        position: 'absolute',
+                        minHeight: '100vh',
+                    }}
+                >
+                    {/* Header */}
+                    <div className="border-b-2 border-blue-600 pb-4 mb-6 flex justify-between items-end">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-800 mb-2">车辆参数对比报告</h1>
+                            <div className="text-gray-500 text-sm">生成的参数差异分析报告</div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-gray-400 text-xs">生成时间</div>
+                            <div className="text-gray-700 font-mono">
+                                {new Date().toLocaleString('zh-CN', { hour12: false })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* File Info */}
+                    <div className="bg-gray-50 p-6 rounded mb-8 grid grid-cols-2 gap-8 border border-gray-100">
+                        <div>
+                            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">基准文件 (Base)</div>
+                            <div className="font-bold text-gray-800 text-lg break-all leading-relaxed" style={{ minHeight: '3rem' }}>{baseFile?.fileName}</div>
+                        </div>
+                        <div>
+                            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">对比文件 (Target)</div>
+                            <div className="font-bold text-gray-800 text-lg break-all leading-relaxed" style={{ minHeight: '3rem' }}>{targetFile?.fileName}</div>
+                        </div>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="mb-8">
+                        <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-blue-500 pl-3">统计概览</h3>
+                        <div className="grid grid-cols-4 gap-4">
+                            {stats.map(s => (
+                                <div key={s.label} className="bg-white border rounded p-4 shadow-sm flex flex-col items-center justify-center">
+                                    <div className="text-3xl font-bold mb-1" style={{ color: 
+                                        s.color === 'green' ? '#52c41a' : 
+                                        s.color === 'red' ? '#ff4d4f' : 
+                                        s.color === 'orange' ? '#faad14' : '#666' 
+                                    }}>
+                                        {s.value}
+                                    </div>
+                                    <div className="text-gray-500 text-sm">{s.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Modified Parameters */}
+                    {diffResult.modified.length > 0 && (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-orange-500 pl-3">
+                                变更参数 ({diffResult.modified.length})
+                            </h3>
+                            <table className="w-full text-sm border-collapse border border-gray-200">
+                                <thead>
+                                    <tr className="bg-orange-50">
+                                        <th className="border border-gray-200 p-2 text-left w-1/4">参数名</th>
+                                        <th className="border border-gray-200 p-2 text-left w-1/4">分组</th>
+                                        <th className="border border-gray-200 p-2 text-left w-1/4 text-gray-500">基准值</th>
+                                        <th className="border border-gray-200 p-2 text-left w-1/4 font-bold text-gray-800">新版本值</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {diffResult.modified.map((m, idx) => (
+                                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                            <td className="border border-gray-200 p-2 font-medium">{m.oldParam.name}</td>
+                                            <td className="border border-gray-200 p-2 text-gray-500">{m.oldParam.group}</td>
+                                            <td className="border border-gray-200 p-2 text-gray-500 line-through decoration-red-300 decoration-2">{m.oldParam.value}</td>
+                                            <td className="border border-gray-200 p-2 text-orange-700 font-bold bg-orange-50/50">{m.newParam.value}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Added Parameters */}
+                    {diffResult.added.length > 0 && (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-green-500 pl-3">
+                                新增参数 ({diffResult.added.length})
+                            </h3>
+                            <table className="w-full text-sm border-collapse border border-gray-200">
+                                <thead>
+                                    <tr className="bg-green-50">
+                                        <th className="border border-gray-200 p-2 text-left w-1/3">参数名</th>
+                                        <th className="border border-gray-200 p-2 text-left w-1/3">分组</th>
+                                        <th className="border border-gray-200 p-2 text-left w-1/3">值</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {diffResult.added.map((p, idx) => (
+                                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                            <td className="border border-gray-200 p-2 font-medium">{p.name}</td>
+                                            <td className="border border-gray-200 p-2 text-gray-500">{p.group}</td>
+                                            <td className="border border-gray-200 p-2">{p.value}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* Removed Parameters */}
+                    {diffResult.removed.length > 0 && (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-red-500 pl-3">
+                                移除参数 ({diffResult.removed.length})
+                            </h3>
+                            <table className="w-full text-sm border-collapse border border-gray-200">
+                                <thead>
+                                    <tr className="bg-red-50">
+                                        <th className="border border-gray-200 p-2 text-left w-1/3">参数名</th>
+                                        <th className="border border-gray-200 p-2 text-left w-1/3">分组</th>
+                                        <th className="border border-gray-200 p-2 text-left w-1/3">值</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {diffResult.removed.map((p, idx) => (
+                                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                            <td className="border border-gray-200 p-2 font-medium text-gray-400">{p.name}</td>
+                                            <td className="border border-gray-200 p-2 text-gray-400">{p.group}</td>
+                                            <td className="border border-gray-200 p-2 text-gray-400 decoration-red-300 line-through">{p.value}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                    
+                    {/* Footer */}
+                    <div className="mt-12 pt-6 border-t border-gray-200 text-center text-gray-400 text-xs">
+                        <p>Powered by Smart Vehicle Parameter Tool</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
