@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
-import { Tabs } from 'antd';
+import React, { useState, useMemo, Suspense } from 'react';
+import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined } from '@ant-design/icons';
 import FileManager from './FileManager';
 import ProductSelector from './ProductSelector';
 import DataPreview from './DataPreview';
-import CompareView from './CompareView';
-import SmartFillView from './SmartFillView';
-import MultiVehicleView from './MultiVehicleView';
+
+const CompareView = React.lazy(() => import('./CompareView'));
+const SmartFillView = React.lazy(() => import('./SmartFillView'));
+const MultiVehicleView = React.lazy(() => import('./MultiVehicleView'));
 
 const ParameterWorkbench: React.FC = () => {
     const [activeTab, setActiveTab] = useState('pool');
 
-    const items = [
+    const items = useMemo(() => [
         {
             key: 'pool',
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 数据池</span>,
@@ -35,19 +36,37 @@ const ParameterWorkbench: React.FC = () => {
         {
             key: 'compare',
             label: <span className="flex items-center gap-1.5"><DiffOutlined /> 版本对比</span>,
-            children: <div className="h-[calc(100vh-180px)]"><CompareView /></div>
+            children: (
+                <div className="h-[calc(100vh-180px)]">
+                    <Suspense fallback={<Skeleton active className="p-4" />}>
+                        <CompareView />
+                    </Suspense>
+                </div>
+            )
         },
         {
             key: 'fill',
             label: <span className="flex items-center gap-1.5"><FormOutlined /> 智能填报</span>,
-            children: <div className="h-[calc(100vh-180px)] bg-white rounded-lg border border-gray-200 p-4"><SmartFillView /></div>
+            children: (
+                <div className="h-[calc(100vh-180px)] bg-white rounded-lg border border-gray-200 p-4">
+                    <Suspense fallback={<Skeleton active />}>
+                        <SmartFillView />
+                    </Suspense>
+                </div>
+            )
         },
         {
             key: 'multi',
             label: <span className="flex items-center gap-1.5"><AppstoreOutlined /> 多车型整理</span>,
-            children: <div className="h-[calc(100vh-180px)] bg-white rounded-lg border border-gray-200 p-4"><MultiVehicleView /></div>
+            children: (
+                <div className="h-[calc(100vh-180px)] bg-white rounded-lg border border-gray-200 p-4">
+                    <Suspense fallback={<Skeleton active />}>
+                        <MultiVehicleView />
+                    </Suspense>
+                </div>
+            )
         }
-    ];
+    ], []);
 
     return (
         <div className="h-full">

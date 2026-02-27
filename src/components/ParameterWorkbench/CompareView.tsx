@@ -2,11 +2,15 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Select, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message } from 'antd';
 import { DiffOutlined, InfoCircleOutlined, SearchOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
-import type { VehicleParameter } from '../../types';
+import { useShallow } from 'zustand/react/shallow';
+import { getProductData, getProductOptions } from '../../store/vehicleSelectors';
 import { isFieldRequired } from '../../assets/requiredFields';
 
 const CompareView: React.FC = () => {
-    const { uploadedFiles, selectedProductNames } = useVehicleStore();
+    const { uploadedFiles, selectedProductNames } = useVehicleStore(useShallow(state => ({
+        uploadedFiles: state.uploadedFiles,
+        selectedProductNames: state.selectedProductNames
+    })));
     const [localSelection, setLocalSelection] = useState<string[]>([]);
     const [showResult, setShowResult] = useState(false);
     // 过滤状态
@@ -15,45 +19,24 @@ const CompareView: React.FC = () => {
     const reportRef = useRef<HTMLDivElement>(null);
 
     const productOptions = useMemo(() => {
-        const options: { label: string; value: string }[] = [];
-        const globalSelected = new Set(selectedProductNames);
-        
-        uploadedFiles.forEach(file => {
-            const fileProducts = new Set<string>();
-            file.data.forEach(p => fileProducts.add(p.productName || file.fileName));
-            fileProducts.forEach(name => {
-                if (globalSelected.has(name)) {
-                    options.push({ label: name, value: name });
-                }
-            });
-        });
-        return options;
+        return getProductOptions(uploadedFiles, selectedProductNames);
     }, [uploadedFiles, selectedProductNames]);
 
-    // 默认选中全部已选车型并自动显示
+    // 默认选中前两款车型并自动显示对比
     useEffect(() => {
         if (selectedProductNames.length > 0) {
-            setLocalSelection(selectedProductNames);
-            setShowResult(true);
+            // 如果当前还没有选，默认选中前两个（或者所有的如果不足两个）
+            if (localSelection.length === 0 && productOptions.length > 0) {
+                const defaults = productOptions.slice(0, 2).map(opt => opt.value);
+                setLocalSelection(defaults);
+                // 只有选择了至少1个才显示结果区域，方便看单车或双车跑出对比表
+                setShowResult(defaults.length >= 1);
+            }
         } else {
             setLocalSelection([]);
             setShowResult(false);
         }
-    }, [selectedProductNames]);
-
-    const getProductData = (productName: string): VehicleParameter[] => {
-        for (const file of uploadedFiles) {
-            const params: VehicleParameter[] = [];
-            file.data.forEach(p => {
-                const pName = p.productName || file.fileName;
-                if (pName === productName) {
-                    params.push(p);
-                }
-            });
-            if (params.length > 0) return params;
-        }
-        return [];
-    };
+    }, [selectedProductNames, productOptions]);
 
     // Build comparison matrix (supports 1+ products)
     const comparisonData = useMemo(() => {
@@ -62,7 +45,7 @@ const CompareView: React.FC = () => {
         const allParams = new Map<string, { group: string; name: string; values: Map<string, string> }>();
 
         localSelection.forEach(productName => {
-            const data = getProductData(productName);
+            const data = getProductData(uploadedFiles, productName);
             data.forEach(p => {
                 const key = `${p.group}::${p.name}`;
                 if (!allParams.has(key)) {
@@ -171,9 +154,23 @@ const CompareView: React.FC = () => {
         setSearchText('');
     };
 
-    const diffCount = comparisonData.filter(r => r.hasDiff).length;
-    const sameCount = comparisonData.filter(r => !r.hasDiff).length;
-    const requiredCount = comparisonData.filter(r => isFieldRequired(r.name)).length;
+    const { diffCount, sameCount, requiredCount } = useMemo(() => {
+        let diff = 0, same = 0, req = 0;
+        comparisonData.forEach(r => {
+            if (r.hasDiff) diff++; else same++;
+            if (isFieldRequired(r.name)) req++;
+        });
+        return { diffCount: diff, sameCount: same, requiredCount: req };
+    }, [comparisonData]);
+
+    // 4. UX 提升: 版本对比自动切换“只看差异”
+    useEffect(() => {
+        if (localSelection.length > 1 && diffCount > 0) {
+            setDiffFilter('diff');
+        } else {
+            setDiffFilter('all');
+        }
+    }, [localSelection.join(','), diffCount]);
 
     // PDF 导出（html2canvas 截图方案，支持中文）
     const handleExportPdf = async () => {

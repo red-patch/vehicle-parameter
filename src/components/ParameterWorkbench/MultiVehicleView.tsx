@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Input, Button, Table, message, Empty, Tag, Space, Upload } from 'antd';
-import { AppstoreOutlined, DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
 import { findBestMatch } from '../../utils/matchingEngine';
 import * as XLSX from 'xlsx';
 import { downloadCsv } from '../../utils/downloadCsv';
@@ -17,10 +18,18 @@ interface OrganizedRow {
 }
 
 const MultiVehicleView: React.FC = () => {
-    const { uploadedFiles, selectedProductNames } = useVehicleStore();
-    const [targetFields, setTargetFields] = useState('');
+    const { 
+        uploadedFiles, 
+        selectedProductNames,
+        multiVehicleFields: targetFields,
+        setMultiVehicleFields: setTargetFields
+    } = useVehicleStore(useShallow(state => ({
+        uploadedFiles: state.uploadedFiles,
+        selectedProductNames: state.selectedProductNames,
+        multiVehicleFields: state.multiVehicleFields,
+        setMultiVehicleFields: state.setMultiVehicleFields
+    })));
     const [organizedData, setOrganizedData] = useState<OrganizedRow[]>([]);
-    const [loading, setLoading] = useState(false);
 
     // Prepare Vehicle Data Cache
     const selectedVehicles = useMemo(() => {
@@ -50,9 +59,10 @@ const MultiVehicleView: React.FC = () => {
         return vehicles;
     }, [uploadedFiles, selectedProductNames]);
 
-    const handleOrganize = () => {
-        if (selectedVehicles.length === 0) {
-            message.warning('请先在“数据池”中选择要整理的车型');
+    // UX: Debounce triggering automatically
+    useEffect(() => {
+        if (selectedVehicles.length === 0 || !targetFields.trim()) {
+            if (organizedData.length > 0) setOrganizedData([]);
             return;
         }
 
@@ -62,12 +72,11 @@ const MultiVehicleView: React.FC = () => {
             .filter(Boolean);
         
         if (fields.length === 0) {
-            message.warning('请输入目标字段名');
+            if (organizedData.length > 0) setOrganizedData([]);
             return;
         }
 
-        setLoading(true);
-        setTimeout(() => { // Yield for UI update
+        const timer = setTimeout(() => {
             try {
                 const results: OrganizedRow[] = fields.map((targetField, idx) => {
                     const row: OrganizedRow = {
@@ -95,15 +104,15 @@ const MultiVehicleView: React.FC = () => {
                 });
 
                 setOrganizedData(results);
-                message.success('整理完成');
             } catch (err) {
                 console.error(err);
-                message.error('整理失败');
             } finally {
-                setLoading(false);
+                // setLoading removed
             }
-        }, 100);
-    };
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [targetFields, selectedVehicles]);
 
     const handleDownload = async () => {
         if (organizedData.length === 0) return;
@@ -199,11 +208,8 @@ const MultiVehicleView: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex flex-col gap-2 mt-8">
-                            <Button type="primary" icon={<AppstoreOutlined />} onClick={handleOrganize} loading={loading}>
-                                开始整理
-                            </Button>
                             <Button icon={<ClearOutlined />} onClick={() => { setOrganizedData([]); setTargetFields(''); }}>
-                                清空
+                                清空内容
                             </Button>
                         </div>
                     </div>

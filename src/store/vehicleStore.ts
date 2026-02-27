@@ -1,5 +1,7 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode } from '../types';
+import { calculateAllProductConfidences } from '../utils/productConfidence';
 
 interface VehicleStore {
     baseFile: SheetData | null;
@@ -43,11 +45,19 @@ interface VehicleStore {
     excludeProduct: (name: string) => void;
     resetProductStatus: (name: string) => void;
     renameProduct: (oldName: string, newName: string) => void;
+
+    // UX 持久化状态
+    smartFillRequirements: string;
+    multiVehicleFields: string;
+    setSmartFillRequirements: (text: string) => void;
+    setMultiVehicleFields: (text: string) => void;
 }
 
 
-export const useVehicleStore = create<VehicleStore>((set) => ({
-    baseFile: null,
+export const useVehicleStore = create<VehicleStore>()(
+    persist(
+        (set) => ({
+            baseFile: null,
     targetFile: null,
     diffResult: null,
     compareMode: 'content',
@@ -98,7 +108,31 @@ export const useVehicleStore = create<VehicleStore>((set) => ({
         if (state.uploadedFiles.some(f => f.fileName === file.fileName)) {
             return state;
         }
-        return { uploadedFiles: [...state.uploadedFiles, file] };
+
+        // UX Lift: 自动勾选新文件里的高、中置信度车型
+        const fileProducts = new Map<string, number>();
+        file.data.forEach(p => {
+            const pName = p.productName || file.fileName;
+            fileProducts.set(pName, (fileProducts.get(pName) || 0) + 1);
+        });
+
+        const products = Array.from(fileProducts.entries()).map(([name, count]) => ({
+            name,
+            paramCount: count
+        }));
+
+        const withConfidence = calculateAllProductConfidences(products);
+        
+        const autoSelected = withConfidence
+            .filter((p) => p.level !== 'low')
+            .map((p) => p.name);
+
+        const newSelectedNames = Array.from(new Set([...state.selectedProductNames, ...autoSelected]));
+
+        return { 
+            uploadedFiles: [...state.uploadedFiles, file],
+            selectedProductNames: newSelectedNames
+        };
     }),
     removeFile: (fileName) => set((state) => ({
         uploadedFiles: state.uploadedFiles.filter(f => f.fileName !== fileName)
@@ -145,6 +179,12 @@ export const useVehicleStore = create<VehicleStore>((set) => ({
         excludedProducts: state.excludedProducts.map(n => n === oldName ? newName : n),
     })),
 
+    // UX 持久化
+    smartFillRequirements: '',
+    multiVehicleFields: '',
+    setSmartFillRequirements: (text) => set({ smartFillRequirements: text }),
+    setMultiVehicleFields: (text) => set({ multiVehicleFields: text }),
+
     reset: () => set({ 
         baseFile: null, 
         targetFile: null, 
@@ -160,6 +200,13 @@ export const useVehicleStore = create<VehicleStore>((set) => ({
         // V3.1
         confirmedProducts: [],
         excludedProducts: []
+    }),
+}), {
+    name: 'vehicle-parameter-storage',
+    storage: createJSONStorage(() => localStorage),
+    partialize: (state) => ({ 
+        smartFillRequirements: state.smartFillRequirements, 
+        multiVehicleFields: state.multiVehicleFields 
     }),
 }));
 
