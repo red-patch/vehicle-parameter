@@ -1,6 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Table, Tag, Select, Progress, Button, message, Input, Space, Switch, Tooltip } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { getProductData } from '../../store/vehicleSelectors';
+import { useShallow } from 'zustand/react/shallow';
+import Fuse from 'fuse.js';
 import type { MatchItem } from '../../types';
 import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, FilterOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
@@ -12,7 +15,11 @@ interface MatchResultTableProps {
 }
 
 const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
-    const { matchResults, updateManualValue } = useVehicleStore();
+    const { matchResults, updateManualValue, uploadedFiles } = useVehicleStore(useShallow(state => ({
+        matchResults: state.matchResults,
+        updateManualValue: state.updateManualValue,
+        uploadedFiles: state.uploadedFiles
+    })));
     
     // V3.0: 过滤状态
     const [searchText, setSearchText] = useState('');
@@ -43,7 +50,40 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
         });
     }, []);
 
+    // 计算当前车型的字典(用于 Quick Fix)
+    const library = useMemo(() => {
+        return productName ? getProductData(uploadedFiles, productName) : [];
+    }, [uploadedFiles, productName]);
 
+    // 计算快捷修正推荐
+    const quickFixes = useMemo(() => {
+        if (library.length === 0 || matchResults.length === 0) return {};
+        const fixes: Record<string, { title: string; value: string }[]> = {};
+        
+        const fuse = new Fuse(library, {
+            keys: ['name'],
+            includeScore: true,
+            threshold: 0.6,
+            ignoreLocation: true,
+        });
+
+        matchResults.forEach(m => {
+            if (m.confidence < 1.0) {
+                const results = fuse.search(m.requirementName, { limit: 4 });
+                const filtered = results
+                    .filter(r => r.item.name !== m.matchedParam?.name)
+                    .slice(0, 3)
+                    .map(r => ({
+                        title: r.item.name,
+                        value: String(r.item.value || '')
+                    }));
+                if (filtered.length > 0) {
+                    fixes[m.id] = filtered;
+                }
+            }
+        });
+        return fixes;
+    }, [library, matchResults]);
 
     // V3.0: 过滤后的数据
     const filteredResults = useMemo(() => {
@@ -243,10 +283,12 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
                 // 获取枚举值
                 const enumValues = enumLoaded ? getEnumValuesSync(record.requirementName) : [];
                 const hasEnums = enumValues.length > 0;
+                const fixes = quickFixes[record.id];
                 
                 return (
-                    <div className="flex items-center gap-2">
-                        {isManualMode ? (
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                            {isManualMode ? (
                             // 手动输入模式
                             <Input
                                 value={currentValue}
@@ -297,6 +339,25 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
                                     onChange={() => toggleManualMode(record.id)}
                                 />
                             </Tooltip>
+                        )}
+                        </div>
+                        
+                        {/* 快捷推荐修正 (Quick Fix) */}
+                        {fixes && fixes.length > 0 && !isManualMode && (
+                            <div className="flex items-center flex-wrap gap-1 mt-1">
+                                <span className="text-xs text-gray-400 mr-1">推荐:</span>
+                                {fixes.map((f, i) => (
+                                    <Tooltip key={i} title={`提取自字段: ${f.title}`}>
+                                        <Tag 
+                                            className="cursor-pointer hover:border-blue-400 text-xs m-0"
+                                            color="default"
+                                            onClick={() => updateManualValue(record.id, f.value)}
+                                        >
+                                            {f.value ? (f.value.length > 15 ? f.value.substring(0, 15) + '...' : f.value) : '(空)'}
+                                        </Tag>
+                                    </Tooltip>
+                                ))}
+                            </div>
                         )}
                     </div>
                 );

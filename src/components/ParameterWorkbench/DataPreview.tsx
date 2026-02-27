@@ -2,15 +2,19 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Empty, Tag, Button } from 'antd';
 import { BarChartOutlined, WarningOutlined, ArrowRightOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
+import { getProductData } from '../../store/vehicleSelectors';
 import { isFieldRequired } from '../../assets/requiredFields';
-import type { VehicleParameter } from '../../types';
 
 interface DataPreviewProps {
     onGoCompare?: () => void;
 }
 
 const DataPreview: React.FC<DataPreviewProps> = ({ onGoCompare }) => {
-    const { uploadedFiles, selectedProductNames } = useVehicleStore();
+    const { uploadedFiles, selectedProductNames } = useVehicleStore(useShallow(state => ({
+        uploadedFiles: state.uploadedFiles,
+        selectedProductNames: state.selectedProductNames
+    })));
     const [previewProduct, setPreviewProduct] = useState<string | null>(null);
 
     useEffect(() => {
@@ -25,13 +29,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({ onGoCompare }) => {
 
     const productData = useMemo(() => {
         if (!previewProduct) return null;
-        const allParams: VehicleParameter[] = [];
-        for (const file of uploadedFiles) {
-            for (const p of file.data) {
-                const pName = p.productName || file.fileName;
-                if (pName === previewProduct) allParams.push(p);
-            }
-        }
+        const allParams = getProductData(uploadedFiles, previewProduct);
         return allParams.length > 0 ? allParams : null;
     }, [uploadedFiles, previewProduct]);
 

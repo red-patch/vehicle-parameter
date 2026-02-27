@@ -3,6 +3,7 @@ import { Checkbox, Empty, Tag, Tooltip, Dropdown, Input } from 'antd';
 import { CarOutlined, WarningOutlined, CheckCircleOutlined, CloseCircleOutlined, MoreOutlined, EditOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
 import { calculateAllProductConfidences, type ProductConfidence } from '../../utils/productConfidence';
 
 const ProductSelector: React.FC = () => {
@@ -16,7 +17,17 @@ const ProductSelector: React.FC = () => {
         excludeProduct,
         resetProductStatus,
         renameProduct
-    } = useVehicleStore();
+    } = useVehicleStore(useShallow(state => ({
+        uploadedFiles: state.uploadedFiles,
+        selectedProductNames: state.selectedProductNames,
+        setSelectedProductNames: state.setSelectedProductNames,
+        confirmedProducts: state.confirmedProducts,
+        excludedProducts: state.excludedProducts,
+        confirmProduct: state.confirmProduct,
+        excludeProduct: state.excludeProduct,
+        resetProductStatus: state.resetProductStatus,
+        renameProduct: state.renameProduct
+    })));
 
     const [editingName, setEditingName] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');

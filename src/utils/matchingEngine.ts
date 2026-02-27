@@ -96,6 +96,40 @@ export interface MatchResult {
     matchType: 'exact' | 'normalized' | 'alias' | 'fuzzy' | 'none';
 }
 
+// Fuse 实例缓存：同一 candidates 引用只构建一次索引
+const fuseCache = new WeakMap<VehicleParameter[], Fuse<VehicleParameter>>();
+
+// 规范化名称索引缓存：避免重复 normalizeName 调用
+const normalizedMapCache = new WeakMap<VehicleParameter[], Map<string, VehicleParameter>>();
+
+const getOrCreateFuse = (candidates: VehicleParameter[], threshold: number): Fuse<VehicleParameter> => {
+    let fuse = fuseCache.get(candidates);
+    if (!fuse) {
+        fuse = new Fuse(candidates, {
+            keys: ['name'],
+            includeScore: true,
+            threshold,
+            ignoreLocation: true,
+            useExtendedSearch: true
+        });
+        fuseCache.set(candidates, fuse);
+    }
+    return fuse;
+};
+
+const getOrCreateNormalizedMap = (candidates: VehicleParameter[]): Map<string, VehicleParameter> => {
+    let map = normalizedMapCache.get(candidates);
+    if (!map) {
+        map = new Map();
+        for (const p of candidates) {
+            const key = normalizeName(p.name);
+            if (!map.has(key)) map.set(key, p);
+        }
+        normalizedMapCache.set(candidates, map);
+    }
+    return map;
+};
+
 /**
  * 统一匹配函数
  * @param queryName 目标字段名（如用户输入的"车长"）
@@ -108,14 +142,15 @@ export const findBestMatch = (
     threshold = 0.4
 ): MatchResult => {
     const normalizedQuery = normalizeName(queryName);
+    const normalizedMap = getOrCreateNormalizedMap(candidates);
     
     // 1. 精确匹配 & 规范化匹配
-    // 优先：名字完全一致
-    let exactMatch = candidates.find(p => p.name === queryName);
+    // 优先：名字完全一致（先用 normalizedMap 中的精确查找）
+    const exactMatch = candidates.find(p => p.name === queryName);
     if (exactMatch) return { matchedParam: exactMatch, score: 0, matchType: 'exact' };
 
-    // 次优：规范化后一致
-    let normalizedMatch = candidates.find(p => normalizeName(p.name) === normalizedQuery);
+    // 次优：规范化后一致（O(1) Map 查找代替 O(N) 遍历）
+    const normalizedMatch = normalizedMap.get(normalizedQuery);
     if (normalizedMatch) return { matchedParam: normalizedMatch, score: 0.1, matchType: 'normalized' };
 
     // 2. 同义词匹配
@@ -127,34 +162,22 @@ export const findBestMatch = (
                                aliases.some(a => normalizeName(a) === normalizedQuery);
         
         if (isQueryInGroup) {
-            // 在 candidates 中找同组的任意词
-            // 优先找标准词
-            const standardCand = candidates.find(p => normalizeName(p.name) === normalizedStandard);
+            // 优先找标准词（O(1) Map 查找）
+            const standardCand = normalizedMap.get(normalizedStandard);
             if (standardCand) return { matchedParam: standardCand, score: 0.1, matchType: 'alias' };
             
-            // 找别名
+            // 找别名（O(1) Map 查找）
             for (const alias of aliases) {
-                const normalizedAlias = normalizeName(alias);
-                const aliasCand = candidates.find(p => normalizeName(p.name) === normalizedAlias);
+                const aliasCand = normalizedMap.get(normalizeName(alias));
                 if (aliasCand) return { matchedParam: aliasCand, score: 0.2, matchType: 'alias' };
             }
         }
     }
 
-    // 3. 模糊匹配 (Fuse.js)
-    // 准备模糊匹配的数据源，只包含没有被上面的逻辑匹配到的剩余项？ 
-    // 为了性能，且Fuse.js本身很快，直接对全量candidates搜索
-    const fuse = new Fuse(candidates, {
-        keys: ['name'],
-        includeScore: true,
-        threshold: threshold,
-        ignoreLocation: true,
-        useExtendedSearch: true
-    });
-
+    // 3. 模糊匹配 (缓存的 Fuse 实例)
+    const fuse = getOrCreateFuse(candidates, threshold);
     const fuseResults = fuse.search(queryName);
     if (fuseResults.length > 0) {
-        // Fuse score: 0 is perfect, 1 is mismatch
         const best = fuseResults[0];
         if (best.score !== undefined && best.score <= threshold) {
             return { 

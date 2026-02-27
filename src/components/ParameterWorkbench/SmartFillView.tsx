@@ -1,119 +1,83 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Select, Button, Input, message, Space, Alert, Upload } from 'antd';
-import { RocketOutlined, ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
+import { ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
+import { getProductData, getProductOptions } from '../../store/vehicleSelectors';
 import { findMatches } from '../../utils/matcher';
 import MatchResultTable from '../SmartFiller/MatchResultTable';
-import type { VehicleParameter } from '../../types';
 
 
 const { TextArea } = Input;
 
 
 const SmartFillView: React.FC = () => {
-    const { uploadedFiles, setMatchResults, matchResults, selectedProductNames } = useVehicleStore();
+    const { 
+        uploadedFiles, 
+        setMatchResults, 
+        matchResults, 
+        selectedProductNames,
+        smartFillRequirements: requirementsText,
+        setSmartFillRequirements: setRequirementsText
+    } = useVehicleStore(useShallow(state => ({
+        uploadedFiles: state.uploadedFiles,
+        setMatchResults: state.setMatchResults,
+        matchResults: state.matchResults,
+        selectedProductNames: state.selectedProductNames,
+        smartFillRequirements: state.smartFillRequirements,
+        setSmartFillRequirements: state.setSmartFillRequirements
+    })));
     const [referenceProduct, setReferenceProduct] = useState<string | null>(null);
-    const [requirementsText, setRequirementsText] = useState('');
-    const [loading, setLoading] = useState(false);
 
     // 从全局选中的车型生成选项
     const productOptions = useMemo(() => {
-        const options: { label: string; value: string }[] = [];
-        const globalSelected = new Set(selectedProductNames);
-        
-        uploadedFiles.forEach(file => {
-            const fileProducts = new Set<string>();
-            file.data.forEach(p => fileProducts.add(p.productName || file.fileName));
-            fileProducts.forEach(name => {
-                if (globalSelected.has(name)) {
-                    options.push({ label: name, value: name });
-                }
-            });
-        });
-        return options;
+        return getProductOptions(uploadedFiles, selectedProductNames);
     }, [uploadedFiles, selectedProductNames]);
 
     // 当全局选择变化时，重置参考车型
     useEffect(() => {
         if (referenceProduct && !selectedProductNames.includes(referenceProduct)) {
             setReferenceProduct(null);
+        } else if (!referenceProduct && productOptions.length > 0) {
+            // 设置默认的参考车型
+            setReferenceProduct(productOptions[0].value);
         }
-    }, [selectedProductNames, referenceProduct]);
+    }, [selectedProductNames, referenceProduct, productOptions]);
 
-    // 切换参考车型时自动重新匹配
+    // 3. UX 提升: 输入即触发 (Debounce)
     useEffect(() => {
-        if (!referenceProduct || !requirementsText.trim() || matchResults.length === 0) return;
+        if (!referenceProduct || !requirementsText.trim()) {
+            if (matchResults.length > 0) setMatchResults([]);
+            return;
+        }
 
-        const library = getProductParams(referenceProduct);
-        if (library.length === 0) return;
-
-        const requirements = requirementsText
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
-
-        const results = findMatches(requirements, library);
-        setMatchResults(results);
-    }, [referenceProduct]);
-
-    // Helper to get params for a product
-    const getProductParams = (productName: string): VehicleParameter[] => {
-        for (const file of uploadedFiles) {
-            const params: VehicleParameter[] = [];
-            let found = false;
-            file.data.forEach(p => {
-                const pName = p.productName || file.fileName;
-                if (pName === productName) {
-                    params.push(p);
-                    found = true;
+        const timer = setTimeout(() => {
+            try {
+                const library = getProductData(uploadedFiles, referenceProduct);
+                if (library.length === 0) {
+                    setMatchResults([]);
+                    return;
                 }
-            });
-            if (found) return params;
-        }
-        return [];
-    };
 
-    const handleMatch = () => {
-        if (!referenceProduct) {
-            message.warning('请选择参考车型');
-            return;
-        }
-        if (!requirementsText.trim()) {
-            message.warning('请输入需求参数列表');
-            return;
-        }
+                const requirements = requirementsText
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
 
-        setLoading(true);
-        try {
-            // 1. Get Params
-            const library = getProductParams(referenceProduct);
-            if (library.length === 0) {
-                message.error('未找到参考车型的参数数据');
-                return;
+                const results = findMatches(requirements, library);
+                setMatchResults(results);
+            } finally {
+                // setLoading is removed
             }
+        }, 500);
 
-            // 2. Parse Requirements
-            const requirements = requirementsText
-                .split('\n')
-                .map(line => line.trim())
-                .filter(line => line.length > 0);
-
-            // 3. Run Matching
-            const results = findMatches(requirements, library);
-            setMatchResults(results);
-            message.success(`匹配完成，共 ${results.length} 项`);
-        } catch (error) {
-            console.error(error);
-            message.error('匹配失败');
-        } finally {
-            setLoading(false);
-        }
-    };
+        return () => clearTimeout(timer);
+    }, [referenceProduct, requirementsText, uploadedFiles]);
 
     const handleClear = () => {
-        setMatchResults([]);
         setRequirementsText('');
+        setMatchResults([]);
     };
 
     return (
@@ -185,11 +149,8 @@ const SmartFillView: React.FC = () => {
                             />
                         </div>
                         <div className="flex flex-col gap-2 mt-8">
-                            <Button type="primary" icon={<RocketOutlined />} onClick={handleMatch} loading={loading}>
-                                开始匹配
-                            </Button>
                             <Button icon={<ClearOutlined />} onClick={handleClear}>
-                                清空
+                                清空内容
                             </Button>
                         </div>
                     </div>
