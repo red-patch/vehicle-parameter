@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Input, Button, Table, message, Empty, Space, Upload } from 'antd';
+import { Card, Input, Button, Table, message, Empty, Space, Upload, Spin } from 'antd';
 import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -36,6 +36,7 @@ const MultiVehicleView: React.FC = () => {
         setLocalSelection: state.setCompareProducts
     })));
     const [organizedData, setOrganizedData] = useState<OrganizedRow[]>([]);
+    const [isCalculating, setIsCalculating] = useState(false);
 
     // Prepare Vehicle Data Cache
     const selectedVehicles = useMemo(() => {
@@ -67,9 +68,11 @@ const MultiVehicleView: React.FC = () => {
         
         if (fields.length === 0) {
             if (organizedData.length > 0) setOrganizedData([]);
+            setIsCalculating(false);
             return;
         }
 
+        setIsCalculating(true);
         const timer = setTimeout(() => {
             try {
                 const results: OrganizedRow[] = fields.map((targetField, idx) => {
@@ -99,9 +102,9 @@ const MultiVehicleView: React.FC = () => {
 
                 setOrganizedData(results);
             } catch (err) {
-                console.error(err);
+                console.error('Organization error:', err);
             } finally {
-                // setLoading removed
+                setIsCalculating(false);
             }
         }, 500);
 
@@ -208,25 +211,41 @@ const MultiVehicleView: React.FC = () => {
                 </Space>
             </Card>
 
-            <div className="flex-1 overflow-auto bg-white rounded shadow p-4">
-                {organizedData.length > 0 ? (
-                     <div className="h-full flex flex-col">
-                        <div className="mb-4 flex justify-between items-center">
-                            <h3 className="font-bold">整理结果</h3>
-                            <Button icon={<DownloadOutlined />} onClick={handleDownload}>导出 CSV</Button>
-                        </div>
-                        <Table
-                            dataSource={organizedData}
-                            columns={columns}
-                            scroll={{ x: 'max-content', y: 500 }}
-                            pagination={false}
-                            bordered
-                            size="small"
-                        />
-                     </div>
-                ) : (
-                    <Empty description="暂无整理结果" className="mt-20" />
-                )}
+            <div className="flex-1 overflow-hidden border border-gray-200 rounded relative bg-white dark:bg-gray-900" style={{ minHeight: 400 }}>
+                <Spin spinning={isCalculating} tip="正在智能解析字段...">
+                    <div className="h-full flex flex-col p-4">
+                        {organizedData.length > 0 || isCalculating ? (
+                            <>
+                                <div className="mb-4 flex justify-between items-center">
+                                    <h3 className="font-bold">整理结果</h3>
+                                    <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={isCalculating}>导出 CSV</Button>
+                                </div>
+                                <Table 
+                                    columns={columns}
+                                    dataSource={organizedData}
+                                    rowKey="key"
+                                    className="custom-organized-table"
+                                    pagination={{
+                                        pageSize: 20,
+                                        showSizeChanger: true,
+                                        size: 'small'
+                                    }}
+                                    scroll={{ 
+                                        y: 'calc(100vh - 460px)',
+                                        x: 'max-content'
+                                    }}
+                                    size="small"
+                                    bordered
+                                    locale={{
+                                        emptyText: isCalculating ? <div style={{ height: 100 }} /> : <Empty description="暂无整理结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                                    }}
+                                />
+                            </>
+                        ) : (
+                            <Empty description="暂无整理结果" className="mt-20" />
+                        )}
+                    </div>
+                </Spin>
             </div>
         </div>
     );

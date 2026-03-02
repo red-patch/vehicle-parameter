@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Spin, Tag, Button, Tooltip, Collapse } from 'antd';
-import { LoadingOutlined, PlusOutlined, MinusOutlined, CloseOutlined, UndoOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Spin, Button, Tooltip, Collapse } from 'antd';
+import { LoadingOutlined, PlusOutlined, MinusOutlined, DatabaseOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getAssetFilesWithInfo } from '../../utils/assetManager';
@@ -25,16 +25,14 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
         setSelectedProductNames,
         assetLibraryPath,
         activeAssets,
-        ignoredProductNames,
-        toggleIgnoreProduct
+        ignoredProductNames
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         selectedProductNames: state.selectedProductNames,
         setSelectedProductNames: state.setSelectedProductNames,
         assetLibraryPath: state.assetLibraryPath,
         activeAssets: state.activeAssets,
-        ignoredProductNames: state.ignoredProductNames,
-        toggleIgnoreProduct: state.toggleIgnoreProduct
+        ignoredProductNames: state.ignoredProductNames
     })));
 
     const [loading, setLoading] = useState(false);
@@ -106,8 +104,20 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
         }
     }, [vehicles, focusedProduct, onFocusProduct]);
 
-    const activeVehicles = vehicles.filter(v => !ignoredProductNames.includes(v.name));
-    const ignoredVehicles = vehicles.filter(v => ignoredProductNames.includes(v.name));
+    // 主列表仅显示【正在分析的工作集】内的车型
+    const activeVehicles = vehicles.filter(v => selectedProductNames.includes(v.name) && !ignoredProductNames.includes(v.name));
+    // 待分析列表显示【已加载但未勾选】或【已忽略】的车型
+    const inactiveVehicles = vehicles.filter(v => !selectedProductNames.includes(v.name) || ignoredProductNames.includes(v.name));
+
+    // 焦点自动流转逻辑：如果当前聚焦的车型被移出了，自动跳到下一个
+    useEffect(() => {
+        if (focusedProduct && activeVehicles.length > 0) {
+            const stillActive = activeVehicles.some(v => v.name === focusedProduct);
+            if (!stillActive) {
+                onFocusProduct(activeVehicles[0].name);
+            }
+        }
+    }, [activeVehicles, focusedProduct, onFocusProduct]);
 
     const handleToggle = (name: string, checked: boolean) => {
         if (checked) {
@@ -119,20 +129,23 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
 
     return (
         <div className="flex flex-col h-full bg-white">
-            <div className="flex-none p-4 border-b border-slate-200">
-                <h3 className="text-[14px] font-bold text-slate-800 m-0 truncate" title="待分析的车型列表">
-                    待分析的车型列表
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-1 mb-0">已集结 {activeVehicles.length} 款有效车型大纲</p>
+            <div className="flex-none p-5 border-b border-slate-200/60 bg-white/50 backdrop-blur-sm">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
+                    <h3 className="text-[15px] font-bold text-slate-800 m-0 tracking-tight">
+                        待分析车型大纲
+                    </h3>
+                </div>
+                <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">Gathered {activeVehicles.length} effective datasets</p>
             </div>
 
-            <div className="flex-1 p-2 overflow-y-auto custom-scrollbar flex flex-col">
+            <div className="flex-1 p-3 overflow-y-auto custom-scrollbar flex flex-col bg-slate-50/20">
                 {loading ? (
                     <div className="py-12 flex justify-center">
                         <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
                     </div>
                 ) : activeVehicles.length > 0 ? (
-                    <div className="space-y-1.5 flex-1">
+                    <div className="space-y-2 flex-1">
                         {activeVehicles.map(v => {
                             const isFocused = focusedProduct === v.name;
                             const isSelected = selectedProductNames.includes(v.name);
@@ -142,63 +155,56 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                 <div 
                                     key={v.name}
                                     onClick={() => onFocusProduct(v.name)}
-                                    className={`group flex items-center justify-between py-2.5 px-3 rounded-lg border cursor-pointer transition-all ${
+                                    className={`group flex items-center justify-between py-3.5 px-4 rounded-xl border cursor-pointer transition-all duration-300 ${
                                         !isSelected
-                                            ? 'bg-slate-50/30 border-dashed border-slate-200 opacity-60 hover:opacity-100 hover:border-blue-200'
+                                            ? 'bg-white border-slate-100 opacity-50 grayscale hover:grayscale-0 hover:opacity-100 hover:border-blue-200'
                                             : isFocused 
-                                                ? 'bg-blue-50/60 border-blue-200 shadow-sm ring-1 ring-blue-500/20' 
-                                                : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm'
+                                                ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/20 -translate-y-0.5' 
+                                                : 'bg-white border-slate-200/80 hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5'
                                     }`}
                                 >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="flex flex-col min-w-0 pl-1">
-                                            <span className={`text-[13px] truncate ${isFocused ? 'font-semibold text-blue-900' : 'text-slate-700'}`}>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="flex flex-col min-w-0">
+                                            <span className={`text-[14px] truncate tracking-tight transition-colors ${isFocused ? 'font-bold text-white' : 'font-semibold text-slate-800'}`}>
                                                 {v.name}
                                             </span>
-                                            <span className="text-[10px] mt-1 flex gap-1">
+                                            <div className="flex items-center gap-2 mt-1.5">
                                                 {v.source === 'asset' ? (
-                                                    <Tag color="green" className="m-0 border-0 text-white bg-emerald-500 rounded-sm leading-[14px] text-[9px] px-1 font-medium">资产</Tag>
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase transition-colors ${isFocused ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-600'}`}>Asset</span>
                                                 ) : (
-                                                    <Tag color="blue" className="m-0 border-0 text-white bg-blue-500 rounded-sm leading-[14px] text-[9px] px-1 font-medium">本地</Tag>
+                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase transition-colors ${isFocused ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'}`}>Local</span>
                                                 )}
-                                                <span className="text-slate-300 text-[9px] leading-[14px]">来自: {v.originalFile}</span>
-                                            </span>
+                                                <span className={`text-[10px] truncate opacity-60 transition-colors ${isFocused ? 'text-white/80' : 'text-slate-400 font-medium'}`}>@{v.originalFile}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     
-                                    <div className="flex items-center gap-1.5 ml-3 flex-shrink-0">
-                                        <div className={`flex items-center gap-1.5 text-[11px] font-mono mr-1 ${!isSelected && 'grayscale'}`}>
-                                            <span className={fillRate === 100 ? 'text-emerald-600 font-semibold' : 'text-slate-500'}>
-                                                {fillRate}%
-                                            </span>
-                                            <span className="text-slate-300">|</span>
-                                            <span className="text-slate-400">{v.totalParams}</span>
+                                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                                        <div className={`flex flex-col items-end gap-0.5 transition-colors ${isFocused ? 'text-white' : ''}`}>
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={`text-[13px] font-bold font-mono ${isFocused ? 'text-white' : fillRate === 100 ? 'text-emerald-500' : 'text-slate-700'}`}>
+                                                    {fillRate}%
+                                                </span>
+                                            </div>
+                                            <span className={`text-[10px] font-medium font-mono opacity-50 ${isFocused ? 'text-white' : 'text-slate-400'}`}>{v.totalParams} Items</span>
                                         </div>
                                         
-                                        <Tooltip title={isSelected ? "移出工作集" : "恢复至工作集"}>
-                                            <Button 
-                                                type="text" 
-                                                size="small"
-                                                icon={isSelected 
-                                                    ? <MinusOutlined className="text-slate-300 hover:text-orange-400 transition-colors" /> 
-                                                    : <PlusOutlined className="text-blue-400" />
-                                                }
-                                                onClick={(e) => { e.stopPropagation(); handleToggle(v.name, !isSelected); }}
-                                                className={`w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md ${
-                                                    isSelected ? 'opacity-0 group-hover:opacity-100' : 'bg-blue-50 border border-blue-100'
-                                                }`}
-                                            />
-                                        </Tooltip>
-                                        
-                                        <Tooltip title="彻底销毁此噪音数据">
-                                            <Button 
-                                                type="text" 
-                                                size="small"
-                                                icon={<CloseOutlined className="text-slate-300 hover:text-red-500" />}
-                                                onClick={(e) => { e.stopPropagation(); toggleIgnoreProduct(v.name, true); }}
-                                                className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100"
-                                            />
-                                        </Tooltip>
+                                        <div className="flex items-center gap-1 border-l border-white/20 pl-2 ml-2 transition-opacity duration-200 opacity-0 group-hover:opacity-100">
+                                            <Tooltip title={isSelected ? "移出工作集" : "恢复至工作集"}>
+                                                <Button 
+                                                    type="text" 
+                                                    size="small"
+                                                    icon={isSelected 
+                                                        ? <MinusOutlined className={isFocused ? "text-white" : "text-slate-400"} /> 
+                                                        : <PlusOutlined className="text-blue-500" />
+                                                    }
+                                                    onClick={(e) => { e.stopPropagation(); handleToggle(v.name, !isSelected); }}
+                                                    className={`w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg transition-colors ${
+                                                        isFocused ? 'hover:bg-white/20' : isSelected ? 'hover:bg-slate-100' : 'bg-blue-50 border border-blue-100'
+                                                    }`}
+                                                />
+                                            </Tooltip>
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -210,36 +216,41 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                     </div>
                 )}
                 
-                {/* 底部回收站折叠区 */}
-                {ignoredVehicles.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-slate-100">
+                {/* 底部折叠区：备选车型与已过滤数据 */}
+                {inactiveVehicles.length > 0 && (
+                    <div className="mt-auto pt-4 border-t border-slate-100">
                         <Collapse 
                             ghost 
                             expandIconPosition="end"
+                            size="small"
                             items={[
                                 {
                                     key: '1',
                                     label: (
                                         <div className="flex items-center gap-2 text-slate-400 font-medium text-[12px]">
-                                            <DeleteOutlined /> 已过滤的噪音数据 ({ignoredVehicles.length})
+                                            <DatabaseOutlined /> 备选/已过滤车型 ({inactiveVehicles.length})
                                         </div>
                                     ),
                                     children: (
-                                        <div className="space-y-1.5 opacity-60">
-                                            {ignoredVehicles.map(v => (
-                                                <div key={v.name} className="flex items-center justify-between py-1.5 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/30">
+                                        <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                                            {inactiveVehicles.map(v => (
+                                                <div 
+                                                    key={v.name} 
+                                                    onClick={() => handleToggle(v.name, true)}
+                                                    className="flex items-center justify-between py-2 px-3 rounded-lg border border-dashed border-slate-200 bg-white/50 hover:bg-white hover:border-blue-200 cursor-pointer group/item transition-all"
+                                                >
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="text-[12px] truncate text-slate-500 line-through">
+                                                        <span className={`text-[12px] truncate ${ignoredProductNames.includes(v.name) ? 'text-slate-300 line-through' : 'text-slate-500 font-medium'}`}>
                                                             {v.name}
                                                         </span>
+                                                        <span className="text-[9px] text-slate-400">@{v.originalFile}</span>
                                                     </div>
-                                                    <Tooltip title="从回收站还原至主视图">
+                                                    <Tooltip title="恢复至工作进行分析">
                                                         <Button 
                                                             type="text" 
                                                             size="small"
-                                                            icon={<UndoOutlined className="text-blue-400" />}
-                                                            onClick={(e) => { e.stopPropagation(); toggleIgnoreProduct(v.name, false); }}
-                                                            className="w-6 h-6 p-0 flex items-center justify-center rounded-md bg-white border border-slate-200 hover:border-blue-300"
+                                                            icon={<PlusOutlined className="text-blue-400 group-hover/item:text-blue-600" />}
+                                                            className="w-6 h-6 p-0 flex items-center justify-center rounded-md bg-white border border-slate-100 shadow-sm"
                                                         />
                                                     </Tooltip>
                                                 </div>

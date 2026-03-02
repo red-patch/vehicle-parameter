@@ -64,6 +64,7 @@ interface VehicleStore {
     activeAssets: string[];
     addActiveAsset: (fileName: string, productName: string) => void;
     removeActiveAsset: (fileName: string, productName: string) => void;
+    renameActiveAsset: (oldFileName: string, newFileName: string, newProductName: string) => void;
 
     currentPurifyProduct: string | null;
     currentCompareProducts: string[];
@@ -336,6 +337,31 @@ export const useVehicleStore = create<VehicleStore>()(
         // 同步移出核心选集，保持状态闭环
         selectedProductNames: state.selectedProductNames.filter(n => n !== productName)
     })),
+    renameActiveAsset: (oldFileName, newFileName, newProductName) => set((state) => {
+        // 1. 找出旧文件名对应的旧车型名 (假设一对一，资产库逻辑通常如此)
+        // 注意：这里由于是资产库重命名，物理文件内容没变，但文件名变了，productName 没变（除非用户也改了内嵌型号）
+        // 这里的 newProductName 是最新的物理文件中解析出的 productName
+        
+        return {
+            activeAssets: state.activeAssets.map(n => n === oldFileName ? newFileName : n),
+            // 同步更新各处模块的选择状态
+            selectedProductNames: state.selectedProductNames.map(n => {
+                // 如果旧车型名在列表中，替换为新车型名
+                return n === (oldFileName.replace(/\.json$/i, '')) ? newProductName : n;
+            }),
+            currentPurifyProduct: state.currentPurifyProduct === (oldFileName.replace(/\.json$/i, '')) 
+                ? newProductName 
+                : state.currentPurifyProduct,
+            currentCompareProducts: state.currentCompareProducts.map(n => 
+                n === (oldFileName.replace(/\.json$/i, '')) ? newProductName : n
+            ),
+            currentSmartFillProduct: state.currentSmartFillProduct === (oldFileName.replace(/\.json$/i, '')) 
+                ? newProductName 
+                : state.currentSmartFillProduct,
+            // 记录下新的 productName 以备后续映射（目前主要通过文件名映射，但保留此逻辑以处理内部分片更名场景）
+            // newProductName: newProductName 
+        };
+    }),
 
     currentPurifyProduct: null,
     currentCompareProducts: [],

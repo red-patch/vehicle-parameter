@@ -29,25 +29,25 @@ const ParameterWorkbench: React.FC = () => {
             key: 'pool',
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 数据池</span>,
             children: (
-                <div className="flex xl:h-[calc(100vh-180px)] h-[calc(100vh-140px)] gap-[1px] bg-slate-200 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                    {/* Column 1: Data Sources */}
-                    <div className="w-[40%] min-w-[280px] flex-shrink-0 bg-white">
+                <div className="flex xl:h-[calc(100vh-190px)] h-[calc(100vh-160px)] gap-0.5 bg-slate-200/50 border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm backdrop-blur-sm">
+                    {/* Column 1: Data Sources (Sidebar style) */}
+                    <div className="w-[24%] min-w-[240px] flex-shrink-0 bg-slate-50/40">
                         <DataSourcePanel 
                             focusedFile={focusedFile}
                             onFocusFile={handleFocusFile}
                         />
                     </div>
                     
-                    {/* Column 2: Vehicle List (Compact) */}
-                    <div className="w-[40%] min-w-[300px] flex-shrink-0 bg-white border-l border-slate-200">
+                    {/* Column 2: Vehicle List (The Bridge) */}
+                    <div className="w-[34%] min-w-[280px] flex-shrink-0 bg-white border-l border-slate-200/60">
                         <VehicleListPanel 
                             focusedProduct={focusedProduct}
                             onFocusProduct={setFocusedProduct}
                         />
                     </div>
                     
-                    {/* Column 3: Deep Dive Preview */}
-                    <div className="w-[20%] min-w-[250px] flex-grow bg-white border-l border-slate-200 relative">
+                    {/* Column 3: Dashboard Preview (The Canvas) */}
+                    <div className="w-[42%] min-w-[380px] flex-grow bg-white border-l border-slate-200/60 relative">
                         <DataPreview 
                             focusedProduct={focusedProduct}
                             onGoCompare={() => setActiveTab('compare')}
@@ -57,7 +57,7 @@ const ParameterWorkbench: React.FC = () => {
                         {!focusedProduct && (
                             <div className="absolute inset-0 z-10 bg-slate-50/80 flex items-center justify-center backdrop-blur-sm pointer-events-none">
                                 <div className="text-center">
-                                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
+                                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100/60">
                                         <DatabaseOutlined className="text-2xl text-blue-500" />
                                     </div>
                                     <h3 className="text-[16px] font-bold text-slate-800 mb-1">车型数据极速概览</h3>
@@ -110,11 +110,11 @@ const ParameterWorkbench: React.FC = () => {
     ];
 
     return (
-        <div className="h-full bg-slate-50 p-6">
+        <div className="h-full bg-slate-50/50 p-6">
             <AssetDataSynchronizer />
-            <div className="mb-4">
-                <h1 className="text-2xl font-bold text-slate-900 m-0 tracking-tight">参数工作台</h1>
-                <p className="text-slate-500 text-sm mt-1 mb-0 font-medium">管理参数文件、版本对比、智能填报</p>
+            <div className="mb-6">
+                <h1 className="text-3xl font-extrabold text-slate-900 m-0 tracking-tight">参数工作台</h1>
+                <p className="text-slate-400 text-[13px] mt-1.5 mb-0 font-medium tracking-wide uppercase">Workspace / Parameter Data Management</p>
             </div>
             
             <Tabs 

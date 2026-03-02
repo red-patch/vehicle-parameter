@@ -1,11 +1,12 @@
 import React, { type ReactNode } from 'react';
 import { Layout as AntLayout, Menu, Switch, Tooltip, Button, message } from 'antd';
-import { FileSearchOutlined, GlobalOutlined, SunOutlined, MoonOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
+import { FileSearchOutlined, GlobalOutlined, SunOutlined, MoonOutlined, FilterOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { open } from '@tauri-apps/plugin-dialog';
 import { reloadCustomFields } from '../../utils/fieldLists';
 import { preloadEnumData } from '../../utils/attributeEnums';
+import { Modal } from 'antd';
 
 const { Header, Content, Footer } = AntLayout;
 
@@ -67,6 +68,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
         }
     };
 
+    const handleClearCache = () => {
+        Modal.confirm({
+            title: '确认清除系统缓存？',
+            icon: <DeleteOutlined style={{ color: '#ff4d4f' }} />,
+            content: (
+                <div className="text-sm">
+                    <p>这将执行以下操作：</p>
+                    <ul className="list-disc pl-4 mt-2 mb-4">
+                        <li>清空所有已上传的临时文件</li>
+                        <li>重置已选车型、对比历史及填报配置</li>
+                        <li>清除主题及界面状态偏好</li>
+                    </ul>
+                    <div className="bg-gray-100 p-2 rounded text-xs dark:bg-gray-800 border dark:border-gray-700">
+                        <div className="font-bold mb-1">物理数据位置 (用于手动彻底删除):</div>
+                        <div className="select-all break-all">
+                            {window.navigator.platform.includes('Mac') 
+                                ? '~/Library/Application Support/com.vehicle.parameter/' 
+                                : '%LOCALAPPDATA%\\com.vehicle.parameter\\'}
+                        </div>
+                    </div>
+                    <p className="mt-4 font-bold text-amber-600">注意：此操作不可恢复，应用将自动重启。</p>
+                </div>
+            ),
+            okText: '立即重置',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk: () => {
+                localStorage.clear();
+                window.location.reload();
+            }
+        });
+    };
+
     return (
         <AntLayout className="min-h-screen">
             <Header className={`flex items-center justify-between px-4 h-12 border-b sticky top-0 z-50 ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
@@ -97,6 +131,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                             icon={<SettingOutlined className={assetLibraryPath ? (isDarkMode ? "text-blue-400" : "text-blue-500") : "text-gray-400"} />} 
                             onClick={handleSetAssetLibrary}
                             className="ml-2"
+                        />
+                    </Tooltip>
+                    <Tooltip title="清除缓存并重置系统">
+                        <Button 
+                            type="text" 
+                            size="small"
+                            icon={<DeleteOutlined className="text-gray-400 hover:text-red-500 transition-colors" />} 
+                            onClick={handleClearCache}
                         />
                     </Tooltip>
                 </div>
