@@ -18,13 +18,27 @@ interface DataSourcePanelProps {
 }
 
 const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusFile }) => {
-    const { assetLibraryPath, uploadedFiles, activeAssets, addActiveAsset, removeActiveAsset } = useVehicleStore(useShallow(state => ({
+    const { 
+        assetLibraryPath, 
+        uploadedFiles, 
+        activeAssets, 
+        addActiveAsset, 
+        removeActiveAsset, 
+        renameActiveAsset,
+        selectedProductNames
+    } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         uploadedFiles: state.uploadedFiles,
         activeAssets: state.activeAssets,
         addActiveAsset: state.addActiveAsset,
-        removeActiveAsset: state.removeActiveAsset
+        removeActiveAsset: state.removeActiveAsset,
+        renameActiveAsset: state.renameActiveAsset,
+        selectedProductNames: state.selectedProductNames
     })));
+
+    // 智能联动逻辑：根据当前选中的车型，判断某个资产是否处于“激活”状态
+    // 此处定义：如果该资产内含的车型（通常为 info.productName）已在 selectedProductNames 中，则视为已激活
+    // 注意：如果是单文件多车型，这里可能需要更复杂的 mapped 逻辑，目前先处理 1:1 场景或首选名称匹配
 
     const [assets, setAssets] = useState<AssetFileInfo[]>([]);
     const [loading, setLoading] = useState(false);
@@ -73,6 +87,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         try {
             const success = await renameAssetFile(assetLibraryPath, oldFileName, newFileName);
             if (success) {
+                // 同步内存状态：若该资产已激活，更新其在 activeAssets 中的索引
+                if (activeAssets.includes(oldFileName)) {
+                    // newFileName 对应的默认 productName 通常也是去掉扩展名后的名字
+                    renameActiveAsset(oldFileName, newFileName, newFileName.replace(/\.json$/i, ''));
+                }
+
                 message.success('资产重命名成功');
                 setEditingAsset(null);
                 fetchAssets();
@@ -85,6 +105,18 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
             }
         } catch (e) {
             message.error('操作异常');
+        }
+    };
+
+    const handleToggleAsset = (info: AssetFileInfo, currentlyActive: boolean) => {
+        if (!currentlyActive) {
+            // 一键激活：添加到 activeAssets 并勾选该车型
+            addActiveAsset(info.fileName, info.productName);
+            message.success(`已激活资产：${info.productName}`);
+        } else {
+            // 一键移出：从工作集和激活列表中移除
+            removeActiveAsset(info.fileName, info.productName);
+            message.info(`已停用资产：${info.productName}`);
         }
     };
 
@@ -115,9 +147,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/50">
+        <div className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
             {/* Middle: Excel WorkSpace */}
-            <div className="flex-none p-3 border-b border-slate-200">
+            <div className="flex-none p-4 border-b border-slate-200/60 bg-white/40">
                 <FileManager 
                     hiddenAssetButton={true} 
                     onSelectFile={onFocusFile} 
@@ -126,41 +158,45 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
             </div>
 
             {/* Bottom Half: Asset Library */}
-            <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
-                <div className="flex justify-between items-center mb-3 px-1">
-                    <span className="text-[13px] font-semibold text-slate-700">资产库 (Assets)</span>
+            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-4 px-1">
+                    <div className="flex items-center gap-2">
+                        <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                        <span className="text-[14px] font-bold text-slate-800 tracking-tight">资产库 (Assets)</span>
+                    </div>
                     {loading && <Spin indicator={<LoadingOutlined style={{ fontSize: 14 }} spin />} />}
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                     {assets.map(info => {
                         const isFocused = focusedFile === info.fileName;
                         const isEditing = editingAsset === info.fileName;
-                        const isActive = activeAssets.includes(info.fileName);
+                        // 智能感知：如果该资产下的车型已在工作集中，则视为激活
+                        const isActive = selectedProductNames.includes(info.productName);
 
                         return (
                             <div 
                                 key={info.fileName}
                                 onClick={() => !isEditing && onFocusFile(info.fileName)}
-                                className={`flex flex-col justify-center py-2 px-2.5 rounded-md border cursor-pointer transition-all group ${
+                                className={`flex flex-col justify-center py-3 px-3.5 rounded-xl border cursor-pointer transition-all duration-200 group relative ${
                                     isEditing
-                                        ? 'border-blue-400 bg-white ring-1 ring-blue-100'
+                                        ? 'border-blue-400 bg-white shadow-md ring-1 ring-blue-100'
                                         : isFocused 
-                                            ? 'bg-emerald-50/60 border-emerald-400 shadow-sm ring-1 ring-emerald-200' 
+                                            ? 'bg-white border-blue-500 shadow-[0_4px_12px_rgba(59,130,246,0.08)] -translate-y-0.5' 
                                             : isActive
-                                                ? 'bg-emerald-50/20 border-emerald-200 hover:border-emerald-300'
-                                                : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                ? 'bg-emerald-50/30 border-emerald-200/60'
+                                                : 'bg-white/60 border-slate-200/60 hover:border-slate-300 hover:bg-white hover:shadow-sm hover:-translate-y-0.5'
                                 }`}
                             >
                                 {isEditing ? (
-                                    <div className="flex items-center gap-1.5 w-full">
+                                    <div className="flex items-center gap-2 w-full">
                                         <Input 
                                             size="small"
                                             value={editName}
                                             onChange={e => setEditName(e.target.value)}
                                             onPressEnter={() => handleConfirmRename(info.fileName)}
                                             autoFocus
-                                            className="flex-1 text-[12px] h-6 px-1.5"
+                                            className="flex-1 text-[13px] h-7 px-2 border-blue-200 focus:border-blue-500"
                                         />
                                         <div className="flex items-center gap-0.5">
                                             <Button 
@@ -182,23 +218,32 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 ) : (
                                     <>
                                         <div className="flex items-center justify-between min-w-0">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <DatabaseOutlined className={isFocused ? 'text-emerald-700 flex-shrink-0' : isActive ? 'text-emerald-500 flex-shrink-0' : 'text-slate-400 flex-shrink-0'} />
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <Tooltip title={isActive ? "点击快速停用该资产" : "点击快速激活该资产"}>
+                                                    <div 
+                                                        onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, isActive); }}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95 ${
+                                                            isFocused ? 'bg-blue-500 text-white shadow-lg shadow-blue-200' : isActive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                                        }`}
+                                                    >
+                                                        <DatabaseOutlined className="text-[14px]" />
+                                                    </div>
+                                                </Tooltip>
                                                 <Tooltip title={info.fileName}>
-                                                    <span className={`text-[13px] truncate ${isFocused ? 'font-semibold text-emerald-800' : isActive ? 'font-medium text-emerald-700' : 'text-slate-700'}`}>
+                                                    <span className={`text-[13px] truncate tracking-tight ${isFocused ? 'font-bold text-slate-900' : isActive ? 'font-semibold text-emerald-800' : 'text-slate-700'}`}>
                                                         {info.fileName}
                                                     </span>
                                                 </Tooltip>
                                             </div>
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-1 group-hover:translate-x-0 ml-2">
                                                 {!isActive ? (
                                                     <Tooltip title="添加至车型列">
                                                         <Button 
                                                             type="text" 
                                                             size="small"
-                                                            icon={<PlusSquareOutlined className="!text-[12px] text-slate-400 hover:text-emerald-600" />}
-                                                            onClick={(e) => { e.stopPropagation(); addActiveAsset(info.fileName, info.productName); message.success('已添加到车型列并自动激活'); onFocusFile(null); }}
-                                                            className="w-5 h-5 p-0 min-w-0 flex items-center justify-center"
+                                                            icon={<PlusSquareOutlined className="!text-[14px] text-slate-400 hover:text-blue-600" />}
+                                                            onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, false); onFocusFile(null); }}
+                                                            className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
                                                         />
                                                     </Tooltip>
                                                 ) : (
@@ -206,9 +251,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         <Button 
                                                             type="text" 
                                                             size="small"
-                                                            icon={<MinusSquareOutlined className="!text-[12px] text-emerald-500 hover:text-red-500" />}
-                                                            onClick={(e) => { e.stopPropagation(); removeActiveAsset(info.fileName, info.productName); message.info('已从车型列移除'); }}
-                                                            className="w-5 h-5 p-0 min-w-0 flex items-center justify-center"
+                                                            icon={<MinusSquareOutlined className="!text-[14px] text-emerald-500 hover:text-red-500" />}
+                                                            onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, true); }}
+                                                            className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
                                                         />
                                                     </Tooltip>
                                                 )}
@@ -216,25 +261,25 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                     <Button 
                                                         type="text" 
                                                         size="small"
-                                                        icon={<EditOutlined className="!text-[12px] text-slate-400 hover:text-blue-500" />}
+                                                        icon={<EditOutlined className="!text-[14px] text-slate-400 hover:text-blue-500" />}
                                                         onClick={(e) => { e.stopPropagation(); handleStartRename(info); }}
-                                                        className="w-5 h-5 p-0 min-w-0 flex items-center justify-center"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="删除资产">
                                                     <Button 
                                                         type="text" 
                                                         size="small"
-                                                        icon={<DeleteOutlined className="!text-[12px] text-slate-400 hover:text-red-500" />}
+                                                        icon={<DeleteOutlined className="!text-[14px] text-slate-400 hover:text-red-500" />}
                                                         onClick={(e) => { e.stopPropagation(); handleDelete(info.fileName); }}
-                                                        className="w-5 h-5 p-0 min-w-0 flex items-center justify-center"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-red-50"
                                                     />
                                                 </Tooltip>
                                             </div>
                                         </div>
                                         {info.updatedAt && (
-                                            <div className="pl-6 mt-1 text-[11px] text-slate-400 font-mono flex items-center gap-2">
-                                                <span>更新: {formatDate(info.updatedAt)}</span>
+                                            <div className="pl-[42px] mt-1.5 text-[10px] text-slate-400 font-medium flex items-center gap-3">
+                                                <span className="flex items-center gap-1 opacity-80"><EditOutlined className="text-[10px]"/> {formatDate(info.updatedAt)}</span>
                                             </div>
                                         )}
                                     </>

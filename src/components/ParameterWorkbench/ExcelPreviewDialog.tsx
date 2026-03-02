@@ -41,7 +41,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
     const getConfig = useCallback((preview: SheetPreview) => {
         const existing = sheetConfigs.get(preview.sheetName);
         if (existing) return existing;
-        // 默认值：第 0 行为表头，第 1 行开始是数据
+        // 默认值：第 0 索引（第 1 行）为表头，第 1 索引（第 2 行）开始是数据
         return { headerStart: 0, headerEnd: 0, dataStart: 1, columns: new Map<number, ColumnConfig>() };
     }, [sheetConfigs]);
 
@@ -101,14 +101,15 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
             }
         });
 
-        // 检查下一行是否有更好的产品名
+        // 增加多行表头检测逻辑：如果下一行在产品值列有内容，且当前行是通用的“参数值”，则将下一行也纳为表头以提取产品名
         const nextRow = preview.rows[headerRow + 1];
         let isMultiRowHeader = false;
         if (nextRow) {
             columns.forEach((col, idx) => {
                 if (col.role === 'product' && nextRow[idx]?.trim()) {
                     const nextVal = nextRow[idx].trim();
-                    if (col.customName === '参数值' || col.customName === '数值') {
+                    // 如果表头是通用名称，尝试取下一行作为具体产品名
+                    if (col.customName === '参数值' || col.customName === '数值' || !col.customName) {
                         col.customName = nextVal;
                         isMultiRowHeader = true;
                     }
@@ -127,12 +128,15 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         }));
     }, [updateConfig]);
 
-    // 初始化时自动检测
+    // 初始化时自动检测所有 Sheet
     React.useEffect(() => {
-        if (currentPreview && !sheetConfigs.has(currentPreview.sheetName)) {
-            autoDetect(currentPreview);
+        if (previews.length > 0) {
+            const missingSheets = previews.filter(p => !sheetConfigs.has(p.sheetName));
+            if (missingSheets.length > 0) {
+                missingSheets.forEach(p => autoDetect(p));
+            }
         }
-    }, [currentPreview, sheetConfigs, autoDetect]);
+    }, [previews, sheetConfigs, autoDetect]);
 
     // 设置列角色
     const setColumnRole = (colIdx: number, role: ColumnRole) => {

@@ -33,32 +33,40 @@ const AssetDataSynchronizer: React.FC = () => {
             // 2. 识别需要移除的文件 (当前 assetFiles 中存在但 activeAssets 中没有的)
             
             try {
-                const loadedFiles = await Promise.all(
+                const results = await Promise.all(
                     activeAssets.map(async fileName => {
-                        // 检查是否已经加载过 (轻量优化)
-                        const existing = assetFiles.find(f => f.fileName === fileName);
-                        if (existing) return existing;
+                        try {
+                            // 检查是否已经加载过 (轻量优化)
+                            const existing = assetFiles.find(f => f.fileName === fileName);
+                            if (existing) return existing;
 
-                        // 没加载过，从磁盘读取
-                        const fullPath = await join(assetLibraryPath, fileName);
-                        const content = await readTextFile(fullPath);
-                        const parsed = JSON.parse(content);
-                        
-                        // 转换为标准 SheetData 格式
-                        const sheetData: SheetData = {
-                            fileName: fileName,
-                            data: parsed.parameters || [],
-                            rawHeaders: [] // JSON 资产不需要列头信息
-                        };
-                        return sheetData;
+                            // 没加载过，从磁盘读取
+                            const fullPath = await join(assetLibraryPath, fileName);
+                            const content = await readTextFile(fullPath);
+                            const parsed = JSON.parse(content);
+                            
+                            // 转换为标准 SheetData 格式
+                            const sheetData: SheetData = {
+                                fileName: fileName,
+                                data: parsed.parameters || [],
+                                rawHeaders: [] // JSON 资产不需要列头信息
+                            };
+                            return sheetData;
+                        } catch (e) {
+                            console.warn(`Failed to sync individual asset: ${fileName}`, e);
+                            return null;
+                        }
                     })
                 );
 
-                // 过滤掉 activeAssets 之外的过时数据
-                const finalFiles = loadedFiles.filter(f => activeAssets.includes(f.fileName));
+                // 仅保留成功读取的文件，且必须在 activeAssets 名单内
+                const finalFiles = results.filter((f): f is SheetData => f !== null && activeAssets.includes(f.fileName));
                 
-                // 仅在数据真实变化时更新 store，避免无限循环
-                if (JSON.stringify(finalFiles.map(f => f.fileName)) !== JSON.stringify(assetFiles.map(f => f.fileName))) {
+                // 检查内容或数量是否变化，决定是否更新 store
+                const currentFileNames = assetFiles.map(f => f.fileName).sort().join(',');
+                const nextFileNames = finalFiles.map(f => f.fileName).sort().join(',');
+
+                if (currentFileNames !== nextFileNames) {
                     setAssetFiles(finalFiles);
                 }
             } catch (err) {

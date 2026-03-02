@@ -67,7 +67,10 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                     onChange={onChange}
                     disabled={productOptions.length === 0}
                     showSearch
-                    maxTagCount="responsive"
+                    maxTagCount={0}
+                    maxTagPlaceholder={() => (
+                        <span className="text-gray-400 text-xs italic">已选 {value && Array.isArray(value) ? value.length : 0} 个车型</span>
+                    )}
                     filterOption={(input, option) =>
                         (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                     }
@@ -95,18 +98,22 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                 )}
             </div>
 
-            {showTags && mode === 'multiple' && Array.isArray(value) && value.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1 p-2 bg-slate-50 rounded-md border border-slate-100 min-h-[32px]">
-                    {value.map(name => (
-                        <Tag 
-                            key={name} 
-                            closable 
-                            className="m-0 bg-white border-slate-200 text-slate-600 px-2 py-0.5 rounded-sm text-[12px]"
-                            onClose={() => onChange(value.filter(v => v !== name))}
-                        >
-                            {name}
-                        </Tag>
-                    ))}
+            {showTags && mode === 'multiple' && (
+                <div className="flex flex-wrap gap-1 mt-1 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md border border-gray-100 dark:border-gray-700 min-h-[42px] max-h-[120px] overflow-y-auto">
+                    {Array.isArray(value) && value.length > 0 ? (
+                        value.map(name => (
+                            <Tag 
+                                key={name} 
+                                closable 
+                                className="m-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-sm text-[12px]"
+                                onClose={() => onChange(value.filter(v => v !== name))}
+                            >
+                                {name}
+                            </Tag>
+                        ))
+                    ) : (
+                        <span className="text-gray-400 text-xs self-center">暂未选择车型</span>
+                    )}
                 </div>
             )}
         </div>

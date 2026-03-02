@@ -5,25 +5,12 @@ import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutline
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getProductData } from '../../store/vehicleSelectors';
-import { PARAMETER_ALIASES } from '../../utils/matchingEngine';
-import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData } from '../../utils/attributeEnums';
+import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames } from '../../utils/attributeEnums';
 import { getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import Fuse from 'fuse.js';
 import type { VehicleParameter } from '../../types';
 import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
 import { saveAssetFile, checkAssetExists } from '../../utils/assetManager';
-
-// 聚合所有系统的标准字段
-const ALL_STANDARD_FIELDS = Array.from(new Set([
-    ...Object.keys(PARAMETER_ALIASES),
-    ...getSystemRequiredFieldsSync(),
-    ...getQualityCheckFieldsSync()
-]));
-
-const standardFieldsFuse = new Fuse(ALL_STANDARD_FIELDS.map(f => ({ name: f })), {
-    keys: ['name'],
-    threshold: 0.6,
-});
 
 const DataPurifyView: React.FC = () => {
     const { 
@@ -31,19 +18,31 @@ const DataPurifyView: React.FC = () => {
         selectedProductNames, 
         assetLibraryPath,
         selectedProduct,
-        setSelectedProduct
+        setSelectedProduct,
+        assetFiles
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         selectedProductNames: state.selectedProductNames,
         assetLibraryPath: state.assetLibraryPath,
         selectedProduct: state.currentPurifyProduct,
-        setSelectedProduct: state.setPurifyProduct
+        setSelectedProduct: state.setPurifyProduct,
+        assetFiles: state.assetFiles
     })));
     const [purifyParams, setPurifyParams] = useState<VehicleParameter[]>([]);
     const [enumLoaded, setEnumLoaded] = useState(isEnumDataLoaded());
     const [saveModalVisible, setSaveModalVisible] = useState(false);
     const [isExistingAsset, setIsExistingAsset] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // 动态计算标准字段集（仅限枚举字典）
+    const { allStandardFields, standardFieldsFuse } = useMemo(() => {
+        const fields = enumLoaded ? getAllAttributeNames() : [];
+        const fuse = new Fuse(fields.map(f => ({ name: f })), {
+            keys: ['name'],
+            threshold: 0.6,
+        });
+        return { allStandardFields: fields, standardFieldsFuse: fuse };
+    }, [enumLoaded]);
 
     // 过滤状态
     const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
@@ -66,7 +65,7 @@ const DataPurifyView: React.FC = () => {
     // 当所选产品变化时，初始化净化列表
     useEffect(() => {
         if (selectedProduct) {
-            const data = getProductData(uploadedFiles, selectedProduct);
+            const data = getProductData(uploadedFiles, selectedProduct, assetFiles);
             // 深度拷贝以脱离 store 变异
             setPurifyParams(JSON.parse(JSON.stringify(data)));
             
@@ -78,7 +77,7 @@ const DataPurifyView: React.FC = () => {
             setPurifyParams([]);
             setIsExistingAsset(false);
         }
-    }, [selectedProduct, uploadedFiles, assetLibraryPath]);
+    }, [selectedProduct, uploadedFiles, assetFiles, assetLibraryPath]);
 
     const handleUpdateParam = (id: string, field: keyof VehicleParameter, value: string | number) => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -134,12 +133,12 @@ const DataPurifyView: React.FC = () => {
     // 为每一行计算异常状态和推荐
     const augmentedParams = useMemo(() => {
         return purifyParams.map(p => {
-            const isNameStandard = ALL_STANDARD_FIELDS.includes(p.name);
+            const isNameStandard = allStandardFields.includes(p.name);
             let nameFixes: string[] = [];
             
             if (!isNameStandard && p.name.trim() !== '') {
                 const results = standardFieldsFuse.search(p.name);
-                nameFixes = results.slice(0, 3).map(r => r.item.name);
+                nameFixes = results.slice(0, 3).map((r: any) => r.item.name);
             }
 
             const enums = enumLoaded && p.name ? getEnumValuesSync(p.name) : [];

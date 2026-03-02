@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Spin, Tag, Button } from 'antd';
-import { BarChartOutlined, WarningOutlined, ArrowRightOutlined, FileTextOutlined, LoadingOutlined } from '@ant-design/icons';
+import { BarChartOutlined, WarningOutlined, ArrowRightOutlined, FileTextOutlined, LoadingOutlined, DatabaseOutlined, CheckOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { loadAssetFile } from '../../utils/assetManager';
@@ -140,58 +140,76 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
     };
 
     return (
-        <div className="h-full flex flex-col p-6 overflow-auto bg-white custom-scrollbar">
-            {/* 标题 */}
-            <div className="flex items-start justify-between mb-6 pb-4 border-b border-slate-100">
-                <div>
-                    <h2 className="text-[20px] font-bold text-slate-800 m-0 tracking-tight leading-tight mb-1">
+        <div className="h-full flex flex-col p-8 overflow-auto bg-white custom-scrollbar">
+            {/* 标题 - Dashboard Style */}
+            <div className="flex items-start justify-between mb-8 pb-6 border-b border-slate-100/60 relative">
+                <div className="absolute -bottom-px left-0 w-24 h-1 bg-blue-600 rounded-full"></div>
+                <div className="min-w-0 pr-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Tag color="blue" className="m-0 border-0 bg-blue-50 text-blue-600 font-bold uppercase text-[10px] tracking-widest px-2">Data Insight</Tag>
+                        <span className="text-[12px] text-slate-400 font-medium">#{displaySource}</span>
+                    </div>
+                    <h2 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight leading-tight truncate" title={focusedProduct!}>
                         {focusedProduct}
                     </h2>
-                    <p className="text-[13px] text-slate-500 m-0 flex items-center gap-1.5">
-                        <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-400"></span>
-                        所属文件: {displaySource}
-                    </p>
                 </div>
                 {onGoCompare && (
                     <Button 
                         type="primary" 
+                        size="large"
                         icon={<ArrowRightOutlined />} 
                         onClick={handleQuickCompare}
-                        className="shadow-sm rounded-md bg-blue-600 hover:bg-blue-500"
+                        className="shadow-xl shadow-blue-500/30 rounded-xl bg-blue-600 hover:bg-blue-500 hover:-translate-y-0.5 transition-all border-0 h-12 px-6 font-bold"
                     >
                         送去对比
                     </Button>
                 )}
             </div>
 
-            {/* 统计卡片 (Minimal Data-Dense Style) */}
-            <div className="grid grid-cols-4 gap-4 mb-6">
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/60 shadow-sm relative overflow-hidden group hover:border-blue-300 transition-colors">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:opacity-100 transition-opacity" />
-                    <div className="text-3xl font-bold text-slate-800 mb-1 relative z-10">{stats.total}</div>
-                    <div className="text-[12px] font-medium text-slate-500 relative z-10">参数总数</div>
+            {/* 统计卡片 (Modern Mesh Stats) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+                <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:bg-white hover:shadow-md group">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <DatabaseOutlined className="text-blue-500" /> Total Items
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-black text-slate-900">{stats.total}</span>
+                        <span className="text-xs text-slate-400 font-medium font-mono">pcs</span>
+                    </div>
                 </div>
-                <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100 shadow-sm relative overflow-hidden group hover:border-emerald-300 transition-colors">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-100 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:opacity-100 transition-opacity" />
-                    <div className="text-3xl font-bold text-emerald-600 mb-1 relative z-10">{stats.withValue}</div>
-                    <div className="text-[12px] font-medium text-emerald-700/80 relative z-10">已填写</div>
+
+                <div className="bg-emerald-50/40 rounded-2xl p-5 border border-emerald-100/60 shadow-sm transition-all hover:bg-white hover:shadow-md group">
+                    <div className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <CheckOutlined className="text-emerald-500" /> Completed
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-black text-emerald-600">{stats.withValue}</span>
+                        <span className="text-xs text-emerald-400 font-medium font-mono">valid</span>
+                    </div>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/60 shadow-sm">
-                    <div className="text-3xl font-bold text-slate-400 mb-1">{stats.empty}</div>
-                    <div className="text-[12px] font-medium text-slate-500">未填写空值</div>
+
+                <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:bg-white hover:shadow-md group">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <FileTextOutlined className="text-slate-400" /> Empty Fields
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-black text-slate-400">{stats.empty}</span>
+                        <span className="text-xs text-slate-300 font-medium font-mono">null</span>
+                    </div>
                 </div>
-                <div className={`rounded-xl p-4 border shadow-sm relative overflow-hidden ${
-                    stats.fillRate >= 80 ? 'bg-emerald-50/50 border-emerald-100' : 
-                    stats.fillRate >= 50 ? 'bg-amber-50/50 border-amber-100' : 'bg-red-50/50 border-red-100'
+
+                <div className={`rounded-2xl p-5 border shadow-xl shadow-opacity-10 transition-all hover:-translate-y-1 ${
+                    stats.fillRate >= 80 ? 'bg-blue-600 border-blue-600 text-white shadow-blue-500/20' : 
+                    stats.fillRate >= 50 ? 'bg-amber-50/50 border-amber-200 text-amber-600 shadow-amber-500/10' : 
+                    'bg-red-50 border-red-200 text-red-600 shadow-red-500/10'
                 }`}>
-                    <div className={`text-3xl font-bold mb-1 ${
-                        stats.fillRate >= 80 ? 'text-emerald-600' : 
-                        stats.fillRate >= 50 ? 'text-amber-500' : 'text-red-500'
-                    }`}>{stats.fillRate}%</div>
-                    <div className={`text-[12px] font-medium ${
-                        stats.fillRate >= 80 ? 'text-emerald-700/80' : 
-                        stats.fillRate >= 50 ? 'text-amber-700/80' : 'text-red-700/80'
-                    }`}>整体填写率</div>
+                    <div className={`text-[11px] font-bold uppercase tracking-widest mb-2 opacity-80`}>
+                        Confidence
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-black">{stats.fillRate}</span>
+                        <span className="text-lg font-bold">%</span>
+                    </div>
                 </div>
             </div>
 
@@ -217,31 +235,39 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
                 </div>
             )}
 
-            {/* 分组分布条状图 */}
+            {/* 分组分布条状图 - Detail View */}
             <div className="flex-1">
-                <div className="flex items-center gap-2 text-[14px] font-bold text-slate-700 mb-4">
-                    <BarChartOutlined className="text-blue-500" />
-                    各子分组完成度详情
+                <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+                        <BarChartOutlined className="text-blue-600" />
+                        各子分组完成度详情
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{groupEntries.length} Sections</span>
                 </div>
-                <div className="space-y-3 bg-slate-50/50 rounded-xl p-4 border border-slate-100">
+                
+                <div className="grid gap-3 bg-slate-50/40 rounded-2xl p-6 border border-slate-100/60 shadow-inner">
                     {groupEntries.map(([group, data]) => {
                         const pct = Math.round((data.filled / data.total) * 100);
                         return (
-                            <div key={group} className="flex items-center gap-3 text-[13px]">
-                                <div className="min-w-[90px] font-medium text-slate-700 truncate" title={group}>
-                                    {group}
+                            <div key={group} className="flex flex-col gap-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-blue-200">
+                                <div className="flex justify-between items-center mb-1">
+                                    <div className="font-bold text-slate-700 text-[13px] tracking-tight truncate max-w-[200px]" title={group}>
+                                        {group}
+                                    </div>
+                                    <div className="text-right text-[12px] font-black font-mono">
+                                        <span className={pct >= 80 ? 'text-emerald-500' : pct >= 50 ? 'text-amber-500' : 'text-red-500'}>{pct}%</span>
+                                        <span className="text-slate-300 font-medium ml-1.5">{data.filled} / {data.total}</span>
+                                    </div>
                                 </div>
-                                <div className="flex-1 bg-slate-200 overflow-hidden rounded-full h-2">
+                                <div className="w-full bg-slate-100 overflow-hidden rounded-full h-2.5">
                                     <div
-                                        className="h-full rounded-full transition-all duration-500 ease-out"
+                                        className="h-full rounded-full transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
                                         style={{
                                             width: `${pct}%`,
-                                            backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444'
+                                            backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444',
+                                            boxShadow: pct >= 50 ? `0 0 10px ${pct >= 80 ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` : 'none'
                                         }}
                                     />
-                                </div>
-                                <div className="w-[100px] text-right text-slate-500 font-mono text-[12px]">
-                                    <span className="font-semibold text-slate-700">{data.filled}</span> / {data.total} <span className="text-slate-400 ml-1">({pct}%)</span>
                                 </div>
                             </div>
                         );
