@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Select, Button, Input, message, Space, Alert, Upload } from 'antd';
+import React, { useEffect } from 'react';
+import { Card, Button, Input, message, Space, Alert, Upload } from 'antd';
 import { ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getProductData, getProductOptions } from '../../store/vehicleSelectors';
+import { getProductData } from '../../store/vehicleSelectors';
+import ProductSourceSelector from './ProductSourceSelector';
 import { findMatches } from '../../utils/matcher';
 import MatchResultTable from '../SmartFiller/MatchResultTable';
 
@@ -19,31 +20,30 @@ const SmartFillView: React.FC = () => {
         matchResults, 
         selectedProductNames,
         smartFillRequirements: requirementsText,
-        setSmartFillRequirements: setRequirementsText
+        setSmartFillRequirements: setRequirementsText,
+        referenceProduct,
+        setReferenceProduct,
+        assetFiles
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         setMatchResults: state.setMatchResults,
         matchResults: state.matchResults,
         selectedProductNames: state.selectedProductNames,
         smartFillRequirements: state.smartFillRequirements,
-        setSmartFillRequirements: state.setSmartFillRequirements
+        setSmartFillRequirements: state.setSmartFillRequirements,
+        referenceProduct: state.currentSmartFillProduct,
+        setReferenceProduct: state.setSmartFillProduct,
+        assetFiles: state.assetFiles
     })));
-    const [referenceProduct, setReferenceProduct] = useState<string | null>(null);
 
-    // 从全局选中的车型生成选项
-    const productOptions = useMemo(() => {
-        return getProductOptions(uploadedFiles, selectedProductNames);
-    }, [uploadedFiles, selectedProductNames]);
+    // getProductOptions is no longer needed here locally
 
     // 当全局选择变化时，重置参考车型
     useEffect(() => {
         if (referenceProduct && !selectedProductNames.includes(referenceProduct)) {
             setReferenceProduct(null);
-        } else if (!referenceProduct && productOptions.length > 0) {
-            // 设置默认的参考车型
-            setReferenceProduct(productOptions[0].value);
         }
-    }, [selectedProductNames, referenceProduct, productOptions]);
+    }, [selectedProductNames, referenceProduct]);
 
     // 3. UX 提升: 输入即触发 (Debounce)
     useEffect(() => {
@@ -54,7 +54,7 @@ const SmartFillView: React.FC = () => {
 
         const timer = setTimeout(() => {
             try {
-                const library = getProductData(uploadedFiles, referenceProduct);
+                const library = getProductData(uploadedFiles, referenceProduct, assetFiles);
                 if (library.length === 0) {
                     setMatchResults([]);
                     return;
@@ -73,7 +73,7 @@ const SmartFillView: React.FC = () => {
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [referenceProduct, requirementsText, uploadedFiles]);
+    }, [referenceProduct, requirementsText, uploadedFiles, assetFiles]);
 
     const handleClear = () => {
         setRequirementsText('');
@@ -97,14 +97,12 @@ const SmartFillView: React.FC = () => {
                     <div className="flex items-start gap-4">
                         <div className="flex-1">
                             <div className="mb-2 font-medium">1. 选择参考车型 (数据来源)</div>
-                            <Select
-                                style={{ width: '100%' }}
-                                placeholder={selectedProductNames.length > 0 ? "选择参考车型" : "请先在数据池中选择车型"}
-                                options={productOptions}
+                            <ProductSourceSelector 
+                                mode="single"
                                 value={referenceProduct}
                                 onChange={setReferenceProduct}
-                                disabled={selectedProductNames.length === 0}
-                                showSearch
+                                placeholder={selectedProductNames.length > 0 ? "选择参考车型" : "请先在数据池中激活车型"}
+                                showTags={false}
                             />
                         </div>
                         <div className="flex-[2]">

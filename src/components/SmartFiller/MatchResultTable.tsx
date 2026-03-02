@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Table, Tag, Select, Progress, Button, message, Input, Space, Switch, Tooltip } from 'antd';
+import { Table, Tag, Select, Progress, Button, message, Input, Switch, Tooltip } from 'antd';
+import { FilterBar, FilterItem } from '../common/FilterBar';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { getProductData } from '../../store/vehicleSelectors';
 import { useShallow } from 'zustand/react/shallow';
@@ -444,9 +445,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
             </div>
 
             {/* V3.0: 过滤器区域 */}
-            <div className="mb-4 flex items-center gap-4 flex-wrap">
-                <Space align="start">
-                    <span className="text-gray-500 mt-1">搜索:</span>
+            <FilterBar>
+                <FilterItem label="搜索:">
                     <Input.TextArea
                         placeholder="搜索参数名、匹配名或值... (支持换行搜索多个)"
                         value={searchText}
@@ -455,9 +455,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
                         autoSize={{ minRows: 1, maxRows: 4 }}
                         style={{ width: 320 }}
                     />
-                </Space>
-                <Space>
-                    <span className="text-gray-500">匹配度:</span>
+                </FilterItem>
+                <FilterItem label="匹配度:">
                     <Select
                         value={confidenceFilter}
                         onChange={setConfidenceFilter}
@@ -468,9 +467,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
                             { label: '<100%匹配', value: 'imperfect' },
                         ]}
                     />
-                </Space>
-                <Space>
-                    <span className="text-gray-500">状态:</span>
+                </FilterItem>
+                <FilterItem label="状态:">
                     <Select
                         value={statusFilter}
                         onChange={setStatusFilter}
@@ -481,11 +479,10 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
                             { label: '未填报', value: 'empty' },
                         ]}
                     />
-                </Space>
+                </FilterItem>
 
                 {/* V3.1: 快捷筛选按钮 */}
-                <Space>
-                    <span className="text-gray-500">快捷:</span>
+                <FilterItem label="快捷:">
                     <Button
                         type={quickFilter === 'system' ? 'primary' : 'default'}
                         size="small"
@@ -514,8 +511,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
                     >
                         枚举异常 ({enumMismatchItems.length})
                     </Button>
-                </Space>
-            </div>
+                </FilterItem>
+            </FilterBar>
 
             <Table
                 dataSource={filteredResults}

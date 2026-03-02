@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Checkbox, Empty, Tag, Tooltip, Dropdown, Input } from 'antd';
+import { Checkbox, Empty, Tag, Tooltip, Dropdown, Input, message } from 'antd';
+import { readTextFile, writeTextFile, exists } from '@tauri-apps/plugin-fs';
+import { join } from '@tauri-apps/api/path';
 import { CarOutlined, WarningOutlined, CheckCircleOutlined, CloseCircleOutlined, MoreOutlined, EditOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -16,7 +18,8 @@ const ProductSelector: React.FC = () => {
         confirmProduct,
         excludeProduct,
         resetProductStatus,
-        renameProduct
+        renameSubProduct,
+        assetLibraryPath
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         selectedProductNames: state.selectedProductNames,
@@ -26,7 +29,8 @@ const ProductSelector: React.FC = () => {
         confirmProduct: state.confirmProduct,
         excludeProduct: state.excludeProduct,
         resetProductStatus: state.resetProductStatus,
-        renameProduct: state.renameProduct
+        renameSubProduct: state.renameSubProduct,
+        assetLibraryPath: state.assetLibraryPath
     })));
 
     const [editingName, setEditingName] = useState<string | null>(null);
@@ -83,6 +87,50 @@ const ProductSelector: React.FC = () => {
         } else {
             setSelectedProductNames([]);
         }
+    };
+
+    // 核心双层重命名逻辑
+    const handleRenameCommit = async (item: { name: string, fileName: string }, newName: string) => {
+        if (!newName || newName === item.name) {
+            setEditingName(null);
+            return;
+        }
+
+        // 1. 修改内存 store (大纲 + 数据体)
+        renameSubProduct(item.fileName, item.name, newName);
+
+        // 2. 如果存在资产库并且它是通过加载进来的，尝试反向静态热存储
+        if (assetLibraryPath) {
+            try {
+                const finalFileName = item.fileName.endsWith('.json') ? item.fileName : `${item.fileName}.json`;
+                const fullPath = await join(assetLibraryPath, finalFileName);
+                
+                if (await exists(fullPath)) {
+                    // 仅切开目标文件并更换对应型号名称作为热保存
+                    const content = await readTextFile(fullPath);
+                    const parsed = JSON.parse(content);
+                    if (parsed && typeof parsed === 'object') {
+                        // 如果刚好和外壳的名称一样，也要一并替换外在特征，否则仅替换明细参数的归属
+                        if (parsed.productName === item.name) {
+                            parsed.productName = newName;
+                        }
+                        if (Array.isArray(parsed.parameters)) {
+                            parsed.parameters.forEach((p: any) => {
+                                if (p.productName === item.name) {
+                                    p.productName = newName;
+                                }
+                            });
+                        }
+                        await writeTextFile(fullPath, JSON.stringify(parsed, null, 2));
+                        message.success(`已反向热保存 ${newName} 至本地资产库`);
+                    }
+                }
+            } catch (err) {
+                console.warn('反向热存资产库失败，可能非物理资产(从浏览器导入等):', err);
+            }
+        }
+        
+        setEditingName(null);
     };
 
     const getConfidenceTag = (product: ProductConfidence) => {
@@ -190,13 +238,11 @@ const ProductSelector: React.FC = () => {
                                         onChange={e => setEditValue(e.target.value)}
                                         onPressEnter={() => {
                                             const v = editValue.trim();
-                                            if (v && v !== item.name) renameProduct(item.name, v);
-                                            setEditingName(null);
+                                            handleRenameCommit(item, v);
                                         }}
                                         onBlur={() => {
                                             const v = editValue.trim();
-                                            if (v && v !== item.name) renameProduct(item.name, v);
-                                            setEditingName(null);
+                                            handleRenameCommit(item, v);
                                         }}
                                         style={{ width: 120 }}
                                     />
