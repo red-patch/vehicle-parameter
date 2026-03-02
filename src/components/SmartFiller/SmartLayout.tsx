@@ -3,7 +3,7 @@ import { Tabs } from 'antd';
 import { FormOutlined, DatabaseOutlined, AppstoreOutlined } from '@ant-design/icons';
 import RequirementUploader from './RequirementUploader';
 import MatchResultTable from './MatchResultTable';
-import EnumDictionary from './EnumDictionary';
+import ConfigManagerView from './ConfigManagerView';
 import MultiVehicleOrganizer from './MultiVehicleOrganizer';
 
 const SmartLayout: React.FC = () => {
@@ -38,10 +38,10 @@ const SmartLayout: React.FC = () => {
             label: (
                 <span>
                     <DatabaseOutlined />
-                    枚举字典
+                    系统配置
                 </span>
             ),
-            children: <EnumDictionary />
+            children: <ConfigManagerView />
         }
     ];
 

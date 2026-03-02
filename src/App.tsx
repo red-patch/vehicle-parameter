@@ -13,7 +13,7 @@ import SmartLayout from './components/SmartFiller/SmartLayout';
 import ParameterWorkbench from './components/ParameterWorkbench/ParameterWorkbench';
 import AnnouncementQuery from './components/AnnouncementQuery/AnnouncementQuery';
 import AttributeDedup from './components/AttributeDedup/AttributeDedup';
-import EnumDictionary from './components/SmartFiller/EnumDictionary';
+import ConfigManagerView from './components/SmartFiller/ConfigManagerView';
 import { UploadOutlined, FileSearchOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import themeConfig from './theme/themeConfig';
 
@@ -210,7 +210,7 @@ const App: React.FC = () => {
 
           {activeTab === 'dedup' && <AttributeDedup />}
 
-          {activeTab === 'dict' && <EnumDictionary />}
+          {activeTab === 'dict' && <ConfigManagerView />}
 
         </MainLayout>
       </ErrorBoundary>

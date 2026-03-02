@@ -1,5 +1,6 @@
 // 快捷字段列表模块
-// 数据直接内嵌，避免依赖外部文件加载（兼容桌面应用和 Web）
+// 数据直接内嵌，在此基础上增加支持加载指定目录下的 custom_fields.json 支持热替换
+import { loadCustomConfig } from './assetManager';
 
 const SYSTEM_REQUIRED_FIELDS = [
     '公告续航里程（km）',
@@ -177,11 +178,45 @@ const QUALITY_CHECK_FIELDS = [
     '冷机型号',
 ];
 
-// 同步获取
-export const getSystemRequiredFieldsSync = (): string[] => SYSTEM_REQUIRED_FIELDS;
-export const getQualityCheckFieldsSync = (): string[] => QUALITY_CHECK_FIELDS;
+let cachedSystemFields: string[] = [...SYSTEM_REQUIRED_FIELDS];
+let cachedQualityFields: string[] = [...QUALITY_CHECK_FIELDS];
 
-// 兼容旧接口（无需异步加载）
+export interface CustomFieldsConfig {
+    systemRequired?: string[];
+    qualityCheck?: string[];
+}
+
+/**
+ * 尝试从资产库重新加载用户定义的字典配置
+ * @param libraryPath 用户本地资产根目录
+ */
+export const reloadCustomFields = async (libraryPath: string): Promise<void> => {
+    if (!libraryPath) return;
+    try {
+        const customConfig = await loadCustomConfig<CustomFieldsConfig>(libraryPath, 'custom_fields.json');
+        if (customConfig) {
+            if (customConfig.systemRequired && Array.isArray(customConfig.systemRequired)) {
+                cachedSystemFields = customConfig.systemRequired;
+            }
+            if (customConfig.qualityCheck && Array.isArray(customConfig.qualityCheck)) {
+                cachedQualityFields = customConfig.qualityCheck;
+            }
+            console.log('✅ 已成功加载并覆盖系统标准字段字典: custom_fields.json');
+        } else {
+            // 如果文件不存在或者解析空，则退回默认值（防止多次切换目录导致的数据污染）
+            cachedSystemFields = [...SYSTEM_REQUIRED_FIELDS];
+            cachedQualityFields = [...QUALITY_CHECK_FIELDS];
+        }
+    } catch (e) {
+        console.error('动态加载 custom_fields.json 失败', e);
+    }
+};
+
+// 同步获取（内部取自实时存根）
+export const getSystemRequiredFieldsSync = (): string[] => cachedSystemFields;
+export const getQualityCheckFieldsSync = (): string[] => cachedQualityFields;
+
+// 兼容旧接口
 export const preloadFieldLists = async (): Promise<void> => {
-    // 数据已内嵌，无需加载
+    // 初始化时已有硬代码内容，此处留空。未来实际的触发全交由 reloadCustomFields 负责
 };

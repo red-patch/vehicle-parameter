@@ -5,6 +5,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import ParametersTable from './ParametersTable';
 import type { CompareMode } from '../../types';
 import { isFieldRequired } from '../../assets/requiredFields';
+import { FilterBar, FilterItem } from '../common/FilterBar';
 
 const { Text } = Typography;
 
@@ -538,10 +539,9 @@ const DiffResultView: React.FC = () => {
             </div>
 
             {/* Filters Row: Compare Mode + Sheet Filter */}
-            <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
+            <FilterBar>
                 {/* Compare Mode Selector */}
-                <div className="flex items-center gap-2">
-                    <span className="font-bold">对比模式:</span>
+                <FilterItem label="对比模式:">
                     <Radio.Group
                         value={compareMode}
                         onChange={(e) => setCompareMode(e.target.value as CompareMode)}
@@ -554,12 +554,11 @@ const DiffResultView: React.FC = () => {
                             <Radio.Button value="miit" disabled={!isMiitModeAvailable}>仅公告号数据对比</Radio.Button>
                         </Tooltip>
                     </Radio.Group>
-                </div>
+                </FilterItem>
 
                 {/* Sheet Filter */}
                 {allSheets.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold">按工作表筛选:</span>
+                    <FilterItem label="按工作表筛选:">
                         <Select
                             value={selectedSheet}
                             onChange={setSelectedSheet}
@@ -569,9 +568,9 @@ const DiffResultView: React.FC = () => {
                                 ...allSheets.map(s => ({ label: s, value: s }))
                             ]}
                         />
-                    </div>
+                    </FilterItem>
                 )}
-            </div>
+            </FilterBar>
 
 
             {compareMode === 'miit' ? miitView : <Tabs defaultActiveKey="all" items={items} />}

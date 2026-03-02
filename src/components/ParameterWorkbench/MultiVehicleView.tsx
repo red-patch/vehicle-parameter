@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Input, Button, Table, message, Empty, Tag, Space, Upload } from 'antd';
+import { Card, Input, Button, Table, message, Empty, Space, Upload } from 'antd';
 import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { findBestMatch } from '../../utils/matchingEngine';
+import ProductSourceSelector from './ProductSourceSelector';
+import { getProductData } from '../../store/vehicleSelectors';
 import * as XLSX from 'xlsx';
 import { downloadCsv } from '../../utils/downloadCsv';
 
@@ -20,14 +22,18 @@ interface OrganizedRow {
 const MultiVehicleView: React.FC = () => {
     const { 
         uploadedFiles, 
-        selectedProductNames,
+        assetFiles,
         multiVehicleFields: targetFields,
-        setMultiVehicleFields: setTargetFields
+        setMultiVehicleFields: setTargetFields,
+        localSelection,
+        setLocalSelection
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
-        selectedProductNames: state.selectedProductNames,
+        assetFiles: state.assetFiles,
         multiVehicleFields: state.multiVehicleFields,
-        setMultiVehicleFields: state.setMultiVehicleFields
+        setMultiVehicleFields: state.setMultiVehicleFields,
+        localSelection: state.currentCompareProducts, // Reuse or add new state? Let's use its own if exists, but store only has currentCompareProducts.
+        setLocalSelection: state.setCompareProducts
     })));
     const [organizedData, setOrganizedData] = useState<OrganizedRow[]>([]);
 
@@ -35,29 +41,17 @@ const MultiVehicleView: React.FC = () => {
     const selectedVehicles = useMemo(() => {
         const vehicles: { name: string; params: Map<string, string | number> }[] = [];
         
-        selectedProductNames.forEach(productName => {
-            // Find in uploaded files
-            for (const file of uploadedFiles) {
+        localSelection.forEach(productName => {
+            const data = getProductData(uploadedFiles, productName, assetFiles);
+            if (data.length > 0) {
                 const productParams = new Map<string, string | number>();
-                let found = false;
-                
-                file.data.forEach(p => {
-                    const pName = p.productName || file.fileName;
-                    if (pName === productName) {
-                        productParams.set(p.name, p.value);
-                        found = true;
-                    }
-                });
-
-                if (found) {
-                    vehicles.push({ name: productName, params: productParams });
-                    break; // Found the product, move to next product name
-                }
+                data.forEach(p => productParams.set(p.name, p.value));
+                vehicles.push({ name: productName, params: productParams });
             }
         });
         
         return vehicles;
-    }, [uploadedFiles, selectedProductNames]);
+    }, [uploadedFiles, assetFiles, localSelection]);
 
     // UX: Debounce triggering automatically
     useEffect(() => {
@@ -198,14 +192,12 @@ const MultiVehicleView: React.FC = () => {
                             />
                         </div>
                         <div className="flex-1">
-                            <div className="mb-2 font-medium">2. 已选车型 ({selectedVehicles.length})</div>
-                            <div className="bg-gray-50 p-2 rounded h-[100px] overflow-auto border border-gray-200">
-                                {selectedVehicles.length > 0 ? (
-                                    selectedVehicles.map(v => <Tag key={v.name} className="mb-1">{v.name}</Tag>)
-                                ) : (
-                                    <div className="text-gray-400 text-sm mt-8 text-center">请在“数据池”中勾选车型</div>
-                                )}
-                            </div>
+                            <div className="mb-2 font-medium">2. 已选待整理车型 ({localSelection.length})</div>
+                            <ProductSourceSelector 
+                                value={localSelection}
+                                onChange={setLocalSelection}
+                                placeholder="选择要整理的车型"
+                            />
                         </div>
                         <div className="flex flex-col gap-2 mt-8">
                             <Button icon={<ClearOutlined />} onClick={() => { setOrganizedData([]); setTargetFields(''); }}>

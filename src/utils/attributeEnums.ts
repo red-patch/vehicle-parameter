@@ -1,7 +1,9 @@
 /**
  * 属性枚举值服务
  * 从 属性值统计.csv 加载枚举值字典，提供属性名到枚举值列表的查询
+ * 并且支持通过注入 libraryPath 热替换为使用本地资产目录的 custom_enums.json
  */
+import { loadCustomConfig } from './assetManager';
 
 // 枚举值缓存
 let enumCache: Map<string, string[]> | null = null;
@@ -45,49 +47,75 @@ function parseCSVLine(line: string): string[] {
 
 /**
  * 加载枚举值数据
+ * @param libraryPath 可选的用户资产目录路径。存在时将尝试载入 custom_enums.json
  */
-async function loadEnumData(): Promise<void> {
-    if (enumCache !== null) return;
+async function loadEnumData(libraryPath?: string): Promise<void> {
+    if (enumCache !== null && !libraryPath) return; // 普通加载如果已有缓存则短路
     
-    enumCache = new Map();
-    normalizedNameMap = new Map();
+    // 初始化或获取引用
+    if (enumCache === null || normalizedNameMap === null) {
+        enumCache = new Map();
+        normalizedNameMap = new Map();
+    }
     
-    try {
-        // 动态加载 CSV 文件内容
-        const response = await fetch('/docs/字段数据/属性值统计.csv');
-        if (!response.ok) {
-            console.warn('无法加载属性枚举文件，使用空缓存');
-            return;
+    // 如果是首次加载且没有提供库路径，或者没有库路径时，默认走系统 csv 加载
+    if (enumCache.size === 0) {
+        try {
+            // 动态加载 CSV 文件内容
+            const response = await fetch('/docs/字段数据/属性值统计.csv');
+            if (response.ok) {
+                const text = await response.text();
+                const lines = text.split('\n');
+                
+                // 跳过表头
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const [name, valuesStr] = parseCSVLine(line);
+                    if (!name) continue;
+                    
+                    const trimmedName = name.trim();
+                    const normalizedName = normalizeName(trimmedName);
+                    
+                    if (normalizedNameMap) normalizedNameMap.set(normalizedName, trimmedName);
+                    
+                    const values = valuesStr
+                        ? valuesStr.split('|').map(v => v.trim()).filter(v => v.length > 0)
+                        : [];
+                    
+                    if (enumCache) enumCache.set(trimmedName, values);
+                }
+                console.log(`✅ 已加载 ${enumCache?.size || 0} 个系统默认属性枚举`);
+            }
+        } catch (error) {
+            console.error('加载系统默认属性枚举失败:', error);
         }
-        
-        const text = await response.text();
-        const lines = text.split('\n');
-        
-        // 跳过表头
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            const [name, valuesStr] = parseCSVLine(line);
-            if (!name) continue;
-            
-            const trimmedName = name.trim();
-            const normalizedName = normalizeName(trimmedName);
-            
-            // 保存原始名称映射
-            normalizedNameMap!.set(normalizedName, trimmedName);
-            
-            // 解析枚举值列表
-            const values = valuesStr
-                ? valuesStr.split('|').map(v => v.trim()).filter(v => v.length > 0)
-                : [];
-            
-            enumCache!.set(trimmedName, values);
+    }
+
+    // 第二步：尝试通过传入的 libraryPath 挂载 custom_enums.json (它的优先级最高，将覆写对应键集)
+    if (libraryPath) {
+        try {
+            const customConfig = await loadCustomConfig<Record<string, string[]>>(libraryPath, 'custom_enums.json');
+            if (customConfig && typeof customConfig === 'object') {
+                let overwriteCount = 0;
+                for (const [key, values] of Object.entries(customConfig)) {
+                    if (Array.isArray(values)) {
+                        const trimmedName = key.trim();
+                        const normalizedName = normalizeName(trimmedName);
+                        
+                        normalizedNameMap!.set(normalizedName, trimmedName);
+                        enumCache!.set(trimmedName, values);
+                        overwriteCount++;
+                    }
+                }
+                if (overwriteCount > 0) {
+                    console.log(`✅ 已成功加载并覆写 ${overwriteCount} 个业务专属字典配置 (custom_enums.json)`);
+                }
+            }
+        } catch (e) {
+            console.error('挂载自定义 custom_enums.json 失败', e);
         }
-        
-        console.log(`已加载 ${enumCache.size} 个属性枚举`);
-    } catch (error) {
-        console.error('加载属性枚举失败:', error);
     }
 }
 
@@ -135,10 +163,10 @@ export function getAllAttributeNames(): string[] {
 }
 
 /**
- * 预加载枚举数据（可在应用启动时调用）
+ * 预加载枚举数据（可在应用启动时乃至选择仓库路径后多发调用）
  */
-export async function preloadEnumData(): Promise<void> {
-    await loadEnumData();
+export async function preloadEnumData(libraryPath?: string): Promise<void> {
+    await loadEnumData(libraryPath);
 }
 
 /**

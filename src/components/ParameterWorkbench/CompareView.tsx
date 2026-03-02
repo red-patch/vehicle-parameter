@@ -1,61 +1,55 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Select, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message } from 'antd';
+import { Card, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message } from 'antd';
 import { DiffOutlined, InfoCircleOutlined, SearchOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getProductData, getProductOptions } from '../../store/vehicleSelectors';
+import { getProductData } from '../../store/vehicleSelectors';
+import ProductSourceSelector from './ProductSourceSelector';
 import { isFieldRequired } from '../../assets/requiredFields';
 
 const CompareView: React.FC = () => {
-    const { uploadedFiles, selectedProductNames } = useVehicleStore(useShallow(state => ({
+    const { uploadedFiles, assetFiles, selectedProductNames, localSelection, setLocalSelection } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
-        selectedProductNames: state.selectedProductNames
+        assetFiles: state.assetFiles,
+        selectedProductNames: state.selectedProductNames,
+        localSelection: state.currentCompareProducts,
+        setLocalSelection: state.setCompareProducts
     })));
-    const [localSelection, setLocalSelection] = useState<string[]>([]);
     const [showResult, setShowResult] = useState(false);
     // 过滤状态
     const [diffFilter, setDiffFilter] = useState<'all' | 'diff' | 'same' | 'required'>('all');
     const [searchText, setSearchText] = useState('');
     const reportRef = useRef<HTMLDivElement>(null);
 
-    const productOptions = useMemo(() => {
-        return getProductOptions(uploadedFiles, selectedProductNames);
-    }, [uploadedFiles, selectedProductNames]);
-
-    // 默认选中前两款车型并自动显示对比
+    // 自动显示对比结果的逻辑
     useEffect(() => {
-        if (selectedProductNames.length > 0) {
-            // 如果当前还没有选，默认选中前两个（或者所有的如果不足两个）
-            if (localSelection.length === 0 && productOptions.length > 0) {
-                const defaults = productOptions.slice(0, 2).map(opt => opt.value);
-                setLocalSelection(defaults);
-                // 只有选择了至少1个才显示结果区域，方便看单车或双车跑出对比表
-                setShowResult(defaults.length >= 1);
-            }
-        } else {
-            setLocalSelection([]);
+        if (localSelection.length > 0 && !showResult) {
+            setShowResult(true);
+        } else if (localSelection.length === 0 && showResult) {
             setShowResult(false);
         }
-    }, [selectedProductNames, productOptions]);
+    }, [localSelection.length]);
 
     // Build comparison matrix (supports 1+ products)
     const comparisonData = useMemo(() => {
         if (localSelection.length < 1 || !showResult) return [];
 
-        const allParams = new Map<string, { group: string; name: string; values: Map<string, string> }>();
+        const allParams = new Map<string, { groups: Set<string>; name: string; values: Map<string, string> }>();
 
         localSelection.forEach(productName => {
-            const data = getProductData(uploadedFiles, productName);
+            const data = getProductData(uploadedFiles, productName, assetFiles);
             data.forEach(p => {
-                const key = `${p.group}::${p.name}`;
+                const key = p.name;
                 if (!allParams.has(key)) {
                     allParams.set(key, {
-                        group: p.group,
+                        groups: new Set(),
                         name: p.name,
                         values: new Map()
                     });
                 }
-                allParams.get(key)!.values.set(productName, String(p.value ?? ''));
+                const entry = allParams.get(key)!;
+                if (p.group) entry.groups.add(p.group);
+                entry.values.set(productName, String(p.value ?? ''));
             });
         });
 
@@ -65,7 +59,7 @@ const CompareView: React.FC = () => {
             
             return {
                 key,
-                group: param.group,
+                group: Array.from(param.groups).join(', ') || '未分组',
                 name: param.name,
                 hasDiff: localSelection.length > 1 ? !allSame : false,
                 ...Object.fromEntries(param.values)
@@ -146,13 +140,6 @@ const CompareView: React.FC = () => {
 
         return dynamicCols;
     }, [localSelection]);
-
-    const handleCompare = () => {
-        if (localSelection.length < 1) return;
-        setShowResult(true);
-        setDiffFilter('all');
-        setSearchText('');
-    };
 
     const { diffCount, sameCount, requiredCount } = useMemo(() => {
         let diff = 0, same = 0, req = 0;
@@ -290,33 +277,34 @@ const CompareView: React.FC = () => {
                 />
             )}
             
-            {/* Selection Area */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex items-center gap-4 flex-wrap">
-                    <div className="flex items-center gap-2 flex-1 min-w-[300px]">
-                        <span className="text-sm text-gray-600">对比车型:</span>
-                        <Select
-                            mode="multiple"
-                            style={{ flex: 1 }}
-                            placeholder={selectedProductNames.length > 0 ? "从已选车型中选择2个或更多进行对比" : "请先在数据池中选择车型"}
-                            options={productOptions}
-                            value={localSelection}
-                        onChange={(v) => { setLocalSelection(v); if (v.length >= 1) setShowResult(true); else setShowResult(false); }}
-                            disabled={selectedProductNames.length === 0}
-                            showSearch
-                            maxTagCount={3}
-                        />
+            {/* Selection Area - Unified UI */}
+            <Card className="shadow-sm border-slate-200">
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <DiffOutlined className="text-blue-500 text-lg" />
+                            <h2 className="text-[15px] font-bold text-slate-800 m-0">选择对比车型</h2>
+                            <Tag color="blue" className="ml-2 m-0 rounded-sm">已选 {localSelection.length} 款</Tag>
+                        </div>
+                        <Button 
+                            type="primary" 
+                            size="small"
+                            icon={<FilePdfOutlined />} 
+                            onClick={handleExportPdf}
+                            disabled={localSelection.length === 0}
+                            className="text-[12px] h-8"
+                        >
+                            导出 PDF 报告
+                        </Button>
                     </div>
-                    <Button 
-                        type="primary" 
-                        icon={<DiffOutlined />} 
-                        onClick={handleCompare}
-                        disabled={localSelection.length < 1}
-                    >
-                        {localSelection.length >= 2 ? '开始对比' : '查看数据'}
-                    </Button>
+
+                    <ProductSourceSelector 
+                        value={localSelection}
+                        onChange={setLocalSelection}
+                        placeholder="从已选车型中选择进行对比..."
+                    />
                 </div>
-            </div>
+            </Card>
 
             {/* Results Area */}
             <div className="flex-1 overflow-auto bg-white rounded-lg border border-gray-200">
