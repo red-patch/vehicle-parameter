@@ -21,6 +21,13 @@ const CompareView: React.FC = () => {
     const [searchText, setSearchText] = useState('');
     const reportRef = useRef<HTMLDivElement>(null);
 
+    // 默认填充：当本模块尚未选择车型时，自动从大纲中填充
+    useEffect(() => {
+        if (localSelection.length === 0 && selectedProductNames.length > 0) {
+            setLocalSelection(selectedProductNames.length <= 5 ? [...selectedProductNames] : [selectedProductNames[0]]);
+        }
+    }, [selectedProductNames]);
+
     // 自动显示对比结果的逻辑
     useEffect(() => {
         if (localSelection.length > 0 && !showResult) {

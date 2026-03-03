@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Card, Button, Input, message, Space, Alert, Upload } from 'antd';
 import { ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
+import { getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import * as XLSX from 'xlsx';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -37,6 +38,13 @@ const SmartFillView: React.FC = () => {
     })));
 
     // getProductOptions is no longer needed here locally
+
+    // 默认填充：当本模块尚未选择参考车型时，自动选中第一个
+    useEffect(() => {
+        if (!referenceProduct && selectedProductNames.length > 0) {
+            setReferenceProduct(selectedProductNames[0]);
+        }
+    }, [selectedProductNames]);
 
     // 当全局选择变化时，重置参考车型
     useEffect(() => {
@@ -113,6 +121,18 @@ const SmartFillView: React.FC = () => {
                                     onClick={() => setRequirementsText("整备质量\n最高车速\n轴距\n外形尺寸长\n外形尺寸宽\n外形尺寸高\n轮胎规格\n发动机型号")}
                                 >
                                     填入示例
+                                </a>
+                                <a 
+                                    className="text-xs font-normal text-emerald-600"
+                                    onClick={() => { setRequirementsText(getSystemRequiredFieldsSync().join('\n')); message.success(`已导入 ${getSystemRequiredFieldsSync().length} 个系统必填字段`); }}
+                                >
+                                    系统必填字段
+                                </a>
+                                <a 
+                                    className="text-xs font-normal text-orange-500"
+                                    onClick={() => { setRequirementsText(getQualityCheckFieldsSync().join('\n')); message.success(`已导入 ${getQualityCheckFieldsSync().length} 个质量验车字段`); }}
+                                >
+                                    质量验车字段
                                 </a>
                                 <Upload
                                     accept=".xlsx,.xls,.csv"

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Input, Button, Table, message, Empty, Space, Upload, Spin } from 'antd';
 import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
+import { getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { findBestMatch } from '../../utils/matchingEngine';
@@ -161,6 +162,18 @@ const MultiVehicleView: React.FC = () => {
                                     onClick={() => setTargetFields("整备质量, 最高车速, 轴距, 外形尺寸长, 发动机型号")}
                                 >
                                     填入示例
+                                </a>
+                                <a 
+                                    className="text-xs font-normal text-emerald-600"
+                                    onClick={() => { setTargetFields(getSystemRequiredFieldsSync().join('\n')); message.success(`已导入 ${getSystemRequiredFieldsSync().length} 个系统必填字段`); }}
+                                >
+                                    系统必填字段
+                                </a>
+                                <a 
+                                    className="text-xs font-normal text-orange-500"
+                                    onClick={() => { setTargetFields(getQualityCheckFieldsSync().join('\n')); message.success(`已导入 ${getQualityCheckFieldsSync().length} 个质量验车字段`); }}
+                                >
+                                    质量验车字段
                                 </a>
                                 <Upload
                                     accept=".xlsx,.xls,.csv"

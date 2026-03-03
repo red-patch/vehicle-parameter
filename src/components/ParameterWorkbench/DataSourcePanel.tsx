@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined } from '@ant-design/icons';
-import { Spin, Tooltip, Input, Button, Modal, message } from 'antd';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined } from '@ant-design/icons';
+import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getAssetFilesWithInfo, renameAssetFile, deleteAssetFile, type AssetFileInfo } from '../../utils/assetManager';
+import { getAssetFilesWithInfo, renameAssetFile, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
+import { downloadCsv } from '../../utils/downloadCsv';
+
+// 标签颜色池，根据标签内容确定性地分配颜色
+const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
+const getTagColor = (tag: string) => TAG_COLORS[Math.abs([...tag].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % TAG_COLORS.length];
 
 // 简易格式化函数，替代 date-fns 避免依赖问题
 const formatDate = (dateStr: string) => {
@@ -46,12 +51,22 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     // Rename state
     const [editingAsset, setEditingAsset] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
+    const [searchKeyword, setSearchKeyword] = useState('');
 
-    const fetchAssets = async () => {
+    // 标签系统
+    const [assetTags, setAssetTags] = useState<Record<string, string[]>>({});
+    const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
+    const [tagEditingAsset, setTagEditingAsset] = useState<string | null>(null);
+    const [newTagInput, setNewTagInput] = useState('');
+
+    const fetchAssets = useCallback(async () => {
         if (!assetLibraryPath) return;
         setLoading(true);
         try {
-            const infos = await getAssetFilesWithInfo(assetLibraryPath);
+            const [infos, tags] = await Promise.all([
+                getAssetFilesWithInfo(assetLibraryPath),
+                loadAssetTags(assetLibraryPath)
+            ]);
             // 按照更新时间倒序
             infos.sort((a, b) => {
                 if (!a.updatedAt) return 1;
@@ -59,12 +74,13 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
             });
             setAssets(infos);
+            setAssetTags(tags);
         } catch (err) {
             console.error("Failed to load assets with info", err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [assetLibraryPath]);
 
     useEffect(() => {
         fetchAssets();
@@ -146,6 +162,90 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         });
     };
 
+    const handleExportCsv = async (info: AssetFileInfo) => {
+        if (!assetLibraryPath) return;
+        try {
+            const data = await loadAssetFile(assetLibraryPath, info.fileName);
+            if (!data || data.data.length === 0) {
+                message.warning('该资产无可导出的数据');
+                return;
+            }
+            const header = '分组,参数名,参数值';
+            const rows = data.data.map(p => {
+                const escape = (v: string) => v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g, '""')}"` : v;
+                return [escape(p.group || ''), escape(p.name || ''), escape(String(p.value ?? ''))].join(',');
+            });
+            const csvContent = [header, ...rows].join('\n');
+            const csvFileName = info.fileName.replace(/\.json$/i, '.csv');
+            await downloadCsv(csvContent, csvFileName);
+        } catch (e) {
+            message.error('导出失败');
+        }
+    };
+
+    // 标签管理
+    const handleAddTag = async (fileName: string, tag: string) => {
+        if (!assetLibraryPath || !tag.trim()) return;
+        const trimmed = tag.trim();
+        const current = assetTags[fileName] || [];
+        if (current.includes(trimmed)) return;
+        const updated = [...current, trimmed];
+        setAssetTags(prev => ({ ...prev, [fileName]: updated }));
+        await setAssetFileTags(assetLibraryPath, fileName, updated);
+    };
+
+    const handleRemoveTag = async (fileName: string, tag: string) => {
+        if (!assetLibraryPath) return;
+        const current = assetTags[fileName] || [];
+        const updated = current.filter(t => t !== tag);
+        setAssetTags(prev => {
+            const next = { ...prev };
+            if (updated.length === 0) delete next[fileName];
+            else next[fileName] = updated;
+            return next;
+        });
+        await setAssetFileTags(assetLibraryPath, fileName, updated);
+    };
+
+    const toggleFilterTag = (tag: string) => {
+        setSelectedFilterTags(prev =>
+            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+        );
+    };
+
+    // 全局标签集合
+    const allTags = useMemo(() => {
+        const set = new Set<string>();
+        Object.values(assetTags).forEach(tags => tags.forEach(t => set.add(t)));
+        return Array.from(set).sort();
+    }, [assetTags]);
+
+    // 按关键字 + 标签过滤资产列表
+    const filteredAssets = useMemo(() => {
+        let result = assets;
+
+        // 标签过滤（取交集）
+        if (selectedFilterTags.length > 0) {
+            result = result.filter(a => {
+                const tags = assetTags[a.fileName] || [];
+                return selectedFilterTags.every(ft => tags.includes(ft));
+            });
+        }
+
+        // 关键字过滤（同时匹配文件名、产品名、标签）
+        if (searchKeyword.trim()) {
+            const kw = searchKeyword.trim().toLowerCase();
+            result = result.filter(a => {
+                const tags = assetTags[a.fileName] || [];
+                return a.fileName.toLowerCase().includes(kw) ||
+                    a.productName.toLowerCase().includes(kw) ||
+                    tags.some(t => t.toLowerCase().includes(kw));
+            });
+        }
+
+        return result;
+    }, [assets, searchKeyword, selectedFilterTags, assetTags]);
+
     return (
         <div className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
             {/* Middle: Excel WorkSpace */}
@@ -159,16 +259,88 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
             {/* Bottom Half: Asset Library */}
             <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-                <div className="flex justify-between items-center mb-4 px-1">
+                <div className="flex justify-between items-center mb-3 px-1">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
                         <span className="text-[14px] font-bold text-slate-800 tracking-tight">资产库 (Assets)</span>
                     </div>
-                    {loading && <Spin indicator={<LoadingOutlined style={{ fontSize: 14 }} spin />} />}
+                    <div className="flex items-center gap-1.5">
+                        {loading && <Spin indicator={<LoadingOutlined style={{ fontSize: 14 }} spin />} />}
+                        <Tooltip title="刷新资产库">
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={<ReloadOutlined className={`!text-[14px] text-slate-400 hover:text-blue-500 ${loading ? 'animate-spin' : ''}`} />}
+                                onClick={fetchAssets}
+                                disabled={loading}
+                                className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg hover:bg-blue-50"
+                            />
+                        </Tooltip>
+                    </div>
                 </div>
 
+                {/* 搜索框 */}
+                {assets.length > 5 && (
+                    <div className="mb-3 px-1">
+                        <Input
+                            size="small"
+                            placeholder="搜索资产、标签..."
+                            prefix={<SearchOutlined className="text-slate-300" />}
+                            allowClear
+                            value={searchKeyword}
+                            onChange={e => setSearchKeyword(e.target.value)}
+                            className="rounded-lg border-slate-200 hover:border-blue-300 focus:border-blue-400"
+                        />
+                    </div>
+                )}
+
+                {/* 标签过滤栏 */}
+                {allTags.length > 0 && (
+                    <div className="mb-3 px-1 flex flex-wrap gap-1.5 items-center">
+                        <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
+                        {allTags.map(tag => (
+                            <Tag
+                                key={tag}
+                                color={selectedFilterTags.includes(tag) ? getTagColor(tag) : undefined}
+                                onClick={() => toggleFilterTag(tag)}
+                                className={`cursor-pointer text-[10px] m-0 px-1.5 py-0 leading-[18px] rounded-md border transition-all select-none ${
+                                    selectedFilterTags.includes(tag)
+                                        ? 'font-bold shadow-sm'
+                                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
+                                }`}
+                            >
+                                {tag}
+                            </Tag>
+                        ))}
+                        {selectedFilterTags.length > 0 && (
+                            <>
+                                <span
+                                    className="text-[10px] text-blue-500 cursor-pointer hover:underline ml-1"
+                                    onClick={() => setSelectedFilterTags([])}
+                                >
+                                    清除筛选
+                                </span>
+                                <span
+                                    className="text-[10px] text-emerald-600 cursor-pointer hover:underline ml-1 font-medium"
+                                    onClick={() => {
+                                        const toActivate = filteredAssets.filter(a => !selectedProductNames.includes(a.productName));
+                                        if (toActivate.length === 0) {
+                                            message.info('筛选结果中的资产均已激活');
+                                            return;
+                                        }
+                                        toActivate.forEach(a => addActiveAsset(a.fileName, a.productName));
+                                        message.success(`已批量激活 ${toActivate.length} 个资产到车型大纲`);
+                                    }}
+                                >
+                                    ⚡ 批量激活 ({filteredAssets.filter(a => !selectedProductNames.includes(a.productName)).length})
+                                </span>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 <div className="space-y-2">
-                    {assets.map(info => {
+                    {filteredAssets.map(info => {
                         const isFocused = focusedFile === info.fileName;
                         const isEditing = editingAsset === info.fileName;
                         // 智能感知：如果该资产下的车型已在工作集中，则视为激活
@@ -257,6 +429,15 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         />
                                                     </Tooltip>
                                                 )}
+                                                <Tooltip title="导出 CSV">
+                                                    <Button 
+                                                        type="text" 
+                                                        size="small"
+                                                        icon={<DownloadOutlined className="!text-[14px] text-slate-400 hover:text-emerald-500" />}
+                                                        onClick={(e) => { e.stopPropagation(); handleExportCsv(info); }}
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
+                                                    />
+                                                </Tooltip>
                                                 <Tooltip title="重命名">
                                                     <Button 
                                                         type="text" 
@@ -277,19 +458,80 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 </Tooltip>
                                             </div>
                                         </div>
-                                        {info.updatedAt && (
-                                            <div className="pl-[42px] mt-1.5 text-[10px] text-slate-400 font-medium flex items-center gap-3">
-                                                <span className="flex items-center gap-1 opacity-80"><EditOutlined className="text-[10px]"/> {formatDate(info.updatedAt)}</span>
-                                            </div>
-                                        )}
+                                        {/* 标签行 */}
+                                        <div className="pl-[42px] mt-1.5 flex items-center gap-1 flex-wrap">
+                                            {(assetTags[info.fileName] || []).map(tag => (
+                                                <Tag
+                                                    key={tag}
+                                                    color={getTagColor(tag)}
+                                                    closable
+                                                    onClose={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveTag(info.fileName, tag); }}
+                                                    className="text-[9px] m-0 px-1.5 py-0 leading-[16px] rounded-md"
+                                                >
+                                                    {tag}
+                                                </Tag>
+                                            ))}
+                                            <Popover
+                                                open={tagEditingAsset === info.fileName}
+                                                onOpenChange={(open) => { if (!open) { setTagEditingAsset(null); setNewTagInput(''); } }}
+                                                trigger="click"
+                                                placement="bottomLeft"
+                                                content={
+                                                    <div className="w-48" onClick={e => e.stopPropagation()}>
+                                                        <div className="text-[11px] font-bold text-slate-500 mb-2">添加标签</div>
+                                                        <Input
+                                                            size="small"
+                                                            placeholder="输入标签名称…"
+                                                            value={newTagInput}
+                                                            autoFocus
+                                                            onChange={e => setNewTagInput(e.target.value)}
+                                                            onPressEnter={() => {
+                                                                if (newTagInput.trim()) {
+                                                                    handleAddTag(info.fileName, newTagInput);
+                                                                    setNewTagInput('');
+                                                                }
+                                                            }}
+                                                            className="mb-2"
+                                                        />
+                                                        {/* 已有标签快速选择 */}
+                                                        {allTags.filter(t => !(assetTags[info.fileName] || []).includes(t)).length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                                                                {allTags.filter(t => !(assetTags[info.fileName] || []).includes(t)).map(t => (
+                                                                    <Tag
+                                                                        key={t}
+                                                                        color={getTagColor(t)}
+                                                                        className="cursor-pointer text-[10px] m-0 px-1.5 py-0 leading-[18px] rounded-md hover:opacity-80"
+                                                                        onClick={() => handleAddTag(info.fileName, t)}
+                                                                    >
+                                                                        + {t}
+                                                                    </Tag>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                }
+                                            >
+                                                <div
+                                                    onClick={(e) => { e.stopPropagation(); setTagEditingAsset(info.fileName); }}
+                                                    className="w-4 h-4 rounded border border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-blue-400 hover:text-blue-400 text-slate-300 transition-colors"
+                                                >
+                                                    <PlusOutlined className="!text-[8px]" />
+                                                </div>
+                                            </Popover>
+                                            {info.updatedAt && (
+                                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 opacity-80 ml-auto">
+                                                    <EditOutlined className="text-[10px]"/> {formatDate(info.updatedAt)}
+                                                </span>
+                                            )}
+                                        </div>
                                     </>
                                 )}
                             </div>
                         );
                     })}
-                    {!loading && assets.length === 0 && (
+                    {!loading && filteredAssets.length === 0 && (
                         <div className="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-lg">
-                            资产库空空如也
+                            {searchKeyword.trim() ? '没有匹配的资产' : '资产库空空如也'}
                         </div>
                     )}
                 </div>

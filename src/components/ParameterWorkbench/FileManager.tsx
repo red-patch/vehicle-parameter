@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, Button, message, Tooltip } from 'antd';
-import { DeleteOutlined, FileExcelOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import { DeleteOutlined, FileExcelOutlined, PlusOutlined, SettingOutlined, BankOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { parseExcel, readFileAsWorkbook, previewWorkbook, parseWorkbookWithConfig } from '../../utils/excelParser';
 import { EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
@@ -263,7 +263,11 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
                                 ) : (
                                     <>
                                         <div className="flex items-center gap-2 min-w-0">
-                                            <FileExcelOutlined className={`${isFocused ? 'text-blue-500' : 'text-emerald-600'} flex-shrink-0`} />
+                                            {item.data.some(p => p.originSheet === '工信部官网') ? (
+                                                <BankOutlined className={`${isFocused ? 'text-blue-500' : 'text-amber-500'} flex-shrink-0`} />
+                                            ) : (
+                                                <FileExcelOutlined className={`${isFocused ? 'text-blue-500' : 'text-emerald-600'} flex-shrink-0`} />
+                                            )}
                                             <Tooltip title={item.fileName}>
                                                 <span className={`truncate ${isFocused ? 'font-medium text-blue-800' : 'text-slate-700'}`}>{item.fileName}</span>
                                             </Tooltip>
