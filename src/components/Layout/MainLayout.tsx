@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+import { version } from '../../../package.json';
 import { Layout as AntLayout, Menu, Switch, Tooltip, Button, message } from 'antd';
 import { FileSearchOutlined, GlobalOutlined, SunOutlined, MoonOutlined, FilterOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
@@ -105,7 +106,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
         <AntLayout className="min-h-screen">
             <Header className={`flex items-center justify-between px-4 h-12 border-b sticky top-0 z-50 ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center gap-2">
-                    <span className={`font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>DST车型参数管理工具 v4.1</span>
+                    <span className={`font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>DST车型参数管理工具 v{version}</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <Menu
@@ -147,7 +148,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                 {children}
             </Content>
             <Footer className="text-center text-gray-400 text-xs py-3 bg-transparent">
-                DST车型参数管理工具 v4.1 © {new Date().getFullYear()} 计皓琛
+                DST车型参数管理工具 v{version} © {new Date().getFullYear()} 计皓琛
             </Footer>
         </AntLayout>
     );

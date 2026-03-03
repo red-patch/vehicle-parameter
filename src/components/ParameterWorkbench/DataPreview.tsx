@@ -3,7 +3,7 @@ import { Spin, Tag, Button } from 'antd';
 import { BarChartOutlined, WarningOutlined, ArrowRightOutlined, FileTextOutlined, LoadingOutlined, DatabaseOutlined, CheckOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { loadAssetFile } from '../../utils/assetManager';
+import { loadAssetFile, getAssetFilesWithInfo } from '../../utils/assetManager';
 import { isFieldRequired } from '../../assets/requiredFields';
 import type { VehicleParameter } from '../../types';
 
@@ -36,6 +36,11 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
             const excelFile = uploadedFiles.find(f => f.data.some(p => (p.productName || f.fileName) === focusedProduct));
             if (excelFile) {
                 targetSource = excelFile.fileName;
+            } else if (assetLibraryPath) {
+                // 通过资产库元信息反查 productName → 真实 fileName
+                const assetInfos = await getAssetFilesWithInfo(assetLibraryPath);
+                const matchingAsset = assetInfos.find(a => a.productName === focusedProduct);
+                targetSource = matchingAsset ? matchingAsset.fileName : `${focusedProduct}.json`;
             } else {
                 targetSource = `${focusedProduct}.json`;
             }
@@ -56,8 +61,8 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
                 try {
                     const data = await loadAssetFile(assetLibraryPath, targetSource);
                     if (data) {
-                        const params = data.data.filter(p => (p.productName || targetSource!.replace('.json', '')) === focusedProduct);
-                        setProductData(params);
+                        // 资产文件整体归属于该 product，直接使用全部数据
+                        setProductData(data.data);
                     } else {
                         setProductData(null);
                     }

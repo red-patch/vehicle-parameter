@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Input, Button, Card, Typography, Space, Alert, message, Steps } from 'antd';
-import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
+import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import ParametersTable from '../DiffViewer/ParametersTable';
 import type { SheetData } from '../../types';
+import { saveAssetFile } from '../../utils/assetManager';
+import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -28,8 +30,9 @@ const BOOKMARKLET_CODE = `javascript:(function(){try{const table=document.queryS
 const AnnouncementQuery: React.FC = () => {
     const [announcementNo, setAnnouncementNo] = useState<string>('');
     const [importJson, setImportJson] = useState<string>('');
-    const { setMiitData, miitData, setTargetFile, setCompareMode } = useVehicleStore();
+    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath } = useVehicleStore();
     const bookmarkLinkRef = React.useRef<HTMLAnchorElement>(null);
+    const [saveModalVisible, setSaveModalVisible] = useState(false);
 
     React.useEffect(() => {
         if (bookmarkLinkRef.current) {
@@ -147,6 +150,10 @@ const AnnouncementQuery: React.FC = () => {
             sheetData.data = parsedData;
 
             setMiitData(sheetData);
+
+            // 同时送入数据池，使其可被各业务模块使用
+            addFile(sheetData);
+
             message.success(`成功导入 ${sheetData.data.length} 条参数`);
             setImportJson('');
         } catch (e) {
@@ -358,6 +365,14 @@ const AnnouncementQuery: React.FC = () => {
                                         >
                                             下载CSV
                                         </Button>
+                                        <Button
+                                            size="small"
+                                            icon={<SaveOutlined />}
+                                            disabled={!assetLibraryPath}
+                                            onClick={() => setSaveModalVisible(true)}
+                                        >
+                                            保存至资产库
+                                        </Button>
                                         <Button 
                                             type="primary" 
                                             size="small" 
@@ -385,6 +400,17 @@ const AnnouncementQuery: React.FC = () => {
                     </Card>
                 </div>
             </div>
+
+            <SaveAssetModal
+                visible={saveModalVisible}
+                onClose={() => setSaveModalVisible(false)}
+                onSave={async (fileName) => {
+                    if (!assetLibraryPath || !miitData) return;
+                    await saveAssetFile(assetLibraryPath, fileName, fileName, miitData.data);
+                    message.success(`已保存至资产库: ${fileName}`);
+                }}
+                defaultName={announcementNo.trim() || miitData?.fileName || `公告_${new Date().toISOString().slice(0, 10)}`}
+            />
         </div>
     );
 };

@@ -56,6 +56,10 @@ export const checkAssetExists = async (libraryPath: string, fileName: string): P
     return await exists(fullPath);
 };
 
+/** 判断是否为资产数据文件（排除元数据/配置文件） */
+const isAssetDataFile = (name: string) =>
+    name.endsWith('.json') && !name.startsWith('_') && !name.startsWith('custom_');
+
 /**
  * 获取资产库中的所有预设文件
  * @param libraryPath 资产库根目录
@@ -65,7 +69,7 @@ export const getAssetFiles = async (libraryPath: string): Promise<string[]> => {
         if (!await exists(libraryPath)) return [];
         const entries = await readDir(libraryPath);
         return entries
-            .filter(entry => entry.name?.endsWith('.json'))
+            .filter(entry => entry.name && isAssetDataFile(entry.name))
             .map(entry => entry.name!);
     } catch (error) {
         console.error("Failed to read asset directory", error);
@@ -89,7 +93,7 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
     try {
         if (!await exists(libraryPath)) return [];
         const entries = await readDir(libraryPath);
-        const files = entries.filter(entry => entry.name?.endsWith('.json')).map(e => e.name!);
+        const files = entries.filter(entry => entry.name && isAssetDataFile(entry.name)).map(e => e.name!);
         
         const results = await Promise.all(
             files.map(async fileName => {
@@ -218,6 +222,18 @@ export const renameAssetFile = async (
         if (oldPath !== newPath) {
             await remove(oldPath);
         }
+
+        // 同步标签映射
+        try {
+            const tags = await loadAssetTags(libraryPath);
+            if (tags[finalOldName]) {
+                tags[finalNewName] = tags[finalOldName];
+                delete tags[finalOldName];
+                await saveAssetTags(libraryPath, tags);
+            }
+        } catch (e) {
+            console.warn('Failed to sync tags during rename', e);
+        }
         
         return true;
     } catch (error) {
@@ -239,9 +255,65 @@ export const deleteAssetFile = async (libraryPath: string, fileName: string): Pr
         if (!await exists(fullPath)) return false;
         
         await remove(fullPath);
+
+        // 同步清除标签
+        try {
+            const tags = await loadAssetTags(libraryPath);
+            if (tags[finalFileName]) {
+                delete tags[finalFileName];
+                await saveAssetTags(libraryPath, tags);
+            }
+        } catch (e) {
+            console.warn('Failed to sync tags during delete', e);
+        }
+        
         return true;
     } catch (error) {
         console.error("Failed to delete asset file", error);
         return false;
     }
+};
+
+// ==================== 标签管理 ====================
+
+const TAGS_FILE = '_asset_tags.json';
+
+/**
+ * 加载资产标签映射
+ */
+export const loadAssetTags = async (libraryPath: string): Promise<Record<string, string[]>> => {
+    try {
+        const fullPath = await join(libraryPath, TAGS_FILE);
+        if (!await exists(fullPath)) return {};
+        const content = await readTextFile(fullPath);
+        return JSON.parse(content) as Record<string, string[]>;
+    } catch (error) {
+        console.error('Failed to load asset tags', error);
+        return {};
+    }
+};
+
+/**
+ * 保存整个标签映射
+ */
+export const saveAssetTags = async (libraryPath: string, tags: Record<string, string[]>): Promise<void> => {
+    try {
+        const fullPath = await join(libraryPath, TAGS_FILE);
+        await writeTextFile(fullPath, JSON.stringify(tags, null, 2));
+    } catch (error) {
+        console.error('Failed to save asset tags', error);
+    }
+};
+
+/**
+ * 设置单个资产的标签并持久化
+ */
+export const setAssetFileTags = async (libraryPath: string, fileName: string, fileTags: string[]): Promise<void> => {
+    const tags = await loadAssetTags(libraryPath);
+    if (fileTags.length === 0) {
+        delete tags[fileName];
+    } else {
+        tags[fileName] = fileTags;
+    }
+    await saveAssetTags(libraryPath, tags);
 };
