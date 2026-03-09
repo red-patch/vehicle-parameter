@@ -29,6 +29,7 @@ const roleLabel = (role: ColumnRole) => ROLE_OPTIONS.find(r => r.value === role)
 const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfirm, onCancel }) => {
     const [activeSheet, setActiveSheet] = useState(0);
     const [sheetConfigs, setSheetConfigs] = useState<Map<string, {
+        enabled: boolean;
         headerStart: number;
         headerEnd: number;
         dataStart: number;
@@ -42,7 +43,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         const existing = sheetConfigs.get(preview.sheetName);
         if (existing) return existing;
         // 默认值：第 0 索引（第 1 行）为表头，第 1 索引（第 2 行）开始是数据
-        return { headerStart: 0, headerEnd: 0, dataStart: 1, columns: new Map<number, ColumnConfig>() };
+        return { enabled: true, headerStart: 0, headerEnd: 0, dataStart: 1, columns: new Map<number, ColumnConfig>() };
     }, [sheetConfigs]);
 
     const config = currentPreview ? getConfig(currentPreview) : null;
@@ -50,7 +51,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
     const updateConfig = useCallback((sheetName: string, updater: (prev: ReturnType<typeof getConfig>) => ReturnType<typeof getConfig>) => {
         setSheetConfigs(prev => {
             const next = new Map(prev);
-            const current = next.get(sheetName) || { headerStart: 0, headerEnd: 0, dataStart: 1, columns: new Map<number, ColumnConfig>() };
+            const current = next.get(sheetName) || { enabled: true, headerStart: 0, headerEnd: 0, dataStart: 1, columns: new Map<number, ColumnConfig>() };
             next.set(sheetName, updater(current));
             return next;
         });
@@ -121,6 +122,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         const dataStart = headerEnd + 1;
 
         updateConfig(preview.sheetName, () => ({
+            enabled: true,
             headerStart: headerRow,
             headerEnd,
             dataStart,
@@ -163,9 +165,37 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         });
     };
 
+    const setSheetEnabled = (sheetName: string, enabled: boolean) => {
+        updateConfig(sheetName, prev => ({ ...prev, enabled }));
+    };
+
+    const enableOnlyCurrentSheet = () => {
+        if (!currentPreview) return;
+        setSheetConfigs(prev => {
+            const next = new Map(prev);
+            previews.forEach(preview => {
+                const current = next.get(preview.sheetName) || getConfig(preview);
+                next.set(preview.sheetName, { ...current, enabled: preview.sheetName === currentPreview.sheetName });
+            });
+            return next;
+        });
+    };
+
+    const enableAllSheets = () => {
+        setSheetConfigs(prev => {
+            const next = new Map(prev);
+            previews.forEach(preview => {
+                const current = next.get(preview.sheetName) || getConfig(preview);
+                next.set(preview.sheetName, { ...current, enabled: true });
+            });
+            return next;
+        });
+    };
+
     // 验证当前 sheet 配置是否完整
     const validation = useMemo(() => {
         if (!config) return { valid: false, message: '未选择 Sheet' };
+        if (!config.enabled) return { valid: true, message: '' };
         let hasName = false;
         let hasProduct = false;
         config.columns.forEach(col => {
@@ -177,12 +207,12 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         return { valid: true, message: '' };
     }, [config]);
 
-    // 构建并提交配置
-    const handleConfirm = () => {
-        // 收集所有已配置的 sheet
+    const parsedConfigsPreview = useMemo(() => {
         const configs: SheetParseConfig[] = [];
-        
+
         sheetConfigs.forEach((cfg, sheetName) => {
+            if (!cfg.enabled) return;
+
             let nameColIndex = -1;
             let groupColIndex = -1;
             const productColumns: { index: number; name: string }[] = [];
@@ -197,8 +227,8 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
 
             if (nameColIndex >= 0 && productColumns.length > 0) {
                 const headerRows: number[] = [];
-                for (let r = cfg.headerStart; r <= cfg.headerEnd; r++) headerRows.push(r);
-                
+                for (let rowIndex = cfg.headerStart; rowIndex <= cfg.headerEnd; rowIndex++) headerRows.push(rowIndex);
+
                 configs.push({
                     sheetName,
                     headerRows,
@@ -210,12 +240,27 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
             }
         });
 
-        if (configs.length === 0) {
-            message.warning('请至少配置一个 Sheet 的解析规则');
+        return configs;
+    }, [sheetConfigs]);
+
+    const enabledSheetCount = useMemo(
+        () => Array.from(sheetConfigs.values()).filter(cfg => cfg.enabled).length,
+        [sheetConfigs]
+    );
+
+    // 构建并提交配置
+    const handleConfirm = () => {
+        if (enabledSheetCount === 0) {
+            message.warning('请至少启用一个 Sheet 参与解析');
             return;
         }
 
-        onConfirm(configs);
+        if (parsedConfigsPreview.length === 0) {
+            message.warning('启用的 Sheet 中至少需要一个配置完整的解析规则');
+            return;
+        }
+
+        onConfirm(parsedConfigsPreview);
     };
 
     // 判断行是否为表头行
@@ -251,7 +296,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                         key="confirm"
                         type="primary"
                         icon={<CheckOutlined />}
-                        disabled={!validation.valid}
+                        disabled={enabledSheetCount === 0 || (!validation.valid && !!config?.enabled)}
                         onClick={handleConfirm}
                     >
                         确认解析
@@ -266,7 +311,12 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                 size="small"
                 items={previews.map((p, idx) => ({
                     key: String(idx),
-                    label: `${p.sheetName} (${p.totalRows}行)`,
+                    label: (
+                        <span>
+                            {p.sheetName} ({p.totalRows}行)
+                            {!getConfig(p).enabled && <Tag style={{ marginInlineStart: 6 }} color="default">已跳过</Tag>}
+                        </span>
+                    ),
                 }))}
             />
 
@@ -274,6 +324,17 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                 <>
                     {/* 控制栏 */}
                     <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Tag color={config.enabled ? 'blue' : 'default'}>
+                                {config.enabled ? '当前页参与解析' : '当前页已跳过'}
+                            </Tag>
+                            <Button size="small" onClick={() => setSheetEnabled(currentPreview.sheetName, !config.enabled)}>
+                                {config.enabled ? '跳过当前页' : '启用当前页'}
+                            </Button>
+                            <Button size="small" onClick={enableOnlyCurrentSheet}>仅解析当前页</Button>
+                            <Button size="small" onClick={enableAllSheets}>全部启用</Button>
+                        </div>
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 13, color: '#666' }}>表头行：</span>
                             <InputNumber
@@ -281,6 +342,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                 min={1}
                                 max={currentPreview.rows.length}
                                 value={config.headerStart + 1}
+                                disabled={!config.enabled}
                                 onChange={v => {
                                     if (v === null) return;
                                     const val = v - 1;
@@ -299,6 +361,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                 min={config.headerStart + 1}
                                 max={currentPreview.rows.length}
                                 value={config.headerEnd + 1}
+                                disabled={!config.enabled}
                                 onChange={v => {
                                     if (v === null) return;
                                     const val = v - 1;
@@ -320,6 +383,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                 min={config.headerEnd + 2}
                                 max={currentPreview.rows.length}
                                 value={config.dataStart + 1}
+                                disabled={!config.enabled}
                                 onChange={v => {
                                     if (v === null) return;
                                     updateConfig(currentPreview.sheetName, prev => ({ ...prev, dataStart: v - 1 }));
@@ -332,6 +396,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                         <Button
                             size="small"
                             icon={<ReloadOutlined />}
+                            disabled={!config.enabled}
                             onClick={() => autoDetect(currentPreview)}
                         >
                             重新检测
@@ -343,7 +408,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                     </div>
 
                     {/* 预览表格 */}
-                    <div style={{ overflowX: 'auto', border: '1px solid #e8e8e8', borderRadius: 6 }}>
+                    <div style={{ overflowX: 'auto', border: '1px solid #e8e8e8', borderRadius: 6, opacity: config.enabled ? 1 : 0.55 }}>
                         <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%', minWidth: colCount * 100 }}>
                             {/* 列角色标签行 */}
                             <thead>
@@ -356,6 +421,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                             <Select
                                                 size="small"
                                                 value={getColumnRole(ci)}
+                                                disabled={!config.enabled}
                                                 onChange={val => setColumnRole(ci, val)}
                                                 style={{ width: '100%' }}
                                                 options={ROLE_OPTIONS.map(r => ({ value: r.value, label: r.label }))}
@@ -364,6 +430,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                                 <input
                                                     type="text"
                                                     value={config.columns.get(ci)?.customName || ''}
+                                                    disabled={!config.enabled}
                                                     onChange={e => setProductName(ci, e.target.value)}
                                                     placeholder="产品名"
                                                     style={{
@@ -420,14 +487,18 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
 
                     {/* 配置摘要 */}
                     <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
-                        {Array.from(config.columns.entries())
-                            .filter(([, col]) => col.role !== 'skip')
-                            .map(([idx, col]) => (
-                                <Tag key={idx} color={roleColor(col.role)}>
-                                    列{idx + 1}: {roleLabel(col.role)}
-                                    {col.role === 'product' && col.customName ? ` (${col.customName})` : ''}
-                                </Tag>
-                            ))}
+                        {!config.enabled ? (
+                            <Tag color="default">当前 Sheet 将被完全跳过，不参与解析</Tag>
+                        ) : (
+                            Array.from(config.columns.entries())
+                                .filter(([, col]) => col.role !== 'skip')
+                                .map(([idx, col]) => (
+                                    <Tag key={idx} color={roleColor(col.role)}>
+                                        列{idx + 1}: {roleLabel(col.role)}
+                                        {col.role === 'product' && col.customName ? ` (${col.customName})` : ''}
+                                    </Tag>
+                                ))
+                        )}
                     </div>
                 </>
             )}
