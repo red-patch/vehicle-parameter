@@ -137,12 +137,11 @@ export const loadAssetFile = async (libraryPath: string, fileName: string): Prom
         
         const content = await readTextFile(fullPath);
         const parsed: AssetFileFormat = JSON.parse(content);
-        const baseName = fileName.replace(/\.json$/i, '');
-        
-        // 转换为兼容系统中使用的 SheetData，并双重保障车型名为当前的文件名（防止用户在外部直接改名导致内部记录脏旧）
+        const assetProductName = parsed.productName || fileName.replace(/\.json$/i, '');
+
         const normalizedData = (parsed.parameters || []).map(p => ({
             ...p,
-            productName: baseName
+            productName: p.productName || assetProductName
         }));
 
         return {
@@ -197,27 +196,8 @@ export const renameAssetFile = async (
         
         if (!await exists(oldPath)) return false;
         
-        // 对于资产库文件，物理文件名等同于内部车型名。执行深层修改后再保存
         const content = await readTextFile(oldPath);
-        let finalContent = content;
-        
-        try {
-            const parsed = JSON.parse(content);
-            if (parsed && typeof parsed === 'object') {
-                const baseNewName = newFileName.replace(/\.json$/i, '');
-                parsed.productName = baseNewName;
-                if (Array.isArray(parsed.parameters)) {
-                    parsed.parameters.forEach((p: any) => {
-                        p.productName = baseNewName;
-                    });
-                }
-                finalContent = JSON.stringify(parsed, null, 2);
-            }
-        } catch (e) {
-            console.warn("Failed to parse/update json during rename", e);
-        }
-
-        await writeTextFile(newPath, finalContent);
+        await writeTextFile(newPath, content);
         
         if (oldPath !== newPath) {
             await remove(oldPath);
@@ -238,6 +218,37 @@ export const renameAssetFile = async (
         return true;
     } catch (error) {
         console.error("Failed to rename asset file", error);
+        return false;
+    }
+};
+
+export const renameAssetProductName = async (
+    libraryPath: string,
+    fileName: string,
+    newProductName: string
+): Promise<boolean> => {
+    try {
+        const finalFileName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
+        const fullPath = await join(libraryPath, finalFileName);
+
+        if (!await exists(fullPath)) return false;
+
+        const content = await readTextFile(fullPath);
+        const parsed: AssetFileFormat = JSON.parse(content);
+        const trimmedName = newProductName.trim();
+        if (!trimmedName) return false;
+
+        parsed.productName = trimmedName;
+        parsed.updatedAt = new Date().toISOString();
+        parsed.parameters = (parsed.parameters || []).map(parameter => ({
+            ...parameter,
+            productName: trimmedName
+        }));
+
+        await writeTextFile(fullPath, JSON.stringify(parsed, null, 2));
+        return true;
+    } catch (error) {
+        console.error('Failed to rename asset product name', error);
         return false;
     }
 };

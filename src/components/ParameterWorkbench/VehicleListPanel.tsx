@@ -61,34 +61,41 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
             }
         };
         fetchAsset();
-    }, [assetLibraryPath, activeAssets]);
+    }, [assetLibraryPath, activeAssets, selectedProductNames]);
 
     // 计算当前要渲染的车型列表
     const vehicles: VehicleSummary[] = useMemo(() => {
-        const products: VehicleSummary[] = [];
-        const seen = new Set<string>();
+        const products = new Map<string, VehicleSummary>();
         
         // Excel
         uploadedFiles.forEach(fileData => {
             fileData.data.forEach(p => {
                 const pName = p.productName || fileData.fileName;
-                if (!seen.has(pName)) {
-                    seen.add(pName);
-                    const allParams = fileData.data.filter(item => (item.productName || fileData.fileName) === pName);
-                    const total = allParams.length;
-                    const filled = allParams.filter(item => item.value !== undefined && item.value !== null && String(item.value).trim() !== '').length;
-                    products.push({ name: pName, totalParams: total, filledParams: filled, source: 'excel', originalFile: fileData.fileName });
+                const existing = products.get(pName);
+                if (!existing) {
+                    products.set(pName, {
+                        name: pName,
+                        totalParams: 0,
+                        filledParams: 0,
+                        source: 'excel',
+                        originalFile: fileData.fileName
+                    });
+                }
+
+                const current = products.get(pName)!;
+                current.totalParams += 1;
+                if (p.value !== undefined && p.value !== null && String(p.value).trim() !== '') {
+                    current.filledParams += 1;
                 }
             });
         });
+
         // Assets
         assetData.forEach(ad => {
-            if (!seen.has(ad.name)) {
-                seen.add(ad.name);
-                products.push(ad);
-            }
+            if (!products.has(ad.name)) products.set(ad.name, ad);
         });
-        return products;
+
+        return Array.from(products.values());
     }, [uploadedFiles, assetData]);
 
     // 由于可能是初次点击源，自动默认高亮第一个车型

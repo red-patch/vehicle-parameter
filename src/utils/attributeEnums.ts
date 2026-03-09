@@ -4,6 +4,7 @@
  * 并且支持通过注入 libraryPath 热替换为使用本地资产目录的 custom_enums.json
  */
 import { loadCustomConfig } from './assetManager';
+import defaultEnumCsv from '../../docs/字段数据/属性值统计.csv?raw';
 
 // 枚举值缓存
 let enumCache: Map<string, string[]> | null = null;
@@ -46,6 +47,58 @@ function parseCSVLine(line: string): string[] {
 }
 
 /**
+ * 将 CSV 文本解析并写入缓存。返回写入字段数。
+ */
+function applyCsvToCache(csvText: string): number {
+    if (!enumCache || !normalizedNameMap) return 0;
+
+    const text = csvText.replace(/^\uFEFF/, ''); // 清除 UTF-8 BOM
+    const headSample = text.slice(0, 200).toLowerCase();
+    // 防止打包环境静态资源回退到 index.html 被误解析
+    if (headSample.includes('<html') || headSample.includes('<head') || headSample.includes('<body')) {
+        console.error('❌ 属性枚举 CSV 内容异常：检测到 HTML，已跳过加载。');
+        return 0;
+    }
+
+    const lines = text.split(/\r?\n/);
+    if (lines.length === 0) return 0;
+
+    let loaded = 0;
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const [name, valuesStr] = parseCSVLine(line);
+        if (!name) continue;
+
+        const trimmedName = name.trim();
+        if (!trimmedName) continue;
+        const normalizedName = normalizeName(trimmedName);
+        normalizedNameMap.set(normalizedName, trimmedName);
+
+        const values = valuesStr
+            ? valuesStr.split('|').map(v => v.trim()).filter(v => v.length > 0)
+            : [];
+
+        enumCache.set(trimmedName, values);
+        loaded++;
+    }
+
+    return loaded;
+}
+
+/**
+ * 判断 custom_enums.json 是否疑似被 HTML 污染（如把 index.html 当成字典）
+ */
+function isSuspiciousCustomEnum(config: Record<string, string[]>): boolean {
+    const keys = Object.keys(config);
+    if (keys.length === 0) return false;
+
+    const suspicious = keys.filter(k => /<[^>]+>/.test(k) || /^<!doctype/i.test(k.trim()));
+    return suspicious.length / keys.length > 0.2;
+}
+
+/**
  * 加载枚举值数据
  * @param libraryPath 可选的用户资产目录路径。存在时将尝试载入 custom_enums.json
  */
@@ -58,36 +111,11 @@ async function loadEnumData(libraryPath?: string): Promise<void> {
         normalizedNameMap = new Map();
     }
     
-    // 如果是首次加载且没有提供库路径，或者没有库路径时，默认走系统 csv 加载
+    // 默认优先加载打包内置 CSV，避免运行时路径回退导致误读 index.html
     if (enumCache.size === 0) {
         try {
-            // 动态加载 CSV 文件内容
-            const response = await fetch('/docs/字段数据/属性值统计.csv');
-            if (response.ok) {
-                const text = await response.text();
-                const lines = text.split('\n');
-                
-                // 跳过表头
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-                    
-                    const [name, valuesStr] = parseCSVLine(line);
-                    if (!name) continue;
-                    
-                    const trimmedName = name.trim();
-                    const normalizedName = normalizeName(trimmedName);
-                    
-                    if (normalizedNameMap) normalizedNameMap.set(normalizedName, trimmedName);
-                    
-                    const values = valuesStr
-                        ? valuesStr.split('|').map(v => v.trim()).filter(v => v.length > 0)
-                        : [];
-                    
-                    if (enumCache) enumCache.set(trimmedName, values);
-                }
-                console.log(`✅ 已加载 ${enumCache?.size || 0} 个系统默认属性枚举`);
-            }
+            const loaded = applyCsvToCache(defaultEnumCsv);
+            console.log(`✅ 已加载 ${loaded} 个系统默认属性枚举（内置 CSV）`);
         } catch (error) {
             console.error('加载系统默认属性枚举失败:', error);
         }
@@ -98,6 +126,11 @@ async function loadEnumData(libraryPath?: string): Promise<void> {
         try {
             const customConfig = await loadCustomConfig<Record<string, string[]>>(libraryPath, 'custom_enums.json');
             if (customConfig && typeof customConfig === 'object') {
+                if (isSuspiciousCustomEnum(customConfig)) {
+                    console.error('❌ custom_enums.json 疑似被 HTML 污染，已忽略此文件。');
+                    return;
+                }
+
                 let overwriteCount = 0;
                 for (const [key, values] of Object.entries(customConfig)) {
                     if (Array.isArray(values)) {

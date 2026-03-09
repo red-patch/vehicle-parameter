@@ -259,6 +259,56 @@ const buildHeaderName = (jsonData: unknown[][], headerRows: number[], colIndex: 
     return parts.join(' ') || `列${colIndex + 1}`;
 };
 
+/**
+ * 部分文件会把 `!ref` 膨胀到 `XFD`，导致 sheet_to_json 扫描大量空列。
+ * 当列跨度异常大时，按真实单元格边界收敛 range，避免无效遍历。
+ */
+const getEffectiveSheetRange = (sheet: XLSX.WorkSheet, maxSafeColumns = 512): string | undefined => {
+    const ref = sheet['!ref'];
+    if (!ref) return undefined;
+
+    try {
+        const decoded = XLSX.utils.decode_range(ref);
+        const colSpan = decoded.e.c - decoded.s.c + 1;
+        if (colSpan <= maxSafeColumns) return undefined;
+
+        const cellKeys = Object.keys(sheet).filter(k => !k.startsWith('!'));
+        if (cellKeys.length === 0) return undefined;
+
+        let minR = Number.POSITIVE_INFINITY;
+        let maxR = -1;
+        let minC = Number.POSITIVE_INFINITY;
+        let maxC = -1;
+
+        for (const key of cellKeys) {
+            const cell = XLSX.utils.decode_cell(key);
+            if (cell.r < minR) minR = cell.r;
+            if (cell.r > maxR) maxR = cell.r;
+            if (cell.c < minC) minC = cell.c;
+            if (cell.c > maxC) maxC = cell.c;
+        }
+
+        if (maxR < minR || maxC < minC) return undefined;
+        return XLSX.utils.encode_range({
+            s: { r: minR, c: minC },
+            e: { r: maxR, c: maxC }
+        });
+    } catch {
+        return undefined;
+    }
+};
+
+const sheetToRows = (
+    sheet: XLSX.WorkSheet,
+    opts: XLSX.Sheet2JSONOpts = {}
+): unknown[][] => {
+    const effectiveRange = getEffectiveSheetRange(sheet);
+    return XLSX.utils.sheet_to_json(sheet, {
+        ...opts,
+        ...(effectiveRange ? { range: effectiveRange } : {})
+    }) as unknown[][];
+};
+
 // ===================== 解析键值对格式 =====================
 
 const parseKeyValueSheet = (jsonData: unknown[][], sheetName: string, fileName: string): VehicleParameter[] => {
@@ -310,7 +360,7 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
 
     workbook.SheetNames.forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+        const jsonData = sheetToRows(sheet, { header: 1 });
 
         if (jsonData.length === 0) {
             diagnostics.sheetsSkipped.push({ name: sheetName, reason: 'Sheet为空' });
@@ -478,12 +528,12 @@ export const parseExcel = async (file: File): Promise<SheetData> => {
         reader.onload = (e) => {
             try {
                 const data = e.target?.result;
-                const workbook = XLSX.read(data, { type: 'binary' });
+                const workbook = XLSX.read(data, { type: 'array' });
                 resolve(parseWorkbook(workbook, file.name));
             } catch (error) { reject(error); }
         };
         reader.onerror = (error) => reject(error);
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
     });
 };
 
@@ -493,11 +543,11 @@ export const readFileAsWorkbook = (file: File): Promise<XLSX.WorkBook> => {
         reader.onload = (e) => {
             try {
                 const data = e.target?.result;
-                resolve(XLSX.read(data, { type: 'binary' }));
+                resolve(XLSX.read(data, { type: 'array' }));
             } catch (error) { reject(error); }
         };
         reader.onerror = (error) => reject(error);
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
     });
 };
 
@@ -506,7 +556,7 @@ export const readFileAsWorkbook = (file: File): Promise<XLSX.WorkBook> => {
 export const parseRequirementWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetData => {
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][];
+    const jsonData = sheetToRows(sheet, { header: 1 });
     if (jsonData.length === 0) throw new Error("File is empty");
 
     const headers = jsonData[0] as string[];
@@ -531,11 +581,11 @@ export const parseRequirementExcel = async (file: File): Promise<SheetData> => {
         reader.onload = (e) => {
             try {
                 const data = e.target?.result;
-                resolve(parseRequirementWorkbook(XLSX.read(data, { type: 'binary' }), file.name));
+                resolve(parseRequirementWorkbook(XLSX.read(data, { type: 'array' }), file.name));
             } catch (error) { reject(error); }
         };
         reader.onerror = (error) => reject(error);
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
     });
 };
 
@@ -544,7 +594,7 @@ export const parseRequirementExcel = async (file: File): Promise<SheetData> => {
 export const previewWorkbook = (workbook: XLSX.WorkBook): SheetPreview[] => {
     return workbook.SheetNames.map(sheetName => {
         const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as string[][];
+        const jsonData = sheetToRows(sheet, { header: 1, defval: '' }) as string[][];
         const totalRows = jsonData.length;
         const totalCols = jsonData.reduce((max, row) => Math.max(max, (row as unknown[]).length), 0);
 
@@ -571,7 +621,7 @@ export const parseWorkbookWithConfig = (
     for (const config of configs) {
         const sheet = workbook.Sheets[config.sheetName];
         if (!sheet) continue;
-        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as unknown[][];
+        const jsonData = sheetToRows(sheet, { header: 1, defval: '' });
         if (jsonData.length === 0) continue;
 
         const productColumns = config.productColumns.map(pc => {

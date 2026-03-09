@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Table, Select, Button, Tag, Input, Tooltip, message, Popconfirm, Space } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
-import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getProductData } from '../../store/vehicleSelectors';
@@ -46,6 +46,7 @@ const DataPurifyView: React.FC = () => {
 
     // 过滤状态
     const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
+    const [valueSearch, setValueSearch] = useState('');
     const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'anomaly'>('none');
 
     // 预加载枚举数据
@@ -170,10 +171,14 @@ const DataPurifyView: React.FC = () => {
     const filteredParams = useMemo(() => {
         const sysReq = getSystemRequiredFieldsSync();
         const qualCheck = getQualityCheckFieldsSync();
+        const searchKeyword = valueSearch.trim().toLowerCase();
 
         return augmentedParams.filter(p => {
             // 组过滤器优先
             if (filterGroup && p.group !== filterGroup) return false;
+
+            // 参数值搜索
+            if (searchKeyword && !String(p.value ?? '').toLowerCase().includes(searchKeyword)) return false;
             
             // 快捷过滤器
             if (quickFilter === 'system') return sysReq.includes(p.name);
@@ -186,7 +191,7 @@ const DataPurifyView: React.FC = () => {
 
             return true;
         });
-    }, [augmentedParams, filterGroup, quickFilter]);
+    }, [augmentedParams, filterGroup, quickFilter, valueSearch]);
 
     const anomalyCount = augmentedParams.filter(p => !p.isNameStandard || p.isEnumMismatch).length;
 
@@ -360,6 +365,17 @@ const DataPurifyView: React.FC = () => {
                         placeholder="所有分组"
                         allowClear
                         showSearch
+                    />
+                </FilterItem>
+
+                <FilterItem label="参数值:">
+                    <Input
+                        style={{ width: 220 }}
+                        value={valueSearch}
+                        onChange={e => setValueSearch(e.target.value)}
+                        placeholder="搜索参数值..."
+                        allowClear
+                        prefix={<SearchOutlined className="text-gray-400" />}
                     />
                 </FilterItem>
 

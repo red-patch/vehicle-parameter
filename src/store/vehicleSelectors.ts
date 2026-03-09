@@ -1,5 +1,36 @@
 import type { SheetData, VehicleParameter } from '../types';
 
+const uploadedIndexCache = new WeakMap<SheetData[], Map<string, VehicleParameter[]>>();
+const assetIndexCache = new WeakMap<SheetData[], Map<string, VehicleParameter[]>>();
+
+const buildProductIndex = (files: SheetData[]): Map<string, VehicleParameter[]> => {
+    const index = new Map<string, VehicleParameter[]>();
+    for (const file of files) {
+        for (const p of file.data) {
+            const pName = p.productName || file.fileName;
+            const bucket = index.get(pName);
+            if (bucket) {
+                bucket.push(p);
+            } else {
+                index.set(pName, [p]);
+            }
+        }
+    }
+    return index;
+};
+
+const getOrCreateIndex = (
+    files: SheetData[],
+    cache: WeakMap<SheetData[], Map<string, VehicleParameter[]>>
+): Map<string, VehicleParameter[]> => {
+    let index = cache.get(files);
+    if (!index) {
+        index = buildProductIndex(files);
+        cache.set(files, index);
+    }
+    return index;
+};
+
 /**
  * 获取指定车型的所有参数
  */
@@ -8,29 +39,12 @@ export const getProductData = (
     productName: string,
     assetFiles: SheetData[] = []
 ): VehicleParameter[] => {
-    const params: VehicleParameter[] = [];
-    
-    // 扫描 Excel 源
-    for (const file of uploadedFiles) {
-        for (const p of file.data) {
-            const pName = p.productName || file.fileName;
-            if (pName === productName) {
-                params.push(p);
-            }
-        }
-    }
+    const uploadedIndex = getOrCreateIndex(uploadedFiles, uploadedIndexCache);
+    const assetIndex = getOrCreateIndex(assetFiles, assetIndexCache);
 
-    // 扫描资产源
-    for (const file of assetFiles) {
-        for (const p of file.data) {
-            const pName = p.productName || file.fileName;
-            if (pName === productName) {
-                params.push(p);
-            }
-        }
-    }
-
-    return params;
+    const fromUploaded = uploadedIndex.get(productName) || [];
+    const fromAsset = assetIndex.get(productName) || [];
+    return [...fromUploaded, ...fromAsset];
 };
 
 /**
@@ -44,21 +58,20 @@ export const getProductOptions = (
     const options: { label: string; value: string }[] = [];
     const globalSelected = new Set(selectedProductNames);
     const added = new Set<string>();
-    
-    const scan = (files: SheetData[]) => {
-        for (const file of files) {
-            for (const p of file.data) {
-                const name = p.productName || file.fileName;
-                if (globalSelected.has(name) && !added.has(name)) {
-                    options.push({ label: name, value: name });
-                    added.add(name);
-                }
+
+    const collect = (
+        index: Map<string, VehicleParameter[]>
+    ) => {
+        for (const name of index.keys()) {
+            if (globalSelected.has(name) && !added.has(name)) {
+                options.push({ label: name, value: name });
+                added.add(name);
             }
         }
     };
 
-    scan(uploadedFiles);
-    scan(assetFiles);
+    collect(getOrCreateIndex(uploadedFiles, uploadedIndexCache));
+    collect(getOrCreateIndex(assetFiles, assetIndexCache));
     
     return options;
 };

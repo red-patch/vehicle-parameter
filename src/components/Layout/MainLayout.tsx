@@ -8,6 +8,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { reloadCustomFields } from '../../utils/fieldLists';
 import { preloadEnumData } from '../../utils/attributeEnums';
 import { Modal } from 'antd';
+import { useShallow } from 'zustand/react/shallow';
 
 const { Header, Content, Footer } = AntLayout;
 
@@ -42,7 +43,10 @@ const items = [
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbench', onTabChange }) => {
     const { isDarkMode, toggleDarkMode } = useThemeStore();
-    const { assetLibraryPath, setAssetLibraryPath } = useVehicleStore();
+    const { assetLibraryPath, setAssetLibraryPath } = useVehicleStore(useShallow(state => ({
+        assetLibraryPath: state.assetLibraryPath,
+        setAssetLibraryPath: state.setAssetLibraryPath
+    })));
 
     // 监听本地资产路径挂载事件，触发字典与标准的超级同化机制
     React.useEffect(() => {

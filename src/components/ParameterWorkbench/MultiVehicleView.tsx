@@ -41,14 +41,24 @@ const MultiVehicleView: React.FC = () => {
 
     // Prepare Vehicle Data Cache
     const selectedVehicles = useMemo(() => {
-        const vehicles: { name: string; params: Map<string, string | number> }[] = [];
+        const vehicles: {
+            name: string;
+            params: Map<string, string | number>;
+            candidates: { id: string; group: string; name: string; value: string | number }[];
+        }[] = [];
         
         localSelection.forEach(productName => {
             const data = getProductData(uploadedFiles, productName, assetFiles);
             if (data.length > 0) {
                 const productParams = new Map<string, string | number>();
                 data.forEach(p => productParams.set(p.name, p.value));
-                vehicles.push({ name: productName, params: productParams });
+                const candidates = Array.from(productParams.entries()).map(([k, v]) => ({
+                    id: k,
+                    group: 'default',
+                    name: k,
+                    value: v
+                }));
+                vehicles.push({ name: productName, params: productParams, candidates });
             }
         });
         
@@ -83,14 +93,7 @@ const MultiVehicleView: React.FC = () => {
                     };
                     
                     for (const vehicle of selectedVehicles) {
-                         const candidates = Array.from(vehicle.params.entries()).map(([k, v]) => ({
-                             id: k,
-                             group: 'default',
-                             name: k,
-                             value: v
-                         }));
-
-                         const matchResult = findBestMatch(targetField, candidates, 0.5);
+                         const matchResult = findBestMatch(targetField, vehicle.candidates, 0.5);
                          
                          if (matchResult.matchedParam) {
                              row[vehicle.name] = matchResult.matchedParam.value;

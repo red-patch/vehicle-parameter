@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, FormOutlined } from '@ant-design/icons';
 import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getAssetFilesWithInfo, renameAssetFile, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
+import { getAssetFilesWithInfo, renameAssetFile, renameAssetProductName, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
 import { downloadCsv } from '../../utils/downloadCsv';
 
 // 标签颜色池，根据标签内容确定性地分配颜色
@@ -30,6 +30,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         addActiveAsset, 
         removeActiveAsset, 
         renameActiveAsset,
+        renameAssetProduct,
         selectedProductNames
     } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
@@ -38,6 +39,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         addActiveAsset: state.addActiveAsset,
         removeActiveAsset: state.removeActiveAsset,
         renameActiveAsset: state.renameActiveAsset,
+        renameAssetProduct: state.renameAssetProduct,
         selectedProductNames: state.selectedProductNames
     })));
 
@@ -51,6 +53,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     // Rename state
     const [editingAsset, setEditingAsset] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
+    const [editMode, setEditMode] = useState<'file' | 'product' | null>(null);
     const [searchKeyword, setSearchKeyword] = useState('');
 
     // 标签系统
@@ -86,33 +89,44 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         fetchAssets();
     }, [assetLibraryPath, uploadedFiles]); // Re-fetch if files uploaded
 
-    const handleStartRename = (info: AssetFileInfo) => {
+    const handleStartFileRename = (info: AssetFileInfo) => {
         setEditingAsset(info.fileName);
         setEditName(info.fileName.replace(/\.json$/i, ''));
+        setEditMode('file');
     };
 
-    const handleConfirmRename = async (oldFileName: string) => {
+    const handleStartProductRename = (info: AssetFileInfo) => {
+        setEditingAsset(info.fileName);
+        setEditName(info.productName);
+        setEditMode('product');
+    };
+
+    const handleCancelRename = () => {
+        setEditingAsset(null);
+        setEditName('');
+        setEditMode(null);
+    };
+
+    const handleConfirmFileRename = async (info: AssetFileInfo) => {
         if (!editName.trim() || !assetLibraryPath) return;
+        const oldFileName = info.fileName;
         const newFileName = editName.trim().endsWith('.json') ? editName.trim() : `${editName.trim()}.json`;
         
         if (newFileName === oldFileName) {
-            setEditingAsset(null);
+            handleCancelRename();
             return;
         }
 
         try {
             const success = await renameAssetFile(assetLibraryPath, oldFileName, newFileName);
             if (success) {
-                // 同步内存状态：若该资产已激活，更新其在 activeAssets 中的索引
                 if (activeAssets.includes(oldFileName)) {
-                    // newFileName 对应的默认 productName 通常也是去掉扩展名后的名字
-                    renameActiveAsset(oldFileName, newFileName, newFileName.replace(/\.json$/i, ''));
+                    renameActiveAsset(oldFileName, newFileName, info.productName);
                 }
 
-                message.success('资产重命名成功');
-                setEditingAsset(null);
+                message.success('资产文件重命名成功');
+                handleCancelRename();
                 fetchAssets();
-                // 如果当前选中的是这个文件，需要同步更新父组件状态
                 if (focusedFile === oldFileName) {
                     onFocusFile(newFileName);
                 }
@@ -120,6 +134,31 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 message.error('重命名失败');
             }
         } catch (e) {
+            message.error('操作异常');
+        }
+    };
+
+    const handleConfirmProductRename = async (info: AssetFileInfo) => {
+        if (!editName.trim() || !assetLibraryPath) return;
+        const newProductName = editName.trim();
+
+        if (newProductName === info.productName) {
+            handleCancelRename();
+            return;
+        }
+
+        try {
+            const success = await renameAssetProductName(assetLibraryPath, info.fileName, newProductName);
+            if (success) {
+                renameAssetProduct(info.fileName, info.productName, newProductName);
+                message.success('车型名称更新成功');
+                handleCancelRename();
+                fetchAssets();
+            } else {
+                message.error('车型名称更新失败');
+            }
+        } catch (e) {
+            console.error(e);
             message.error('操作异常');
         }
     };
@@ -366,8 +405,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                             size="small"
                                             value={editName}
                                             onChange={e => setEditName(e.target.value)}
-                                            onPressEnter={() => handleConfirmRename(info.fileName)}
+                                            onPressEnter={() => {
+                                                if (editMode === 'product') handleConfirmProductRename(info);
+                                                else handleConfirmFileRename(info);
+                                            }}
                                             autoFocus
+                                            placeholder={editMode === 'product' ? '输入车型名称' : '输入资产文件名'}
                                             className="flex-1 text-[13px] h-7 px-2 border-blue-200 focus:border-blue-500"
                                         />
                                         <div className="flex items-center gap-0.5">
@@ -375,14 +418,18 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 type="text" 
                                                 size="small" 
                                                 icon={<CheckOutlined className="text-green-600 !text-[12px]" />} 
-                                                onClick={(e) => { e.stopPropagation(); handleConfirmRename(info.fileName); }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (editMode === 'product') handleConfirmProductRename(info);
+                                                    else handleConfirmFileRename(info);
+                                                }}
                                                 className="w-6 h-6 p-0 min-w-0 flex items-center justify-center"
                                             />
                                             <Button 
                                                 type="text" 
                                                 size="small" 
                                                 icon={<CloseOutlined className="text-slate-400 !text-[12px]" />} 
-                                                onClick={(e) => { e.stopPropagation(); setEditingAsset(null); }}
+                                                onClick={(e) => { e.stopPropagation(); handleCancelRename(); }}
                                                 className="w-6 h-6 p-0 min-w-0 flex items-center justify-center"
                                             />
                                         </div>
@@ -443,8 +490,17 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         type="text" 
                                                         size="small"
                                                         icon={<EditOutlined className="!text-[14px] text-slate-400 hover:text-blue-500" />}
-                                                        onClick={(e) => { e.stopPropagation(); handleStartRename(info); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleStartFileRename(info); }}
                                                         className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
+                                                    />
+                                                </Tooltip>
+                                                <Tooltip title="更新车型名称">
+                                                    <Button 
+                                                        type="text" 
+                                                        size="small"
+                                                        icon={<FormOutlined className="!text-[14px] text-slate-400 hover:text-emerald-600" />}
+                                                        onClick={(e) => { e.stopPropagation(); handleStartProductRename(info); }}
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="删除资产">
@@ -457,6 +513,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                     />
                                                 </Tooltip>
                                             </div>
+                                        </div>
+                                        <div className="pl-[42px] mt-1 text-[11px] text-slate-400 truncate" title={info.productName}>
+                                            车型名: {info.productName}
                                         </div>
                                         {/* 标签行 */}
                                         <div className="pl-[42px] mt-1.5 flex items-center gap-1 flex-wrap">

@@ -10,7 +10,7 @@ interface AssetListDrawerProps {
 }
 
 const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) => {
-    const { assetLibraryPath, addFile, uploadedFiles, renameFileName, renameSubProduct } = useVehicleStore();
+    const { assetLibraryPath, addFile, uploadedFiles, renameFileName } = useVehicleStore();
     const [files, setFiles] = useState<string[]>([]);
     const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(false);
@@ -106,8 +106,6 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                 
                 if (uploadedFiles.some(f => f.fileName === finalOldName)) {
                     renameFileName(finalOldName, finalNewName);
-                    // 同时由于资产库的文件名强绑定内部名，在数据大纲等处的索引也要一并顺滑修改过来
-                    renameSubProduct(finalNewName, oldNameClean, newNameClean);
                 }
 
             } else {
