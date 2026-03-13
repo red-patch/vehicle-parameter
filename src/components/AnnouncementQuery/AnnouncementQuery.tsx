@@ -5,6 +5,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import ParametersTable from '../DiffViewer/ParametersTable';
 import type { SheetData } from '../../types';
 import { saveAssetFile } from '../../utils/assetManager';
+import { ASSET_SOURCE_TAGS } from '../../utils/assetSourceTags';
 import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
 
 const { Text, Paragraph } = Typography;
@@ -410,6 +411,7 @@ const AnnouncementQuery: React.FC = () => {
                     message.success(`已保存至资产库: ${fileName}`);
                 }}
                 defaultName={announcementNo.trim() || miitData?.fileName || `公告_${new Date().toISOString().slice(0, 10)}`}
+                defaultTags={[ASSET_SOURCE_TAGS.announcement]}
             />
         </div>
     );

@@ -11,6 +11,7 @@ import Fuse from 'fuse.js';
 import type { VehicleParameter } from '../../types';
 import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
 import { saveAssetFile, checkAssetExists } from '../../utils/assetManager';
+import { ASSET_SOURCE_TAGS } from '../../utils/assetSourceTags';
 
 const DataPurifyView: React.FC = () => {
     const { 
@@ -427,6 +428,7 @@ const DataPurifyView: React.FC = () => {
                 onClose={() => setSaveModalVisible(false)}
                 onSave={handleSaveToAsset}
                 defaultName={`${selectedProduct || '未知车型'}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`}
+                defaultTags={[ASSET_SOURCE_TAGS.purify]}
             />
         </div>
     );

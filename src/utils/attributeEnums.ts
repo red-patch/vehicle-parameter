@@ -4,7 +4,7 @@
  * 并且支持通过注入 libraryPath 热替换为使用本地资产目录的 custom_enums.json
  */
 import { loadCustomConfig } from './assetManager';
-import defaultEnumCsv from '../../docs/字段数据/属性值统计.csv?raw';
+import defaultEnumCsv from '../assets/attribute_values.txt?raw';
 
 // 枚举值缓存
 let enumCache: Map<string, string[]> | null = null;
