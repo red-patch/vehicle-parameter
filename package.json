@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",
-    "release": "./scripts/release.sh"
+    "release": "./scripts/release.sh",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.1",
@@ -50,6 +51,11 @@
     "tailwindcss": "^3.4.17",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.9"
   }
 }

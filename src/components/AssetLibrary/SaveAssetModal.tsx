@@ -13,9 +13,10 @@ interface SaveAssetModalProps {
     onClose: () => void;
     onSave: (fileName: string) => Promise<void>;
     defaultName: string;
+    defaultTags?: string[];
 }
 
-const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSave, defaultName }) => {
+const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSave, defaultName, defaultTags = [] }) => {
     const [fileName, setFileName] = useState(defaultName);
     const [loading, setLoading] = useState(false);
     const { assetLibraryPath } = useVehicleStore();
@@ -29,7 +30,7 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
         if (visible) {
             setFileName(defaultName);
             setLoading(false);
-            setSelectedTags([]);
+            setSelectedTags(defaultTags.filter(tag => tag.trim()));
             setNewTagInput('');
             // 加载全局已有标签
             if (assetLibraryPath) {
@@ -40,7 +41,7 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
                 });
             }
         }
-    }, [visible, defaultName, assetLibraryPath]);
+    }, [visible, defaultName, defaultTags, assetLibraryPath]);
 
     const toggleTag = (tag: string) => {
         setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
