@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { readTextFile } from '@tauri-apps/plugin-fs';
-import { join } from '@tauri-apps/api/path';
+import { loadAssetFile } from '../../utils/assetManager';
 import type { SheetData } from '../../types';
 
 /**
@@ -40,18 +39,8 @@ const AssetDataSynchronizer: React.FC = () => {
                             const existing = assetFiles.find(f => f.fileName === fileName);
                             if (existing) return existing;
 
-                            // 没加载过，从磁盘读取
-                            const fullPath = await join(assetLibraryPath, fileName);
-                            const content = await readTextFile(fullPath);
-                            const parsed = JSON.parse(content);
-                            
-                            // 转换为标准 SheetData 格式
-                            const sheetData: SheetData = {
-                                fileName: fileName,
-                                data: parsed.parameters || [],
-                                rawHeaders: [] // JSON 资产不需要列头信息
-                            };
-                            return sheetData;
+                            // 没加载过，走统一资产加载逻辑，确保 productName 标准化
+                            return await loadAssetFile(assetLibraryPath, fileName);
                         } catch (e) {
                             console.warn(`Failed to sync individual asset: ${fileName}`, e);
                             return null;

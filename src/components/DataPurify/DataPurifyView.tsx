@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Table, Select, Button, Tag, Input, Tooltip, message, Popconfirm, Space } from 'antd';
+import { Table, Select, Button, Tag, Input, Tooltip, message, Popconfirm, Space, Alert } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
 import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -12,22 +12,32 @@ import type { VehicleParameter } from '../../types';
 import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
 import { saveAssetFile, checkAssetExists } from '../../utils/assetManager';
 import { ASSET_SOURCE_TAGS } from '../../utils/assetSourceTags';
+import { getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
+import type { RepairSourceModule } from '../../types';
 
-const DataPurifyView: React.FC = () => {
+interface DataPurifyViewProps {
+    onReturnToSource?: (sourceModule: RepairSourceModule) => void;
+}
+
+const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => {
     const { 
         uploadedFiles, 
         selectedProductNames, 
         assetLibraryPath,
         selectedProduct,
         setSelectedProduct,
-        assetFiles
+        assetFiles,
+        repairContext,
+        clearRepairContext,
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         selectedProductNames: state.selectedProductNames,
         assetLibraryPath: state.assetLibraryPath,
         selectedProduct: state.currentPurifyProduct,
         setSelectedProduct: state.setPurifyProduct,
-        assetFiles: state.assetFiles
+        assetFiles: state.assetFiles,
+        repairContext: state.repairContext,
+        clearRepairContext: state.clearRepairContext,
     })));
     const [purifyParams, setPurifyParams] = useState<VehicleParameter[]>([]);
     const [enumLoaded, setEnumLoaded] = useState(isEnumDataLoaded());
@@ -64,6 +74,19 @@ const DataPurifyView: React.FC = () => {
         }
     }, [selectedProductNames, selectedProduct]);
 
+    useEffect(() => {
+        if (repairContext?.productName && repairContext.productName !== selectedProduct) {
+            setSelectedProduct(repairContext.productName);
+        }
+    }, [repairContext, selectedProduct, setSelectedProduct]);
+
+    const targetFieldName = repairContext?.productName === selectedProduct ? repairContext.fieldName : undefined;
+    const currentAssetFileName = useMemo(() => {
+        if (!selectedProduct) return null;
+        if (repairContext?.productName === selectedProduct) return repairContext.sourceFileName;
+        return getAssetBackedSourceFile(assetFiles, selectedProduct);
+    }, [assetFiles, repairContext, selectedProduct]);
+
     // 当所选产品变化时，初始化净化列表
     useEffect(() => {
         if (selectedProduct) {
@@ -73,13 +96,13 @@ const DataPurifyView: React.FC = () => {
             
             // 检查资产库中是否存在同名文件
             if (assetLibraryPath) {
-                checkAssetExists(assetLibraryPath, selectedProduct).then(setIsExistingAsset);
+                checkAssetExists(assetLibraryPath, currentAssetFileName || selectedProduct).then(setIsExistingAsset);
             }
         } else {
             setPurifyParams([]);
             setIsExistingAsset(false);
         }
-    }, [selectedProduct, uploadedFiles, assetFiles, assetLibraryPath]);
+    }, [selectedProduct, uploadedFiles, assetFiles, assetLibraryPath, currentAssetFileName]);
 
     const handleUpdateParam = (id: string, field: keyof VehicleParameter, value: string | number) => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -103,7 +126,7 @@ const DataPurifyView: React.FC = () => {
         setPurifyParams([newParam, ...purifyParams]);
     };
 
-    const handleSaveToAsset = async (fileName: string) => {
+    const handleSaveToAsset = async (fileName: string, options?: { returnToSource?: boolean; clearTask?: boolean }) => {
         if (!assetLibraryPath) return;
         if (!selectedProduct) return;
         
@@ -120,6 +143,12 @@ const DataPurifyView: React.FC = () => {
             if (fileName === selectedProduct || fileName === `${selectedProduct}.json`) {
                 setIsExistingAsset(true);
             }
+            if (options?.clearTask) {
+                clearRepairContext();
+            }
+            if (options?.returnToSource && repairContext) {
+                onReturnToSource?.(repairContext.sourceModule);
+            }
         } catch (error) {
             message.error('保存失败: ' + (error as Error).message);
         } finally {
@@ -128,8 +157,22 @@ const DataPurifyView: React.FC = () => {
     };
 
     const handleQuickSave = async () => {
-        if (!selectedProduct) return;
-        await handleSaveToAsset(selectedProduct);
+        const targetFileName = currentAssetFileName || selectedProduct;
+        if (!targetFileName) return;
+        await handleSaveToAsset(targetFileName);
+    };
+
+    const handleSaveAndReturn = async () => {
+        const targetFileName = currentAssetFileName || selectedProduct;
+        if (!targetFileName) return;
+        await handleSaveToAsset(targetFileName, { returnToSource: true, clearTask: true });
+    };
+
+    const handleCancelRepair = () => {
+        clearRepairContext();
+        if (repairContext) {
+            onReturnToSource?.(repairContext.sourceModule);
+        }
     };
 
     // 为每一行计算异常状态和推荐
@@ -193,6 +236,13 @@ const DataPurifyView: React.FC = () => {
             return true;
         });
     }, [augmentedParams, filterGroup, quickFilter, valueSearch]);
+
+    const displayedParams = useMemo(() => {
+        if (!targetFieldName) return filteredParams;
+        const targets = filteredParams.filter(param => param.name === targetFieldName);
+        const others = filteredParams.filter(param => param.name !== targetFieldName);
+        return [...targets, ...others];
+    }, [filteredParams, targetFieldName]);
 
     const anomalyCount = augmentedParams.filter(p => !p.isNameStandard || p.isEnumMismatch).length;
 
@@ -304,6 +354,29 @@ const DataPurifyView: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
+            {repairContext && repairContext.productName === selectedProduct && (
+                <div className="mb-4">
+                    <Alert
+                        type="info"
+                        showIcon
+                        message={`来自${repairContext.sourceLabel}的修复任务`}
+                        description={
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <span>正在修复：{repairContext.productName}{repairContext.fieldName ? ` / ${repairContext.fieldName}` : ''}</span>
+                                <Button size="small" type="primary" loading={saving} onClick={handleQuickSave}>
+                                    保存并留在体检页
+                                </Button>
+                                <Button size="small" loading={saving} onClick={handleSaveAndReturn}>
+                                    保存后返回来源页面
+                                </Button>
+                                <Button size="small" type="text" onClick={handleCancelRepair}>
+                                    取消本次修复
+                                </Button>
+                            </div>
+                        }
+                    />
+                </div>
+            )}
             <FilterBar
                 extra={
                     <Space>
@@ -410,7 +483,7 @@ const DataPurifyView: React.FC = () => {
             <div className="flex-1 overflow-hidden border border-gray-200 rounded">
                 <Table 
                     columns={columns}
-                    dataSource={filteredParams}
+                    dataSource={displayedParams}
                     rowKey="id"
                     pagination={{
                         pageSize: 50,
@@ -420,6 +493,7 @@ const DataPurifyView: React.FC = () => {
                     }}
                     scroll={{ y: 'calc(100vh - 320px)' }}
                     size="small"
+                    rowClassName={(record) => targetFieldName && record.name === targetFieldName ? 'bg-blue-50' : ''}
                 />
             </div>
 

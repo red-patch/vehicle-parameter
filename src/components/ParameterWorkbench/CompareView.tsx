@@ -6,14 +6,21 @@ import { useShallow } from 'zustand/react/shallow';
 import { getProductData } from '../../store/vehicleSelectors';
 import ProductSourceSelector from './ProductSourceSelector';
 import { isFieldRequired } from '../../assets/requiredFields';
+import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 
-const CompareView: React.FC = () => {
-    const { uploadedFiles, assetFiles, selectedProductNames, localSelection, setLocalSelection } = useVehicleStore(useShallow(state => ({
+interface CompareViewProps {
+    onGoRepair?: () => void;
+}
+
+const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
+    const { uploadedFiles, assetFiles, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
         selectedProductNames: state.selectedProductNames,
         localSelection: state.currentCompareProducts,
-        setLocalSelection: state.setCompareProducts
+        setLocalSelection: state.setCompareProducts,
+        setPurifyProduct: state.setPurifyProduct,
+        setRepairContext: state.setRepairContext,
     })));
     const [showResult, setShowResult] = useState(false);
     // 过滤状态
@@ -100,6 +107,24 @@ const CompareView: React.FC = () => {
         return data;
     }, [comparisonData, diffFilter, searchText, localSelection]);
 
+    const assetSourceByProduct = useMemo(() => {
+        const map = new Map<string, string>();
+        localSelection.forEach(productName => {
+            const sourceFile = getAssetBackedSourceFile(assetFiles, productName);
+            if (sourceFile) map.set(productName, sourceFile);
+        });
+        return map;
+    }, [assetFiles, localSelection]);
+
+    const triggerRepair = (productName: string, fieldName: string) => {
+        const sourceFileName = assetSourceByProduct.get(productName);
+        if (!sourceFileName) return;
+
+        setRepairContext(buildRepairContext('compare', productName, sourceFileName, 'diff', fieldName));
+        setPurifyProduct(productName);
+        onGoRepair?.();
+    };
+
     // Dynamic columns
     const columns = useMemo(() => {
         const dynamicCols: any[] = [
@@ -136,9 +161,45 @@ const CompareView: React.FC = () => {
                 width: 180,
                 fixed: undefined,
                 render: (text: string, record: { hasDiff: boolean }) => {
+                    const isRepairable = assetSourceByProduct.has(productName);
                     if (!text) return <span className="text-gray-300">-</span>;
                     if (record.hasDiff) {
-                        return <span className="bg-yellow-100 px-1 rounded">{text}</span>;
+                        return (
+                            <div className="flex flex-col gap-1">
+                                <span className="bg-yellow-100 px-1 rounded">{text}</span>
+                                {isRepairable && (
+                                    <Button
+                                        size="small"
+                                        type="link"
+                                        className="p-0 h-auto text-xs self-start"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            triggerRepair(productName, (record as unknown as { name: string }).name);
+                                        }}
+                                    >
+                                        快捷修复
+                                    </Button>
+                                )}
+                            </div>
+                        );
+                    }
+                    if (localSelection.length === 1 && isRepairable) {
+                        return (
+                            <div className="flex flex-col gap-1">
+                                <span>{text}</span>
+                                <Button
+                                    size="small"
+                                    type="link"
+                                    className="p-0 h-auto text-xs self-start"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        triggerRepair(productName, (record as unknown as { name: string }).name);
+                                    }}
+                                >
+                                    快捷修复
+                                </Button>
+                            </div>
+                        );
                     }
                     return text;
                 }
