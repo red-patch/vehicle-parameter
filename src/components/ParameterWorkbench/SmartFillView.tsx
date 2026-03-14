@@ -13,8 +13,11 @@ import MatchResultTable from '../SmartFiller/MatchResultTable';
 
 const { TextArea } = Input;
 
+interface SmartFillViewProps {
+    onGoRepair?: () => void;
+}
 
-const SmartFillView: React.FC = () => {
+const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
     const { 
         uploadedFiles, 
         setMatchResults, 
@@ -176,7 +179,7 @@ const SmartFillView: React.FC = () => {
             </Card>
 
             <div className="flex-1 overflow-auto">
-                {matchResults.length > 0 && <MatchResultTable productName={referenceProduct} />}
+                {matchResults.length > 0 && <MatchResultTable productName={referenceProduct} onGoRepair={onGoRepair} />}
             </div>
         </div>
     );

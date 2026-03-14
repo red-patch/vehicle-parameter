@@ -35,6 +35,18 @@ export interface MatchItem {
     manualValue?: string; // V3.0: 手动输入的参数值（用于库中不存在的情况）
 }
 
+export type RepairSourceModule = 'compare' | 'smart_fill' | 'multi_vehicle';
+export type RepairReason = 'diff' | 'unmatched' | 'enum_mismatch' | 'empty' | 'manual';
+
+export interface RepairContext {
+    productName: string;
+    sourceFileName: string;
+    fieldName?: string;
+    sourceModule: RepairSourceModule;
+    reason: RepairReason;
+    sourceLabel: string;
+}
+
 // V1.3: 对比模式
 // 'content' - 按字段内容对比（根据 name 匹配，支持同义词）- 默认模式
 // 'miit' - 仅公告号数据对比（以工信部数据为模版）

@@ -4,11 +4,18 @@ import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyC
 import DataSourcePanel from './DataSourcePanel';
 import VehicleListPanel from './VehicleListPanel';
 import AssetDataSynchronizer from './AssetDataSynchronizer';
+import type { RepairSourceModule } from '../../types';
 
 const CompareView = React.lazy(() => import('./CompareView'));
 const SmartFillView = React.lazy(() => import('./SmartFillView'));
 const MultiVehicleView = React.lazy(() => import('./MultiVehicleView'));
 const DataPurifyView = React.lazy(() => import('../DataPurify/DataPurifyView'));
+
+const repairModuleTabMap: Record<RepairSourceModule, string> = {
+    compare: 'compare',
+    smart_fill: 'fill',
+    multi_vehicle: 'multi',
+};
 
 const ParameterWorkbench: React.FC = () => {
     const [activeTab, setActiveTab] = useState('pool');
@@ -18,6 +25,11 @@ const ParameterWorkbench: React.FC = () => {
     const handleFocusFile = (fileName: string | null) => {
         setFocusedFile(fileName);
         setFocusedProduct(null);
+    };
+
+    const handleGoRepair = () => setActiveTab('purify');
+    const handleReturnToModule = (sourceModule: RepairSourceModule) => {
+        setActiveTab(repairModuleTabMap[sourceModule]);
     };
 
     const items = [
@@ -48,7 +60,7 @@ const ParameterWorkbench: React.FC = () => {
             label: <span className="flex items-center gap-1.5"><DiffOutlined /> 版本对比</span>,
             children: (
                 <React.Suspense fallback={<Skeleton active />}>
-                    <CompareView />
+                    <CompareView onGoRepair={handleGoRepair} />
                 </React.Suspense>
             )
         },
@@ -57,7 +69,7 @@ const ParameterWorkbench: React.FC = () => {
             label: <span className="flex items-center gap-1.5"><FormOutlined /> 智能填报</span>,
             children: (
                 <React.Suspense fallback={<Skeleton active />}>
-                    <SmartFillView />
+                    <SmartFillView onGoRepair={handleGoRepair} />
                 </React.Suspense>
             )
         },
@@ -66,7 +78,7 @@ const ParameterWorkbench: React.FC = () => {
             label: <span className="flex items-center gap-1.5"><AppstoreOutlined /> 多车型管理</span>,
             children: (
                 <React.Suspense fallback={<Skeleton active />}>
-                    <MultiVehicleView />
+                    <MultiVehicleView onGoRepair={handleGoRepair} />
                 </React.Suspense>
             )
         },
@@ -75,7 +87,7 @@ const ParameterWorkbench: React.FC = () => {
             label: <span className="flex items-center gap-1.5"><SafetyCertificateOutlined /> 数据体检与修复</span>,
             children: (
                 <React.Suspense fallback={<Skeleton active />}>
-                    <DataPurifyView />
+                    <DataPurifyView onReturnToSource={handleReturnToModule} />
                 </React.Suspense>
             )
         }

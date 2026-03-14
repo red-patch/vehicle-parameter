@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode } from '../types';
+import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode, RepairContext } from '../types';
 import { calculateAllProductConfidences } from '../utils/productConfidence';
 
 interface VehicleStore {
@@ -27,6 +27,10 @@ interface VehicleStore {
     // MIIT Data Import
     miitData: SheetData | null;
     setMiitData: (data: SheetData | null) => void;
+
+    repairContext: RepairContext | null;
+    setRepairContext: (context: RepairContext | null) => void;
+    clearRepairContext: () => void;
 
     reset: () => void;
 
@@ -124,6 +128,10 @@ export const useVehicleStore = create<VehicleStore>()(
     // MIIT Data Import State
     miitData: null,
     setMiitData: (data) => set({ miitData: data }),
+
+    repairContext: null,
+    setRepairContext: (context) => set({ repairContext: context }),
+    clearRepairContext: () => set({ repairContext: null }),
 
     // Unified File Pool (V3.0)
     uploadedFiles: [],
@@ -338,6 +346,7 @@ export const useVehicleStore = create<VehicleStore>()(
         selectedProduct: null, 
         compareMode: 'content', 
         miitData: null,
+        repairContext: null,
         // V3.0
         uploadedFiles: [],
         selectedProductNames: [],

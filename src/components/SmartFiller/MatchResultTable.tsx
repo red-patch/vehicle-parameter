@@ -10,16 +10,21 @@ import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, 
 import * as XLSX from 'xlsx';
 import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
 import { preloadFieldLists, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
+import { buildRepairContext, getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
 
 interface MatchResultTableProps {
     productName?: string | null;
+    onGoRepair?: () => void;
 }
 
-const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
-    const { matchResults, updateManualValue, uploadedFiles } = useVehicleStore(useShallow(state => ({
+const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRepair }) => {
+    const { matchResults, updateManualValue, uploadedFiles, assetFiles, setPurifyProduct, setRepairContext } = useVehicleStore(useShallow(state => ({
         matchResults: state.matchResults,
         updateManualValue: state.updateManualValue,
-        uploadedFiles: state.uploadedFiles
+        uploadedFiles: state.uploadedFiles,
+        assetFiles: state.assetFiles,
+        setPurifyProduct: state.setPurifyProduct,
+        setRepairContext: state.setRepairContext,
     })));
     
     // V3.0: 过滤状态
@@ -55,6 +60,18 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
     const library = useMemo(() => {
         return productName ? getProductData(uploadedFiles, productName) : [];
     }, [uploadedFiles, productName]);
+
+    const assetSourceFile = useMemo(
+        () => productName ? getAssetBackedSourceFile(assetFiles, productName) : null,
+        [assetFiles, productName]
+    );
+
+    const triggerRepair = (fieldName: string, reason: 'unmatched' | 'enum_mismatch') => {
+        if (!productName || !assetSourceFile) return;
+        setRepairContext(buildRepairContext('smart_fill', productName, assetSourceFile, reason, fieldName));
+        setPurifyProduct(productName);
+        onGoRepair?.();
+    };
 
     // 计算快捷修正推荐
     const quickFixes = useMemo(() => {
@@ -359,6 +376,16 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName }) => {
                                     </Tooltip>
                                 ))}
                             </div>
+                        )}
+                        {assetSourceFile && (!record.matchedParam || (hasEnums && currentValue && !enumValues.includes(currentValue))) && (
+                            <Button
+                                type="link"
+                                size="small"
+                                className="p-0 h-auto self-start"
+                                onClick={() => triggerRepair(record.requirementName, !record.matchedParam ? 'unmatched' : 'enum_mismatch')}
+                            >
+                                快捷修复
+                            </Button>
                         )}
                     </div>
                 );

@@ -5,12 +5,18 @@ import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getAssetFilesWithInfo, renameAssetFile, renameAssetProductName, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
-import { ASSET_SOURCE_TAGS, getAssetSourceMeta, type AssetSourceFilter } from '../../utils/assetSourceTags';
+import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '../../utils/assetSourceTags';
 import { downloadCsv } from '../../utils/downloadCsv';
 
 // 标签颜色池，根据标签内容确定性地分配颜色
 const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
 const getTagColor = (tag: string) => TAG_COLORS[Math.abs([...tag].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % TAG_COLORS.length];
+const SOURCE_FILTER_HOVER_CLASS: Record<string, string> = {
+    blue: 'hover:border-blue-300 hover:text-blue-500',
+    green: 'hover:border-emerald-300 hover:text-emerald-600',
+    cyan: 'hover:border-cyan-300 hover:text-cyan-600',
+    purple: 'hover:border-purple-300 hover:text-purple-600',
+};
 
 // 简易格式化函数，替代 date-fns 避免依赖问题
 const formatDate = (dateStr: string) => {
@@ -261,6 +267,16 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         return Array.from(set).sort();
     }, [assetTags]);
 
+    const availableSourceFilters = useMemo(() => {
+        const present = new Set<AssetSourceFilter>();
+        assets.forEach(asset => {
+            const sourceMeta = getAssetSourceMeta(assetTags[asset.fileName] || []);
+            if (sourceMeta) present.add(sourceMeta.filter);
+        });
+
+        return (Object.values(ASSET_SOURCE_META)).filter(source => present.has(source.filter));
+    }, [assets, assetTags]);
+
     // 按关键字 + 标签过滤资产列表
     const filteredAssets = useMemo(() => {
         let result = assets;
@@ -340,28 +356,20 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             className="rounded-lg border-slate-200 hover:border-blue-300 focus:border-blue-400"
                         />
                         <div className="flex items-center gap-2 flex-wrap">
-                            <Tag
-                                color={sourceFilter === 'announcement' ? 'blue' : undefined}
-                                onClick={() => setSourceFilter(prev => prev === 'announcement' ? 'all' : 'announcement')}
-                                className={`cursor-pointer text-[10px] m-0 px-2 py-0 leading-[20px] rounded-md border transition-all select-none ${
-                                    sourceFilter === 'announcement'
-                                        ? 'font-bold shadow-sm'
-                                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
-                                }`}
-                            >
-                                {ASSET_SOURCE_TAGS.announcement}
-                            </Tag>
-                            <Tag
-                                color={sourceFilter === 'purify' ? 'green' : undefined}
-                                onClick={() => setSourceFilter(prev => prev === 'purify' ? 'all' : 'purify')}
-                                className={`cursor-pointer text-[10px] m-0 px-2 py-0 leading-[20px] rounded-md border transition-all select-none ${
-                                    sourceFilter === 'purify'
-                                        ? 'font-bold shadow-sm'
-                                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-emerald-300 hover:text-emerald-600'
-                                }`}
-                            >
-                                {ASSET_SOURCE_TAGS.purify}
-                            </Tag>
+                            {availableSourceFilters.map(source => (
+                                <Tag
+                                    key={source.filter}
+                                    color={sourceFilter === source.filter ? source.color : undefined}
+                                    onClick={() => setSourceFilter(prev => prev === source.filter ? 'all' : source.filter)}
+                                    className={`cursor-pointer text-[10px] m-0 px-2 py-0 leading-[20px] rounded-md border transition-all select-none ${
+                                        sourceFilter === source.filter
+                                            ? 'font-bold shadow-sm'
+                                            : `bg-slate-50 border-slate-200 text-slate-500 ${SOURCE_FILTER_HOVER_CLASS[source.color]}`
+                                    }`}
+                                >
+                                    {source.label}
+                                </Tag>
+                            ))}
                             {sourceFilter !== 'all' && (
                                 <span
                                     className="text-[10px] text-blue-500 cursor-pointer hover:underline"

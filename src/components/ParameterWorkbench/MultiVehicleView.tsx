@@ -9,6 +9,7 @@ import ProductSourceSelector from './ProductSourceSelector';
 import { getProductData } from '../../store/vehicleSelectors';
 import * as XLSX from 'xlsx';
 import { downloadCsv } from '../../utils/downloadCsv';
+import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 
 
 const { TextArea } = Input;
@@ -20,24 +21,40 @@ interface OrganizedRow {
     [productName: string]: string | number | undefined;
 }
 
-const MultiVehicleView: React.FC = () => {
+interface MultiVehicleViewProps {
+    onGoRepair?: () => void;
+}
+
+const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
     const { 
         uploadedFiles, 
         assetFiles,
         multiVehicleFields: targetFields,
         setMultiVehicleFields: setTargetFields,
         localSelection,
-        setLocalSelection
+        setLocalSelection,
+        setPurifyProduct,
+        setRepairContext,
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
         multiVehicleFields: state.multiVehicleFields,
         setMultiVehicleFields: state.setMultiVehicleFields,
         localSelection: state.currentCompareProducts, // Reuse or add new state? Let's use its own if exists, but store only has currentCompareProducts.
-        setLocalSelection: state.setCompareProducts
+        setLocalSelection: state.setCompareProducts,
+        setPurifyProduct: state.setPurifyProduct,
+        setRepairContext: state.setRepairContext,
     })));
     const [organizedData, setOrganizedData] = useState<OrganizedRow[]>([]);
     const [isCalculating, setIsCalculating] = useState(false);
+    const assetSourceByProduct = useMemo(() => {
+        const map = new Map<string, string>();
+        localSelection.forEach(productName => {
+            const sourceFile = getAssetBackedSourceFile(assetFiles, productName);
+            if (sourceFile) map.set(productName, sourceFile);
+        });
+        return map;
+    }, [assetFiles, localSelection]);
 
     // Prepare Vehicle Data Cache
     const selectedVehicles = useMemo(() => {
@@ -149,6 +166,29 @@ const MultiVehicleView: React.FC = () => {
             dataIndex: v.name,
             key: v.name,
             width: 150,
+            render: (text: string | number | undefined, record: OrganizedRow) => {
+                const sourceFileName = assetSourceByProduct.get(v.name);
+                if (!text) {
+                    return sourceFileName ? (
+                        <div className="flex flex-col items-start gap-1">
+                            <span className="text-gray-300">-</span>
+                            <Button
+                                type="link"
+                                size="small"
+                                className="p-0 h-auto"
+                                onClick={() => {
+                                    setRepairContext(buildRepairContext('multi_vehicle', v.name, sourceFileName, 'empty', record.targetField));
+                                    setPurifyProduct(v.name);
+                                    onGoRepair?.();
+                                }}
+                            >
+                                快捷修复
+                            </Button>
+                        </div>
+                    ) : <span className="text-gray-300">-</span>;
+                }
+                return text;
+            }
         }))
     ];
 
