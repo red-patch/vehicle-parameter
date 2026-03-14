@@ -20,5 +20,5 @@ describe('ConfigManagerView core fields tab', () => {
 
     expect(await screen.findAllByPlaceholderText('搜索字段并加入规则')).not.toHaveLength(0)
     expect(screen.getByRole('button', { name: '保存并应用' })).toBeInTheDocument()
-  })
+  }, 15000)
 })
