@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode, RepairContext } from '../types';
+import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode, RepairContext, AssetUpgradeDraft } from '../types';
 import { calculateAllProductConfidences } from '../utils/productConfidence';
 
 interface VehicleStore {
@@ -81,6 +81,9 @@ interface VehicleStore {
     // V6.3 Data Pump (Asset Sync)
     assetFiles: SheetData[];
     setAssetFiles: (files: SheetData[]) => void;
+
+    assetUpgradeDraft: AssetUpgradeDraft | null;
+    setAssetUpgradeDraft: (draft: AssetUpgradeDraft | null) => void;
 }
 
 
@@ -347,6 +350,7 @@ export const useVehicleStore = create<VehicleStore>()(
         compareMode: 'content', 
         miitData: null,
         repairContext: null,
+        assetUpgradeDraft: null,
         // V3.0
         uploadedFiles: [],
         selectedProductNames: [],
@@ -401,6 +405,9 @@ export const useVehicleStore = create<VehicleStore>()(
     // V6.3 Implementation
     assetFiles: [],
     setAssetFiles: (files) => set({ assetFiles: files }),
+
+    assetUpgradeDraft: null,
+    setAssetUpgradeDraft: (draft) => set({ assetUpgradeDraft: draft }),
 }), {
     name: 'vehicle-parameter-storage',
     storage: createJSONStorage(() => localStorage),

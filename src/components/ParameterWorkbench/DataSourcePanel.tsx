@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, FormOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, FormOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { getAssetFilesWithInfo, renameAssetFile, renameAssetProductName, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
 import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '../../utils/assetSourceTags';
 import { downloadCsv } from '../../utils/downloadCsv';
+import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 
 // 标签颜色池，根据标签内容确定性地分配颜色
 const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
@@ -69,6 +70,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
     const [tagEditingAsset, setTagEditingAsset] = useState<string | null>(null);
     const [newTagInput, setNewTagInput] = useState('');
+    const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
 
     const fetchAssets = useCallback(async () => {
         if (!assetLibraryPath) return;
@@ -207,6 +209,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 }
             }
         });
+    };
+
+    const handleOpenUpgradeModal = (info: AssetFileInfo) => {
+        setUpgradeAsset(info);
     };
 
     const handleExportCsv = async (info: AssetFileInfo) => {
@@ -560,6 +566,15 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
                                                     />
                                                 </Tooltip>
+                                                <Tooltip title="升级导入">
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<CloudUploadOutlined className="!text-[14px] text-slate-400 hover:text-violet-600" />}
+                                                        onClick={(e) => { e.stopPropagation(); handleOpenUpgradeModal(info); }}
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-violet-50"
+                                                    />
+                                                </Tooltip>
                                                 <Tooltip title="删除资产">
                                                     <Button 
                                                         type="text" 
@@ -652,6 +667,14 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                     )}
                 </div>
             </div>
+
+            <AssetUpgradeModal
+                open={Boolean(upgradeAsset)}
+                assetInfo={upgradeAsset}
+                assetTags={upgradeAsset ? (assetTags[upgradeAsset.fileName] || []) : []}
+                onClose={() => setUpgradeAsset(null)}
+                onSaved={fetchAssets}
+            />
         </div>
     );
 };

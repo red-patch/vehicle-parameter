@@ -221,6 +221,12 @@ git add src/store/vehicleStore.ts
 git commit -m "feat: add asset upgrade draft store state"
 ```
 
+### Implementation Notes
+
+- In the concrete implementation, each `AssetUpgradeItem` should retain both display values and the original parameter objects (`oldParameter` / `newParameter`).
+- Reason: save-time merge must preserve parameter metadata and stable identifiers instead of reconstructing rows from strings only.
+- If an active asset is overwritten, the in-memory `assetFiles` cache should be refreshed immediately so analysis modules do not continue reading stale data.
+
 ### Task 5: Create Upgrade Import Modal
 
 **Files:**
