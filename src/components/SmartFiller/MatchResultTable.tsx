@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
 import { preloadFieldLists, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import { buildRepairContext, getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
+import RepairableValue from '../common/RepairableValue';
 
 interface MatchResultTableProps {
     productName?: string | null;
@@ -273,7 +274,14 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
             render: (_: unknown, record: MatchItem) => {
                 // 只读展示自动匹配的参数信息
                 if (!record.matchedParam) {
-                    return <span className="text-gray-400">未匹配</span>;
+                    return assetSourceFile ? (
+                        <RepairableValue
+                            value={<span className="text-red-400">未匹配</span>}
+                            repairable={true}
+                            hint="点击修复源数据"
+                            onRepair={() => triggerRepair(record.requirementName, 'unmatched')}
+                        />
+                    ) : <span className="text-gray-400">未匹配</span>;
                 }
                 return (
                     <Tooltip title={`${record.matchedParam.group} / ${record.matchedParam.name}`}>
@@ -377,15 +385,14 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 ))}
                             </div>
                         )}
-                        {assetSourceFile && (!record.matchedParam || (hasEnums && currentValue && !enumValues.includes(currentValue))) && (
-                            <Button
-                                type="link"
-                                size="small"
-                                className="p-0 h-auto self-start"
-                                onClick={() => triggerRepair(record.requirementName, !record.matchedParam ? 'unmatched' : 'enum_mismatch')}
-                            >
-                                快捷修复
-                            </Button>
+                        {assetSourceFile && hasEnums && currentValue && !enumValues.includes(currentValue) && (
+                            <RepairableValue
+                                value={<span className="text-amber-600 font-medium">{currentValue}</span>}
+                                repairable={true}
+                                hint="点击修复源数据"
+                                className="self-start"
+                                onRepair={() => triggerRepair(record.requirementName, 'enum_mismatch')}
+                            />
                         )}
                     </div>
                 );

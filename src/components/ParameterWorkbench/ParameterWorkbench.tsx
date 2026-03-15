@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import DataSourcePanel from './DataSourcePanel';
 import VehicleListPanel from './VehicleListPanel';
 import AssetDataSynchronizer from './AssetDataSynchronizer';
 import type { RepairSourceModule } from '../../types';
+import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
+import { clampPoolSidebarWidth } from '../../utils/poolLayout';
 
 const CompareView = React.lazy(() => import('./CompareView'));
 const SmartFillView = React.lazy(() => import('./SmartFillView'));
@@ -21,6 +24,12 @@ const ParameterWorkbench: React.FC = () => {
     const [activeTab, setActiveTab] = useState('pool');
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
     const [focusedProduct, setFocusedProduct] = useState<string | null>(null);
+    const poolContainerRef = useRef<HTMLDivElement>(null);
+    const { poolSidebarWidth, setPoolSidebarWidth } = useVehicleStore(useShallow((state) => ({
+        poolSidebarWidth: state.poolSidebarWidth,
+        setPoolSidebarWidth: state.setPoolSidebarWidth,
+    })));
+    const [draggingSidebar, setDraggingSidebar] = useState(false);
 
     const handleFocusFile = (fileName: string | null) => {
         setFocusedFile(fileName);
@@ -32,17 +41,59 @@ const ParameterWorkbench: React.FC = () => {
         setActiveTab(repairModuleTabMap[sourceModule]);
     };
 
+    const sidebarWidth = useMemo(() => {
+        const containerWidth = poolContainerRef.current?.clientWidth || 1400;
+        return clampPoolSidebarWidth(poolSidebarWidth, containerWidth);
+    }, [poolSidebarWidth, activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'pool' || !draggingSidebar) return;
+
+        const handlePointerMove = (event: PointerEvent) => {
+            const rect = poolContainerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const nextWidth = clampPoolSidebarWidth(event.clientX - rect.left, rect.width);
+            setPoolSidebarWidth(nextWidth);
+        };
+
+        const handlePointerUp = () => setDraggingSidebar(false);
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+    }, [activeTab, draggingSidebar, setPoolSidebarWidth]);
+
     const items = [
         {
             key: 'pool',
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 数据池</span>,
             children: (
-                <div className="flex xl:h-[calc(100vh-190px)] h-[calc(100vh-160px)] gap-0.5 bg-slate-200/50 border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm backdrop-blur-sm">
-                    <div className="w-[28%] min-w-[300px] max-w-[380px] flex-shrink-0 bg-slate-50/40">
+                <div
+                    ref={poolContainerRef}
+                    className="flex xl:h-[calc(100vh-190px)] h-[calc(100vh-160px)] bg-slate-200/50 border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm backdrop-blur-sm"
+                >
+                    <div
+                        className="flex-shrink-0 bg-slate-50/40"
+                        style={{ width: sidebarWidth }}
+                    >
                         <DataSourcePanel
                             focusedFile={focusedFile}
                             onFocusFile={handleFocusFile}
                         />
+                    </div>
+
+                    <div
+                        className={`w-2 flex-shrink-0 cursor-col-resize bg-slate-200/70 hover:bg-blue-200 transition-colors relative ${draggingSidebar ? 'bg-blue-300' : ''}`}
+                        onPointerDown={(event) => {
+                            event.preventDefault();
+                            setDraggingSidebar(true);
+                        }}
+                    >
+                        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-white/80" />
                     </div>
 
                     <div className="flex-1 min-w-0 bg-white border-l border-slate-200/60">
@@ -94,11 +145,10 @@ const ParameterWorkbench: React.FC = () => {
     ];
 
     return (
-        <div className="h-full bg-slate-50/50 p-6">
+        <div className="h-full bg-slate-50/50 p-4">
             <AssetDataSynchronizer />
-            <div className="mb-6">
-                <h1 className="text-3xl font-extrabold text-slate-900 m-0 tracking-tight">参数工作台</h1>
-                <p className="text-slate-400 text-[13px] mt-1.5 mb-0 font-medium tracking-wide uppercase">Workspace / Parameter Data Management</p>
+            <div className="mb-3">
+                <h1 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight">参数工作台</h1>
             </div>
 
             <Tabs
@@ -106,6 +156,7 @@ const ParameterWorkbench: React.FC = () => {
                 onChange={setActiveTab}
                 items={items}
                 className="parameter-workbench-tabs"
+                destroyOnHidden
             />
         </div>
     );

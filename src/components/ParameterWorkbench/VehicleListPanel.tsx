@@ -214,7 +214,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
 
     return (
         <div className="flex flex-col h-full bg-white">
-            <div className="flex-none p-5 border-b border-slate-200/60 bg-white/70 backdrop-blur-sm">
+            <div className="flex-none p-4 border-b border-slate-200/60 bg-white/70 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -239,7 +239,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                 </div>
             </div>
 
-            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar flex flex-col bg-slate-50/20">
+            <div className="flex-1 p-3 overflow-y-auto custom-scrollbar flex flex-col bg-slate-50/20">
                 {loading ? (
                     <div className="py-12 flex justify-center">
                         <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
@@ -335,7 +335,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                         })}
                     </div>
                 ) : (
-                    <div className="py-16 text-center border-2 border-dashed border-slate-100 rounded-2xl m-2 bg-slate-50/50 flex-1 flex flex-col items-center justify-center">
+                    <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl m-2 bg-slate-50/50 flex-1 flex flex-col items-center justify-center min-h-[220px]">
                         <InboxOutlined className="text-3xl text-slate-300 mb-3" />
                         <span className="text-slate-400 text-[13px]">当前没有激活的车型工作集</span>
                     </div>

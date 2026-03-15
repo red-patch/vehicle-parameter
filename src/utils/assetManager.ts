@@ -1,6 +1,7 @@
 import { writeTextFile, readTextFile, exists, readDir, remove } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import type { SheetData, VehicleParameter } from '../types';
+import { getAssetBaseName, toAssetFileName } from './assetNaming';
 
 /**
  * 结构化的资产文件格式
@@ -219,6 +220,63 @@ export const renameAssetFile = async (
     } catch (error) {
         console.error("Failed to rename asset file", error);
         return false;
+    }
+};
+
+export const renameAssetIdentity = async (
+    libraryPath: string,
+    oldFileName: string,
+    newBaseName: string
+): Promise<{ success: boolean; fileName: string; productName: string }> => {
+    try {
+        const normalizedBaseName = getAssetBaseName(newBaseName);
+        if (!normalizedBaseName) {
+            return { success: false, fileName: oldFileName, productName: '' };
+        }
+
+        const finalOldName = oldFileName.endsWith('.json') ? oldFileName : `${oldFileName}.json`;
+        const finalNewName = toAssetFileName(normalizedBaseName);
+        const oldPath = await join(libraryPath, finalOldName);
+        const newPath = await join(libraryPath, finalNewName);
+
+        if (!await exists(oldPath)) {
+            return { success: false, fileName: finalOldName, productName: normalizedBaseName };
+        }
+
+        const content = await readTextFile(oldPath);
+        const parsed: AssetFileFormat = JSON.parse(content);
+        parsed.productName = normalizedBaseName;
+        parsed.updatedAt = new Date().toISOString();
+        parsed.parameters = (parsed.parameters || []).map(parameter => ({
+            ...parameter,
+            productName: normalizedBaseName,
+        }));
+
+        await writeTextFile(newPath, JSON.stringify(parsed, null, 2));
+
+        if (oldPath !== newPath) {
+            await remove(oldPath);
+        }
+
+        try {
+            const tags = await loadAssetTags(libraryPath);
+            if (tags[finalOldName]) {
+                tags[finalNewName] = tags[finalOldName];
+                delete tags[finalOldName];
+                await saveAssetTags(libraryPath, tags);
+            }
+        } catch (e) {
+            console.warn('Failed to sync tags during unified asset rename', e);
+        }
+
+        return {
+            success: true,
+            fileName: finalNewName,
+            productName: normalizedBaseName,
+        };
+    } catch (error) {
+        console.error('Failed to rename asset identity', error);
+        return { success: false, fileName: oldFileName, productName: getAssetBaseName(newBaseName) };
     }
 };
 

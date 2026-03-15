@@ -10,6 +10,7 @@ import { getProductData } from '../../store/vehicleSelectors';
 import * as XLSX from 'xlsx';
 import { downloadCsv } from '../../utils/downloadCsv';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
+import RepairableValue from '../common/RepairableValue';
 
 
 const { TextArea } = Input;
@@ -170,21 +171,16 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 const sourceFileName = assetSourceByProduct.get(v.name);
                 if (!text) {
                     return sourceFileName ? (
-                        <div className="flex flex-col items-start gap-1">
-                            <span className="text-gray-300">-</span>
-                            <Button
-                                type="link"
-                                size="small"
-                                className="p-0 h-auto"
-                                onClick={() => {
-                                    setRepairContext(buildRepairContext('multi_vehicle', v.name, sourceFileName, 'empty', record.targetField));
-                                    setPurifyProduct(v.name);
-                                    onGoRepair?.();
-                                }}
-                            >
-                                快捷修复
-                            </Button>
-                        </div>
+                        <RepairableValue
+                            value={<span className="text-gray-300">-</span>}
+                            repairable={true}
+                            hint="点击修复源数据"
+                            onRepair={() => {
+                                setRepairContext(buildRepairContext('multi_vehicle', v.name, sourceFileName, 'empty', record.targetField));
+                                setPurifyProduct(v.name);
+                                onGoRepair?.();
+                            }}
+                        />
                     ) : <span className="text-gray-300">-</span>;
                 }
                 return text;
@@ -193,8 +189,8 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
     ];
 
     return (
-        <div className="flex flex-col gap-4 h-full">
-            <Card className="shadow-sm flex-shrink-0">
+        <div className="flex flex-col gap-3 h-full">
+            <Card className="shadow-sm flex-shrink-0" size="small">
                 <Space direction="vertical" className="w-full">
                     <div className="flex items-start gap-4">
                         <div className="flex-[2]">
@@ -244,7 +240,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                 </Upload>
                             </div>
                             <TextArea 
-                                rows={4} 
+                                rows={3} 
                                 value={targetFields}
                                 onChange={e => setTargetFields(e.target.value)}
                                 placeholder="例如：整备质量, 最高车速, 轴距..." 
@@ -269,10 +265,10 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
 
             <div className="flex-1 overflow-hidden border border-gray-200 rounded relative bg-white dark:bg-gray-900" style={{ minHeight: 400 }}>
                 <Spin spinning={isCalculating} tip="正在智能解析字段...">
-                    <div className="h-full flex flex-col p-4">
+                    <div className="h-full flex flex-col p-3">
                         {organizedData.length > 0 || isCalculating ? (
                             <>
-                                <div className="mb-4 flex justify-between items-center">
+                                <div className="mb-3 flex justify-between items-center">
                                     <h3 className="font-bold">整理结果</h3>
                                     <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={isCalculating}>导出 CSV</Button>
                                 </div>
@@ -298,7 +294,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                 />
                             </>
                         ) : (
-                            <Empty description="暂无整理结果" className="mt-20" />
+                            <Empty description="暂无整理结果" className="mt-10" />
                         )}
                     </div>
                 </Spin>

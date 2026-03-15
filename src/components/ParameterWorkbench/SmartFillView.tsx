@@ -92,7 +92,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
     };
 
     return (
-        <div className="flex flex-col gap-4 h-full">
+        <div className="flex flex-col gap-3 h-full">
             {/* 提示信息 */}
             {selectedProductNames.length === 0 && (
                 <Alert
@@ -103,7 +103,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                 />
             )}
             
-            <Card className="shadow-sm flex-shrink-0">
+            <Card className="shadow-sm flex-shrink-0" size="small">
                 <Space direction="vertical" className="w-full">
                     <div className="flex items-start gap-4">
                         <div className="flex-1">
@@ -163,7 +163,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                                 </Upload>
                             </div>
                             <TextArea 
-                                rows={4} 
+                                rows={3} 
                                 value={requirementsText}
                                 onChange={e => setRequirementsText(e.target.value)}
                                 placeholder="粘贴参数名列表，例如：&#10;整备质量&#10;最高车速&#10;..." 

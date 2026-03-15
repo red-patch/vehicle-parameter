@@ -7,6 +7,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { open } from '@tauri-apps/plugin-dialog';
 import { reloadCustomFields } from '../../utils/fieldLists';
 import { preloadEnumData } from '../../utils/attributeEnums';
+import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import { Modal } from 'antd';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -53,6 +54,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
         if (assetLibraryPath) {
             void reloadCustomFields(assetLibraryPath);
             void preloadEnumData(assetLibraryPath);
+            void reloadCustomAssetTagGroups(assetLibraryPath);
+        } else {
+            void reloadCustomAssetTagGroups('');
         }
     }, [assetLibraryPath]);
 

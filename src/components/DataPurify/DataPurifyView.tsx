@@ -353,9 +353,9 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     ];
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col gap-3">
             {repairContext && repairContext.productName === selectedProduct && (
-                <div className="mb-4">
+                <div>
                     <Alert
                         type="info"
                         showIcon
