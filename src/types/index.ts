@@ -15,6 +15,36 @@ export interface SheetData {
     rawHeaders: string[];
 }
 
+export type UpgradeDecision = 'keep_old' | 'use_new' | 'pending';
+export type AssetUpgradeCategory = 'same' | 'new_field' | 'fill_empty' | 'conflict' | 'old_only';
+
+export interface AssetUpgradeItem {
+    key: string;
+    fieldName: string;
+    group: string;
+    oldValue: string;
+    newValue: string;
+    category: AssetUpgradeCategory;
+    decision: UpgradeDecision;
+    required: boolean;
+    oldParameter: VehicleParameter | null;
+    newParameter: VehicleParameter | null;
+}
+
+export interface AssetUpgradeDraft {
+    assetFileName: string;
+    assetProductName: string;
+    importedFileName: string;
+    items: AssetUpgradeItem[];
+    summary: {
+        same: number;
+        newField: number;
+        fillEmpty: number;
+        conflict: number;
+        oldOnly: number;
+    };
+}
+
 export interface DiffResult {
     added: VehicleParameter[];
     removed: VehicleParameter[];
