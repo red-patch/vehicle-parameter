@@ -1,7 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { version } from '../../../package.json';
 import { Layout as AntLayout, Menu, Switch, Tooltip, Button, message } from 'antd';
-import { FileSearchOutlined, GlobalOutlined, SunOutlined, MoonOutlined, FilterOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined, GlobalOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -21,9 +21,29 @@ interface MainLayoutProps {
 
 const items = [
     {
-        key: 'workbench',
-        icon: <FileSearchOutlined />,
-        label: '参数工作台',
+        key: 'pool',
+        icon: <DatabaseOutlined />,
+        label: '数据池',
+    },
+    {
+        key: 'compare',
+        icon: <DiffOutlined />,
+        label: '版本对比',
+    },
+    {
+        key: 'fill',
+        icon: <FormOutlined />,
+        label: '智能填报',
+    },
+    {
+        key: 'multi',
+        icon: <AppstoreOutlined />,
+        label: '多车型管理',
+    },
+    {
+        key: 'purify',
+        icon: <SafetyCertificateOutlined />,
+        label: '数据体检与修复',
     },
     {
         key: 'announcement',
@@ -34,11 +54,6 @@ const items = [
         key: 'dict',
         icon: <SettingOutlined />,
         label: '系统配置',
-    },
-    {
-        key: 'dedup',
-        icon: <FilterOutlined />,
-        label: '属性去重',
     },
 ];
 

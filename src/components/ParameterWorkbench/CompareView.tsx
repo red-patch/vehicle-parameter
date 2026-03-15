@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message } from 'antd';
+import { Card, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message, Select } from 'antd';
 import { DiffOutlined, InfoCircleOutlined, SearchOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -8,13 +8,14 @@ import ProductSourceSelector from './ProductSourceSelector';
 import { isFieldRequired } from '../../assets/requiredFields';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
+import { getFieldGroupsSync } from '../../utils/fieldLists';
 
 interface CompareViewProps {
     onGoRepair?: () => void;
 }
 
 const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
-    const { uploadedFiles, assetFiles, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext } = useVehicleStore(useShallow(state => ({
+    const { uploadedFiles, assetFiles, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
         selectedProductNames: state.selectedProductNames,
@@ -22,11 +23,13 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         setLocalSelection: state.setCompareProducts,
         setPurifyProduct: state.setPurifyProduct,
         setRepairContext: state.setRepairContext,
+        fieldGroupsVersion: state.fieldGroupsVersion,
     })));
     const [showResult, setShowResult] = useState(false);
     // 过滤状态
     const [diffFilter, setDiffFilter] = useState<'all' | 'diff' | 'same' | 'required'>('all');
     const [searchText, setSearchText] = useState('');
+    const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
     const reportRef = useRef<HTMLDivElement>(null);
 
     // 默认填充：当本模块尚未选择车型时，自动从大纲中填充
@@ -85,6 +88,12 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     // 过滤后的数据
     const filteredData = useMemo(() => {
         let data = comparisonData;
+        const fieldGroup = getFieldGroupsSync().find((group) => group.id === fieldGroupFilter);
+
+        if (fieldGroup) {
+            const fieldSet = new Set(fieldGroup.fields);
+            data = data.filter((row) => fieldSet.has(row.name));
+        }
         
         // 差异/一致/必填过滤
         if (diffFilter === 'diff') {
@@ -106,7 +115,12 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         }
 
         return data;
-    }, [comparisonData, diffFilter, searchText, localSelection]);
+    }, [comparisonData, diffFilter, searchText, localSelection, fieldGroupFilter, fieldGroupsVersion]);
+
+    const fieldGroupOptions = useMemo(
+        () => [{ value: 'all', label: '全部字段' }, ...getFieldGroupsSync().map((group) => ({ value: group.id, label: group.name }))],
+        [fieldGroupsVersion]
+    );
 
     const assetSourceByProduct = useMemo(() => {
         const map = new Map<string, string>();
@@ -373,6 +387,13 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                     onChange={e => setSearchText(e.target.value)}
                                     allowClear
                                     style={{ width: 220 }}
+                                    size="small"
+                                />
+                                <Select
+                                    value={fieldGroupFilter}
+                                    onChange={setFieldGroupFilter}
+                                    options={fieldGroupOptions}
+                                    style={{ width: 180 }}
                                     size="small"
                                 />
                             </div>

@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-import { Card, Button, Input, message, Space, Alert, Upload } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Card, Button, Input, message, Space, Alert, Upload, Select } from 'antd';
 import { ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
-import { getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
+import { getFieldGroupsSync } from '../../utils/fieldLists';
 import * as XLSX from 'xlsx';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -27,7 +27,8 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         setSmartFillRequirements: setRequirementsText,
         referenceProduct,
         setReferenceProduct,
-        assetFiles
+        assetFiles,
+        fieldGroupsVersion
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         setMatchResults: state.setMatchResults,
@@ -37,8 +38,10 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         setSmartFillRequirements: state.setSmartFillRequirements,
         referenceProduct: state.currentSmartFillProduct,
         setReferenceProduct: state.setSmartFillProduct,
-        assetFiles: state.assetFiles
+        assetFiles: state.assetFiles,
+        fieldGroupsVersion: state.fieldGroupsVersion,
     })));
+    const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string | undefined>(undefined);
 
     // getProductOptions is no longer needed here locally
 
@@ -91,6 +94,19 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         setMatchResults([]);
     };
 
+    const fieldGroupOptions = useMemo(
+        () => getFieldGroupsSync().map((group) => ({ value: group.id, label: group.name })),
+        [fieldGroupsVersion]
+    );
+
+    const handleApplyFieldGroup = (groupId: string) => {
+        const group = getFieldGroupsSync().find((item) => item.id === groupId);
+        if (!group) return;
+        setSelectedFieldGroupId(groupId);
+        setRequirementsText(group.fields.join('\n'));
+        message.success(`已导入字段组：${group.name}（${group.fields.length} 项）`);
+    };
+
     return (
         <div className="flex flex-col gap-3 h-full">
             {/* 提示信息 */}
@@ -125,18 +141,15 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                                 >
                                     填入示例
                                 </a>
-                                <a 
-                                    className="text-xs font-normal text-emerald-600"
-                                    onClick={() => { setRequirementsText(getSystemRequiredFieldsSync().join('\n')); message.success(`已导入 ${getSystemRequiredFieldsSync().length} 个系统必填字段`); }}
-                                >
-                                    系统必填字段
-                                </a>
-                                <a 
-                                    className="text-xs font-normal text-orange-500"
-                                    onClick={() => { setRequirementsText(getQualityCheckFieldsSync().join('\n')); message.success(`已导入 ${getQualityCheckFieldsSync().length} 个质量验车字段`); }}
-                                >
-                                    质量验车字段
-                                </a>
+                                <Select
+                                    size="small"
+                                    value={selectedFieldGroupId}
+                                    onChange={handleApplyFieldGroup}
+                                    options={fieldGroupOptions}
+                                    placeholder="字段配置组"
+                                    allowClear
+                                    className="min-w-[180px]"
+                                />
                                 <Upload
                                     accept=".xlsx,.xls,.csv"
                                     showUploadList={false}

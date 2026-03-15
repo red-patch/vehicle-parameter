@@ -3,47 +3,19 @@ import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { loadCustomConfig, loadAssetTags } from './assetManager';
 
 export interface AssetTagGroupsConfig {
+    manualTags: string[];
     otherTags: string[];
     vehicleFamilyTags: string[];
     manufacturerTags: string[];
 }
 
+export type AssetTagGroupKey = 'other' | 'vehicleFamily' | 'manufacturer';
+
 export const DEFAULT_ASSET_TAG_GROUPS: AssetTagGroupsConfig = {
+    manualTags: [],
     otherTags: [],
-    vehicleFamilyTags: [
-        '中面',
-        '大面',
-        '小卡',
-        '微卡',
-        '轻卡',
-        '无人车',
-        '中卡',
-        '乘用车',
-        '二类底盘',
-        '冷藏中卡',
-        '冷藏大面',
-        '冷藏小卡',
-        '冷藏微卡',
-        '冷藏轻卡',
-        '大VAN',
-        '小面',
-        '微车',
-        '微面',
-        '油电混合轿车',
-        '蓝牌轻卡',
-        '轿车',
-        '重卡',
-        '黄牌中型卡车',
-        '黄牌轻型卡车',
-    ],
-    manufacturerTags: [
-        '九识',
-        '吉利',
-        '大通',
-        '白犀牛',
-        '福田',
-        '新石器',
-    ],
+    vehicleFamilyTags: [],
+    manufacturerTags: [],
 };
 
 const TAG_GROUPS_FILE = 'custom_asset_tag_groups.json';
@@ -53,24 +25,39 @@ let cachedAssetTagGroups: AssetTagGroupsConfig = DEFAULT_ASSET_TAG_GROUPS;
 const normalizeTags = (values: string[] | undefined) =>
     Array.from(new Set((values || []).map((value) => value.trim()).filter(Boolean)));
 
+const collectConfiguredTags = (config: Partial<AssetTagGroupsConfig>) =>
+    normalizeTags([
+        ...(config.otherTags || []),
+        ...(config.vehicleFamilyTags || []),
+        ...(config.manufacturerTags || []),
+    ]);
+
 export const mergeAssetTagGroupsConfig = (
     customConfig: Partial<AssetTagGroupsConfig> | null | undefined,
     observedTags: string[] = []
 ): AssetTagGroupsConfig => {
+    const manualTags = customConfig?.manualTags
+        ? normalizeTags(customConfig.manualTags)
+        : [];
     const vehicleFamilyTags = customConfig?.vehicleFamilyTags
-        ? normalizeTags(customConfig.vehicleFamilyTags)
+        ? normalizeTags(customConfig.vehicleFamilyTags).filter((tag) => observedTags.includes(tag) || manualTags.includes(tag))
         : DEFAULT_ASSET_TAG_GROUPS.vehicleFamilyTags;
     const manufacturerTags = customConfig?.manufacturerTags
-        ? normalizeTags(customConfig.manufacturerTags).filter((tag) => !vehicleFamilyTags.includes(tag))
+        ? normalizeTags(customConfig.manufacturerTags)
+            .filter((tag) => !vehicleFamilyTags.includes(tag))
+            .filter((tag) => observedTags.includes(tag) || manualTags.includes(tag))
         : DEFAULT_ASSET_TAG_GROUPS.manufacturerTags.filter((tag) => !vehicleFamilyTags.includes(tag));
 
     const configuredOtherTags = customConfig?.otherTags
-        ? normalizeTags(customConfig.otherTags).filter((tag) => !vehicleFamilyTags.includes(tag) && !manufacturerTags.includes(tag))
+        ? normalizeTags(customConfig.otherTags)
+            .filter((tag) => !vehicleFamilyTags.includes(tag) && !manufacturerTags.includes(tag))
+            .filter((tag) => observedTags.includes(tag) || manualTags.includes(tag))
         : [];
 
     const derivedOtherTags = normalizeTags(observedTags).filter((tag) => !vehicleFamilyTags.includes(tag) && !manufacturerTags.includes(tag));
 
     return {
+        manualTags,
         otherTags: Array.from(new Set([...configuredOtherTags, ...derivedOtherTags])),
         vehicleFamilyTags,
         manufacturerTags,
@@ -95,10 +82,38 @@ export const reloadCustomAssetTagGroups = async (libraryPath: string): Promise<v
 };
 
 export const saveCustomAssetTagGroups = async (libraryPath: string, config: AssetTagGroupsConfig) => {
-    const normalized = mergeAssetTagGroupsConfig(config);
+    const normalized = mergeAssetTagGroupsConfig(config, collectConfiguredTags(config));
     const configPath = await join(libraryPath, TAG_GROUPS_FILE);
     await writeTextFile(configPath, JSON.stringify(normalized, null, 2));
     cachedAssetTagGroups = normalized;
 };
 
 export const getAssetTagGroupsSync = () => cachedAssetTagGroups;
+
+export const assignTagToGroup = (
+    config: AssetTagGroupsConfig,
+    tag: string,
+    group: AssetTagGroupKey
+) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return config;
+
+    const next = {
+        manualTags: config.manualTags.filter((item) => item !== trimmed),
+        otherTags: config.otherTags.filter((item) => item !== trimmed),
+        vehicleFamilyTags: config.vehicleFamilyTags.filter((item) => item !== trimmed),
+        manufacturerTags: config.manufacturerTags.filter((item) => item !== trimmed),
+    };
+
+    if (!config.otherTags.includes(trimmed) && !config.vehicleFamilyTags.includes(trimmed) && !config.manufacturerTags.includes(trimmed)) {
+        next.manualTags.push(trimmed);
+    } else if (config.manualTags.includes(trimmed)) {
+        next.manualTags.push(trimmed);
+    }
+
+    if (group === 'other') next.otherTags.push(trimmed);
+    if (group === 'vehicleFamily') next.vehicleFamilyTags.push(trimmed);
+    if (group === 'manufacturer') next.manufacturerTags.push(trimmed);
+
+    return mergeAssetTagGroupsConfig(next, collectConfiguredTags(next));
+};
