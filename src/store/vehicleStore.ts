@@ -94,6 +94,9 @@ interface VehicleStore {
 
     assetTagGroupsVersion: number;
     bumpAssetTagGroupsVersion: () => void;
+
+    fieldGroupsVersion: number;
+    bumpFieldGroupsVersion: () => void;
 }
 
 
@@ -430,6 +433,9 @@ export const useVehicleStore = create<VehicleStore>()(
 
     assetTagGroupsVersion: 0,
     bumpAssetTagGroupsVersion: () => set((state) => ({ assetTagGroupsVersion: state.assetTagGroupsVersion + 1 })),
+
+    fieldGroupsVersion: 0,
+    bumpFieldGroupsVersion: () => set((state) => ({ fieldGroupsVersion: state.fieldGroupsVersion + 1 })),
 }), {
     name: 'vehicle-parameter-storage',
     storage: createJSONStorage(() => localStorage),

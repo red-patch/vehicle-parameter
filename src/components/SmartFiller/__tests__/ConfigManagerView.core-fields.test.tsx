@@ -18,7 +18,11 @@ describe('ConfigManagerView core fields tab', () => {
     const tab = await screen.findByRole('tab', { name: '核心字段配置' })
     await userEvent.click(tab)
 
-    expect(await screen.findAllByPlaceholderText('搜索字段并加入规则')).not.toHaveLength(0)
+    expect(screen.getByText('字段配置组')).toBeInTheDocument()
+    expect(screen.getAllByText('系统必填字段').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('质量验车字段').length).toBeGreaterThan(0)
+    expect(screen.getAllByPlaceholderText('搜索或输入字段名称').length).toBeGreaterThan(0)
+    expect(screen.getByText('快充')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存并应用' })).toBeInTheDocument()
   }, 15000)
 })

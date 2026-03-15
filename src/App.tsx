@@ -16,7 +16,6 @@ const DiffResultView = React.lazy(() => import('./components/DiffViewer/DiffResu
 const SmartLayout = React.lazy(() => import('./components/SmartFiller/SmartLayout'));
 const ParameterWorkbench = React.lazy(() => import('./components/ParameterWorkbench/ParameterWorkbench'));
 const AnnouncementQuery = React.lazy(() => import('./components/AnnouncementQuery/AnnouncementQuery'));
-const AttributeDedup = React.lazy(() => import('./components/AttributeDedup/AttributeDedup'));
 const ConfigManagerView = React.lazy(() => import('./components/SmartFiller/ConfigManagerView'));
 
 const App: React.FC = () => {
@@ -27,7 +26,7 @@ const App: React.FC = () => {
     compareMode: state.compareMode,
   })));
   const { isDarkMode } = useThemeStore();
-  const [activeTab, setActiveTab] = React.useState('workbench'); // Default to workbench
+  const [activeTab, setActiveTab] = React.useState('pool');
   // V3.0: 多工作表筛选（改为数组支持多选）
   const [selectedBaseSheets, setSelectedBaseSheets] = useState<string[]>([]);
 
@@ -141,9 +140,9 @@ const App: React.FC = () => {
       <ErrorBoundary>
         <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
           
-          {activeTab === 'workbench' && (
+          {['pool', 'compare', 'fill', 'multi', 'purify'].includes(activeTab) && (
             <React.Suspense fallback={<Skeleton active />}>
-              <ParameterWorkbench />
+              <ParameterWorkbench activeTab={activeTab as 'pool' | 'compare' | 'fill' | 'multi' | 'purify'} onTabChange={setActiveTab} showTabs={false} />
             </React.Suspense>
           )}
 
@@ -226,12 +225,6 @@ const App: React.FC = () => {
           {activeTab === 'announcement' && (
             <React.Suspense fallback={<Skeleton active />}>
               <AnnouncementQuery />
-            </React.Suspense>
-          )}
-
-          {activeTab === 'dedup' && (
-            <React.Suspense fallback={<Skeleton active />}>
-              <AttributeDedup />
             </React.Suspense>
           )}
 

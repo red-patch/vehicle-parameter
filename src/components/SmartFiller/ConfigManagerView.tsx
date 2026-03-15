@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Table, Input, Tag, Card, Spin, Empty, Typography, Tabs, Button, message, Popconfirm, Modal, Space } from 'antd';
+import { Table, Input, Tag, Card, Spin, Empty, Typography, Tabs, Button, message, Popconfirm, Modal, Space, AutoComplete, Select } from 'antd';
 import { SearchOutlined, SettingOutlined, DownloadOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
-import { getSystemRequiredFieldsSync, getQualityCheckFieldsSync, reloadCustomFields } from '../../utils/fieldLists';
-import { getAssetTagGroupsSync, mergeAssetTagGroupsConfig, reloadCustomAssetTagGroups, saveCustomAssetTagGroups } from '../../utils/assetTagGroups';
+import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
+import { assignTagToGroup, getAssetTagGroupsSync, reloadCustomAssetTagGroups, saveCustomAssetTagGroups, type AssetTagGroupKey } from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import CoreFieldRuleComposer from './CoreFieldRuleComposer';
+import { parseFieldBatchInput } from './coreFieldRules';
 import { loadAssetTags } from '../../utils/assetManager';
 
 const { Text } = Typography;
@@ -17,6 +17,18 @@ interface EnumItem {
     name: string;
     values: string[];
     count: number;
+}
+
+interface TagGroupRow {
+    key: string;
+    tag: string;
+    group: AssetTagGroupKey;
+    source: 'asset' | 'manual';
+}
+
+interface FieldRow {
+    key: string;
+    name: string;
 }
 
 const ConfigManagerView: React.FC = () => {
@@ -29,37 +41,60 @@ const ConfigManagerView: React.FC = () => {
     const [editingValues, setEditingValues] = useState<string[]>([]);
     const [isCreatingNewEnum, setIsCreatingNewEnum] = useState(false);
 
-    const [editSysFields, setEditSysFields] = useState<string[]>(getSystemRequiredFieldsSync());
-    const [editQualFields, setEditQualFields] = useState<string[]>(getQualityCheckFieldsSync());
+    const [fieldGroups, setFieldGroups] = useState<FieldGroupConfigItem[]>(getFieldGroupsSync());
+    const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string>(getFieldGroupsSync()[0]?.id || 'system-required');
+    const [editManualTags, setEditManualTags] = useState<string[]>(getAssetTagGroupsSync().manualTags);
     const [editOtherTags, setEditOtherTags] = useState<string[]>(getAssetTagGroupsSync().otherTags);
     const [editVehicleFamilyTags, setEditVehicleFamilyTags] = useState<string[]>(getAssetTagGroupsSync().vehicleFamilyTags);
     const [editManufacturerTags, setEditManufacturerTags] = useState<string[]>(getAssetTagGroupsSync().manufacturerTags);
-    const [recentFieldHistory, setRecentFieldHistory] = useState<string[]>([]);
-    const [recentTagHistory, setRecentTagHistory] = useState<string[]>([]);
     const [availableAssetTags, setAvailableAssetTags] = useState<string[]>([]);
+    const [fieldSearch, setFieldSearch] = useState('');
+    const [fieldCreateModal, setFieldCreateModal] = useState<{ open: boolean; value: string }>({
+        open: false,
+        value: '',
+    });
+    const [fieldBatchModal, setFieldBatchModal] = useState<{ open: boolean; value: string }>({
+        open: false,
+        value: '',
+    });
+    const [fieldGroupModal, setFieldGroupModal] = useState<{ open: boolean; mode: 'create' | 'rename'; value: string }>({
+        open: false,
+        mode: 'create',
+        value: '',
+    });
+    const [tagSearch, setTagSearch] = useState('');
+    const [tagCreateModal, setTagCreateModal] = useState<{ open: boolean; value: string; group: AssetTagGroupKey }>({
+        open: false,
+        value: '',
+        group: 'other',
+    });
 
-    const { assetLibraryPath, bumpAssetTagGroupsVersion } = useVehicleStore();
+    const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion } = useVehicleStore();
 
     useEffect(() => {
         if (!isEnumDataLoaded()) {
             setLoading(true);
             preloadEnumData(assetLibraryPath || undefined).then(() => {
                 setLoading(false);
-                setEditSysFields(getSystemRequiredFieldsSync());
-                setEditQualFields(getQualityCheckFieldsSync());
-                const groups = getAssetTagGroupsSync();
-                setEditOtherTags(groups.otherTags);
-                setEditVehicleFamilyTags(groups.vehicleFamilyTags);
-                setEditManufacturerTags(groups.manufacturerTags);
+                const nextFieldGroups = getFieldGroupsSync();
+                setFieldGroups(nextFieldGroups);
+                setSelectedFieldGroupId(nextFieldGroups[0]?.id || 'system-required');
+                const nextTagGroups = getAssetTagGroupsSync();
+                setEditManualTags(nextTagGroups.manualTags);
+                setEditOtherTags(nextTagGroups.otherTags);
+                setEditVehicleFamilyTags(nextTagGroups.vehicleFamilyTags);
+                setEditManufacturerTags(nextTagGroups.manufacturerTags);
             });
         } else {
             setLoading(false);
-            setEditSysFields(getSystemRequiredFieldsSync());
-            setEditQualFields(getQualityCheckFieldsSync());
-            const groups = getAssetTagGroupsSync();
-            setEditOtherTags(groups.otherTags);
-            setEditVehicleFamilyTags(groups.vehicleFamilyTags);
-            setEditManufacturerTags(groups.manufacturerTags);
+            const nextFieldGroups = getFieldGroupsSync();
+            setFieldGroups(nextFieldGroups);
+            setSelectedFieldGroupId(nextFieldGroups[0]?.id || 'system-required');
+            const tagGroups = getAssetTagGroupsSync();
+            setEditManualTags(tagGroups.manualTags);
+            setEditOtherTags(tagGroups.otherTags);
+            setEditVehicleFamilyTags(tagGroups.vehicleFamilyTags);
+            setEditManufacturerTags(tagGroups.manufacturerTags);
         }
     }, [assetLibraryPath]);
 
@@ -91,8 +126,7 @@ const ConfigManagerView: React.FC = () => {
             await writeTextFile(enumPath, JSON.stringify(enumDict, null, 2));
 
             const fieldDict = {
-                systemRequired: getSystemRequiredFieldsSync(),
-                qualityCheck: getQualityCheckFieldsSync()
+                groups: getFieldGroupsSync(),
             };
             const fieldPath = await join(assetLibraryPath, 'custom_fields.json');
             await writeTextFile(fieldPath, JSON.stringify(fieldDict, null, 2));
@@ -130,27 +164,47 @@ const ConfigManagerView: React.FC = () => {
     const candidateFields = useMemo(() => {
         const merged = new Set<string>([
             ...getAllAttributeNames(),
-            ...editSysFields,
-            ...editQualFields,
+            ...fieldGroups.flatMap((group) => group.fields),
         ]);
         return Array.from(merged).sort((left, right) => left.localeCompare(right, 'zh-CN'));
-    }, [editSysFields, editQualFields, loading]);
+    }, [fieldGroups, loading]);
 
-    const candidateTags = useMemo(() => {
-        const merged = new Set<string>([
-            ...availableAssetTags,
-            ...editOtherTags,
-            ...editVehicleFamilyTags,
-            ...editManufacturerTags,
-        ]);
-        return Array.from(merged).sort((left, right) => left.localeCompare(right, 'zh-CN'));
-    }, [availableAssetTags, editOtherTags, editVehicleFamilyTags, editManufacturerTags]);
+    const selectedFieldGroup = useMemo(
+        () => fieldGroups.find((group) => group.id === selectedFieldGroupId) || fieldGroups[0] || null,
+        [fieldGroups, selectedFieldGroupId]
+    );
 
-    const rememberRecentFields = (fields: string[]) => {
-        setRecentFieldHistory(prev => {
-            const merged = [...fields.slice().reverse(), ...prev];
-            return Array.from(new Set(merged)).slice(0, 20);
-        });
+    const selectedFieldRows = useMemo<FieldRow[]>(
+        () => (selectedFieldGroup?.fields || []).map((field) => ({ key: field, name: field })),
+        [selectedFieldGroup]
+    );
+
+    const updateSelectedFieldGroup = (updater: (group: FieldGroupConfigItem) => FieldGroupConfigItem) => {
+        if (!selectedFieldGroup) return;
+        setFieldGroups((prev) => prev.map((group) => group.id === selectedFieldGroup.id ? updater(group) : group));
+    };
+
+    const addFieldToSelectedGroup = (field: string) => {
+        const trimmed = field.trim();
+        if (!trimmed) return;
+        updateSelectedFieldGroup((group) => ({
+            ...group,
+            fields: Array.from(new Set([...group.fields, trimmed])).sort((left, right) => left.localeCompare(right, 'zh-CN')),
+        }));
+    };
+
+    const removeFieldFromSelectedGroup = (field: string) => {
+        updateSelectedFieldGroup((group) => ({
+            ...group,
+            fields: group.fields.filter((item) => item !== field),
+        }));
+    };
+
+    const clearSelectedFieldGroup = () => {
+        updateSelectedFieldGroup((group) => ({
+            ...group,
+            fields: [],
+        }));
     };
 
     const handleSaveEnum = async () => {
@@ -193,47 +247,32 @@ const ConfigManagerView: React.FC = () => {
         }
         try {
             const fieldDict = {
-                systemRequired: editSysFields,
-                qualityCheck: editQualFields
+                groups: fieldGroups,
             };
             const fieldPath = await join(assetLibraryPath, 'custom_fields.json');
             await writeTextFile(fieldPath, JSON.stringify(fieldDict, null, 2));
 
             message.success('字段规则更新成功！已持久化并执行热重载。');
             await reloadCustomFields(assetLibraryPath);
+            bumpFieldGroupsVersion();
         } catch (e) {
             console.error(e);
             message.error('字段规则保存失败');
         }
     };
 
-    const rememberRecentTags = (tags: string[]) => {
-        setRecentTagHistory(prev => {
-            const merged = [...tags.slice().reverse(), ...prev];
-            return Array.from(new Set(merged)).slice(0, 20);
-        });
-    };
+    const assignTagGroup = (tag: string, group: AssetTagGroupKey) => {
+        const normalized = assignTagToGroup({
+            manualTags: editManualTags,
+            otherTags: editOtherTags,
+            vehicleFamilyTags: editVehicleFamilyTags,
+            manufacturerTags: editManufacturerTags,
+        }, tag, group);
 
-    const syncTagGroups = (
-        target: 'other' | 'vehicleFamily' | 'manufacturer',
-        nextTags: string[]
-    ) => {
-        const knownTags = Array.from(new Set([
-            ...candidateTags,
-            ...nextTags,
-        ]));
-
-        const nextConfig = {
-            otherTags: target === 'other' ? nextTags : editOtherTags.filter((tag) => !nextTags.includes(tag)),
-            vehicleFamilyTags: target === 'vehicleFamily' ? nextTags : editVehicleFamilyTags.filter((tag) => !nextTags.includes(tag)),
-            manufacturerTags: target === 'manufacturer' ? nextTags : editManufacturerTags.filter((tag) => !nextTags.includes(tag)),
-        };
-
-        const normalized = mergeAssetTagGroupsConfig(nextConfig, knownTags);
+        setEditManualTags(normalized.manualTags);
         setEditOtherTags(normalized.otherTags);
         setEditVehicleFamilyTags(normalized.vehicleFamilyTags);
         setEditManufacturerTags(normalized.manufacturerTags);
-        rememberRecentTags(nextTags);
     };
 
     const handleSaveTagGroups = async () => {
@@ -243,6 +282,7 @@ const ConfigManagerView: React.FC = () => {
         }
         try {
             await saveCustomAssetTagGroups(assetLibraryPath, {
+                manualTags: editManualTags,
                 otherTags: editOtherTags,
                 vehicleFamilyTags: editVehicleFamilyTags,
                 manufacturerTags: editManufacturerTags,
@@ -255,6 +295,29 @@ const ConfigManagerView: React.FC = () => {
             message.error('标签分组规则保存失败');
         }
     };
+
+    const allTagRows = useMemo<TagGroupRow[]>(() => {
+        const assetTagSet = new Set(availableAssetTags);
+        const tags = Array.from(new Set([
+            ...availableAssetTags,
+            ...editManualTags,
+        ]))
+            .filter((tag) => tag.trim())
+            .sort((left, right) => left.localeCompare(right, 'zh-CN'));
+
+        return tags
+            .filter((tag) => !tagSearch.trim() || tag.toLowerCase().includes(tagSearch.trim().toLowerCase()))
+            .map((tag) => ({
+                key: tag,
+                tag,
+                group: editVehicleFamilyTags.includes(tag)
+                    ? 'vehicleFamily'
+                    : editManufacturerTags.includes(tag)
+                        ? 'manufacturer'
+                        : 'other',
+                source: assetTagSet.has(tag) ? 'asset' : 'manual',
+            }));
+    }, [availableAssetTags, editManualTags, editOtherTags, editVehicleFamilyTags, editManufacturerTags, tagSearch]);
 
     const columns = [
         {
@@ -425,29 +488,123 @@ const ConfigManagerView: React.FC = () => {
                     label: '核心字段配置',
                     children: (
                         <div className="p-4 flex flex-col gap-6">
-                            <CoreFieldRuleComposer
-                                title="系统必填规则"
-                                description="设定在此列的字段，如果在体检中未找到对应数值，将被判定为空缺警告。"
-                                selectedFields={editSysFields}
-                                candidateFields={candidateFields}
-                                recentFields={recentFieldHistory}
-                                onChange={(next) => {
-                                    setEditSysFields(next)
-                                    rememberRecentFields(next)
-                                }}
-                            />
+                            <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-5">
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <div className="flex items-center justify-between gap-3 mb-3">
+                                        <div className="text-[16px] font-bold text-slate-900">字段配置组</div>
+                                        <Button size="small" icon={<PlusOutlined />} onClick={() => setFieldGroupModal({ open: true, mode: 'create', value: '' })}>
+                                            新建组
+                                        </Button>
+                                    </div>
 
-                            <CoreFieldRuleComposer
-                                title="质量验车规则"
-                                description="设定在此列的字段，在多个版本或源文件中若出现值不一致，将触发修改比对高亮。"
-                                selectedFields={editQualFields}
-                                candidateFields={candidateFields}
-                                recentFields={recentFieldHistory}
-                                onChange={(next) => {
-                                    setEditQualFields(next)
-                                    rememberRecentFields(next)
-                                }}
-                            />
+                                    <div className="space-y-2">
+                                        {fieldGroups.map((group) => (
+                                            <div
+                                                key={group.id}
+                                                className={`cursor-pointer rounded-xl px-3 py-2 border flex items-center justify-between gap-3 ${selectedFieldGroupId === group.id ? 'border-blue-300 bg-blue-50' : 'border-slate-100 hover:border-slate-200'}`}
+                                                onClick={() => setSelectedFieldGroupId(group.id)}
+                                            >
+                                                <div className="min-w-0">
+                                                    <div className="font-semibold text-slate-800 truncate">{group.name}</div>
+                                                    <div className="text-xs text-slate-400">字段数 {group.fields.length}</div>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setSelectedFieldGroupId(group.id);
+                                                            setFieldGroupModal({ open: true, mode: 'rename', value: group.name });
+                                                        }}
+                                                    >
+                                                        重命名
+                                                    </Button>
+                                                    <Button
+                                                        type="link"
+                                                        danger
+                                                        size="small"
+                                                        disabled={fieldGroups.length <= 1}
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setFieldGroups((prev) => {
+                                                                const next = prev.filter((item) => item.id !== group.id);
+                                                                setSelectedFieldGroupId(next[0]?.id || '');
+                                                                return next;
+                                                            });
+                                                        }}
+                                                    >
+                                                        删除
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    {selectedFieldGroup ? (
+                                        <>
+                                            <div className="flex items-center justify-between gap-3 mb-3">
+                                                <div>
+                                                    <div className="text-[18px] font-bold text-slate-900">{selectedFieldGroup.name}</div>
+                                                    <Text type="secondary">管理当前字段配置组中的字段集合</Text>
+                                                </div>
+                                                <Tag color="blue" className="m-0">字段数 {selectedFieldGroup.fields.length}</Tag>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                                <AutoComplete
+                                                    value={fieldSearch}
+                                                    onChange={setFieldSearch}
+                                                    options={candidateFields.map((field) => ({ value: field }))}
+                                                    placeholder="搜索或输入字段名称"
+                                                    className="flex-1 min-w-[320px]"
+                                                >
+                                                    <Input prefix={<SearchOutlined className="text-gray-400" />} />
+                                                </AutoComplete>
+                                                <Button onClick={() => { addFieldToSelectedGroup(fieldSearch); setFieldSearch(''); }}>加入字段</Button>
+                                                <Button onClick={() => setFieldCreateModal({ open: true, value: '' })} icon={<PlusOutlined />}>新建字段</Button>
+                                                <Button onClick={() => setFieldBatchModal({ open: true, value: '' })}>批量导入</Button>
+                                                <Button danger onClick={clearSelectedFieldGroup}>清空本组</Button>
+                                            </div>
+
+                                            {selectedFieldGroup.fields.length > 0 ? (
+                                                <div className="rounded-xl border border-slate-100 overflow-hidden">
+                                                    <Table
+                                                        size="small"
+                                                        rowKey="key"
+                                                        pagination={false}
+                                                        dataSource={selectedFieldRows}
+                                                        columns={[
+                                                            {
+                                                                title: '字段名称',
+                                                                dataIndex: 'name',
+                                                                key: 'name',
+                                                                render: (value: string) => value,
+                                                            },
+                                                            {
+                                                                title: '操作',
+                                                                key: 'action',
+                                                                width: 100,
+                                                                render: (_: unknown, row: FieldRow) => (
+                                                                    <Button type="link" danger onClick={() => removeFieldFromSelectedGroup(row.name)}>
+                                                                        删除
+                                                                    </Button>
+                                                                ),
+                                                            },
+                                                        ]}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前分组暂无字段" />
+                                            )}
+                                        </>
+                                    ) : (
+                                        <Empty description="请先选择或创建字段配置组" />
+                                    )}
+                                </div>
+                            </div>
 
                             <div className="flex justify-end mt-2">
                                 <Button type="primary" size="large" aria-label="保存并应用" onClick={handleSaveFields} icon={<SettingOutlined />}>
@@ -462,32 +619,104 @@ const ConfigManagerView: React.FC = () => {
                     label: '标签分组配置',
                     children: (
                         <div className="p-4 flex flex-col gap-6">
-                            <CoreFieldRuleComposer
-                                title="其他标签"
-                                description="未归入互斥组的标签在资产库筛选区按“其他标签”多选交集方式展示。系统也会把现有资产中未归组的标签自动补到这里。"
-                                selectedFields={editOtherTags}
-                                candidateFields={candidateTags}
-                                recentFields={recentTagHistory}
-                                onChange={(next) => syncTagGroups('other', next)}
-                            />
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <div className="flex flex-wrap items-center gap-2 justify-between mb-3">
+                                    <div>
+                                        <div className="text-[16px] font-bold text-slate-900">全部标签池</div>
+                                        <Text type="secondary">默认归入“其他标签”。仅当你手动指定时，才会进入“车型族群”或“厂商”。</Text>
+                                    </div>
+                                    <Space>
+                                        <Input
+                                            value={tagSearch}
+                                            onChange={(event) => setTagSearch(event.target.value)}
+                                            placeholder="搜索已有标签"
+                                            prefix={<SearchOutlined className="text-gray-400" />}
+                                            className="w-72"
+                                        />
+                                        <Button icon={<PlusOutlined />} onClick={() => setTagCreateModal({ open: true, value: '', group: 'other' })}>
+                                            新建标签
+                                        </Button>
+                                    </Space>
+                                </div>
 
-                            <CoreFieldRuleComposer
-                                title="车型族群标签"
-                                description="这些标签在资产库筛选区按“车型族群”单选互斥方式展示。这里的配置只影响筛选分组，不会自动修改资产已有标签。"
-                                selectedFields={editVehicleFamilyTags}
-                                candidateFields={candidateTags}
-                                recentFields={recentTagHistory}
-                                onChange={(next) => syncTagGroups('vehicleFamily', next)}
-                            />
+                                <Table
+                                    size="small"
+                                    rowKey="key"
+                                    pagination={{ pageSize: 12, showSizeChanger: false }}
+                                    dataSource={allTagRows}
+                                    columns={[
+                                        {
+                                            title: '标签',
+                                            dataIndex: 'tag',
+                                            key: 'tag',
+                                        },
+                                        {
+                                            title: '当前分组',
+                                            dataIndex: 'group',
+                                            key: 'group',
+                                            width: 140,
+                                            render: (group: AssetTagGroupKey) => (
+                                                <Tag color={group === 'vehicleFamily' ? 'blue' : group === 'manufacturer' ? 'green' : 'default'}>
+                                                    {group === 'vehicleFamily' ? '车型族群' : group === 'manufacturer' ? '厂商' : '其他'}
+                                                </Tag>
+                                            ),
+                                        },
+                                        {
+                                            title: '来源',
+                                            dataIndex: 'source',
+                                            key: 'source',
+                                            width: 120,
+                                            render: (source: 'asset' | 'manual') => (
+                                                <Tag color={source === 'asset' ? 'blue' : 'purple'}>
+                                                    {source === 'asset' ? '资产在用' : '手动新建'}
+                                                </Tag>
+                                            ),
+                                        },
+                                        {
+                                            title: '归类动作',
+                                            key: 'actions',
+                                            width: 260,
+                                            render: (_: unknown, row: TagGroupRow) => (
+                                                <Space wrap>
+                                                    <Button size="small" type={row.group === 'other' ? 'primary' : 'default'} onClick={() => assignTagGroup(row.tag, 'other')}>其他</Button>
+                                                    <Button size="small" type={row.group === 'vehicleFamily' ? 'primary' : 'default'} onClick={() => assignTagGroup(row.tag, 'vehicleFamily')}>车型族群</Button>
+                                                    <Button size="small" type={row.group === 'manufacturer' ? 'primary' : 'default'} onClick={() => assignTagGroup(row.tag, 'manufacturer')}>厂商</Button>
+                                                </Space>
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            </div>
 
-                            <CoreFieldRuleComposer
-                                title="厂商标签"
-                                description="这些标签在资产库筛选区按“厂商”单选互斥方式展示。这里的配置只影响筛选分组，不会自动修改资产已有标签。"
-                                selectedFields={editManufacturerTags}
-                                candidateFields={candidateTags}
-                                recentFields={recentTagHistory}
-                                onChange={(next) => syncTagGroups('manufacturer', next)}
-                            />
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="text-sm font-bold text-slate-800">其他标签</div>
+                                        <Tag className="m-0">{editOtherTags.length}</Tag>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {editOtherTags.length > 0 ? editOtherTags.map((tag) => <Tag key={tag} className="m-0">{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
+                                    </div>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="text-sm font-bold text-slate-800">车型族群</div>
+                                        <Tag color="blue" className="m-0">{editVehicleFamilyTags.length}</Tag>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {editVehicleFamilyTags.length > 0 ? editVehicleFamilyTags.map((tag) => <Tag color="blue" key={tag} className="m-0">{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
+                                    </div>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="text-sm font-bold text-slate-800">厂商</div>
+                                        <Tag color="green" className="m-0">{editManufacturerTags.length}</Tag>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {editManufacturerTags.length > 0 ? editManufacturerTags.map((tag) => <Tag color="green" key={tag} className="m-0">{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
+                                    </div>
+                                </div>
+                            </div>
 
                             <div className="flex justify-end mt-2">
                                 <Button type="primary" size="large" onClick={handleSaveTagGroups} icon={<SettingOutlined />}>
@@ -534,6 +763,109 @@ const ConfigManagerView: React.FC = () => {
                             }}
                         />
                     </div>
+                </div>
+            </Modal>
+
+            <Modal
+                title="新建字段"
+                open={fieldCreateModal.open}
+                onOk={() => {
+                    addFieldToSelectedGroup(fieldCreateModal.value)
+                    setFieldCreateModal({ open: false, value: '' })
+                }}
+                onCancel={() => setFieldCreateModal({ open: false, value: '' })}
+                okText="创建并加入"
+                destroyOnClose
+            >
+                <Input
+                    autoFocus
+                    placeholder="输入新字段名称"
+                    value={fieldCreateModal.value}
+                    onChange={(event) => setFieldCreateModal((prev) => ({ ...prev, value: event.target.value }))}
+                />
+            </Modal>
+
+            <Modal
+                title="批量导入字段"
+                open={fieldBatchModal.open}
+                onOk={() => {
+                    const fields = parseFieldBatchInput(fieldBatchModal.value)
+                    fields.forEach((field) => addFieldToSelectedGroup(field))
+                    setFieldBatchModal({ open: false, value: '' })
+                }}
+                onCancel={() => setFieldBatchModal({ open: false, value: '' })}
+                okText="导入并去重"
+                destroyOnClose
+            >
+                <Input.TextArea
+                    rows={6}
+                    autoFocus
+                    placeholder="粘贴字段列表，支持换行、逗号、分号"
+                    value={fieldBatchModal.value}
+                    onChange={(event) => setFieldBatchModal((prev) => ({ ...prev, value: event.target.value }))}
+                />
+            </Modal>
+
+            <Modal
+                title={fieldGroupModal.mode === 'create' ? '新建字段配置组' : '重命名字段配置组'}
+                open={fieldGroupModal.open}
+                onOk={() => {
+                    const name = fieldGroupModal.value.trim()
+                    if (!name) return
+
+                    if (fieldGroupModal.mode === 'create') {
+                        const id = name
+                            .toLowerCase()
+                            .replace(/\s+/g, '-')
+                            .replace(/[^a-z0-9\u4e00-\u9fa5-]/g, '')
+                        const nextGroup: FieldGroupConfigItem = { id: `${id || 'group'}-${Date.now()}`, name, fields: [] }
+                        setFieldGroups((prev) => [...prev, nextGroup])
+                        setSelectedFieldGroupId(nextGroup.id)
+                    } else if (selectedFieldGroup) {
+                        setFieldGroups((prev) => prev.map((group) => group.id === selectedFieldGroup.id ? { ...group, name } : group))
+                    }
+
+                    setFieldGroupModal({ open: false, mode: 'create', value: '' })
+                }}
+                onCancel={() => setFieldGroupModal({ open: false, mode: 'create', value: '' })}
+                okText="确认"
+                destroyOnClose
+            >
+                <Input
+                    autoFocus
+                    placeholder="输入字段配置组名称"
+                    value={fieldGroupModal.value}
+                    onChange={(event) => setFieldGroupModal((prev) => ({ ...prev, value: event.target.value }))}
+                />
+            </Modal>
+
+            <Modal
+                title="新建标签"
+                open={tagCreateModal.open}
+                onOk={() => {
+                    assignTagGroup(tagCreateModal.value, tagCreateModal.group)
+                    setTagCreateModal({ open: false, value: '', group: 'other' })
+                }}
+                onCancel={() => setTagCreateModal({ open: false, value: '', group: 'other' })}
+                okText="创建并归组"
+                destroyOnClose
+            >
+                <div className="flex flex-col gap-4">
+                    <Input
+                        autoFocus
+                        placeholder="输入新标签名称"
+                        value={tagCreateModal.value}
+                        onChange={(event) => setTagCreateModal((prev) => ({ ...prev, value: event.target.value }))}
+                    />
+                    <Select
+                        value={tagCreateModal.group}
+                        onChange={(value) => setTagCreateModal((prev) => ({ ...prev, group: value }))}
+                        options={[
+                            { value: 'other', label: '其他' },
+                            { value: 'vehicleFamily', label: '车型族群' },
+                            { value: 'manufacturer', label: '厂商' },
+                        ]}
+                    />
                 </div>
             </Modal>
         </Card>

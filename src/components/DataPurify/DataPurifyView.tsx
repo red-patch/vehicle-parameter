@@ -6,7 +6,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getProductData } from '../../store/vehicleSelectors';
 import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames } from '../../utils/attributeEnums';
-import { getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
+import { getFieldGroupsSync, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import Fuse from 'fuse.js';
 import type { VehicleParameter } from '../../types';
 import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
@@ -29,6 +29,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         assetFiles,
         repairContext,
         clearRepairContext,
+        fieldGroupsVersion,
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         selectedProductNames: state.selectedProductNames,
@@ -38,6 +39,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         assetFiles: state.assetFiles,
         repairContext: state.repairContext,
         clearRepairContext: state.clearRepairContext,
+        fieldGroupsVersion: state.fieldGroupsVersion,
     })));
     const [purifyParams, setPurifyParams] = useState<VehicleParameter[]>([]);
     const [enumLoaded, setEnumLoaded] = useState(isEnumDataLoaded());
@@ -59,6 +61,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
     const [valueSearch, setValueSearch] = useState('');
     const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'anomaly'>('none');
+    const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
 
     // 预加载枚举数据
     useEffect(() => {
@@ -215,11 +218,13 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     const filteredParams = useMemo(() => {
         const sysReq = getSystemRequiredFieldsSync();
         const qualCheck = getQualityCheckFieldsSync();
+        const selectedFieldGroup = getFieldGroupsSync().find((group) => group.id === fieldGroupFilter);
         const searchKeyword = valueSearch.trim().toLowerCase();
 
         return augmentedParams.filter(p => {
             // 组过滤器优先
             if (filterGroup && p.group !== filterGroup) return false;
+            if (selectedFieldGroup && !selectedFieldGroup.fields.includes(p.name)) return false;
 
             // 参数值搜索
             if (searchKeyword && !String(p.value ?? '').toLowerCase().includes(searchKeyword)) return false;
@@ -235,7 +240,12 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
             return true;
         });
-    }, [augmentedParams, filterGroup, quickFilter, valueSearch]);
+    }, [augmentedParams, filterGroup, quickFilter, valueSearch, fieldGroupFilter, fieldGroupsVersion]);
+
+    const fieldGroupOptions = useMemo(
+        () => [{ value: 'all', label: '全部字段组' }, ...getFieldGroupsSync().map((group) => ({ value: group.id, label: group.name }))],
+        [fieldGroupsVersion]
+    );
 
     const displayedParams = useMemo(() => {
         if (!targetFieldName) return filteredParams;
@@ -450,6 +460,15 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                         placeholder="搜索参数值..."
                         allowClear
                         prefix={<SearchOutlined className="text-gray-400" />}
+                    />
+                </FilterItem>
+
+                <FilterItem label="字段组:">
+                    <Select
+                        style={{ width: 180 }}
+                        value={fieldGroupFilter}
+                        onChange={setFieldGroupFilter}
+                        options={fieldGroupOptions}
                     />
                 </FilterItem>
 

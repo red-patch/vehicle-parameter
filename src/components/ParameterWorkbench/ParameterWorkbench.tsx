@@ -14,14 +14,26 @@ const SmartFillView = React.lazy(() => import('./SmartFillView'));
 const MultiVehicleView = React.lazy(() => import('./MultiVehicleView'));
 const DataPurifyView = React.lazy(() => import('../DataPurify/DataPurifyView'));
 
+type WorkbenchTabKey = 'pool' | 'compare' | 'fill' | 'multi' | 'purify';
+
 const repairModuleTabMap: Record<RepairSourceModule, string> = {
     compare: 'compare',
     smart_fill: 'fill',
     multi_vehicle: 'multi',
 };
 
-const ParameterWorkbench: React.FC = () => {
-    const [activeTab, setActiveTab] = useState('pool');
+interface ParameterWorkbenchProps {
+    activeTab?: WorkbenchTabKey;
+    onTabChange?: (key: WorkbenchTabKey) => void;
+    showTabs?: boolean;
+}
+
+const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
+    activeTab: controlledActiveTab,
+    onTabChange,
+    showTabs = true,
+}) => {
+    const [innerActiveTab, setInnerActiveTab] = useState<WorkbenchTabKey>('pool');
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
     const [focusedProduct, setFocusedProduct] = useState<string | null>(null);
     const poolContainerRef = useRef<HTMLDivElement>(null);
@@ -36,9 +48,17 @@ const ParameterWorkbench: React.FC = () => {
         setFocusedProduct(null);
     };
 
+    const activeTab = controlledActiveTab ?? innerActiveTab;
+    const setActiveTab = (next: WorkbenchTabKey) => {
+        onTabChange?.(next);
+        if (controlledActiveTab === undefined) {
+            setInnerActiveTab(next);
+        }
+    };
+
     const handleGoRepair = () => setActiveTab('purify');
     const handleReturnToModule = (sourceModule: RepairSourceModule) => {
-        setActiveTab(repairModuleTabMap[sourceModule]);
+        setActiveTab(repairModuleTabMap[sourceModule] as WorkbenchTabKey);
     };
 
     const sidebarWidth = useMemo(() => {
@@ -67,7 +87,7 @@ const ParameterWorkbench: React.FC = () => {
         };
     }, [activeTab, draggingSidebar, setPoolSidebarWidth]);
 
-    const items = [
+    const items: { key: WorkbenchTabKey; label: React.ReactNode; children: React.ReactNode }[] = [
         {
             key: 'pool',
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 数据池</span>,
@@ -147,17 +167,23 @@ const ParameterWorkbench: React.FC = () => {
     return (
         <div className="h-full bg-slate-50/50 p-4">
             <AssetDataSynchronizer />
-            <div className="mb-3">
-                <h1 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight">参数工作台</h1>
-            </div>
+            {showTabs ? (
+                <>
+                    <div className="mb-3">
+                        <h1 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight">参数工作台</h1>
+                    </div>
 
-            <Tabs
-                activeKey={activeTab}
-                onChange={setActiveTab}
-                items={items}
-                className="parameter-workbench-tabs"
-                destroyOnHidden
-            />
+                    <Tabs
+                        activeKey={activeTab}
+                        onChange={(key) => setActiveTab(key as WorkbenchTabKey)}
+                        items={items}
+                        className="parameter-workbench-tabs"
+                        destroyOnHidden
+                    />
+                </>
+            ) : (
+                items.find((item) => item.key === activeTab)?.children
+            )}
         </div>
     );
 };
