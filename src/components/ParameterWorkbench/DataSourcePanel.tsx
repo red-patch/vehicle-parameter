@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, FormOutlined, CloudUploadOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getAssetFilesWithInfo, renameAssetFile, renameAssetProductName, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
+import { getAssetFilesWithInfo, renameAssetIdentity, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
 import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '../../utils/assetSourceTags';
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
+import { clampPoolWorkspaceHeight } from '../../utils/poolLayout';
+import { getAssetDisplayName } from '../../utils/assetNaming';
+import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
+import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 
 // 标签颜色池，根据标签内容确定性地分配颜色
 const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
@@ -38,8 +42,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         addActiveAsset, 
         removeActiveAsset, 
         renameActiveAsset,
-        renameAssetProduct,
-        selectedProductNames
+        selectedProductNames,
+        poolWorkspaceHeight,
+        setPoolWorkspaceHeight,
+        resetPoolLayout,
+        assetTagGroupsVersion,
     } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         uploadedFiles: state.uploadedFiles,
@@ -47,9 +54,14 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         addActiveAsset: state.addActiveAsset,
         removeActiveAsset: state.removeActiveAsset,
         renameActiveAsset: state.renameActiveAsset,
-        renameAssetProduct: state.renameAssetProduct,
-        selectedProductNames: state.selectedProductNames
+        selectedProductNames: state.selectedProductNames,
+        poolWorkspaceHeight: state.poolWorkspaceHeight,
+        setPoolWorkspaceHeight: state.setPoolWorkspaceHeight,
+        resetPoolLayout: state.resetPoolLayout,
+        assetTagGroupsVersion: state.assetTagGroupsVersion,
     })));
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [draggingWorkspace, setDraggingWorkspace] = useState(false);
 
     // 智能联动逻辑：根据当前选中的车型，判断某个资产是否处于“激活”状态
     // 此处定义：如果该资产内含的车型（通常为 info.productName）已在 selectedProductNames 中，则视为已激活
@@ -61,16 +73,38 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     // Rename state
     const [editingAsset, setEditingAsset] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
-    const [editMode, setEditMode] = useState<'file' | 'product' | null>(null);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [sourceFilter, setSourceFilter] = useState<AssetSourceFilter>('all');
 
     // 标签系统
     const [assetTags, setAssetTags] = useState<Record<string, string[]>>({});
-    const [selectedFilterTags, setSelectedFilterTags] = useState<string[]>([]);
+    const [selectedVehicleFamilyTag, setSelectedVehicleFamilyTag] = useState<string | null>(null);
+    const [selectedManufacturerTag, setSelectedManufacturerTag] = useState<string | null>(null);
+    const [selectedOtherFilterTags, setSelectedOtherFilterTags] = useState<string[]>([]);
     const [tagEditingAsset, setTagEditingAsset] = useState<string | null>(null);
     const [newTagInput, setNewTagInput] = useState('');
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
+
+    useEffect(() => {
+        if (!draggingWorkspace) return;
+
+        const handlePointerMove = (event: PointerEvent) => {
+            const rect = panelRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const nextHeight = clampPoolWorkspaceHeight(event.clientY - rect.top, rect.height);
+            setPoolWorkspaceHeight(nextHeight);
+        };
+
+        const handlePointerUp = () => setDraggingWorkspace(false);
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+    }, [draggingWorkspace, setPoolWorkspaceHeight]);
 
     const fetchAssets = useCallback(async () => {
         if (!assetLibraryPath) return;
@@ -101,74 +135,40 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
     const handleStartFileRename = (info: AssetFileInfo) => {
         setEditingAsset(info.fileName);
-        setEditName(info.fileName.replace(/\.json$/i, ''));
-        setEditMode('file');
-    };
-
-    const handleStartProductRename = (info: AssetFileInfo) => {
-        setEditingAsset(info.fileName);
-        setEditName(info.productName);
-        setEditMode('product');
+        setEditName(getAssetDisplayName(info.fileName, info.productName));
     };
 
     const handleCancelRename = () => {
         setEditingAsset(null);
         setEditName('');
-        setEditMode(null);
     };
 
     const handleConfirmFileRename = async (info: AssetFileInfo) => {
         if (!editName.trim() || !assetLibraryPath) return;
         const oldFileName = info.fileName;
-        const newFileName = editName.trim().endsWith('.json') ? editName.trim() : `${editName.trim()}.json`;
-        
-        if (newFileName === oldFileName) {
+        const nextDisplayName = editName.trim();
+        if (nextDisplayName === getAssetDisplayName(info.fileName, info.productName)) {
             handleCancelRename();
             return;
         }
 
         try {
-            const success = await renameAssetFile(assetLibraryPath, oldFileName, newFileName);
-            if (success) {
+            const result = await renameAssetIdentity(assetLibraryPath, oldFileName, nextDisplayName);
+            if (result.success) {
                 if (activeAssets.includes(oldFileName)) {
-                    renameActiveAsset(oldFileName, newFileName, info.productName);
+                    renameActiveAsset(oldFileName, result.fileName, result.productName);
                 }
 
-                message.success('资产文件重命名成功');
+                message.success('资产名称更新成功');
                 handleCancelRename();
                 fetchAssets();
                 if (focusedFile === oldFileName) {
-                    onFocusFile(newFileName);
+                    onFocusFile(result.fileName);
                 }
             } else {
                 message.error('重命名失败');
             }
         } catch (e) {
-            message.error('操作异常');
-        }
-    };
-
-    const handleConfirmProductRename = async (info: AssetFileInfo) => {
-        if (!editName.trim() || !assetLibraryPath) return;
-        const newProductName = editName.trim();
-
-        if (newProductName === info.productName) {
-            handleCancelRename();
-            return;
-        }
-
-        try {
-            const success = await renameAssetProductName(assetLibraryPath, info.fileName, newProductName);
-            if (success) {
-                renameAssetProduct(info.fileName, info.productName, newProductName);
-                message.success('车型名称更新成功');
-                handleCancelRename();
-                fetchAssets();
-            } else {
-                message.error('车型名称更新失败');
-            }
-        } catch (e) {
-            console.error(e);
             message.error('操作异常');
         }
     };
@@ -261,7 +261,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     };
 
     const toggleFilterTag = (tag: string) => {
-        setSelectedFilterTags(prev =>
+        setSelectedOtherFilterTags(prev =>
             prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
         );
     };
@@ -272,6 +272,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         Object.values(assetTags).forEach(tags => tags.forEach(t => set.add(t)));
         return Array.from(set).sort();
     }, [assetTags]);
+
+    const groupedTags = useMemo(
+        () => classifyAvailableTagsWithConfig(allTags, getAssetTagGroupsSync()),
+        [allTags, assetTagGroupsVersion]
+    );
 
     const availableSourceFilters = useMemo(() => {
         const present = new Set<AssetSourceFilter>();
@@ -295,12 +300,14 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         }
 
         // 标签过滤（取交集）
-        if (selectedFilterTags.length > 0) {
-            result = result.filter(a => {
-                const tags = assetTags[a.fileName] || [];
-                return selectedFilterTags.every(ft => tags.includes(ft));
-            });
-        }
+        result = filterAssetInfos({
+            assets: result,
+            assetTags,
+            selectedVehicleFamilyTag,
+            selectedManufacturerTag,
+            selectedOtherFilterTags,
+            config: getAssetTagGroupsSync(),
+        });
 
         // 关键字过滤（同时匹配文件名、产品名、标签）
         if (searchKeyword.trim()) {
@@ -314,12 +321,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         }
 
         return result;
-    }, [assets, searchKeyword, selectedFilterTags, assetTags, sourceFilter]);
+    }, [assets, searchKeyword, assetTags, sourceFilter, selectedVehicleFamilyTag, selectedManufacturerTag, selectedOtherFilterTags, assetTagGroupsVersion]);
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
+        <div ref={panelRef} className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
             {/* Middle: Excel WorkSpace */}
-            <div className="flex-none p-4 border-b border-slate-200/60 bg-white/40">
+            <div className="flex-none p-3 border-b border-slate-200/60 bg-white/40 overflow-hidden" style={{ height: poolWorkspaceHeight }}>
                 <FileManager 
                     hiddenAssetButton={true} 
                     onSelectFile={onFocusFile} 
@@ -327,14 +334,32 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 />
             </div>
 
+            <div
+                className={`h-2 flex-shrink-0 cursor-row-resize bg-slate-200/70 hover:bg-blue-200 transition-colors relative ${draggingWorkspace ? 'bg-blue-300' : ''}`}
+                onPointerDown={(event) => {
+                    event.preventDefault();
+                    setDraggingWorkspace(true);
+                }}
+            >
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] bg-white/80" />
+            </div>
+
             {/* Bottom Half: Asset Library */}
-            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-                <div className="flex justify-between items-center mb-3 px-1">
+            <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
+                <div className="flex justify-between items-center mb-2 px-1">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
-                        <span className="text-[14px] font-bold text-slate-800 tracking-tight">资产库 (Assets)</span>
+                        <span className="text-[15px] font-bold text-slate-800 tracking-tight">资产库 (Assets)</span>
                     </div>
                     <div className="flex items-center gap-1.5">
+                        <Button
+                            type="text"
+                            size="small"
+                            onClick={resetPoolLayout}
+                            className="text-[11px] text-slate-400 hover:!text-blue-500"
+                        >
+                            恢复布局
+                        </Button>
                         {loading && <Spin indicator={<LoadingOutlined style={{ fontSize: 14 }} spin />} />}
                         <Tooltip title="刷新资产库">
                             <Button
@@ -351,7 +376,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
                 {/* 搜索框 */}
                 {assets.length > 5 && (
-                    <div className="mb-3 px-1 space-y-2">
+                    <div className="mb-2 px-1 space-y-2">
                         <Input
                             size="small"
                             placeholder="搜索资产、标签..."
@@ -367,7 +392,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                     key={source.filter}
                                     color={sourceFilter === source.filter ? source.color : undefined}
                                     onClick={() => setSourceFilter(prev => prev === source.filter ? 'all' : source.filter)}
-                                    className={`cursor-pointer text-[10px] m-0 px-2 py-0 leading-[20px] rounded-md border transition-all select-none ${
+                                    className={`cursor-pointer text-[11px] m-0 px-2.5 py-0.5 leading-[22px] rounded-lg border transition-all select-none ${
                                         sourceFilter === source.filter
                                             ? 'font-bold shadow-sm'
                                             : `bg-slate-50 border-slate-200 text-slate-500 ${SOURCE_FILTER_HOVER_CLASS[source.color]}`
@@ -390,32 +415,84 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
                 {/* 标签过滤栏 */}
                 {allTags.length > 0 && (
-                    <div className="mb-3 px-1 flex flex-wrap gap-1.5 items-center">
-                        <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
-                        {allTags.map(tag => (
-                            <Tag
-                                key={tag}
-                                color={selectedFilterTags.includes(tag) ? getTagColor(tag) : undefined}
-                                onClick={() => toggleFilterTag(tag)}
-                                className={`cursor-pointer text-[10px] m-0 px-1.5 py-0 leading-[18px] rounded-md border transition-all select-none ${
-                                    selectedFilterTags.includes(tag)
-                                        ? 'font-bold shadow-sm'
-                                        : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
-                                }`}
-                            >
-                                {tag}
-                            </Tag>
-                        ))}
-                        {selectedFilterTags.length > 0 && (
-                            <>
+                    <div className="mb-2 px-1 space-y-2">
+                        {groupedTags.vehicleFamilyTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                                <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
+                                <span className="text-[11px] text-slate-400 font-medium">车型族群</span>
+                                {groupedTags.vehicleFamilyTags.map(tag => (
+                                    <Tag
+                                        key={tag}
+                                        color={selectedVehicleFamilyTag === tag ? getTagColor(tag) : undefined}
+                                        onClick={() => setSelectedVehicleFamilyTag(prev => prev === tag ? null : tag)}
+                                        className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
+                                            selectedVehicleFamilyTag === tag
+                                                ? 'font-bold shadow-sm'
+                                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
+                                        }`}
+                                    >
+                                        {tag}
+                                    </Tag>
+                                ))}
+                            </div>
+                        )}
+
+                        {groupedTags.manufacturerTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                                <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
+                                <span className="text-[11px] text-slate-400 font-medium">厂商</span>
+                                {groupedTags.manufacturerTags.map(tag => (
+                                    <Tag
+                                        key={tag}
+                                        color={selectedManufacturerTag === tag ? getTagColor(tag) : undefined}
+                                        onClick={() => setSelectedManufacturerTag(prev => prev === tag ? null : tag)}
+                                        className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
+                                            selectedManufacturerTag === tag
+                                                ? 'font-bold shadow-sm'
+                                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
+                                        }`}
+                                    >
+                                        {tag}
+                                    </Tag>
+                                ))}
+                            </div>
+                        )}
+
+                        {groupedTags.otherTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                                <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
+                                <span className="text-[11px] text-slate-400 font-medium">其他标签</span>
+                                {groupedTags.otherTags.map(tag => (
+                                    <Tag
+                                        key={tag}
+                                        color={selectedOtherFilterTags.includes(tag) ? getTagColor(tag) : undefined}
+                                        onClick={() => toggleFilterTag(tag)}
+                                        className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
+                                            selectedOtherFilterTags.includes(tag)
+                                                ? 'font-bold shadow-sm'
+                                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
+                                        }`}
+                                    >
+                                        {tag}
+                                    </Tag>
+                                ))}
+                            </div>
+                        )}
+
+                        {(selectedVehicleFamilyTag || selectedManufacturerTag || selectedOtherFilterTags.length > 0) && (
+                            <div className="flex flex-wrap gap-2 items-center">
                                 <span
-                                    className="text-[10px] text-blue-500 cursor-pointer hover:underline ml-1"
-                                    onClick={() => setSelectedFilterTags([])}
+                                    className="text-[10px] text-blue-500 cursor-pointer hover:underline"
+                                    onClick={() => {
+                                        setSelectedVehicleFamilyTag(null);
+                                        setSelectedManufacturerTag(null);
+                                        setSelectedOtherFilterTags([]);
+                                    }}
                                 >
                                     清除筛选
                                 </span>
                                 <span
-                                    className="text-[10px] text-emerald-600 cursor-pointer hover:underline ml-1 font-medium"
+                                    className="text-[10px] text-emerald-600 cursor-pointer hover:underline font-medium"
                                     onClick={() => {
                                         const toActivate = filteredAssets.filter(a => !selectedProductNames.includes(a.productName));
                                         if (toActivate.length === 0) {
@@ -428,7 +505,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 >
                                     ⚡ 批量激活 ({filteredAssets.filter(a => !selectedProductNames.includes(a.productName)).length})
                                 </span>
-                            </>
+                            </div>
                         )}
                     </div>
                 )}
@@ -445,7 +522,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             <div 
                                 key={info.fileName}
                                 onClick={() => !isEditing && onFocusFile(info.fileName)}
-                                className={`flex flex-col justify-center py-3 px-3.5 rounded-xl border cursor-pointer transition-all duration-200 group relative ${
+                                className={`flex flex-col justify-center py-2.5 px-3.5 rounded-xl border cursor-pointer transition-all duration-200 group relative ${
                                     isEditing
                                         ? 'border-blue-400 bg-white shadow-md ring-1 ring-blue-100'
                                         : isFocused 
@@ -461,12 +538,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                             size="small"
                                             value={editName}
                                             onChange={e => setEditName(e.target.value)}
-                                            onPressEnter={() => {
-                                                if (editMode === 'product') handleConfirmProductRename(info);
-                                                else handleConfirmFileRename(info);
-                                            }}
+                                            onPressEnter={() => handleConfirmFileRename(info)}
                                             autoFocus
-                                            placeholder={editMode === 'product' ? '输入车型名称' : '输入资产文件名'}
+                                            placeholder="输入资产名称"
                                             className="flex-1 text-[13px] h-7 px-2 border-blue-200 focus:border-blue-500"
                                         />
                                         <div className="flex items-center gap-0.5">
@@ -476,8 +550,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 icon={<CheckOutlined className="text-green-600 !text-[12px]" />} 
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (editMode === 'product') handleConfirmProductRename(info);
-                                                    else handleConfirmFileRename(info);
+                                                    handleConfirmFileRename(info);
                                                 }}
                                                 className="w-6 h-6 p-0 min-w-0 flex items-center justify-center"
                                             />
@@ -497,22 +570,22 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 <Tooltip title={isActive ? "点击快速停用该资产" : "点击快速激活该资产"}>
                                                     <div 
                                                         onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, isActive); }}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95 ${
+                                                        className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95 ${
                                                             isFocused ? 'bg-blue-500 text-white shadow-lg shadow-blue-200' : isActive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
                                                         }`}
                                                     >
-                                                        <DatabaseOutlined className="text-[14px]" />
+                                                        <DatabaseOutlined className="text-[15px]" />
                                                     </div>
                                                 </Tooltip>
-                                                <div className="min-w-0 flex items-center gap-1.5">
+                                                <div className="min-w-0 flex items-center gap-2">
                                                     {sourceMeta && (
-                                                        <Tag color={sourceMeta.color} className="m-0 text-[9px] leading-[14px] px-1.5 rounded-md border-0">
+                                                        <Tag color={sourceMeta.color} className="m-0 text-[11px] leading-[18px] px-2.5 rounded-lg border-0">
                                                             {sourceMeta.label}
                                                         </Tag>
                                                     )}
-                                                    <Tooltip title={info.fileName}>
-                                                        <span className={`text-[13px] truncate tracking-tight ${isFocused ? 'font-bold text-slate-900' : isActive ? 'font-semibold text-emerald-800' : 'text-slate-700'}`}>
-                                                            {info.fileName}
+                                                    <Tooltip title={getAssetDisplayName(info.fileName, info.productName)}>
+                                                        <span className={`text-[15px] truncate tracking-tight ${isFocused ? 'font-bold text-slate-900' : isActive ? 'font-semibold text-emerald-800' : 'text-slate-700'}`}>
+                                                            {getAssetDisplayName(info.fileName, info.productName)}
                                                         </span>
                                                     </Tooltip>
                                                 </div>
@@ -557,15 +630,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
                                                     />
                                                 </Tooltip>
-                                                <Tooltip title="更新车型名称">
-                                                    <Button 
-                                                        type="text" 
-                                                        size="small"
-                                                        icon={<FormOutlined className="!text-[14px] text-slate-400 hover:text-emerald-600" />}
-                                                        onClick={(e) => { e.stopPropagation(); handleStartProductRename(info); }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
-                                                    />
-                                                </Tooltip>
                                                 <Tooltip title="升级导入">
                                                     <Button
                                                         type="text"
@@ -586,18 +650,15 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 </Tooltip>
                                             </div>
                                         </div>
-                                        <div className="pl-[42px] mt-1 text-[11px] text-slate-400 truncate" title={info.productName}>
-                                            车型名: {info.productName}
-                                        </div>
                                         {/* 标签行 */}
-                                        <div className="pl-[42px] mt-1.5 flex items-center gap-1 flex-wrap">
+                                        <div className="pl-[46px] mt-1.5 flex items-center gap-1.5 flex-wrap">
                                             {(assetTags[info.fileName] || []).map(tag => (
                                                 <Tag
                                                     key={tag}
                                                     color={getTagColor(tag)}
                                                     closable
                                                     onClose={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveTag(info.fileName, tag); }}
-                                                    className="text-[9px] m-0 px-1.5 py-0 leading-[16px] rounded-md"
+                                                    className="text-[11px] m-0 px-2.5 py-0.5 leading-[20px] rounded-lg"
                                                 >
                                                     {tag}
                                                 </Tag>
@@ -631,7 +692,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                                     <Tag
                                                                         key={t}
                                                                         color={getTagColor(t)}
-                                                                        className="cursor-pointer text-[10px] m-0 px-1.5 py-0 leading-[18px] rounded-md hover:opacity-80"
+                                                                        className="cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg hover:opacity-80"
                                                                         onClick={() => handleAddTag(info.fileName, t)}
                                                                     >
                                                                         + {t}
@@ -650,8 +711,8 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 </div>
                                             </Popover>
                                             {info.updatedAt && (
-                                                <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1 opacity-80 ml-auto">
-                                                    <EditOutlined className="text-[10px]"/> {formatDate(info.updatedAt)}
+                                                <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1 opacity-80 ml-auto">
+                                                    <EditOutlined className="text-[11px]"/> {formatDate(info.updatedAt)}
                                                 </span>
                                             )}
                                         </div>

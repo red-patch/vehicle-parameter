@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode, RepairContext, AssetUpgradeDraft } from '../types';
 import { calculateAllProductConfidences } from '../utils/productConfidence';
+import { DEFAULT_POOL_SIDEBAR_WIDTH, DEFAULT_POOL_WORKSPACE_HEIGHT } from '../utils/poolLayout';
 
 interface VehicleStore {
     baseFile: SheetData | null;
@@ -84,6 +85,15 @@ interface VehicleStore {
 
     assetUpgradeDraft: AssetUpgradeDraft | null;
     setAssetUpgradeDraft: (draft: AssetUpgradeDraft | null) => void;
+
+    poolSidebarWidth: number;
+    poolWorkspaceHeight: number;
+    setPoolSidebarWidth: (width: number) => void;
+    setPoolWorkspaceHeight: (height: number) => void;
+    resetPoolLayout: () => void;
+
+    assetTagGroupsVersion: number;
+    bumpAssetTagGroupsVersion: () => void;
 }
 
 
@@ -408,6 +418,18 @@ export const useVehicleStore = create<VehicleStore>()(
 
     assetUpgradeDraft: null,
     setAssetUpgradeDraft: (draft) => set({ assetUpgradeDraft: draft }),
+
+    poolSidebarWidth: DEFAULT_POOL_SIDEBAR_WIDTH,
+    poolWorkspaceHeight: DEFAULT_POOL_WORKSPACE_HEIGHT,
+    setPoolSidebarWidth: (width) => set({ poolSidebarWidth: width }),
+    setPoolWorkspaceHeight: (height) => set({ poolWorkspaceHeight: height }),
+    resetPoolLayout: () => set({
+        poolSidebarWidth: DEFAULT_POOL_SIDEBAR_WIDTH,
+        poolWorkspaceHeight: DEFAULT_POOL_WORKSPACE_HEIGHT,
+    }),
+
+    assetTagGroupsVersion: 0,
+    bumpAssetTagGroupsVersion: () => set((state) => ({ assetTagGroupsVersion: state.assetTagGroupsVersion + 1 })),
 }), {
     name: 'vehicle-parameter-storage',
     storage: createJSONStorage(() => localStorage),
@@ -421,6 +443,8 @@ export const useVehicleStore = create<VehicleStore>()(
         selectedProductNames: state.selectedProductNames,
         confirmedProducts: state.confirmedProducts,
         excludedProducts: state.excludedProducts,
-        ignoredProductNames: state.ignoredProductNames
+        ignoredProductNames: state.ignoredProductNames,
+        poolSidebarWidth: state.poolSidebarWidth,
+        poolWorkspaceHeight: state.poolWorkspaceHeight,
     }),
 }));

@@ -3,10 +3,12 @@ import { Table, Input, Tag, Card, Spin, Empty, Typography, Tabs, Button, message
 import { SearchOutlined, SettingOutlined, DownloadOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
 import { getSystemRequiredFieldsSync, getQualityCheckFieldsSync, reloadCustomFields } from '../../utils/fieldLists';
+import { getAssetTagGroupsSync, mergeAssetTagGroupsConfig, reloadCustomAssetTagGroups, saveCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import CoreFieldRuleComposer from './CoreFieldRuleComposer';
+import { loadAssetTags } from '../../utils/assetManager';
 
 const { Text } = Typography;
 
@@ -29,9 +31,14 @@ const ConfigManagerView: React.FC = () => {
 
     const [editSysFields, setEditSysFields] = useState<string[]>(getSystemRequiredFieldsSync());
     const [editQualFields, setEditQualFields] = useState<string[]>(getQualityCheckFieldsSync());
+    const [editOtherTags, setEditOtherTags] = useState<string[]>(getAssetTagGroupsSync().otherTags);
+    const [editVehicleFamilyTags, setEditVehicleFamilyTags] = useState<string[]>(getAssetTagGroupsSync().vehicleFamilyTags);
+    const [editManufacturerTags, setEditManufacturerTags] = useState<string[]>(getAssetTagGroupsSync().manufacturerTags);
     const [recentFieldHistory, setRecentFieldHistory] = useState<string[]>([]);
+    const [recentTagHistory, setRecentTagHistory] = useState<string[]>([]);
+    const [availableAssetTags, setAvailableAssetTags] = useState<string[]>([]);
 
-    const { assetLibraryPath } = useVehicleStore();
+    const { assetLibraryPath, bumpAssetTagGroupsVersion } = useVehicleStore();
 
     useEffect(() => {
         if (!isEnumDataLoaded()) {
@@ -40,12 +47,33 @@ const ConfigManagerView: React.FC = () => {
                 setLoading(false);
                 setEditSysFields(getSystemRequiredFieldsSync());
                 setEditQualFields(getQualityCheckFieldsSync());
+                const groups = getAssetTagGroupsSync();
+                setEditOtherTags(groups.otherTags);
+                setEditVehicleFamilyTags(groups.vehicleFamilyTags);
+                setEditManufacturerTags(groups.manufacturerTags);
             });
         } else {
             setLoading(false);
             setEditSysFields(getSystemRequiredFieldsSync());
             setEditQualFields(getQualityCheckFieldsSync());
+            const groups = getAssetTagGroupsSync();
+            setEditOtherTags(groups.otherTags);
+            setEditVehicleFamilyTags(groups.vehicleFamilyTags);
+            setEditManufacturerTags(groups.manufacturerTags);
         }
+    }, [assetLibraryPath]);
+
+    useEffect(() => {
+        if (!assetLibraryPath) {
+            setAvailableAssetTags([]);
+            return;
+        }
+
+        loadAssetTags(assetLibraryPath).then((tagsMap) => {
+            const next = new Set<string>();
+            Object.values(tagsMap).forEach((tags) => tags.forEach((tag) => next.add(tag)));
+            setAvailableAssetTags(Array.from(next).sort((left, right) => left.localeCompare(right, 'zh-CN')));
+        });
     }, [assetLibraryPath]);
 
     const handleExportDefaults = async () => {
@@ -69,7 +97,10 @@ const ConfigManagerView: React.FC = () => {
             const fieldPath = await join(assetLibraryPath, 'custom_fields.json');
             await writeTextFile(fieldPath, JSON.stringify(fieldDict, null, 2));
 
-            message.success('导出成功！已在您的资产库生成 custom_enums.json 及 custom_fields.json');
+            const assetTagGroupPath = await join(assetLibraryPath, 'custom_asset_tag_groups.json');
+            await writeTextFile(assetTagGroupPath, JSON.stringify(getAssetTagGroupsSync(), null, 2));
+
+            message.success('导出成功！已在您的资产库生成 custom_enums.json、custom_fields.json 及 custom_asset_tag_groups.json');
         } catch (e) {
             console.error(e);
             message.error('导出系统预设模版失败');
@@ -104,6 +135,16 @@ const ConfigManagerView: React.FC = () => {
         ]);
         return Array.from(merged).sort((left, right) => left.localeCompare(right, 'zh-CN'));
     }, [editSysFields, editQualFields, loading]);
+
+    const candidateTags = useMemo(() => {
+        const merged = new Set<string>([
+            ...availableAssetTags,
+            ...editOtherTags,
+            ...editVehicleFamilyTags,
+            ...editManufacturerTags,
+        ]);
+        return Array.from(merged).sort((left, right) => left.localeCompare(right, 'zh-CN'));
+    }, [availableAssetTags, editOtherTags, editVehicleFamilyTags, editManufacturerTags]);
 
     const rememberRecentFields = (fields: string[]) => {
         setRecentFieldHistory(prev => {
@@ -163,6 +204,55 @@ const ConfigManagerView: React.FC = () => {
         } catch (e) {
             console.error(e);
             message.error('字段规则保存失败');
+        }
+    };
+
+    const rememberRecentTags = (tags: string[]) => {
+        setRecentTagHistory(prev => {
+            const merged = [...tags.slice().reverse(), ...prev];
+            return Array.from(new Set(merged)).slice(0, 20);
+        });
+    };
+
+    const syncTagGroups = (
+        target: 'other' | 'vehicleFamily' | 'manufacturer',
+        nextTags: string[]
+    ) => {
+        const knownTags = Array.from(new Set([
+            ...candidateTags,
+            ...nextTags,
+        ]));
+
+        const nextConfig = {
+            otherTags: target === 'other' ? nextTags : editOtherTags.filter((tag) => !nextTags.includes(tag)),
+            vehicleFamilyTags: target === 'vehicleFamily' ? nextTags : editVehicleFamilyTags.filter((tag) => !nextTags.includes(tag)),
+            manufacturerTags: target === 'manufacturer' ? nextTags : editManufacturerTags.filter((tag) => !nextTags.includes(tag)),
+        };
+
+        const normalized = mergeAssetTagGroupsConfig(nextConfig, knownTags);
+        setEditOtherTags(normalized.otherTags);
+        setEditVehicleFamilyTags(normalized.vehicleFamilyTags);
+        setEditManufacturerTags(normalized.manufacturerTags);
+        rememberRecentTags(nextTags);
+    };
+
+    const handleSaveTagGroups = async () => {
+        if (!assetLibraryPath) {
+            message.warning('请先设置资产库大目录');
+            return;
+        }
+        try {
+            await saveCustomAssetTagGroups(assetLibraryPath, {
+                otherTags: editOtherTags,
+                vehicleFamilyTags: editVehicleFamilyTags,
+                manufacturerTags: editManufacturerTags,
+            });
+            await reloadCustomAssetTagGroups(assetLibraryPath);
+            bumpAssetTagGroupsVersion();
+            message.success('标签分组规则更新成功！已持久化并立即生效。');
+        } catch (e) {
+            console.error(e);
+            message.error('标签分组规则保存失败');
         }
     };
 
@@ -361,6 +451,46 @@ const ConfigManagerView: React.FC = () => {
 
                             <div className="flex justify-end mt-2">
                                 <Button type="primary" size="large" aria-label="保存并应用" onClick={handleSaveFields} icon={<SettingOutlined />}>
+                                    保存并应用
+                                </Button>
+                            </div>
+                        </div>
+                    )
+                },
+                {
+                    key: 'asset-tag-groups',
+                    label: '标签分组配置',
+                    children: (
+                        <div className="p-4 flex flex-col gap-6">
+                            <CoreFieldRuleComposer
+                                title="其他标签"
+                                description="未归入互斥组的标签在资产库筛选区按“其他标签”多选交集方式展示。系统也会把现有资产中未归组的标签自动补到这里。"
+                                selectedFields={editOtherTags}
+                                candidateFields={candidateTags}
+                                recentFields={recentTagHistory}
+                                onChange={(next) => syncTagGroups('other', next)}
+                            />
+
+                            <CoreFieldRuleComposer
+                                title="车型族群标签"
+                                description="这些标签在资产库筛选区按“车型族群”单选互斥方式展示。这里的配置只影响筛选分组，不会自动修改资产已有标签。"
+                                selectedFields={editVehicleFamilyTags}
+                                candidateFields={candidateTags}
+                                recentFields={recentTagHistory}
+                                onChange={(next) => syncTagGroups('vehicleFamily', next)}
+                            />
+
+                            <CoreFieldRuleComposer
+                                title="厂商标签"
+                                description="这些标签在资产库筛选区按“厂商”单选互斥方式展示。这里的配置只影响筛选分组，不会自动修改资产已有标签。"
+                                selectedFields={editManufacturerTags}
+                                candidateFields={candidateTags}
+                                recentFields={recentTagHistory}
+                                onChange={(next) => syncTagGroups('manufacturer', next)}
+                            />
+
+                            <div className="flex justify-end mt-2">
+                                <Button type="primary" size="large" onClick={handleSaveTagGroups} icon={<SettingOutlined />}>
                                     保存并应用
                                 </Button>
                             </div>

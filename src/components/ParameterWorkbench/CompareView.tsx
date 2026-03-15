@@ -7,6 +7,7 @@ import { getProductData } from '../../store/vehicleSelectors';
 import ProductSourceSelector from './ProductSourceSelector';
 import { isFieldRequired } from '../../assets/requiredFields';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
+import RepairableValue from '../common/RepairableValue';
 
 interface CompareViewProps {
     onGoRepair?: () => void;
@@ -165,40 +166,12 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                     if (!text) return <span className="text-gray-300">-</span>;
                     if (record.hasDiff) {
                         return (
-                            <div className="flex flex-col gap-1">
-                                <span className="bg-yellow-100 px-1 rounded">{text}</span>
-                                {isRepairable && (
-                                    <Button
-                                        size="small"
-                                        type="link"
-                                        className="p-0 h-auto text-xs self-start"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            triggerRepair(productName, (record as unknown as { name: string }).name);
-                                        }}
-                                    >
-                                        快捷修复
-                                    </Button>
-                                )}
-                            </div>
-                        );
-                    }
-                    if (localSelection.length === 1 && isRepairable) {
-                        return (
-                            <div className="flex flex-col gap-1">
-                                <span>{text}</span>
-                                <Button
-                                    size="small"
-                                    type="link"
-                                    className="p-0 h-auto text-xs self-start"
-                                    onClick={(event) => {
-                                        event.stopPropagation();
-                                        triggerRepair(productName, (record as unknown as { name: string }).name);
-                                    }}
-                                >
-                                    快捷修复
-                                </Button>
-                            </div>
+                            <RepairableValue
+                                value={<span className="bg-yellow-100 px-1 rounded">{text}</span>}
+                                repairable={isRepairable}
+                                hint="点击修复源数据"
+                                onRepair={() => triggerRepair(productName, (record as unknown as { name: string }).name)}
+                            />
                         );
                     }
                     return text;
@@ -335,7 +308,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     };
 
     return (
-        <div className="flex flex-col gap-4 h-full">
+        <div className="flex flex-col gap-3 h-full">
             {selectedProductNames.length === 0 && (
                 <Alert
                     message="请先在左侧数据池中选择车型"
@@ -346,8 +319,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             )}
             
             {/* Selection Area - Unified UI */}
-            <Card className="shadow-sm border-slate-200">
-                <div className="flex flex-col gap-4">
+            <Card className="shadow-sm border-slate-200" size="small">
+                <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <DiffOutlined className="text-blue-500 text-lg" />
@@ -377,7 +350,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             {/* Results Area */}
             <div className="flex-1 overflow-auto bg-white rounded-lg border border-gray-200">
                 {showResult && comparisonData.length > 0 ? (
-                    <div className="p-4" ref={reportRef}>
+                    <div className="p-3" ref={reportRef}>
                         {/* 统计 + 工具栏 */}
                         <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
                             <div className="flex items-center gap-3">
@@ -425,7 +398,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                         />
                     </div>
                 ) : (
-                    <div className="flex items-center justify-center h-full">
+                    <div className="flex items-center justify-center h-full min-h-[220px]">
                     <Empty description={localSelection.length < 1 ? "请选择至少1个车型" : "点击\"查看数据\"查看结果"} />
                     </div>
                 )}
