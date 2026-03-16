@@ -83,7 +83,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 ...Object.fromEntries(param.values)
             };
         });
-    }, [localSelection, showResult, uploadedFiles]);
+    }, [localSelection, showResult, uploadedFiles, assetFiles]);
 
     // 过滤后的数据
     const filteredData = useMemo(() => {
