@@ -1,9 +1,13 @@
 import type { RepairContext, RepairReason, RepairSourceModule, SheetData } from '../../types';
+import { getVehicleSourceFileName } from '../../utils/vehicleInstance';
 
 export const getAssetBackedSourceFile = (
     assetFiles: SheetData[],
     productName: string
 ): string | null => {
+    const keyedFileName = getVehicleSourceFileName(productName);
+    if (keyedFileName) return keyedFileName;
+
     for (const file of assetFiles) {
         for (const param of file.data) {
             if ((param.productName || file.fileName) === productName) {

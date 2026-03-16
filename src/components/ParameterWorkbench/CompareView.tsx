@@ -9,6 +9,7 @@ import { isFieldRequired } from '../../assets/requiredFields';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
+import { buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
 
 interface CompareViewProps {
     onGoRepair?: () => void;
@@ -54,8 +55,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
 
         const allParams = new Map<string, { groups: Set<string>; name: string; values: Map<string, string> }>();
 
-        localSelection.forEach(productName => {
-            const data = getProductData(uploadedFiles, productName, assetFiles);
+        localSelection.forEach(instanceKey => {
+            const data = getProductData(uploadedFiles, instanceKey, assetFiles);
             data.forEach(p => {
                 const key = p.name;
                 if (!allParams.has(key)) {
@@ -67,7 +68,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 }
                 const entry = allParams.get(key)!;
                 if (p.group) entry.groups.add(p.group);
-                entry.values.set(productName, String(p.value ?? ''));
+                entry.values.set(instanceKey, String(p.value ?? ''));
             });
         });
 
@@ -124,19 +125,19 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
 
     const assetSourceByProduct = useMemo(() => {
         const map = new Map<string, string>();
-        localSelection.forEach(productName => {
-            const sourceFile = getAssetBackedSourceFile(assetFiles, productName);
-            if (sourceFile) map.set(productName, sourceFile);
+        localSelection.forEach(instanceKey => {
+            const sourceFile = getAssetBackedSourceFile(assetFiles, instanceKey);
+            if (sourceFile) map.set(instanceKey, sourceFile);
         });
         return map;
     }, [assetFiles, localSelection]);
 
-    const triggerRepair = (productName: string, fieldName: string) => {
-        const sourceFileName = assetSourceByProduct.get(productName);
+    const triggerRepair = (instanceKey: string, fieldName: string) => {
+        const sourceFileName = assetSourceByProduct.get(instanceKey);
         if (!sourceFileName) return;
 
-        setRepairContext(buildRepairContext('compare', productName, sourceFileName, 'diff', fieldName));
-        setPurifyProduct(productName);
+        setRepairContext(buildRepairContext('compare', instanceKey, sourceFileName, 'diff', fieldName));
+        setPurifyProduct(instanceKey);
         onGoRepair?.();
     };
 
@@ -168,15 +169,15 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             }
         ];
 
-        localSelection.forEach(productName => {
+        localSelection.forEach(instanceKey => {
             dynamicCols.push({
-                title: productName,
-                dataIndex: productName,
-                key: productName,
+                title: buildVehicleOptionLabel(instanceKey),
+                dataIndex: instanceKey,
+                key: instanceKey,
                 width: 180,
                 fixed: undefined,
                 render: (text: string, record: { hasDiff: boolean }) => {
-                    const isRepairable = assetSourceByProduct.has(productName);
+                    const isRepairable = assetSourceByProduct.has(instanceKey);
                     if (!text) return <span className="text-gray-300">-</span>;
                     if (record.hasDiff) {
                         return (
@@ -184,7 +185,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                 value={<span className="bg-yellow-100 px-1 rounded">{text}</span>}
                                 repairable={isRepairable}
                                 hint="点击修复源数据"
-                                onRepair={() => triggerRepair(productName, (record as unknown as { name: string }).name)}
+                                onRepair={() => triggerRepair(instanceKey, (record as unknown as { name: string }).name)}
                             />
                         );
                     }
@@ -228,7 +229,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             const diffItems = comparisonData.filter(r => r.hasDiff);
             const sameItems = comparisonData.filter(r => !r.hasDiff);
 
-            const productHeaders = localSelection.map(n => `<th style="padding:8px 10px;border:1px solid #d9d9d9;background:#e6f4ff;font-size:12px;max-width:160px;word-break:break-all;">${n}</th>`).join('');
+            const productHeaders = localSelection.map(n => `<th style="padding:8px 10px;border:1px solid #d9d9d9;background:#e6f4ff;font-size:12px;max-width:160px;word-break:break-all;">${buildVehicleOptionLabel(n)}</th>`).join('');
 
             const renderRows = (items: typeof comparisonData) => items.map(r => {
                 const cells = localSelection.map(p => {
@@ -242,7 +243,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             const reportHtml = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB',sans-serif;padding:30px;background:#fff;width:1000px;">
   <h2 style="text-align:center;margin:0 0 6px;font-size:20px;color:#1a1a1a;">车型参数对比分析报告</h2>
-  <p style="text-align:center;color:#999;font-size:12px;margin:0 0 20px;">生成时间：${dateStr} &nbsp;|&nbsp; 对比车型：${localSelection.join(' vs ')}</p>
+  <p style="text-align:center;color:#999;font-size:12px;margin:0 0 20px;">生成时间：${dateStr} &nbsp;|&nbsp; 对比车型：${localSelection.map(buildVehicleOptionLabel).join(' vs ')}</p>
   <div style="display:flex;gap:16px;margin-bottom:24px;">
     <div style="flex:1;padding:14px;background:#fff7e6;border-radius:8px;border:1px solid #ffd591;text-align:center;">
       <div style="font-size:28px;font-weight:bold;color:#fa8c16;">${diffItems.length}</div>
@@ -310,7 +311,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 doc.addImage(pageImg, 'JPEG', 10, 10, imgWidth, pageImgH);
             }
 
-            doc.save(`车型参数对比报告_${localSelection.join('_vs_')}_${now.toISOString().slice(0, 10)}.pdf`);
+            doc.save(`车型参数对比报告_${localSelection.map(getVehicleProductName).join('_vs_')}_${now.toISOString().slice(0, 10)}.pdf`);
             hide();
             message.success('PDF 导出成功');
 

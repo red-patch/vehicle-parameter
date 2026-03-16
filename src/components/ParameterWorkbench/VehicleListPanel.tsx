@@ -7,8 +7,10 @@ import { getAssetFilesWithInfo } from '../../utils/assetManager';
 import { getProductData } from '../../store/vehicleSelectors';
 import { isFieldRequired } from '../../assets/requiredFields';
 import type { VehicleParameter } from '../../types';
+import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../../utils/vehicleInstance';
 
 interface VehicleSummary {
+    key: string;
     name: string;
     totalParams: number;
     filledParams: number;
@@ -63,6 +65,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                 const infos = await getAssetFilesWithInfo(assetLibraryPath);
                 const activeInfos = infos.filter(info => activeAssets.includes(info.fileName));
                 const summaries = activeInfos.map(info => ({
+                    key: buildVehicleInstanceKey('asset', info.fileName, info.productName),
                     name: info.productName,
                     totalParams: info.totalParams,
                     filledParams: info.filledParams,
@@ -84,11 +87,12 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
 
         uploadedFiles.forEach(fileData => {
             fileData.data.forEach(param => {
-                const productName = param.productName || fileData.fileName;
-                const existing = products.get(productName);
+                const identity = getVehicleInstanceMetaFromParam('excel', fileData, param);
+                const existing = products.get(identity.key);
                 if (!existing) {
-                    products.set(productName, {
-                        name: productName,
+                    products.set(identity.key, {
+                        key: identity.key,
+                        name: identity.productName,
                         totalParams: 0,
                         filledParams: 0,
                         source: 'excel',
@@ -96,7 +100,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                     });
                 }
 
-                const current = products.get(productName)!;
+                const current = products.get(identity.key)!;
                 current.totalParams += 1;
                 if (param.value !== undefined && param.value !== null && String(param.value).trim() !== '') {
                     current.filledParams += 1;
@@ -105,7 +109,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
         });
 
         assetData.forEach(asset => {
-            if (!products.has(asset.name)) products.set(asset.name, asset);
+            if (!products.has(asset.key)) products.set(asset.key, asset);
         });
 
         return Array.from(products.values());
@@ -113,23 +117,23 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
 
     useEffect(() => {
         if (vehicles.length > 0 && !focusedProduct) {
-            onFocusProduct(vehicles[0].name);
+            onFocusProduct(vehicles[0].key);
         } else if (vehicles.length > 0 && focusedProduct) {
-            const exists = vehicles.some(vehicle => vehicle.name === focusedProduct);
-            if (!exists) onFocusProduct(vehicles[0].name);
+            const exists = vehicles.some(vehicle => vehicle.key === focusedProduct);
+            if (!exists) onFocusProduct(vehicles[0].key);
         }
     }, [vehicles, focusedProduct, onFocusProduct]);
 
     const activeVehicles = vehicles.filter(vehicle =>
-        selectedProductNames.includes(vehicle.name) && !ignoredProductNames.includes(vehicle.name)
+        selectedProductNames.includes(vehicle.key) && !ignoredProductNames.includes(vehicle.key)
     );
     const inactiveVehicles = vehicles.filter(vehicle =>
-        !selectedProductNames.includes(vehicle.name) || ignoredProductNames.includes(vehicle.name)
+        !selectedProductNames.includes(vehicle.key) || ignoredProductNames.includes(vehicle.key)
     );
 
     const activeVehicleDetails = useMemo(() => {
         return activeVehicles.map(vehicle => {
-            const params = getProductData(uploadedFiles, vehicle.name, assetFiles);
+            const params = getProductData(uploadedFiles, vehicle.key, assetFiles);
             const total = params.length || vehicle.totalParams;
             const filled = params.length > 0
                 ? params.filter(param => param.value !== undefined && param.value !== null && String(param.value).trim() !== '').length
@@ -174,7 +178,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
     }, [activeVehicles, uploadedFiles, assetFiles]);
 
     const focusedDetail = useMemo(
-        () => activeVehicleDetails.find(vehicle => vehicle.name === focusedProduct) || null,
+        () => activeVehicleDetails.find(vehicle => vehicle.key === focusedProduct) || null,
         [activeVehicleDetails, focusedProduct]
     );
 
@@ -184,21 +188,21 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
         }
     }, [focusedDetail]);
 
-    const handleToggle = (name: string, checked: boolean) => {
+    const handleToggle = (instanceKey: string, checked: boolean) => {
         if (checked) {
-            setSelectedProductNames([...selectedProductNames, name]);
+            setSelectedProductNames([...selectedProductNames, instanceKey]);
         } else {
-            setSelectedProductNames(selectedProductNames.filter(productName => productName !== name));
+            setSelectedProductNames(selectedProductNames.filter(productName => productName !== instanceKey));
         }
     };
 
-    const handleQuickCompare = (name: string) => {
-        setCompareProducts([name]);
+    const handleQuickCompare = (instanceKey: string) => {
+        setCompareProducts([instanceKey]);
         onGoCompare?.();
     };
 
-    const openDetail = (name: string) => {
-        onFocusProduct(name);
+    const openDetail = (instanceKey: string) => {
+        onFocusProduct(instanceKey);
         setDetailOpen(true);
     };
 
@@ -247,8 +251,8 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                 ) : activeVehicleDetails.length > 0 ? (
                     <div className="space-y-2.5 flex-1">
                         {activeVehicleDetails.map(vehicle => {
-                            const isFocused = focusedProduct === vehicle.name;
-                            const isSelected = selectedProductNames.includes(vehicle.name);
+                            const isFocused = focusedProduct === vehicle.key;
+                            const isSelected = selectedProductNames.includes(vehicle.key);
                             const fillTone = vehicle.requiredMissing.length > 0
                                 ? 'text-red-500'
                                 : vehicle.fillRate >= 95
@@ -257,8 +261,8 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
 
                             return (
                                 <div
-                                    key={vehicle.name}
-                                    onClick={() => openDetail(vehicle.name)}
+                                    key={vehicle.key}
+                                    onClick={() => openDetail(vehicle.key)}
                                     className={`group rounded-xl border cursor-pointer transition-all duration-200 px-4 py-3 ${
                                         isFocused
                                             ? 'bg-blue-50 border-blue-300 shadow-sm'
@@ -305,7 +309,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                                 icon={<ArrowRightOutlined />}
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    handleQuickCompare(vehicle.name);
+                                                    handleQuickCompare(vehicle.key);
                                                 }}
                                             >
                                                 对比
@@ -317,7 +321,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                                     icon={isSelected ? <MinusOutlined className="text-slate-500" /> : <PlusOutlined className="text-blue-500" />}
                                                     onClick={(event) => {
                                                         event.stopPropagation();
-                                                        handleToggle(vehicle.name, !isSelected);
+                                                        handleToggle(vehicle.key, !isSelected);
                                                     }}
                                                     className="w-8 h-8 p-0 min-w-0 flex items-center justify-center rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50"
                                                 />
@@ -359,12 +363,12 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                         <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
                                             {inactiveVehicles.map(vehicle => (
                                                 <div
-                                                    key={vehicle.name}
-                                                    onClick={() => handleToggle(vehicle.name, true)}
+                                                    key={vehicle.key}
+                                                    onClick={() => handleToggle(vehicle.key, true)}
                                                     className="flex items-center justify-between py-2 px-3 rounded-lg border border-dashed border-slate-200 bg-white/50 hover:bg-white hover:border-blue-200 cursor-pointer group/item transition-all"
                                                 >
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className={`text-[12px] truncate ${ignoredProductNames.includes(vehicle.name) ? 'text-slate-300 line-through' : 'text-slate-500 font-medium'}`}>
+                                                        <span className={`text-[12px] truncate ${ignoredProductNames.includes(vehicle.key) ? 'text-slate-300 line-through' : 'text-slate-500 font-medium'}`}>
                                                             {vehicle.name}
                                                         </span>
                                                         <span className="text-[9px] text-slate-400">@{vehicle.originalFile}</span>

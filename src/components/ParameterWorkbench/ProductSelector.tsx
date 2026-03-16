@@ -6,7 +6,10 @@ import { CarOutlined, WarningOutlined, CheckCircleOutlined, CloseCircleOutlined,
 import type { MenuProps } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { calculateAllProductConfidences, type ProductConfidence } from '../../utils/productConfidence';
+import { calculateProductConfidence, type ProductConfidence } from '../../utils/productConfidence';
+import { buildVehicleInstanceKey, buildVehicleOptionLabel } from '../../utils/vehicleInstance';
+
+type ProductWithInstance = ProductConfidence & { key: string; fileName: string };
 
 const ProductSelector: React.FC = () => {
     const { 
@@ -38,42 +41,45 @@ const ProductSelector: React.FC = () => {
 
     // 计算所有产品及其置信度
     const productsWithConfidence = useMemo(() => {
-        const products: { name: string; fileName: string; paramCount: number }[] = [];
+        const products: ProductWithInstance[] = [];
         
         uploadedFiles.forEach(file => {
             const fileProducts = new Map<string, number>();
             file.data.forEach(p => {
                 const pName = p.productName || file.fileName;
-                fileProducts.set(pName, (fileProducts.get(pName) || 0) + 1);
+                const key = buildVehicleInstanceKey('excel', file.fileName, pName);
+                fileProducts.set(key, (fileProducts.get(key) || 0) + 1);
             });
 
-            fileProducts.forEach((count, name) => {
-                products.push({ name, fileName: file.fileName, paramCount: count });
+            fileProducts.forEach((count, key) => {
+                const name = key.split('::').slice(2).join('::');
+                products.push({
+                    ...calculateProductConfidence(name, count),
+                    key,
+                    fileName: file.fileName,
+                });
             });
         });
-        
-        // 计算置信度并排序
-        const withConfidence = calculateAllProductConfidences(
-            products.map(p => ({ name: p.name, paramCount: p.paramCount }))
-        );
-        
-        // 合并文件信息
-        return withConfidence.map(pc => ({
-            ...pc,
-            fileName: products.find(p => p.name === pc.name)?.fileName || ''
-        }));
+
+        return products.sort((a, b) => {
+            const levelOrder = { high: 0, medium: 1, low: 2 };
+            if (levelOrder[a.level] !== levelOrder[b.level]) {
+                return levelOrder[a.level] - levelOrder[b.level];
+            }
+            return b.confidence - a.confidence;
+        });
     }, [uploadedFiles]);
 
     // 过滤掉已排除的产品用于显示
     const visibleProducts = useMemo(() => {
-        return productsWithConfidence.filter(p => !excludedProducts.includes(p.name));
+        return productsWithConfidence.filter(p => !excludedProducts.includes(p.key));
     }, [productsWithConfidence, excludedProducts]);
 
-    const handleToggle = (name: string, checked: boolean) => {
+    const handleToggle = (instanceKey: string, checked: boolean) => {
         if (checked) {
-            setSelectedProductNames([...selectedProductNames, name]);
+            setSelectedProductNames([...selectedProductNames, instanceKey]);
         } else {
-            setSelectedProductNames(selectedProductNames.filter(n => n !== name));
+            setSelectedProductNames(selectedProductNames.filter(n => n !== instanceKey));
         }
     };
 
@@ -81,16 +87,16 @@ const ProductSelector: React.FC = () => {
         if (checked) {
             // 只选择高/中置信度或已确认的产品
             const validProducts = visibleProducts.filter(p => 
-                p.level !== 'low' || confirmedProducts.includes(p.name)
+                p.level !== 'low' || confirmedProducts.includes(p.key)
             );
-            setSelectedProductNames(validProducts.map(p => p.name));
+            setSelectedProductNames(validProducts.map(p => p.key));
         } else {
             setSelectedProductNames([]);
         }
     };
 
     // 核心双层重命名逻辑
-    const handleRenameCommit = async (item: { name: string, fileName: string }, newName: string) => {
+    const handleRenameCommit = async (item: { key: string, name: string, fileName: string }, newName: string) => {
         if (!newName || newName === item.name) {
             setEditingName(null);
             return;
@@ -133,8 +139,8 @@ const ProductSelector: React.FC = () => {
         setEditingName(null);
     };
 
-    const getConfidenceTag = (product: ProductConfidence) => {
-        const isConfirmed = confirmedProducts.includes(product.name);
+    const getConfidenceTag = (product: ProductWithInstance) => {
+        const isConfirmed = confirmedProducts.includes(product.key);
         
         if (isConfirmed) {
             return <Tag color="green" icon={<CheckCircleOutlined />} className="text-xs">已确认</Tag>;
@@ -154,8 +160,8 @@ const ProductSelector: React.FC = () => {
         }
     };
 
-    const getDropdownMenu = (product: ProductConfidence): MenuProps['items'] => {
-        const isConfirmed = confirmedProducts.includes(product.name);
+    const getDropdownMenu = (product: ProductWithInstance): MenuProps['items'] => {
+        const isConfirmed = confirmedProducts.includes(product.key);
         
         return [
             {
@@ -163,7 +169,7 @@ const ProductSelector: React.FC = () => {
                 label: '重命名',
                 icon: <EditOutlined />,
                 onClick: () => {
-                    setEditingName(product.name);
+                    setEditingName(product.key);
                     setEditValue(product.name);
                 }
             },
@@ -171,14 +177,14 @@ const ProductSelector: React.FC = () => {
                 key: 'confirm',
                 label: isConfirmed ? '取消确认' : '确认为有效车型',
                 icon: <CheckCircleOutlined />,
-                onClick: () => isConfirmed ? resetProductStatus(product.name) : confirmProduct(product.name)
+                onClick: () => isConfirmed ? resetProductStatus(product.key) : confirmProduct(product.key)
             },
             {
                 key: 'exclude',
                 label: '排除此项',
                 icon: <CloseCircleOutlined />,
                 danger: true,
-                onClick: () => excludeProduct(product.name)
+                onClick: () => excludeProduct(product.key)
             }
         ];
     };
@@ -196,7 +202,7 @@ const ProductSelector: React.FC = () => {
         );
     }
 
-    const selectedCount = selectedProductNames.filter(n => visibleProducts.some(p => p.name === n)).length;
+    const selectedCount = selectedProductNames.filter(n => visibleProducts.some(p => p.key === n)).length;
 
     return (
         <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200">
@@ -216,21 +222,21 @@ const ProductSelector: React.FC = () => {
             <div className="flex-1 overflow-y-auto">
                 {visibleProducts.map((item) => (
                     <div
-                        key={item.name}
+                        key={item.key}
                         className={`flex items-center gap-2 px-3 py-2 border-l-2 transition-colors ${
-                            selectedProductNames.includes(item.name) 
+                            selectedProductNames.includes(item.key) 
                                 ? 'bg-blue-50 border-blue-500' 
                                 : 'border-transparent hover:bg-gray-50'
                         }`}
                     >
                         <Checkbox 
-                            checked={selectedProductNames.includes(item.name)}
-                            onChange={(e) => handleToggle(item.name, e.target.checked)}
+                            checked={selectedProductNames.includes(item.key)}
+                            onChange={(e) => handleToggle(item.key, e.target.checked)}
                         />
-                        <CarOutlined className={selectedProductNames.includes(item.name) ? 'text-blue-500' : 'text-gray-400'} />
+                        <CarOutlined className={selectedProductNames.includes(item.key) ? 'text-blue-500' : 'text-gray-400'} />
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                                {editingName === item.name ? (
+                                {editingName === item.key ? (
                                     <Input
                                         size="small"
                                         value={editValue}
@@ -251,7 +257,7 @@ const ProductSelector: React.FC = () => {
                                 )}
                                 {getConfidenceTag(item)}
                             </div>
-                            <div className="text-xs text-gray-400">{item.paramCount} 参数</div>
+                            <div className="text-xs text-gray-400" title={item.fileName}>{buildVehicleOptionLabel(item.key)} · {item.paramCount} 参数</div>
                         </div>
                         <Dropdown menu={{ items: getDropdownMenu(item) }} trigger={['click']}>
                             <MoreOutlined className="text-gray-400 hover:text-gray-600 cursor-pointer" />

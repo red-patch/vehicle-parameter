@@ -6,6 +6,7 @@ export interface VehicleParameter {
     rowCheck?: string; // 行是否需要核对(保留原字段概念)
     originSheet?: string; // 来源 Sheet 页名称
     productName?: string; // 产品名称 (列头)
+    instanceKey?: string; // 车型实例唯一键：source::fileName::productName
     updatedAt?: string; // (V5.4 追加) 参数修改的最后时间记录戳
 }
 
