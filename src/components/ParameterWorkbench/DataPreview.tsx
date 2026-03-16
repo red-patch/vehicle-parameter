@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { loadAssetFile, getAssetFilesWithInfo } from '../../utils/assetManager';
 import { isFieldRequired } from '../../assets/requiredFields';
 import type { VehicleParameter } from '../../types';
+import { getVehicleProductName, getVehicleSourceFileName } from '../../utils/vehicleInstance';
 
 interface DataPreviewProps {
     focusedProduct: string | null;
@@ -33,16 +34,20 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
 
             // 全局聚合视图情况下的智能探针寻址
             let targetSource: string | null = null;
-            const excelFile = uploadedFiles.find(f => f.data.some(p => (p.productName || f.fileName) === focusedProduct));
+            const keyedSource = getVehicleSourceFileName(focusedProduct);
+            const displayName = getVehicleProductName(focusedProduct);
+            const excelFile = keyedSource
+                ? uploadedFiles.find(f => f.fileName === keyedSource)
+                : uploadedFiles.find(f => f.data.some(p => (p.productName || f.fileName) === focusedProduct));
             if (excelFile) {
                 targetSource = excelFile.fileName;
             } else if (assetLibraryPath) {
                 // 通过资产库元信息反查 productName → 真实 fileName
                 const assetInfos = await getAssetFilesWithInfo(assetLibraryPath);
-                const matchingAsset = assetInfos.find(a => a.productName === focusedProduct);
-                targetSource = matchingAsset ? matchingAsset.fileName : `${focusedProduct}.json`;
+                const matchingAsset = assetInfos.find(a => a.productName === displayName);
+                targetSource = matchingAsset ? matchingAsset.fileName : `${displayName}.json`;
             } else {
-                targetSource = `${focusedProduct}.json`;
+                targetSource = `${displayName}.json`;
             }
 
             setDisplaySource(targetSource);
@@ -50,7 +55,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
             // 1. 本地工作区 Excel
             const localExcelFile = uploadedFiles.find(f => f.fileName === targetSource);
             if (localExcelFile) {
-                const params = localExcelFile.data.filter(p => (p.productName || localExcelFile.fileName) === focusedProduct);
+                const params = localExcelFile.data.filter(p => (p.productName || localExcelFile.fileName) === displayName);
                 setProductData(params);
                 return;
             }
@@ -155,7 +160,7 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
                         <span className="text-[12px] text-slate-400 font-medium">#{displaySource}</span>
                     </div>
                     <h2 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight leading-tight truncate" title={focusedProduct!}>
-                        {focusedProduct}
+                        {getVehicleProductName(focusedProduct)}
                     </h2>
                 </div>
                 {onGoCompare && (

@@ -12,6 +12,7 @@ import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../util
 import { preloadFieldLists, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import { buildRepairContext, getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
 import RepairableValue from '../common/RepairableValue';
+import { getVehicleProductName } from '../../utils/vehicleInstance';
 
 interface MatchResultTableProps {
     productName?: string | null;
@@ -59,8 +60,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
 
     // 计算当前车型的字典(用于 Quick Fix)
     const library = useMemo(() => {
-        return productName ? getProductData(uploadedFiles, productName) : [];
-    }, [uploadedFiles, productName]);
+        return productName ? getProductData(uploadedFiles, productName, assetFiles) : [];
+    }, [uploadedFiles, productName, assetFiles]);
 
     const assetSourceFile = useMemo(
         () => productName ? getAssetBackedSourceFile(assetFiles, productName) : null,
@@ -468,7 +469,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                             const wb = XLSX.utils.book_new();
                             XLSX.utils.book_append_sheet(wb, ws, '产品准入导入模版');
                             const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-                            const name = productName || '未命名车型';
+                            const name = productName ? getVehicleProductName(productName) : '未命名车型';
                             XLSX.writeFile(wb, `车上云系统导入_${name}_${date}.xlsx`);
                             message.success('导出成功');
                         }}
