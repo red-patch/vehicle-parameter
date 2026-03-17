@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode, RepairContext, AssetUpgradeDraft } from '../types';
-import { calculateAllProductConfidences } from '../utils/productConfidence';
+import { calculateProductConfidence } from '../utils/productConfidence';
 import { DEFAULT_POOL_SIDEBAR_WIDTH, DEFAULT_POOL_WORKSPACE_HEIGHT } from '../utils/poolLayout';
+import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../utils/vehicleInstance';
 
 interface VehicleStore {
     baseFile: SheetData | null;
@@ -164,7 +165,7 @@ export const useVehicleStore = create<VehicleStore>()(
         if (fileExists) {
             // 找出旧文件中所有的车型名，清理其相关状态
             const oldFile = state.uploadedFiles.find(f => f.fileName === file.fileName)!;
-            const oldProducts = new Set(oldFile.data.map(p => p.productName || file.fileName));
+            const oldProducts = new Set(oldFile.data.map(p => getVehicleInstanceMetaFromParam('excel', oldFile, p).key));
             
             nextFiles = state.uploadedFiles.map(f => f.fileName === file.fileName ? file : f);
             
@@ -180,22 +181,19 @@ export const useVehicleStore = create<VehicleStore>()(
         }
 
         // UX Lift: 自动勾选新文件里的高、中置信度车型
-        const fileProducts = new Map<string, number>();
+        const fileProducts = new Map<string, { name: string; paramCount: number }>();
         file.data.forEach(p => {
-            const pName = p.productName || file.fileName;
-            fileProducts.set(pName, (fileProducts.get(pName) || 0) + 1);
+            const identity = getVehicleInstanceMetaFromParam('excel', file, p);
+            const existing = fileProducts.get(identity.key);
+            fileProducts.set(identity.key, {
+                name: identity.productName,
+                paramCount: (existing?.paramCount || 0) + 1,
+            });
         });
 
-        const products = Array.from(fileProducts.entries()).map(([name, count]) => ({
-            name,
-            paramCount: count
-        }));
-
-        const withConfidence = calculateAllProductConfidences(products);
-        
-        const autoSelected = withConfidence
-            .filter((p) => p.level !== 'low')
-            .map((p) => p.name);
+        const autoSelected = Array.from(fileProducts.entries())
+            .filter(([, product]) => calculateProductConfidence(product.name, product.paramCount).level !== 'low')
+            .map(([instanceKey]) => instanceKey);
 
         nextSelectedNames = Array.from(new Set([...nextSelectedNames, ...autoSelected]));
 
@@ -212,7 +210,7 @@ export const useVehicleStore = create<VehicleStore>()(
         
         // 如果删除了文件，需要从中提取受影响的产品名
         const affectedProductNames = removedFile 
-            ? Array.from(new Set(removedFile.data.map(p => p.productName || removedFile.fileName)))
+            ? Array.from(new Set(removedFile.data.map(p => getVehicleInstanceMetaFromParam('excel', removedFile, p).key)))
             : [];
             
         return {
@@ -307,7 +305,11 @@ export const useVehicleStore = create<VehicleStore>()(
                     ...file,
                     data: file.data.map(p => 
                         (p.productName || file.fileName) === oldProductName 
-                            ? { ...p, productName: newProductName } 
+                            ? {
+                                ...p,
+                                productName: newProductName,
+                                instanceKey: buildVehicleInstanceKey('excel', fileName, newProductName)
+                            } 
                             : p
                     )
                 };
@@ -315,9 +317,9 @@ export const useVehicleStore = create<VehicleStore>()(
             return file;
         }),
         // 同步更改大纲选中索引数组
-        selectedProductNames: state.selectedProductNames.map(n => n === oldProductName ? newProductName : n),
-        confirmedProducts: state.confirmedProducts.map(n => n === oldProductName ? newProductName : n),
-        excludedProducts: state.excludedProducts.map(n => n === oldProductName ? newProductName : n),
+        selectedProductNames: state.selectedProductNames.map(n => n === buildVehicleInstanceKey('excel', fileName, oldProductName) ? buildVehicleInstanceKey('excel', fileName, newProductName) : n),
+        confirmedProducts: state.confirmedProducts.map(n => n === buildVehicleInstanceKey('excel', fileName, oldProductName) ? buildVehicleInstanceKey('excel', fileName, newProductName) : n),
+        excludedProducts: state.excludedProducts.map(n => n === buildVehicleInstanceKey('excel', fileName, oldProductName) ? buildVehicleInstanceKey('excel', fileName, newProductName) : n),
     })),
 
     renameAssetProduct: (fileName, oldProductName, newProductName) => set((state) => ({
@@ -325,22 +327,26 @@ export const useVehicleStore = create<VehicleStore>()(
             if (file.fileName === fileName) {
                 return {
                     ...file,
-                    data: file.data.map(p =>
-                        (p.productName || file.fileName) === oldProductName
-                            ? { ...p, productName: newProductName }
+                        data: file.data.map(p =>
+                            (p.productName || file.fileName) === oldProductName
+                            ? {
+                                ...p,
+                                productName: newProductName,
+                                instanceKey: buildVehicleInstanceKey('asset', fileName, newProductName)
+                            }
                             : p
                     )
                 };
             }
             return file;
         }),
-        selectedProductNames: state.selectedProductNames.map(n => n === oldProductName ? newProductName : n),
-        confirmedProducts: state.confirmedProducts.map(n => n === oldProductName ? newProductName : n),
-        excludedProducts: state.excludedProducts.map(n => n === oldProductName ? newProductName : n),
-        ignoredProductNames: state.ignoredProductNames.map(n => n === oldProductName ? newProductName : n),
-        currentPurifyProduct: state.currentPurifyProduct === oldProductName ? newProductName : state.currentPurifyProduct,
-        currentCompareProducts: state.currentCompareProducts.map(n => n === oldProductName ? newProductName : n),
-        currentSmartFillProduct: state.currentSmartFillProduct === oldProductName ? newProductName : state.currentSmartFillProduct,
+        selectedProductNames: state.selectedProductNames.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
+        confirmedProducts: state.confirmedProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
+        excludedProducts: state.excludedProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
+        ignoredProductNames: state.ignoredProductNames.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
+        currentPurifyProduct: state.currentPurifyProduct === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : state.currentPurifyProduct,
+        currentCompareProducts: state.currentCompareProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
+        currentSmartFillProduct: state.currentSmartFillProduct === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : state.currentSmartFillProduct,
     })),
 
     // UX 持久化
@@ -380,30 +386,32 @@ export const useVehicleStore = create<VehicleStore>()(
             ? state.activeAssets 
             : [...state.activeAssets, fileName],
         // 同步勾选核心选集
-        selectedProductNames: Array.from(new Set([...state.selectedProductNames, productName]))
+        selectedProductNames: Array.from(new Set([...state.selectedProductNames, buildVehicleInstanceKey('asset', fileName, productName)]))
     })),
     removeActiveAsset: (fileName, productName) => set((state) => ({
         activeAssets: state.activeAssets.filter(n => n !== fileName),
         // 同步移出核心选集，保持状态闭环
-        selectedProductNames: state.selectedProductNames.filter(n => n !== productName)
+        selectedProductNames: state.selectedProductNames.filter(n => n !== buildVehicleInstanceKey('asset', fileName, productName))
     })),
     renameActiveAsset: (oldFileName, newFileName, newProductName) => set((state) => {
         const oldProductName = state.assetFiles.find(file => file.fileName === oldFileName)?.data[0]?.productName
             || oldFileName.replace(/\.json$/i, '');
+        const oldKey = buildVehicleInstanceKey('asset', oldFileName, oldProductName);
+        const newKey = buildVehicleInstanceKey('asset', newFileName, newProductName);
 
         return {
             activeAssets: state.activeAssets.map(n => n === oldFileName ? newFileName : n),
             selectedProductNames: state.selectedProductNames.map(n => {
-                return n === oldProductName ? newProductName : n;
+                return n === oldKey ? newKey : n;
             }),
-            currentPurifyProduct: state.currentPurifyProduct === oldProductName 
-                ? newProductName 
+            currentPurifyProduct: state.currentPurifyProduct === oldKey 
+                ? newKey 
                 : state.currentPurifyProduct,
             currentCompareProducts: state.currentCompareProducts.map(n => 
-                n === oldProductName ? newProductName : n
+                n === oldKey ? newKey : n
             ),
-            currentSmartFillProduct: state.currentSmartFillProduct === oldProductName 
-                ? newProductName 
+            currentSmartFillProduct: state.currentSmartFillProduct === oldKey 
+                ? newKey 
                 : state.currentSmartFillProduct,
         };
     }),
