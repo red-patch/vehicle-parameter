@@ -44,4 +44,20 @@ describe('MainLayout navigation', () => {
     expect(screen.queryByText('参数工作台')).not.toBeInTheDocument();
     expect(screen.queryByText('属性去重')).not.toBeInTheDocument();
   });
+
+  it('keeps the app title shrinkable and the top nav horizontally scrollable', () => {
+    render(
+      <MainLayout activeTab="pool">
+        <div>content</div>
+      </MainLayout>
+    );
+
+    const title = screen.getByTestId('app-title');
+    const navScroll = screen.getByTestId('top-nav-scroll');
+
+    expect(title.className).toContain('truncate');
+    expect(title.className).toContain('max-w-');
+    expect(navScroll.className).toContain('overflow-x-auto');
+    expect(navScroll.className).toContain('min-w-0');
+  });
 });

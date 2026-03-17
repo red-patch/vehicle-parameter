@@ -89,4 +89,22 @@ describe('vehicleStore instance selection', () => {
     expect(selectedProductNames[0]).toContain('first.xlsx');
     expect(selectedProductNames[1]).toContain('second.xlsx');
   });
+
+  it('keeps compare and multi-vehicle local selections independent while pruning both by selected vehicles', () => {
+    const compareKey = 'excel::first.xlsx::车型A';
+    const multiKey = 'asset::a.json::车型B';
+
+    useVehicleStore.getState().setCompareProducts([compareKey]);
+    useVehicleStore.getState().setMultiVehicleProducts([multiKey]);
+
+    let state = useVehicleStore.getState();
+    expect(state.currentCompareProducts).toEqual([compareKey]);
+    expect(state.currentMultiVehicleProducts).toEqual([multiKey]);
+
+    useVehicleStore.getState().setSelectedProductNames([compareKey]);
+
+    state = useVehicleStore.getState();
+    expect(state.currentCompareProducts).toEqual([compareKey]);
+    expect(state.currentMultiVehicleProducts).toEqual([]);
+  });
 });

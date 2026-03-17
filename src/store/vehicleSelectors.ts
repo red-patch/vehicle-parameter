@@ -1,6 +1,7 @@
 import type { SheetData, VehicleParameter } from '../types';
 import {
-    buildVehicleOptionLabel,
+    buildVehicleDisplayLabels,
+    getVehicleProductName,
     getVehicleInstanceMetaFromParam,
     matchesVehicleSelection,
 } from '../utils/vehicleInstance';
@@ -73,24 +74,37 @@ export const getProductOptions = (
     selectedProductNames: string[],
     assetFiles: SheetData[] = []
 ) => {
-    const options: { label: string; value: string }[] = [];
-    const globalSelected = new Set(selectedProductNames);
+    const candidateKeys: string[] = [];
     const added = new Set<string>();
+    const uploadedIndex = getOrCreateIndex(uploadedFiles, uploadedIndexCache);
+    const assetIndex = getOrCreateIndex(assetFiles, assetIndexCache);
+
+    const appendCandidate = (instanceKey: string) => {
+        if (added.has(instanceKey)) return;
+        candidateKeys.push(instanceKey);
+        added.add(instanceKey);
+    };
 
     const collect = (
+        selection: string,
         index: Map<string, VehicleParameter[]>
     ) => {
         for (const instanceKey of index.keys()) {
-            const isSelected = Array.from(globalSelected).some(selection => matchesVehicleSelection(selection, instanceKey));
-            if (isSelected && !added.has(instanceKey)) {
-                options.push({ label: buildVehicleOptionLabel(instanceKey), value: instanceKey });
-                added.add(instanceKey);
-            }
+            if (matchesVehicleSelection(selection, instanceKey)) appendCandidate(instanceKey);
         }
     };
 
-    collect(getOrCreateIndex(uploadedFiles, uploadedIndexCache));
-    collect(getOrCreateIndex(assetFiles, assetIndexCache));
-    
-    return options;
+    selectedProductNames.forEach(selection => {
+        // 选中状态是下游模块最先感知到的来源，先用它保证下拉立即可见。
+        appendCandidate(selection);
+        collect(selection, uploadedIndex);
+        collect(selection, assetIndex);
+    });
+
+    const labels = buildVehicleDisplayLabels(candidateKeys);
+
+    return candidateKeys.map((instanceKey) => ({
+        label: labels.get(instanceKey)?.shortLabel || getVehicleProductName(instanceKey),
+        value: instanceKey,
+    }));
 };

@@ -75,9 +75,11 @@ interface VehicleStore {
 
     currentPurifyProduct: string | null;
     currentCompareProducts: string[];
+    currentMultiVehicleProducts: string[];
     currentSmartFillProduct: string | null;
     setPurifyProduct: (name: string | null) => void;
     setCompareProducts: (names: string[]) => void;
+    setMultiVehicleProducts: (names: string[]) => void;
     setSmartFillProduct: (name: string | null) => void;
 
     // V6.3 Data Pump (Asset Sync)
@@ -220,6 +222,7 @@ export const useVehicleStore = create<VehicleStore>()(
             ignoredProductNames: state.ignoredProductNames.filter(n => !affectedProductNames.includes(n)),
             currentPurifyProduct: affectedProductNames.includes(state.currentPurifyProduct || '') ? null : state.currentPurifyProduct,
             currentCompareProducts: state.currentCompareProducts.filter(n => !affectedProductNames.includes(n)),
+            currentMultiVehicleProducts: state.currentMultiVehicleProducts.filter(n => !affectedProductNames.includes(n)),
             currentSmartFillProduct: affectedProductNames.includes(state.currentSmartFillProduct || '') ? null : state.currentSmartFillProduct
         };
     }),
@@ -229,6 +232,7 @@ export const useVehicleStore = create<VehicleStore>()(
         ignoredProductNames: [],
         currentPurifyProduct: null,
         currentCompareProducts: [],
+        currentMultiVehicleProducts: [],
         currentSmartFillProduct: null,
         assetFiles: []
     }),
@@ -237,6 +241,7 @@ export const useVehicleStore = create<VehicleStore>()(
         // 自动剪枝：若某个模块选中的车型在总列表中被取消勾选了，则同步清理
         currentPurifyProduct: (state.currentPurifyProduct && names.includes(state.currentPurifyProduct)) ? state.currentPurifyProduct : null,
         currentCompareProducts: state.currentCompareProducts.filter(n => names.includes(n)),
+        currentMultiVehicleProducts: state.currentMultiVehicleProducts.filter(n => names.includes(n)),
         currentSmartFillProduct: (state.currentSmartFillProduct && names.includes(state.currentSmartFillProduct)) ? state.currentSmartFillProduct : null
     })),
     
@@ -249,6 +254,7 @@ export const useVehicleStore = create<VehicleStore>()(
                 selectedProductNames: state.selectedProductNames.filter(n => n !== name),
                 currentPurifyProduct: state.currentPurifyProduct === name ? null : state.currentPurifyProduct,
                 currentCompareProducts: state.currentCompareProducts.filter(n => n !== name),
+                currentMultiVehicleProducts: state.currentMultiVehicleProducts.filter(n => n !== name),
                 currentSmartFillProduct: state.currentSmartFillProduct === name ? null : state.currentSmartFillProduct
             };
         } else {
@@ -346,6 +352,7 @@ export const useVehicleStore = create<VehicleStore>()(
         ignoredProductNames: state.ignoredProductNames.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
         currentPurifyProduct: state.currentPurifyProduct === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : state.currentPurifyProduct,
         currentCompareProducts: state.currentCompareProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
+        currentMultiVehicleProducts: state.currentMultiVehicleProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
         currentSmartFillProduct: state.currentSmartFillProduct === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : state.currentSmartFillProduct,
     })),
 
@@ -376,6 +383,10 @@ export const useVehicleStore = create<VehicleStore>()(
         // V3.1
         confirmedProducts: [],
         excludedProducts: [],
+        currentPurifyProduct: null,
+        currentCompareProducts: [],
+        currentMultiVehicleProducts: [],
+        currentSmartFillProduct: null,
         assetFiles: []
     }),
 
@@ -410,6 +421,9 @@ export const useVehicleStore = create<VehicleStore>()(
             currentCompareProducts: state.currentCompareProducts.map(n => 
                 n === oldKey ? newKey : n
             ),
+            currentMultiVehicleProducts: state.currentMultiVehicleProducts.map(n =>
+                n === oldKey ? newKey : n
+            ),
             currentSmartFillProduct: state.currentSmartFillProduct === oldKey 
                 ? newKey 
                 : state.currentSmartFillProduct,
@@ -418,9 +432,11 @@ export const useVehicleStore = create<VehicleStore>()(
 
     currentPurifyProduct: null,
     currentCompareProducts: [],
+    currentMultiVehicleProducts: [],
     currentSmartFillProduct: null,
     setPurifyProduct: (name) => set({ currentPurifyProduct: name }),
     setCompareProducts: (names) => set({ currentCompareProducts: names }),
+    setMultiVehicleProducts: (names) => set({ currentMultiVehicleProducts: names }),
     setSmartFillProduct: (name) => set({ currentSmartFillProduct: name }),
 
     // V6.3 Implementation

@@ -5,10 +5,10 @@ import { getFieldGroupsSync } from '../../utils/fieldLists';
 import * as XLSX from 'xlsx';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getProductData } from '../../store/vehicleSelectors';
 import ProductSourceSelector from './ProductSourceSelector';
 import { findMatches } from '../../utils/matcher';
 import MatchResultTable from '../SmartFiller/MatchResultTable';
+import { getVehicleSelectionState } from '../../utils/vehicleSelectionState';
 
 
 const { TextArea } = Input;
@@ -28,6 +28,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         referenceProduct,
         setReferenceProduct,
         assetFiles,
+        activeAssets,
         fieldGroupsVersion
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
@@ -39,9 +40,14 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         referenceProduct: state.currentSmartFillProduct,
         setReferenceProduct: state.setSmartFillProduct,
         assetFiles: state.assetFiles,
+        activeAssets: state.activeAssets,
         fieldGroupsVersion: state.fieldGroupsVersion,
     })));
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string | undefined>(undefined);
+    const referenceProductState = useMemo(
+        () => referenceProduct ? getVehicleSelectionState(uploadedFiles, referenceProduct, assetFiles, activeAssets) : null,
+        [uploadedFiles, referenceProduct, assetFiles, activeAssets]
+    );
 
     // getProductOptions is no longer needed here locally
 
@@ -65,10 +71,14 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
             if (matchResults.length > 0) setMatchResults([]);
             return;
         }
+        if (referenceProductState?.status !== 'ready') {
+            if (matchResults.length > 0) setMatchResults([]);
+            return;
+        }
 
         const timer = setTimeout(() => {
             try {
-                const library = getProductData(uploadedFiles, referenceProduct, assetFiles);
+                const library = referenceProductState.data;
                 if (library.length === 0) {
                     setMatchResults([]);
                     return;
@@ -87,7 +97,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [referenceProduct, requirementsText, uploadedFiles, assetFiles]);
+    }, [referenceProduct, requirementsText, referenceProductState, matchResults.length, setMatchResults]);
 
     const handleClear = () => {
         setRequirementsText('');
@@ -116,6 +126,13 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                     type="info"
                     showIcon
                     icon={<InfoCircleOutlined />}
+                />
+            )}
+            {referenceProductState?.status === 'pending' && (
+                <Alert
+                    message="参考车型数据正在同步，完成后会自动开始匹配"
+                    type="info"
+                    showIcon
                 />
             )}
             

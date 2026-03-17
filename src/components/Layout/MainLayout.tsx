@@ -127,18 +127,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
 
     return (
         <AntLayout className="min-h-screen">
-            <Header className={`flex items-center justify-between px-4 h-12 border-b sticky top-0 z-50 ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-                <div className="flex items-center gap-2">
-                    <span className={`font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>DST车型参数管理工具 v{version}</span>
+            <Header className={`flex items-center gap-3 px-4 h-12 border-b sticky top-0 z-50 ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className="min-w-0 shrink flex items-center gap-2">
+                    <span
+                        data-testid="app-title"
+                        className={`max-w-[180px] truncate font-semibold md:max-w-[260px] lg:max-w-none ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}
+                    >
+                        DST车型参数管理工具 v{version}
+                    </span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Menu
-                        mode="horizontal"
-                        selectedKeys={[activeTab]}
-                        items={items}
-                        className="border-none bg-transparent min-w-[480px]"
-                        onClick={(info) => onTabChange && onTabChange(info.key)}
-                    />
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                    <div data-testid="top-nav-scroll" className="min-w-0 flex-1 overflow-x-auto">
+                        <Menu
+                            mode="horizontal"
+                            selectedKeys={[activeTab]}
+                            items={items}
+                            className="min-w-max border-none bg-transparent"
+                            onClick={(info) => onTabChange && onTabChange(info.key)}
+                        />
+                    </div>
                     <Tooltip title={isDarkMode ? '亮色模式' : '暗色模式'}>
                         <Switch
                             size="small"

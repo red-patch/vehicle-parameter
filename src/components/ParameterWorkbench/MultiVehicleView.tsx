@@ -1,16 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Input, Button, Table, message, Empty, Space, Upload, Spin, Select } from 'antd';
+import { Card, Input, Button, Table, message, Empty, Space, Upload, Spin, Select, Alert } from 'antd';
 import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { findBestMatch } from '../../utils/matchingEngine';
 import ProductSourceSelector from './ProductSourceSelector';
-import { getProductData } from '../../store/vehicleSelectors';
 import * as XLSX from 'xlsx';
 import { downloadCsv } from '../../utils/downloadCsv';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
+import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
 
 
 const { TextArea } = Input;
@@ -32,6 +32,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         assetFiles,
         multiVehicleFields: targetFields,
         setMultiVehicleFields: setTargetFields,
+        activeAssets,
         localSelection,
         setLocalSelection,
         setPurifyProduct,
@@ -42,8 +43,9 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         assetFiles: state.assetFiles,
         multiVehicleFields: state.multiVehicleFields,
         setMultiVehicleFields: state.setMultiVehicleFields,
-        localSelection: state.currentCompareProducts, // Reuse or add new state? Let's use its own if exists, but store only has currentCompareProducts.
-        setLocalSelection: state.setCompareProducts,
+        activeAssets: state.activeAssets,
+        localSelection: state.currentMultiVehicleProducts,
+        setLocalSelection: state.setMultiVehicleProducts,
         setPurifyProduct: state.setPurifyProduct,
         setRepairContext: state.setRepairContext,
         fieldGroupsVersion: state.fieldGroupsVersion,
@@ -51,6 +53,14 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
     const [organizedData, setOrganizedData] = useState<OrganizedRow[]>([]);
     const [isCalculating, setIsCalculating] = useState(false);
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string | undefined>(undefined);
+    const selectionStates = useMemo(
+        () => getVehicleSelectionStates(uploadedFiles, localSelection, assetFiles, activeAssets),
+        [uploadedFiles, localSelection, assetFiles, activeAssets]
+    );
+    const pendingSelectionCount = useMemo(
+        () => Array.from(selectionStates.values()).filter((state) => state.status === 'pending').length,
+        [selectionStates]
+    );
     const assetSourceByProduct = useMemo(() => {
         const map = new Map<string, string>();
         localSelection.forEach(productName => {
@@ -69,8 +79,9 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         }[] = [];
         
         localSelection.forEach(productName => {
-            const data = getProductData(uploadedFiles, productName, assetFiles);
-            if (data.length > 0) {
+            const selectionState = selectionStates.get(productName);
+            const data = selectionState?.data || [];
+            if (selectionState?.status === 'ready' && data.length > 0) {
                 const productParams = new Map<string, string | number>();
                 data.forEach(p => productParams.set(p.name, p.value));
                 const candidates = Array.from(productParams.entries()).map(([k, v]) => ({
@@ -84,7 +95,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         });
         
         return vehicles;
-    }, [uploadedFiles, assetFiles, localSelection]);
+    }, [localSelection, selectionStates]);
 
     // UX: Debounce triggering automatically
     useEffect(() => {
@@ -206,6 +217,13 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
 
     return (
         <div className="flex flex-col gap-3 h-full">
+            {pendingSelectionCount > 0 && (
+                <Alert
+                    type="info"
+                    showIcon
+                    message={`正在同步 ${pendingSelectionCount} 款待整理车型数据，完成后会自动参与整理`}
+                />
+            )}
             <Card className="shadow-sm flex-shrink-0" size="small">
                 <Space direction="vertical" className="w-full">
                     <div className="flex items-start gap-4">

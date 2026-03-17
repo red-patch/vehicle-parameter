@@ -4,7 +4,6 @@ import { FilterBar, FilterItem } from '../common/FilterBar';
 import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getProductData } from '../../store/vehicleSelectors';
 import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames } from '../../utils/attributeEnums';
 import { getFieldGroupsSync, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import Fuse from 'fuse.js';
@@ -14,7 +13,8 @@ import { saveAssetFile, checkAssetExists } from '../../utils/assetManager';
 import { ASSET_SOURCE_TAGS } from '../../utils/assetSourceTags';
 import { getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
 import type { RepairSourceModule } from '../../types';
-import { buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
+import { buildVehicleDisplayLabels, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
+import { getVehicleSelectionState } from '../../utils/vehicleSelectionState';
 
 interface DataPurifyViewProps {
     onReturnToSource?: (sourceModule: RepairSourceModule) => void;
@@ -28,6 +28,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         selectedProduct,
         setSelectedProduct,
         assetFiles,
+        activeAssets,
         repairContext,
         clearRepairContext,
         fieldGroupsVersion,
@@ -38,6 +39,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         selectedProduct: state.currentPurifyProduct,
         setSelectedProduct: state.setPurifyProduct,
         assetFiles: state.assetFiles,
+        activeAssets: state.activeAssets,
         repairContext: state.repairContext,
         clearRepairContext: state.clearRepairContext,
         fieldGroupsVersion: state.fieldGroupsVersion,
@@ -86,6 +88,14 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
     const targetFieldName = repairContext?.productName === selectedProduct ? repairContext.fieldName : undefined;
     const selectedProductName = selectedProduct ? getVehicleProductName(selectedProduct) : '未知车型';
+    const selectedProductDisplayLabels = useMemo(
+        () => buildVehicleDisplayLabels(selectedProductNames),
+        [selectedProductNames]
+    );
+    const selectedProductState = useMemo(
+        () => selectedProduct ? getVehicleSelectionState(uploadedFiles, selectedProduct, assetFiles, activeAssets) : null,
+        [uploadedFiles, selectedProduct, assetFiles, activeAssets]
+    );
     const currentAssetFileName = useMemo(() => {
         if (!selectedProduct) return null;
         if (repairContext?.productName === selectedProduct) return repairContext.sourceFileName;
@@ -95,7 +105,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     // 当所选产品变化时，初始化净化列表
     useEffect(() => {
         if (selectedProduct) {
-            const data = getProductData(uploadedFiles, selectedProduct, assetFiles);
+            const data = selectedProductState?.status === 'ready' ? selectedProductState.data : [];
             // 深度拷贝以脱离 store 变异
             setPurifyParams(JSON.parse(JSON.stringify(data)));
             
@@ -107,7 +117,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             setPurifyParams([]);
             setIsExistingAsset(false);
         }
-    }, [selectedProduct, uploadedFiles, assetFiles, assetLibraryPath, currentAssetFileName, selectedProductName]);
+    }, [selectedProduct, selectedProductState, assetLibraryPath, currentAssetFileName, selectedProductName]);
 
     const handleUpdateParam = (id: string, field: keyof VehicleParameter, value: string | number) => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -366,6 +376,13 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
     return (
         <div className="h-full flex flex-col gap-3">
+            {selectedProductState?.status === 'pending' && (
+                <Alert
+                    type="info"
+                    showIcon
+                    message="当前车型数据正在同步，完成后会自动加载到体检列表"
+                />
+            )}
             {repairContext && repairContext.productName === selectedProduct && (
                 <div>
                     <Alert
@@ -374,7 +391,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                         message={`来自${repairContext.sourceLabel}的修复任务`}
                         description={
                             <div className="flex flex-wrap items-center gap-2 mt-2">
-                                <span>正在修复：{buildVehicleOptionLabel(repairContext.productName)}{repairContext.fieldName ? ` / ${repairContext.fieldName}` : ''}</span>
+                                <span>正在修复：{selectedProductDisplayLabels.get(repairContext.productName)?.shortLabel || getVehicleProductName(repairContext.productName)}{repairContext.fieldName ? ` / ${repairContext.fieldName}` : ''}</span>
                                 <Button size="small" type="primary" loading={saving} onClick={handleQuickSave}>
                                     保存并留在体检页
                                 </Button>
@@ -436,7 +453,11 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                         style={{ width: 220 }}
                         value={selectedProduct}
                         onChange={setSelectedProduct}
-                        options={selectedProductNames.map(name => ({ value: name, label: buildVehicleOptionLabel(name) }))}
+                        options={selectedProductNames.map(name => ({
+                            value: name,
+                            label: selectedProductDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name),
+                            title: selectedProductDisplayLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name),
+                        }))}
                         placeholder="请选择车型"
                         showSearch
                     />
