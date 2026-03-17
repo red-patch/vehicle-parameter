@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
 
 const mockState = {
   uploadedFiles: [] as any[],
@@ -16,33 +17,35 @@ vi.mock('../../../store/vehicleStore', () => ({
   useVehicleStore: (selector: any) => selector(mockState),
 }));
 
-afterEach(() => {
-  cleanup();
-  mockState.uploadedFiles = [];
-  mockState.assetFiles = [];
-  mockState.selectedProductNames = [];
-  mockState.currentCompareProducts = [];
-  mockState.setCompareProducts.mockClear();
-  mockState.setPurifyProduct.mockClear();
-  mockState.setRepairContext.mockClear();
-});
-
 describe('CompareView asset sync', () => {
-  it('recomputes comparison rows when assetFiles arrive after first render', async () => {
+  afterEach(() => {
+    cleanup();
+    mockState.uploadedFiles = [];
+    mockState.assetFiles = [];
+    mockState.selectedProductNames = [];
+    mockState.currentCompareProducts = [];
+    mockState.setCompareProducts.mockClear();
+    mockState.setPurifyProduct.mockClear();
+    mockState.setRepairContext.mockClear();
+  });
+
+  it('recomputes comparison rows when assetFiles are loaded after initial render', async () => {
     const { default: CompareView } = await import('../CompareView');
+    const excelKey = buildVehicleInstanceKey('excel', 'a.xlsx', '车型A');
+    const assetKey = buildVehicleInstanceKey('asset', 'a.json', '车型A资产');
 
     mockState.uploadedFiles = [
       {
         fileName: 'a.xlsx',
         rawHeaders: [],
         data: [
-          { id: '1', group: '基础', name: '快充', value: '有', productName: '车型A' },
+          { id: '1', group: '基础', name: '快充', value: '有', productName: '车型A', instanceKey: excelKey },
         ],
       },
     ];
     mockState.assetFiles = [];
-    mockState.selectedProductNames = ['车型A', '车型B'];
-    mockState.currentCompareProducts = ['车型A', '车型B'];
+    mockState.selectedProductNames = [excelKey, assetKey];
+    mockState.currentCompareProducts = [excelKey, assetKey];
 
     const { rerender } = render(<CompareView />);
 
@@ -51,10 +54,10 @@ describe('CompareView asset sync', () => {
 
     mockState.assetFiles = [
       {
-        fileName: 'b.json',
+        fileName: 'a.json',
         rawHeaders: [],
         data: [
-          { id: '2', group: '基础', name: '快充', value: '无', productName: '车型B' },
+          { id: '2', group: '基础', name: '快充', value: '无', productName: '车型A资产', instanceKey: assetKey },
         ],
       },
     ];

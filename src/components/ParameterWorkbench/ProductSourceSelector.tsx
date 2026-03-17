@@ -4,6 +4,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getProductOptions } from '../../store/vehicleSelectors';
 import { SelectOutlined, ClearOutlined } from '@ant-design/icons';
+import { buildVehicleOptionLabel } from '../../utils/vehicleInstance';
 
 interface ProductSourceSelectorProps {
     value: string | string[] | null;
@@ -108,7 +109,7 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                                 className="m-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-sm text-[12px]"
                                 onClose={() => onChange(value.filter(v => v !== name))}
                             >
-                                {name}
+                                {buildVehicleOptionLabel(name)}
                             </Tag>
                         ))
                     ) : (

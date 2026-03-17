@@ -14,6 +14,7 @@ import { saveAssetFile, checkAssetExists } from '../../utils/assetManager';
 import { ASSET_SOURCE_TAGS } from '../../utils/assetSourceTags';
 import { getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
 import type { RepairSourceModule } from '../../types';
+import { buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
 
 interface DataPurifyViewProps {
     onReturnToSource?: (sourceModule: RepairSourceModule) => void;
@@ -84,6 +85,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     }, [repairContext, selectedProduct, setSelectedProduct]);
 
     const targetFieldName = repairContext?.productName === selectedProduct ? repairContext.fieldName : undefined;
+    const selectedProductName = selectedProduct ? getVehicleProductName(selectedProduct) : '未知车型';
     const currentAssetFileName = useMemo(() => {
         if (!selectedProduct) return null;
         if (repairContext?.productName === selectedProduct) return repairContext.sourceFileName;
@@ -99,13 +101,13 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             
             // 检查资产库中是否存在同名文件
             if (assetLibraryPath) {
-                checkAssetExists(assetLibraryPath, currentAssetFileName || selectedProduct).then(setIsExistingAsset);
+                checkAssetExists(assetLibraryPath, currentAssetFileName || selectedProductName).then(setIsExistingAsset);
             }
         } else {
             setPurifyParams([]);
             setIsExistingAsset(false);
         }
-    }, [selectedProduct, uploadedFiles, assetFiles, assetLibraryPath, currentAssetFileName]);
+    }, [selectedProduct, uploadedFiles, assetFiles, assetLibraryPath, currentAssetFileName, selectedProductName]);
 
     const handleUpdateParam = (id: string, field: keyof VehicleParameter, value: string | number) => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -123,7 +125,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             group: '新增参数',
             name: '',
             value: '',
-            productName: selectedProduct || '未知产品',
+            productName: selectedProductName,
             updatedAt: nowStr
         };
         setPurifyParams([newParam, ...purifyParams]);
@@ -138,12 +140,12 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             await saveAssetFile(
                 assetLibraryPath, 
                 fileName, 
-                selectedProduct, 
+                selectedProductName, 
                 purifyParams
             );
             message.success(`已成功保存资产: ${fileName}`);
             // 更新状态
-            if (fileName === selectedProduct || fileName === `${selectedProduct}.json`) {
+            if (fileName === selectedProductName || fileName === `${selectedProductName}.json`) {
                 setIsExistingAsset(true);
             }
             if (options?.clearTask) {
@@ -160,13 +162,13 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     };
 
     const handleQuickSave = async () => {
-        const targetFileName = currentAssetFileName || selectedProduct;
+        const targetFileName = currentAssetFileName || selectedProductName;
         if (!targetFileName) return;
         await handleSaveToAsset(targetFileName);
     };
 
     const handleSaveAndReturn = async () => {
-        const targetFileName = currentAssetFileName || selectedProduct;
+        const targetFileName = currentAssetFileName || selectedProductName;
         if (!targetFileName) return;
         await handleSaveToAsset(targetFileName, { returnToSource: true, clearTask: true });
     };
@@ -372,7 +374,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                         message={`来自${repairContext.sourceLabel}的修复任务`}
                         description={
                             <div className="flex flex-wrap items-center gap-2 mt-2">
-                                <span>正在修复：{repairContext.productName}{repairContext.fieldName ? ` / ${repairContext.fieldName}` : ''}</span>
+                                <span>正在修复：{buildVehicleOptionLabel(repairContext.productName)}{repairContext.fieldName ? ` / ${repairContext.fieldName}` : ''}</span>
                                 <Button size="small" type="primary" loading={saving} onClick={handleQuickSave}>
                                     保存并留在体检页
                                 </Button>
@@ -434,7 +436,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                         style={{ width: 220 }}
                         value={selectedProduct}
                         onChange={setSelectedProduct}
-                        options={selectedProductNames.map(name => ({ value: name, label: name }))}
+                        options={selectedProductNames.map(name => ({ value: name, label: buildVehicleOptionLabel(name) }))}
                         placeholder="请选择车型"
                         showSearch
                     />
@@ -520,7 +522,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 visible={saveModalVisible}
                 onClose={() => setSaveModalVisible(false)}
                 onSave={handleSaveToAsset}
-                defaultName={`${selectedProduct || '未知车型'}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`}
+                defaultName={`${selectedProductName || '未知车型'}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`}
                 defaultTags={[ASSET_SOURCE_TAGS.purify]}
             />
         </div>
