@@ -7,7 +7,7 @@ import type { MenuProps } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { calculateProductConfidence, type ProductConfidence } from '../../utils/productConfidence';
-import { buildVehicleInstanceKey, buildVehicleOptionLabel } from '../../utils/vehicleInstance';
+import { buildVehicleDisplayLabels, buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 
 type ProductWithInstance = ProductConfidence & { key: string; fileName: string };
 
@@ -74,6 +74,10 @@ const ProductSelector: React.FC = () => {
     const visibleProducts = useMemo(() => {
         return productsWithConfidence.filter(p => !excludedProducts.includes(p.key));
     }, [productsWithConfidence, excludedProducts]);
+    const productDisplayLabels = useMemo(
+        () => buildVehicleDisplayLabels(visibleProducts.map((product) => product.key)),
+        [visibleProducts]
+    );
 
     const handleToggle = (instanceKey: string, checked: boolean) => {
         if (checked) {
@@ -253,11 +257,21 @@ const ProductSelector: React.FC = () => {
                                         style={{ width: 120 }}
                                     />
                                 ) : (
-                                    <span className="text-sm text-gray-800 truncate">{item.name}</span>
+                                    <span
+                                        className="text-sm text-gray-800 truncate"
+                                        title={productDisplayLabels.get(item.key)?.fullLabel || item.name}
+                                    >
+                                        {productDisplayLabels.get(item.key)?.shortLabel || item.name}
+                                    </span>
                                 )}
                                 {getConfidenceTag(item)}
                             </div>
-                            <div className="text-xs text-gray-400" title={item.fileName}>{buildVehicleOptionLabel(item.key)} · {item.paramCount} 参数</div>
+                            <div
+                                className="text-xs text-gray-400"
+                                title={productDisplayLabels.get(item.key)?.fullLabel || item.fileName}
+                            >
+                                @{item.fileName} · {item.paramCount} 参数
+                            </div>
                         </div>
                         <Dropdown menu={{ items: getDropdownMenu(item) }} trigger={['click']}>
                             <MoreOutlined className="text-gray-400 hover:text-gray-600 cursor-pointer" />

@@ -1,24 +1,25 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message, Select } from 'antd';
+import { Card, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message, Select, Spin } from 'antd';
 import { DiffOutlined, InfoCircleOutlined, SearchOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getProductData } from '../../store/vehicleSelectors';
 import ProductSourceSelector from './ProductSourceSelector';
 import { isFieldRequired } from '../../assets/requiredFields';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
-import { buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
+import { buildVehicleDisplayLabels, getVehicleProductName } from '../../utils/vehicleInstance';
+import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
 
 interface CompareViewProps {
     onGoRepair?: () => void;
 }
 
 const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
-    const { uploadedFiles, assetFiles, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion } = useVehicleStore(useShallow(state => ({
+    const { uploadedFiles, assetFiles, activeAssets, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
+        activeAssets: state.activeAssets,
         selectedProductNames: state.selectedProductNames,
         localSelection: state.currentCompareProducts,
         setLocalSelection: state.setCompareProducts,
@@ -26,7 +27,6 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         setRepairContext: state.setRepairContext,
         fieldGroupsVersion: state.fieldGroupsVersion,
     })));
-    const [showResult, setShowResult] = useState(false);
     // 过滤状态
     const [diffFilter, setDiffFilter] = useState<'all' | 'diff' | 'same' | 'required'>('all');
     const [searchText, setSearchText] = useState('');
@@ -40,23 +40,19 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         }
     }, [selectedProductNames]);
 
-    // 自动显示对比结果的逻辑
-    useEffect(() => {
-        if (localSelection.length > 0 && !showResult) {
-            setShowResult(true);
-        } else if (localSelection.length === 0 && showResult) {
-            setShowResult(false);
-        }
-    }, [localSelection.length]);
+    const selectionStates = useMemo(
+        () => getVehicleSelectionStates(uploadedFiles, localSelection, assetFiles, activeAssets),
+        [uploadedFiles, localSelection, assetFiles, activeAssets]
+    );
 
     // Build comparison matrix (supports 1+ products)
     const comparisonData = useMemo(() => {
-        if (localSelection.length < 1 || !showResult) return [];
+        if (localSelection.length < 1) return [];
 
         const allParams = new Map<string, { groups: Set<string>; name: string; values: Map<string, string> }>();
 
         localSelection.forEach(instanceKey => {
-            const data = getProductData(uploadedFiles, instanceKey, assetFiles);
+            const data = selectionStates.get(instanceKey)?.data || [];
             data.forEach(p => {
                 const key = p.name;
                 if (!allParams.has(key)) {
@@ -84,7 +80,11 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 ...Object.fromEntries(param.values)
             };
         });
-    }, [localSelection, showResult, uploadedFiles, assetFiles]);
+    }, [localSelection, selectionStates]);
+
+    const pendingSelectionCount = useMemo(() => {
+        return Array.from(selectionStates.values()).filter((state) => state.status === 'pending').length;
+    }, [selectionStates]);
 
     // 过滤后的数据
     const filteredData = useMemo(() => {
@@ -131,6 +131,10 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         });
         return map;
     }, [assetFiles, localSelection]);
+    const selectionDisplayLabels = useMemo(
+        () => buildVehicleDisplayLabels(localSelection),
+        [localSelection]
+    );
 
     const triggerRepair = (instanceKey: string, fieldName: string) => {
         const sourceFileName = assetSourceByProduct.get(instanceKey);
@@ -171,7 +175,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
 
         localSelection.forEach(instanceKey => {
             dynamicCols.push({
-                title: buildVehicleOptionLabel(instanceKey),
+                title: selectionDisplayLabels.get(instanceKey)?.shortLabel || getVehicleProductName(instanceKey),
                 dataIndex: instanceKey,
                 key: instanceKey,
                 width: 180,
@@ -195,7 +199,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         });
 
         return dynamicCols;
-    }, [localSelection]);
+    }, [localSelection, selectionDisplayLabels]);
 
     const { diffCount, sameCount, requiredCount } = useMemo(() => {
         let diff = 0, same = 0, req = 0;
@@ -229,7 +233,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             const diffItems = comparisonData.filter(r => r.hasDiff);
             const sameItems = comparisonData.filter(r => !r.hasDiff);
 
-            const productHeaders = localSelection.map(n => `<th style="padding:8px 10px;border:1px solid #d9d9d9;background:#e6f4ff;font-size:12px;max-width:160px;word-break:break-all;">${buildVehicleOptionLabel(n)}</th>`).join('');
+            const productHeaders = localSelection.map(n => `<th style="padding:8px 10px;border:1px solid #d9d9d9;background:#e6f4ff;font-size:12px;max-width:160px;word-break:break-all;">${selectionDisplayLabels.get(n)?.shortLabel || getVehicleProductName(n)}</th>`).join('');
 
             const renderRows = (items: typeof comparisonData) => items.map(r => {
                 const cells = localSelection.map(p => {
@@ -243,7 +247,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             const reportHtml = `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB',sans-serif;padding:30px;background:#fff;width:1000px;">
   <h2 style="text-align:center;margin:0 0 6px;font-size:20px;color:#1a1a1a;">车型参数对比分析报告</h2>
-  <p style="text-align:center;color:#999;font-size:12px;margin:0 0 20px;">生成时间：${dateStr} &nbsp;|&nbsp; 对比车型：${localSelection.map(buildVehicleOptionLabel).join(' vs ')}</p>
+  <p style="text-align:center;color:#999;font-size:12px;margin:0 0 20px;">生成时间：${dateStr} &nbsp;|&nbsp; 对比车型：${localSelection.map((name) => selectionDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name)).join(' vs ')}</p>
   <div style="display:flex;gap:16px;margin-bottom:24px;">
     <div style="flex:1;padding:14px;background:#fff7e6;border-radius:8px;border:1px solid #ffd591;text-align:center;">
       <div style="font-size:28px;font-weight:bold;color:#fa8c16;">${diffItems.length}</div>
@@ -364,7 +368,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
 
             {/* Results Area */}
             <div className="flex-1 overflow-auto bg-white rounded-lg border border-gray-200">
-                {showResult && comparisonData.length > 0 ? (
+                {comparisonData.length > 0 ? (
                     <div className="p-3" ref={reportRef}>
                         {/* 统计 + 工具栏 */}
                         <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
@@ -399,6 +403,9 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                 />
                             </div>
                             <Space>
+                                {pendingSelectionCount > 0 && (
+                                    <Tag color="processing">同步中: {pendingSelectionCount} 款</Tag>
+                                )}
                                 <Tag color={diffFilter === 'diff' ? 'orange' : undefined}>显示: {filteredData.length} 条</Tag>
                                 <Button
                                     icon={<FilePdfOutlined />}
@@ -419,9 +426,15 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                             rowClassName={(record) => record.hasDiff ? 'bg-yellow-50' : ''}
                         />
                     </div>
+                ) : pendingSelectionCount > 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-3 text-center">
+                        <Spin size="large" />
+                        <div className="text-sm text-slate-600">正在同步 {pendingSelectionCount} 款车型数据...</div>
+                        <div className="text-xs text-slate-400">资产数据加载完成后会自动显示对比结果</div>
+                    </div>
                 ) : (
                     <div className="flex items-center justify-center h-full min-h-[220px]">
-                    <Empty description={localSelection.length < 1 ? "请选择至少1个车型" : "点击\"查看数据\"查看结果"} />
+                    <Empty description={localSelection.length < 1 ? "请选择至少1个车型" : "暂无可对比数据"} />
                     </div>
                 )}
             </div>

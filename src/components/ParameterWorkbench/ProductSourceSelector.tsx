@@ -4,7 +4,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getProductOptions } from '../../store/vehicleSelectors';
 import { SelectOutlined, ClearOutlined } from '@ant-design/icons';
-import { buildVehicleOptionLabel } from '../../utils/vehicleInstance';
+import { buildVehicleDisplayLabels, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
 
 interface ProductSourceSelectorProps {
     value: string | string[] | null;
@@ -45,6 +45,10 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
         return getProductOptions(uploadedFiles, selectedProductNames, assetFiles);
     }, [uploadedFiles, selectedProductNames, assetFiles]);
 
+    const selectedTagLabels = useMemo(() => {
+        return buildVehicleDisplayLabels(Array.isArray(value) ? value : []);
+    }, [value]);
+
     const handleSelectAll = () => {
         if (mode === 'multiple') {
             const allValues = productOptions.map(opt => opt.value);
@@ -68,6 +72,11 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                     onChange={onChange}
                     disabled={productOptions.length === 0}
                     showSearch
+                    optionRender={(option) => (
+                        <span title={buildVehicleOptionLabel(String(option.data.value))}>
+                            {String(option.data.label)}
+                        </span>
+                    )}
                     maxTagCount={0}
                     maxTagPlaceholder={() => (
                         <span className="text-gray-400 text-xs italic">已选 {value && Array.isArray(value) ? value.length : 0} 个车型</span>
@@ -103,14 +112,15 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                 <div className="flex flex-wrap gap-1 mt-1 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md border border-gray-100 dark:border-gray-700 min-h-[42px] max-h-[120px] overflow-y-auto">
                     {Array.isArray(value) && value.length > 0 ? (
                         value.map(name => (
-                            <Tag 
-                                key={name} 
-                                closable 
-                                className="m-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-sm text-[12px]"
-                                onClose={() => onChange(value.filter(v => v !== name))}
-                            >
-                                {buildVehicleOptionLabel(name)}
-                            </Tag>
+                            <Tooltip key={name} title={selectedTagLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name)}>
+                                <Tag
+                                    closable
+                                    className="m-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-sm text-[12px]"
+                                    onClose={() => onChange(value.filter(v => v !== name))}
+                                >
+                                    {selectedTagLabels.get(name)?.shortLabel || getVehicleProductName(name)}
+                                </Tag>
+                            </Tooltip>
                         ))
                     ) : (
                         <span className="text-gray-400 text-xs self-center">暂未选择车型</span>

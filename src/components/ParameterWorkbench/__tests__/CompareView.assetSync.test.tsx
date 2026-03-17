@@ -5,6 +5,7 @@ import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
 const mockState = {
   uploadedFiles: [] as any[],
   assetFiles: [] as any[],
+  activeAssets: [] as string[],
   selectedProductNames: [] as string[],
   currentCompareProducts: [] as string[],
   setCompareProducts: vi.fn(),
@@ -22,6 +23,7 @@ describe('CompareView asset sync', () => {
     cleanup();
     mockState.uploadedFiles = [];
     mockState.assetFiles = [];
+    mockState.activeAssets = [];
     mockState.selectedProductNames = [];
     mockState.currentCompareProducts = [];
     mockState.setCompareProducts.mockClear();
@@ -65,6 +67,38 @@ describe('CompareView asset sync', () => {
     rerender(<CompareView />);
 
     await waitFor(() => {
+      expect(screen.getByText('无')).toBeInTheDocument();
+    });
+  }, 15000);
+
+  it('shows syncing state while selected asset data is still loading, then renders the comparison table', async () => {
+    const { default: CompareView } = await import('../CompareView');
+    const assetKey = buildVehicleInstanceKey('asset', 'a.json', '车型A资产');
+
+    mockState.uploadedFiles = [];
+    mockState.assetFiles = [];
+    mockState.activeAssets = ['a.json'];
+    mockState.selectedProductNames = [assetKey];
+    mockState.currentCompareProducts = [assetKey];
+
+    const { rerender } = render(<CompareView />);
+
+    expect(screen.getByText('正在同步 1 款车型数据...')).toBeInTheDocument();
+
+    mockState.assetFiles = [
+      {
+        fileName: 'a.json',
+        rawHeaders: [],
+        data: [
+          { id: '2', group: '基础', name: '快充', value: '无', productName: '车型A资产', instanceKey: assetKey },
+        ],
+      },
+    ];
+
+    rerender(<CompareView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('快充')).toBeInTheDocument();
       expect(screen.getByText('无')).toBeInTheDocument();
     });
   }, 15000);

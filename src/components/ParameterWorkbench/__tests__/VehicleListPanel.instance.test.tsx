@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe('VehicleListPanel instance identity', () => {
-  it('shows same-name vehicles from different files as separate active cards', () => {
+  it('shows same-name vehicles from different files as separate active cards with stable numbered titles', () => {
     render(
       <VehicleListPanel
         focusedProduct={null}
@@ -53,7 +53,8 @@ describe('VehicleListPanel instance identity', () => {
     );
 
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getAllByText(sameName)).toHaveLength(2);
+    expect(screen.getByText(`${sameName}（1）`)).toBeInTheDocument();
+    expect(screen.getByText(`${sameName}（2）`)).toBeInTheDocument();
     expect(screen.getByText('@first.xlsx')).toBeInTheDocument();
     expect(screen.getByText('@second.xlsx')).toBeInTheDocument();
   });

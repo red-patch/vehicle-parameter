@@ -7,7 +7,7 @@ import { getAssetFilesWithInfo } from '../../utils/assetManager';
 import { getProductData } from '../../store/vehicleSelectors';
 import { isFieldRequired } from '../../assets/requiredFields';
 import type { VehicleParameter } from '../../types';
-import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../../utils/vehicleInstance';
+import { buildVehicleDisplayLabels, buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../../utils/vehicleInstance';
 
 interface VehicleSummary {
     key: string;
@@ -129,6 +129,10 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
     );
     const inactiveVehicles = vehicles.filter(vehicle =>
         !selectedProductNames.includes(vehicle.key) || ignoredProductNames.includes(vehicle.key)
+    );
+    const vehicleDisplayLabels = useMemo(
+        () => buildVehicleDisplayLabels(vehicles.map((vehicle) => vehicle.key)),
+        [vehicles]
     );
 
     const activeVehicleDetails = useMemo(() => {
@@ -272,8 +276,11 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 min-w-0">
-                                                <div className={`font-bold text-[16px] truncate ${isFocused ? 'text-blue-700' : 'text-slate-800'}`} title={vehicle.name}>
-                                                    {vehicle.name}
+                                                <div
+                                                    className={`font-bold text-[16px] truncate ${isFocused ? 'text-blue-700' : 'text-slate-800'}`}
+                                                    title={vehicleDisplayLabels.get(vehicle.key)?.fullLabel || vehicle.name}
+                                                >
+                                                    {vehicleDisplayLabels.get(vehicle.key)?.shortLabel || vehicle.name}
                                                 </div>
                                                 <Tag color={vehicle.source === 'asset' ? 'green' : 'blue'} className="m-0 text-[10px] leading-4">
                                                     {vehicle.source === 'asset' ? 'ASSET' : 'LOCAL'}
@@ -369,7 +376,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                                 >
                                                     <div className="flex flex-col min-w-0">
                                                         <span className={`text-[12px] truncate ${ignoredProductNames.includes(vehicle.key) ? 'text-slate-300 line-through' : 'text-slate-500 font-medium'}`}>
-                                                            {vehicle.name}
+                                                            {vehicleDisplayLabels.get(vehicle.key)?.shortLabel || vehicle.name}
                                                         </span>
                                                         <span className="text-[9px] text-slate-400">@{vehicle.originalFile}</span>
                                                     </div>
@@ -393,7 +400,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
             </div>
 
             <Drawer
-                title={focusedDetail ? `车型详情 · ${focusedDetail.name}` : '车型详情'}
+                title={focusedDetail ? `车型详情 · ${vehicleDisplayLabels.get(focusedDetail.key)?.shortLabel || focusedDetail.name}` : '车型详情'}
                 placement="right"
                 width={520}
                 open={detailOpen && !!focusedDetail}
@@ -410,7 +417,12 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                     {focusedDetail.requiredMissing.length > 0 ? `必填缺失 ${focusedDetail.requiredMissing.length}` : '必填完整'}
                                 </Tag>
                             </div>
-                            <div className="text-[28px] font-extrabold text-slate-900 leading-tight">{focusedDetail.name}</div>
+                            <div
+                                className="text-[28px] font-extrabold text-slate-900 leading-tight"
+                                title={vehicleDisplayLabels.get(focusedDetail.key)?.fullLabel || focusedDetail.name}
+                            >
+                                {vehicleDisplayLabels.get(focusedDetail.key)?.shortLabel || focusedDetail.name}
+                            </div>
                             <div className="mt-2 text-[12px] text-slate-400">来源文件：@{focusedDetail.originalFile}</div>
                         </div>
 

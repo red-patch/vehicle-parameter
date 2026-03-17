@@ -12,6 +12,7 @@ import { clampPoolWorkspaceHeight } from '../../utils/poolLayout';
 import { getAssetDisplayName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
+import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 
 // 标签颜色池，根据标签内容确定性地分配颜色
 const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
@@ -494,7 +495,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 <span
                                     className="text-[10px] text-emerald-600 cursor-pointer hover:underline font-medium"
                                     onClick={() => {
-                                        const toActivate = filteredAssets.filter(a => !selectedProductNames.includes(a.productName));
+                                        const toActivate = filteredAssets.filter(a => !selectedProductNames.includes(buildVehicleInstanceKey('asset', a.fileName, a.productName)));
                                         if (toActivate.length === 0) {
                                             message.info('筛选结果中的资产均已激活');
                                             return;
@@ -503,7 +504,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                         message.success(`已批量激活 ${toActivate.length} 个资产到车型大纲`);
                                     }}
                                 >
-                                    ⚡ 批量激活 ({filteredAssets.filter(a => !selectedProductNames.includes(a.productName)).length})
+                                    ⚡ 批量激活 ({filteredAssets.filter(a => !selectedProductNames.includes(buildVehicleInstanceKey('asset', a.fileName, a.productName))).length})
                                 </span>
                             </div>
                         )}
@@ -515,7 +516,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         const isFocused = focusedFile === info.fileName;
                         const isEditing = editingAsset === info.fileName;
                         // 智能感知：如果该资产下的车型已在工作集中，则视为激活
-                        const isActive = selectedProductNames.includes(info.productName);
+                        const isActive = selectedProductNames.includes(buildVehicleInstanceKey('asset', info.fileName, info.productName));
                         const sourceMeta = getAssetSourceMeta(assetTags[info.fileName] || []);
 
                         return (

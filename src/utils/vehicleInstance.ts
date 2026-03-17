@@ -11,6 +11,11 @@ export interface VehicleInstanceMeta {
     key: string;
 }
 
+export interface VehicleDisplayLabel {
+    shortLabel: string;
+    fullLabel: string;
+}
+
 export const buildVehicleInstanceKey = (
     source: VehicleSource,
     fileName: string,
@@ -75,6 +80,55 @@ export const buildVehicleOptionLabel = (instanceKey: string): string => {
     const parsed = parseVehicleInstanceKey(instanceKey);
     if (!parsed) return instanceKey;
     return `${parsed.productName} · ${parsed.fileName}`;
+};
+
+const compareVehicleInstanceMeta = (left: VehicleInstanceMeta, right: VehicleInstanceMeta) => {
+    const fileNameCompare = left.fileName.localeCompare(right.fileName, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' });
+    if (fileNameCompare !== 0) return fileNameCompare;
+
+    const sourceOrder = (source: VehicleSource) => (source === 'asset' ? 0 : 1);
+    const sourceCompare = sourceOrder(left.source) - sourceOrder(right.source);
+    if (sourceCompare !== 0) return sourceCompare;
+
+    return left.key.localeCompare(right.key, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' });
+};
+
+export const buildVehicleDisplayLabels = (instanceKeys: string[]): Map<string, VehicleDisplayLabel> => {
+    const labels = new Map<string, VehicleDisplayLabel>();
+    const metas = Array.from(new Set(instanceKeys))
+        .map((instanceKey) => parseVehicleInstanceKey(instanceKey))
+        .filter((meta): meta is VehicleInstanceMeta => meta !== null);
+
+    const grouped = new Map<string, VehicleInstanceMeta[]>();
+    metas.forEach((meta) => {
+        const bucket = grouped.get(meta.productName);
+        if (bucket) {
+            bucket.push(meta);
+        } else {
+            grouped.set(meta.productName, [meta]);
+        }
+    });
+
+    grouped.forEach((group) => {
+        const sorted = [...group].sort(compareVehicleInstanceMeta);
+        sorted.forEach((meta, index) => {
+            labels.set(meta.key, {
+                shortLabel: sorted.length > 1 ? `${meta.productName}（${index + 1}）` : meta.productName,
+                fullLabel: `${meta.productName} · ${meta.fileName}`,
+            });
+        });
+    });
+
+    instanceKeys.forEach((instanceKey) => {
+        if (!labels.has(instanceKey)) {
+            labels.set(instanceKey, {
+                shortLabel: getVehicleProductName(instanceKey),
+                fullLabel: buildVehicleOptionLabel(instanceKey),
+            });
+        }
+    });
+
+    return labels;
 };
 
 export const matchesVehicleSelection = (selection: string, instanceKey: string): boolean => {
