@@ -108,8 +108,18 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         }
 
         const fields = targetFields
-            .split(/[,，\n]+/)
-            .map(s => s.trim())
+            .split(/\n+/)
+            .flatMap(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return [];
+                // 如果行内有括号包裹的逗号（如 "交流充电时间（常温,SOC:20%-100%）"），
+                // 则整行作为一个字段，不按逗号拆分
+                if (/[（(][^)）]*[,，][^)）]*[）)]/.test(trimmed)) {
+                    return [trimmed];
+                }
+                // 否则按逗号拆分（兼容旧版逗号分隔输入）
+                return trimmed.split(/[,，]+/).map(s => s.trim()).filter(Boolean);
+            })
             .filter(Boolean);
         
         if (fields.length === 0) {
