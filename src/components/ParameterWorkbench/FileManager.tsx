@@ -9,6 +9,7 @@ import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
 import type * as XLSX from 'xlsx';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
+import SheetPickerModal from './SheetPickerModal';
 import { FolderOpenOutlined } from '@ant-design/icons';
 
 interface FileManagerProps {
@@ -30,6 +31,9 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     const [pendingWorkbook, setPendingWorkbook] = useState<XLSX.WorkBook | null>(null);
     const [pendingFileName, setPendingFileName] = useState('');
     const [assetDrawerVisible, setAssetDrawerVisible] = useState(false);
+    const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
+    const [sheetPickerData, setSheetPickerData] = useState<{ name: string; totalRows: number }[]>([]);
+    const [preselectedDisabledSheets, setPreselectedDisabledSheets] = useState<Set<string>>(new Set());
 
     // Inline Rename State
     const [editingFile, setEditingFile] = useState<string | null>(null);
@@ -74,7 +78,13 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
             setPendingWorkbook(workbook);
             setPendingFileName(file.name);
             setPreviewData(previews);
-            setPreviewOpen(true);
+            // 多 sheet 时先弹出 sheet 选择器
+            if (previews.length > 1) {
+                setSheetPickerData(previews.map(p => ({ name: p.sheetName, totalRows: p.totalRows })));
+                setSheetPickerOpen(true);
+            } else {
+                setPreviewOpen(true);
+            }
         } catch (err) {
             message.error(`无法读取文件: ${(err as Error).message}`);
         } finally {
@@ -97,6 +107,24 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     };
 
     // 主动打开预览对话框（重新配置已上传的文件）
+    const handleSheetPickerConfirm = (disabledSheets: Set<string>) => {
+        setSheetPickerOpen(false);
+        setPreselectedDisabledSheets(disabledSheets);
+        setPreviewOpen(true);
+    };
+
+    const handleSheetPickerSkip = () => {
+        setSheetPickerOpen(false);
+        setPreselectedDisabledSheets(new Set());
+        setPreviewOpen(true);
+    };
+
+    const handleSheetPickerCancel = () => {
+        setSheetPickerOpen(false);
+        setPendingWorkbook(null);
+        setPreselectedDisabledSheets(new Set());
+    };
+
     const handleReparse = async (fileName: string) => {
         const cachedFile = fileCache.get(fileName);
         if (!cachedFile) {
@@ -317,10 +345,20 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
                 onCancel={() => {
                     setPreviewOpen(false);
                     setPendingWorkbook(null);
+                    setPreselectedDisabledSheets(new Set());
                 }}
+                preselectedDisabledSheets={preselectedDisabledSheets}
             />
             
-            <AssetListDrawer 
+            <SheetPickerModal
+                open={sheetPickerOpen}
+                sheets={sheetPickerData}
+                onConfirm={handleSheetPickerConfirm}
+                onSkip={handleSheetPickerSkip}
+                onCancel={handleSheetPickerCancel}
+            />
+
+            <AssetListDrawer
                 visible={assetDrawerVisible}
                 onClose={() => setAssetDrawerVisible(false)}
             />

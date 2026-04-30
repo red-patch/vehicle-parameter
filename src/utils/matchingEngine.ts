@@ -90,10 +90,18 @@ export const normalizeName = (name: string): string => {
         .toLowerCase();
 };
 
+export interface MatchAlternative {
+    name: string;
+    value: string | number;
+    score: number;
+}
+
 export interface MatchResult {
     matchedParam: VehicleParameter | undefined;
     score: number; // 0-1, 0 is perfect, 1 is mismatch (Fuse legacy) or 1 is match, 0 is mismatch (Confidence)
     matchType: 'exact' | 'normalized' | 'alias' | 'fuzzy' | 'none';
+    /** Top-N alternative fuzzy matches (excluding best), for dropdown selection UI */
+    alternatives?: MatchAlternative[];
 }
 
 // Fuse 实例缓存：同一 candidates 引用只构建一次索引
@@ -134,12 +142,12 @@ const getOrCreateNormalizedMap = (candidates: VehicleParameter[]): Map<string, V
  * 统一匹配函数
  * @param queryName 目标字段名（如用户输入的"车长"）
  * @param candidates 候选参数列表
- * @param threshold 模糊匹配阈值 (0-1), 越小越严格。默认0.4
+ * @param threshold 模糊匹配阈值 (0-1), 越小越严格。默认0.3
  */
 export const findBestMatch = (
-    queryName: string, 
-    candidates: VehicleParameter[], 
-    threshold = 0.4
+    queryName: string,
+    candidates: VehicleParameter[],
+    threshold = 0.3
 ): MatchResult => {
     const normalizedQuery = normalizeName(queryName);
     const normalizedMap = getOrCreateNormalizedMap(candidates);
@@ -180,10 +188,20 @@ export const findBestMatch = (
     if (fuseResults.length > 0) {
         const best = fuseResults[0];
         if (best.score !== undefined && best.score <= threshold) {
-            return { 
-                matchedParam: best.item, 
-                score: best.score, 
-                matchType: 'fuzzy' 
+            // 收集 Top-5 候选项作为 alternatives（排除最优项自身）
+            const alternatives: MatchAlternative[] = fuseResults
+                .slice(1, 6)
+                .filter(r => r.score !== undefined && r.score <= threshold)
+                .map(r => ({
+                    name: r.item.name,
+                    value: r.item.value,
+                    score: r.score!,
+                }));
+            return {
+                matchedParam: best.item,
+                score: best.score,
+                matchType: 'fuzzy',
+                alternatives: alternatives.length > 0 ? alternatives : undefined,
             };
         }
     }
