@@ -5,6 +5,7 @@ import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { findBestMatch } from '../../utils/matchingEngine';
+import type { MatchResult } from '../../utils/matchingEngine';
 import ProductSourceSelector from './ProductSourceSelector';
 import * as XLSX from 'xlsx';
 import { downloadCsv } from '../../utils/downloadCsv';
@@ -19,7 +20,9 @@ const { TextArea } = Input;
 interface OrganizedRow {
     key: string;
     targetField: string;
-    [productName: string]: string | number | undefined;
+    /** 每个车型的匹配结果（包含 matchType 和 alternatives） */
+    _matches: Map<string, MatchResult>;
+    [productName: string]: string | number | undefined | Map<string, MatchResult>;
 }
 
 interface MultiVehicleViewProps {
@@ -121,14 +124,20 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 const results: OrganizedRow[] = fields.map((targetField, idx) => {
                     const row: OrganizedRow = {
                         key: `${idx}`,
-                        targetField
+                        targetField,
+                        _matches: new Map(),
                     };
-                    
+
                     for (const vehicle of selectedVehicles) {
-                         const matchResult = findBestMatch(targetField, vehicle.candidates, 0.5);
-                         
-                         if (matchResult.matchedParam) {
-                             row[vehicle.name] = matchResult.matchedParam.value;
+                         const matchResult = findBestMatch(targetField, vehicle.candidates, 0.3);
+                         row._matches.set(vehicle.name, matchResult);
+
+                         // 精确/别名匹配：自动填入值
+                         // 模糊匹配：不自动填入，由用户在下拉框中手动选择
+                         if (matchResult.matchType === 'exact' ||
+                             matchResult.matchType === 'normalized' ||
+                             matchResult.matchType === 'alias') {
+                             row[vehicle.name] = matchResult.matchedParam?.value;
                          } else {
                              row[vehicle.name] = undefined;
                          }
@@ -155,7 +164,17 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         const rows = organizedData.map(row => {
             return [
                 row.targetField,
-                ...selectedVehicles.map(v => row[v.name] || '')
+                ...selectedVehicles.map(v => {
+                    const val = row[v.name];
+                    // 如果是用户手动选择的（string/number），直接返回
+                    if (val !== undefined && val !== null) return val;
+                    // 否则尝试从精确匹配结果中获取
+                    const mr = row._matches?.get(v.name);
+                    if (mr && mr.matchType !== 'fuzzy' && mr.matchType !== 'none' && mr.matchedParam) {
+                        return mr.matchedParam.value;
+                    }
+                    return '';
+                })
             ];
         });
 
@@ -193,9 +212,60 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
             title: v.name,
             dataIndex: v.name,
             key: v.name,
-            width: 150,
+            width: 200,
             render: (text: string | number | undefined, record: OrganizedRow) => {
+                const matchResult = record._matches?.get(v.name);
                 const sourceFileName = assetSourceByProduct.get(v.name);
+
+                // 模糊匹配 → 下拉选择框，不自动填入
+                if (matchResult?.matchType === 'fuzzy') {
+                    const fuzzyOptions: { value: string; label: string }[] = [];
+                    // 最优匹配也加入选项
+                    if (matchResult.matchedParam) {
+                        fuzzyOptions.push({
+                            value: String(matchResult.matchedParam.value),
+                            label: `⭐ ${matchResult.matchedParam.name} = ${matchResult.matchedParam.value}`,
+                        });
+                    }
+                    (matchResult.alternatives || []).forEach(alt => {
+                        fuzzyOptions.push({
+                            value: String(alt.value),
+                            label: `${alt.name} = ${alt.value}`,
+                        });
+                    });
+                    return (
+                        <Select
+                            size="small"
+                            style={{ width: '100%' }}
+                            placeholder="请选择匹配字段…"
+                            allowClear
+                            value={text !== undefined ? String(text) : undefined}
+                            onChange={val => {
+                                setOrganizedData(prev =>
+                                    prev.map(row =>
+                                        row.key === record.key
+                                            ? { ...row, [v.name]: val || undefined }
+                                            : row
+                                    )
+                                );
+                            }}
+                            options={fuzzyOptions.length > 0 ? fuzzyOptions : undefined}
+                            notFoundContent="无相似字段"
+                        />
+                    );
+                }
+
+                // 精确/别名匹配 → 值 + 绿色标签
+                if (matchResult && matchResult.matchType !== 'none' && text !== undefined) {
+                    return (
+                        <span>
+                            <Tag color="green" style={{ marginRight: 4, fontSize: 10, lineHeight: '16px' }}>精确</Tag>
+                            {text}
+                        </span>
+                    );
+                }
+
+                // 无匹配
                 if (!text) {
                     return sourceFileName ? (
                         <RepairableValue

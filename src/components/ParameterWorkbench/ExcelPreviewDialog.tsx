@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Modal, Tabs, InputNumber, Select, Button, Tag, Tooltip, message } from 'antd';
-import { CheckOutlined, ReloadOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CheckOutlined, ReloadOutlined, InfoCircleOutlined, StopOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import type { SheetPreview, SheetParseConfig, ColumnRole } from '../../types';
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
     fileName: string;
     onConfirm: (configs: SheetParseConfig[]) => void;
     onCancel: () => void;
+    preselectedDisabledSheets?: Set<string>;
 }
 
 interface ColumnConfig {
@@ -26,7 +27,7 @@ const ROLE_OPTIONS: { value: ColumnRole; label: string; color: string }[] = [
 const roleColor = (role: ColumnRole) => ROLE_OPTIONS.find(r => r.value === role)?.color || 'default';
 const roleLabel = (role: ColumnRole) => ROLE_OPTIONS.find(r => r.value === role)?.label || '跳过';
 
-const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfirm, onCancel }) => {
+const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfirm, onCancel, preselectedDisabledSheets }) => {
     const [activeSheet, setActiveSheet] = useState(0);
     const [sheetConfigs, setSheetConfigs] = useState<Map<string, {
         enabled: boolean;
@@ -135,10 +136,15 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         if (previews.length > 0) {
             const missingSheets = previews.filter(p => !sheetConfigs.has(p.sheetName));
             if (missingSheets.length > 0) {
-                missingSheets.forEach(p => autoDetect(p));
+                missingSheets.forEach(p => {
+                    autoDetect(p);
+                    if (preselectedDisabledSheets?.has(p.sheetName)) {
+                        setSheetEnabled(p.sheetName, false);
+                    }
+                });
             }
         }
-    }, [previews, sheetConfigs, autoDetect]);
+    }, [previews, sheetConfigs, autoDetect, preselectedDisabledSheets]);
 
     // 设置列角色
     const setColumnRole = (colIdx: number, role: ColumnRole) => {
@@ -309,15 +315,36 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                 activeKey={String(activeSheet)}
                 onChange={key => setActiveSheet(Number(key))}
                 size="small"
-                items={previews.map((p, idx) => ({
-                    key: String(idx),
-                    label: (
-                        <span>
-                            {p.sheetName} ({p.totalRows}行)
-                            {!getConfig(p).enabled && <Tag style={{ marginInlineStart: 6 }} color="default">已跳过</Tag>}
-                        </span>
-                    ),
-                }))}
+                tabBarExtraContent={
+                    <Tag color="blue" style={{ marginRight: 8 }}>
+                        已启用 {enabledSheetCount}/{previews.length} 个 Sheet
+                    </Tag>
+                }
+                items={previews.map((p, idx) => {
+                    const cfg = getConfig(p);
+                    return {
+                        key: String(idx),
+                        label: (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{
+                                    color: cfg.enabled ? 'inherit' : '#bbb',
+                                    textDecoration: cfg.enabled ? 'none' : 'line-through',
+                                }}>
+                                    {p.sheetName} ({p.totalRows}行)
+                                </span>
+                                <Tooltip title={cfg.enabled ? '跳过此 Sheet' : '启用此 Sheet'}>
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={cfg.enabled ? <StopOutlined /> : <PlayCircleOutlined />}
+                                        onClick={(e) => { e.stopPropagation(); setSheetEnabled(p.sheetName, !cfg.enabled); }}
+                                        style={{ padding: 0, minWidth: 20, height: 20, color: cfg.enabled ? '#ff4d4f' : '#52c41a' }}
+                                    />
+                                </Tooltip>
+                            </span>
+                        ),
+                    };
+                })}
             />
 
             {currentPreview && config && (
@@ -328,8 +355,14 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                             <Tag color={config.enabled ? 'blue' : 'default'}>
                                 {config.enabled ? '当前页参与解析' : '当前页已跳过'}
                             </Tag>
-                            <Button size="small" onClick={() => setSheetEnabled(currentPreview.sheetName, !config.enabled)}>
-                                {config.enabled ? '跳过当前页' : '启用当前页'}
+                            <Button
+                                size="small"
+                                type={config.enabled ? 'dashed' : 'default'}
+                                danger={config.enabled}
+                                icon={config.enabled ? <StopOutlined /> : <PlayCircleOutlined />}
+                                onClick={() => setSheetEnabled(currentPreview.sheetName, !config.enabled)}
+                            >
+                                {config.enabled ? '跳过当前 Sheet' : '启用当前 Sheet'}
                             </Button>
                             <Button size="small" onClick={enableOnlyCurrentSheet}>仅解析当前页</Button>
                             <Button size="small" onClick={enableAllSheets}>全部启用</Button>
@@ -402,13 +435,13 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                             重新检测
                         </Button>
 
-                        <Tooltip title="点击列头的标签可切换列角色（参数名/分组/产品值/跳过）">
+                        <Tooltip title="点击列头下拉框可切换列角色（参数名/分组/产品值/跳过）。若需跳过整个 Sheet，请使用上方「跳过当前 Sheet」按钮或点击 Sheet 标签上的跳过图标。">
                             <InfoCircleOutlined style={{ color: '#999' }} />
                         </Tooltip>
                     </div>
 
                     {/* 预览表格 */}
-                    <div style={{ overflowX: 'auto', border: '1px solid #e8e8e8', borderRadius: 6, opacity: config.enabled ? 1 : 0.55 }}>
+                    <div style={{ overflowX: 'auto', border: '1px solid #e8e8e8', borderRadius: 6, opacity: config.enabled ? 1 : 0.55, filter: config.enabled ? 'none' : 'grayscale(30%)' }}>
                         <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%', minWidth: colCount * 100 }}>
                             {/* 列角色标签行 */}
                             <thead>
