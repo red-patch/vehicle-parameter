@@ -101,7 +101,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             children: (
                 <div
                     ref={poolContainerRef}
-                    className="flex xl:h-[calc(100vh-190px)] h-[calc(100vh-160px)] bg-slate-200/50 border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm backdrop-blur-sm"
+                    className="flex flex-1 h-full min-h-0 bg-slate-200/50 border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm backdrop-blur-sm"
                 >
                     <div
                         className="flex-shrink-0 bg-slate-50/40"
@@ -190,7 +190,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             ) : (
                 // 顶层 tab 切换时保持所有子 tab 内容不销毁
                 items.map(item => (
-                    <div key={item.key} style={{ display: item.key === activeTab ? 'block' : 'none' }}>
+                    <div key={item.key} className="h-full" style={{ display: item.key === activeTab ? undefined : 'none' }}>
                         {item.children}
                     </div>
                 ))
