@@ -178,7 +178,6 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
                         onChange={(key) => setActiveTab(key as WorkbenchTabKey)}
                         items={items}
                         className="parameter-workbench-tabs"
-                        destroyOnHidden
                     />
                 </>
             ) : (
