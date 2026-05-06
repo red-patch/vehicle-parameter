@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined } from '@ant-design/icons';
-import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
+import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover, Select } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -85,6 +85,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [tagEditingAsset, setTagEditingAsset] = useState<string | null>(null);
     const [newTagInput, setNewTagInput] = useState('');
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
+    const [selectedAnnounceNos, setSelectedAnnounceNos] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (!draggingWorkspace) return;
@@ -289,6 +290,13 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         return (Object.values(ASSET_SOURCE_META)).filter(source => present.has(source.filter));
     }, [assets, assetTags]);
 
+    // 从所有资产中提取可用的公告号列表
+    const availableAnnounceNos = useMemo(() => {
+        const nos = new Set<string>();
+        assets.forEach(a => a.announceNos?.forEach(n => nos.add(n)));
+        return Array.from(nos).sort();
+    }, [assets]);
+
     // 按关键字 + 标签过滤资产列表
     const filteredAssets = useMemo(() => {
         let result = assets;
@@ -321,8 +329,16 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
             });
         }
 
+        // 公告号过滤（交集：资产需包含所有选中的公告号）
+        if (selectedAnnounceNos.size > 0) {
+            result = result.filter(a => {
+                if (!a.announceNos || a.announceNos.length === 0) return false;
+                return Array.from(selectedAnnounceNos).every(no => a.announceNos!.includes(no));
+            });
+        }
+
         return result;
-    }, [assets, searchKeyword, assetTags, sourceFilter, selectedVehicleFamilyTag, selectedManufacturerTag, selectedOtherFilterTags, assetTagGroupsVersion]);
+    }, [assets, searchKeyword, assetTags, sourceFilter, selectedVehicleFamilyTag, selectedManufacturerTag, selectedOtherFilterTags, selectedAnnounceNos, assetTagGroupsVersion]);
 
     return (
         <div ref={panelRef} className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
@@ -408,6 +424,35 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                     onClick={() => setSourceFilter('all')}
                                 >
                                     取消来源筛选
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* 公告号多选筛选 */}
+                {availableAnnounceNos.length > 0 && (
+                    <div className="mb-2 px-1">
+                        <div className="flex items-center gap-2 text-[11px]">
+                            <span className="text-slate-400 font-medium flex-shrink-0">公告号</span>
+                            <Select
+                                mode="multiple"
+                                size="small"
+                                style={{ flex: 1, minWidth: 0 }}
+                                placeholder="选择公告号筛选..."
+                                value={Array.from(selectedAnnounceNos)}
+                                onChange={vals => setSelectedAnnounceNos(new Set(vals))}
+                                options={availableAnnounceNos.map(no => ({ value: no, label: no }))}
+                                allowClear
+                                maxTagCount={2}
+                                className="rounded-lg"
+                            />
+                            {selectedAnnounceNos.size > 0 && (
+                                <span
+                                    className="text-[10px] text-blue-500 cursor-pointer hover:underline flex-shrink-0"
+                                    onClick={() => setSelectedAnnounceNos(new Set())}
+                                >
+                                    清除
                                 </span>
                             )}
                         </div>
@@ -501,10 +546,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                             return;
                                         }
                                         toActivate.forEach(a => addActiveAsset(a.fileName, a.productName));
-                                        message.success(`已批量激活 ${toActivate.length} 个资产到车型大纲`);
+                                        message.success(`已将 ${toActivate.length} 个资产新增到待分析工作区`);
                                     }}
                                 >
-                                    ⚡ 批量激活 ({filteredAssets.filter(a => !selectedProductNames.includes(buildVehicleInstanceKey('asset', a.fileName, a.productName))).length})
+                                    ⚡ 将筛选结果新增到工作区 ({filteredAssets.filter(a => !selectedProductNames.includes(buildVehicleInstanceKey('asset', a.fileName, a.productName))).length})
                                 </span>
                             </div>
                         )}
