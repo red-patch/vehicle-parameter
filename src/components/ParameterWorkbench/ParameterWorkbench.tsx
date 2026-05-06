@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import DataSourcePanel from './DataSourcePanel';
@@ -61,10 +61,17 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         setActiveTab(repairModuleTabMap[sourceModule] as WorkbenchTabKey);
     };
 
-    const sidebarWidth = useMemo(() => {
-        const containerWidth = poolContainerRef.current?.clientWidth || 1400;
-        return clampPoolSidebarWidth(poolSidebarWidth, containerWidth);
-    }, [poolSidebarWidth, activeTab]);
+    const [sidebarWidth, setSidebarWidth] = useState(() =>
+        clampPoolSidebarWidth(poolSidebarWidth, 1400)
+    );
+
+    // DOM 更新后重新计算宽度，避免 display:none 时 clientWidth=0 导致误缩
+    useLayoutEffect(() => {
+        const containerWidth = poolContainerRef.current?.clientWidth;
+        if (containerWidth && containerWidth > 0) {
+            setSidebarWidth(clampPoolSidebarWidth(poolSidebarWidth, containerWidth));
+        }
+    }, [activeTab, poolSidebarWidth]);
 
     useEffect(() => {
         if (activeTab !== 'pool' || !draggingSidebar) return;
