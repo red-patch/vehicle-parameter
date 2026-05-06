@@ -84,6 +84,8 @@ export interface AssetFileInfo {
     updatedAt: string | null;
     totalParams: number;
     filledParams: number;
+    /** 公告号列表（从参数中提取的产品号/产品ID等） */
+    announceNos: string[];
 }
 
 /**
@@ -104,13 +106,23 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                     const parsed: AssetFileFormat = JSON.parse(content);
                     const params = parsed.parameters || [];
                     const filled = params.filter(p => p.value !== undefined && p.value !== null && String(p.value).trim() !== '').length;
-                    
+
+                    // 提取公告号：从参数中扫描产品号/产品ID等字段
+                    const ANNOUNCE_NAME_KEYS = ['产品号', '产品ID', '公告号', '公告产品号', '产品编号'];
+                    const announceNos = Array.from(new Set(
+                        params
+                            .filter(p => ANNOUNCE_NAME_KEYS.some(k => p.name === k || p.name?.includes(k)))
+                            .map(p => String(p.value ?? '').trim())
+                            .filter(Boolean)
+                    ));
+
                     return {
                         fileName,
                         productName: parsed.productName || fileName.replace(/\.json$/i, ''),
                         updatedAt: parsed.updatedAt || parsed.createdAt || null,
                         totalParams: params.length,
-                        filledParams: filled
+                        filledParams: filled,
+                        announceNos,
                     };
                 } catch (e) {
                     console.warn(`Failed to parse asset file ${fileName}`, e);
