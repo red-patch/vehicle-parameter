@@ -108,7 +108,7 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                     const filled = params.filter(p => p.value !== undefined && p.value !== null && String(p.value).trim() !== '').length;
 
                     // 提取公告号：从参数中扫描产品号/产品ID等字段
-                    const ANNOUNCE_NAME_KEYS = ['产品号', '产品ID', '公告号', '公告产品号', '产品编号'];
+                    const ANNOUNCE_NAME_KEYS = ['公告号', '产品号', '产品ID', '公告产品号', '产品编号', '车辆型号'];
                     const announceNos = Array.from(new Set(
                         params
                             .filter(p => ANNOUNCE_NAME_KEYS.some(k => p.name === k || p.name?.includes(k)))
