@@ -9,7 +9,7 @@ import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '.
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { clampPoolWorkspaceHeight } from '../../utils/poolLayout';
-import { getAssetDisplayName, validateAssetName, extractAnnounceNo, fixAssetName } from '../../utils/assetNaming';
+import { getAssetDisplayName, validateAssetName, fixAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
@@ -773,19 +773,31 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         icon={<CopyOutlined className="!text-[14px] text-slate-400 hover:text-blue-500" />}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            (async () => {
-                                                                if (!assetLibraryPath) { message.warning('未配置资产库路径'); return; }
-                                                                const sheetData = await loadAssetFile(assetLibraryPath, info.fileName);
-                                                                if (!sheetData) { message.warning('无法读取资产文件'); return; }
-                                                                const isAnnounceSource = getAssetSourceMeta(assetTags[info.fileName] || [])?.filter === 'announcement';
-                                                                const announceNo = extractAnnounceNo(sheetData.data, isAnnounceSource);
-                                                                if (announceNo) {
-                                                                    await navigator.clipboard.writeText(announceNo);
+                                                            const announceNos = info.announceNos;
+                                                            if (!announceNos || announceNos.length === 0) {
+                                                                message.info('未找到公告号');
+                                                                return;
+                                                            }
+                                                            const announceNo = announceNos[0];
+                                                            // 优先 Clipboard API，回退 execCommand
+                                                            if (navigator.clipboard?.writeText) {
+                                                                navigator.clipboard.writeText(announceNo).then(() => {
                                                                     message.success(`已复制公告号：${announceNo}`);
-                                                                } else {
-                                                                    message.info('未找到公告号');
-                                                                }
-                                                            })();
+                                                                }).catch(() => {
+                                                                    message.error('复制失败，请手动复制');
+                                                                });
+                                                            } else {
+                                                                // fallback
+                                                                const ta = document.createElement('textarea');
+                                                                ta.value = announceNo;
+                                                                ta.style.position = 'fixed';
+                                                                ta.style.opacity = '0';
+                                                                document.body.appendChild(ta);
+                                                                ta.select();
+                                                                try { document.execCommand('copy'); message.success(`已复制公告号：${announceNo}`); }
+                                                                catch { message.error('复制失败，请手动复制'); }
+                                                                finally { document.body.removeChild(ta); }
+                                                            }
                                                         }}
                                                         className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
                                                     />
