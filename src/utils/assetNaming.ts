@@ -1,3 +1,5 @@
+import type { VehicleParameter } from '../types';
+
 export const getAssetBaseName = (name: string) => name.trim().replace(/\.json$/iu, '');
 
 export const getAssetDisplayName = (fileName: string, productName: string) => {
@@ -12,8 +14,6 @@ export const toAssetFileName = (baseName: string) => `${getAssetBaseName(baseNam
 // Pattern: {车型}-{年款}-{电池厂商}{电量}-{类型}-{公告号}
 // 示例: F3E-25款-宁德55kWh-厢货-ZB5037XXYBEVGS1
 // ============================================================
-
-import type { VehicleParameter } from '../types';
 
 export const ASSET_NAME_REGEX =
   /^([A-Za-z0-9]+)-(\d{2}款)-([一-龥A-Za-z]+\d+(?:\.\d+)?kWh)-([一-龥]+)-([A-Z0-9]+)$/;
