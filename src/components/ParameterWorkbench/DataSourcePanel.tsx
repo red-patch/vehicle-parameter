@@ -381,11 +381,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
             });
         }
 
-        // 公告号过滤（交集：资产需包含所有匹配到的公告号）
+        // 公告号过滤（并集：资产包含任意一个匹配到的公告号即显示）
         if (announceNoMatchResult.matched.length > 0) {
             result = result.filter(a => {
                 if (!a.announceNos || a.announceNos.length === 0) return false;
-                return announceNoMatchResult.matched.every(no => a.announceNos!.includes(no));
+                return announceNoMatchResult.matched.some(no => a.announceNos!.includes(no));
             });
         }
 
@@ -513,7 +513,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             <div className="flex items-center gap-2 text-[10px] flex-wrap">
                                 {announceNoMatchResult.matched.length > 0 && (
                                     <span className="text-emerald-600">
-                                        匹配 <b>{announceNoMatchResult.matched.length}</b> 个
+                                        公告号匹配 <b>{announceNoMatchResult.matched.length}</b> 个，筛选出 <b>{filteredAssets.length}</b> 个资产
                                     </span>
                                 )}
                                 {announceNoMatchResult.unmatched.length > 0 && (
