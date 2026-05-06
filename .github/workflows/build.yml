@@ -1,4 +1,4 @@
-name: Build Windows
+name: Build
 
 on:
   workflow_dispatch: # 手动触发
@@ -28,7 +28,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Build Tauri app (Windows)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,6 +53,56 @@ jobs:
             - 修复括号内逗号被误拆分为多行字段的问题
 
             ---
-            下载 `.msi` 安装程序或 `.exe` 可执行文件。
+            下载 `.msi` 安装程序或 `.exe` 可执行文件（Windows），或 `.dmg` 磁盘映像（macOS）。
+          releaseDraft: false
+          prerelease: false
+
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri app (macOS)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Vehicle Parameter Tool ${{ github.ref_name }}"
+          releaseBody: |
+            ## Vehicle Parameter Tool ${{ github.ref_name }}
+
+            ### Excel 导入一键跳过 Sheet
+            - Sheet 标签上新增跳过/启用图标，无需进入配置即可一键跳过
+            - 控制栏跳过按钮增强为 danger 样式 + 图标
+            - Tabs 右侧新增「已启用 X/Y 个 Sheet」计数
+            - 新增 SheetPickerModal：多 Sheet 工作簿先选再预览
+
+            ### 多车型字段精准匹配
+            - 精确/别名匹配：自动填入 + 绿色「精确」标签
+            - 模糊匹配：不自动填入，改为下拉选择框手动选
+            - 默认阈值 0.5→0.3，匹配更精确
+
+            ### Bug 修复
+            - 修复括号内逗号被误拆分为多行字段的问题
+
+            ---
+            下载 `.msi` 安装程序或 `.exe` 可执行文件（Windows），或 `.dmg` 磁盘映像（macOS）。
           releaseDraft: false
           prerelease: false
