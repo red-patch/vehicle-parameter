@@ -310,8 +310,27 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         return (Object.values(ASSET_SOURCE_META)).filter(source => present.has(source.filter));
     }, [assets, assetTags]);
 
+    // 按来源计算每个资产的有效公告号
+    // 公告数据源 → 仅用车辆型号；其他源 → 用参数中的公告字段
+    const effectiveAnnounceNos = useMemo(() => {
+        return new Map(assets.map(a => {
+            const sourceMeta = getAssetSourceMeta(assetTags[a.fileName] || []);
+            if (sourceMeta?.filter === 'announcement' && a.vehicleModel) {
+                return [a.fileName, [a.vehicleModel]] as [string, string[]];
+            }
+            return [a.fileName, a.announceNos] as [string, string[]];
+        }));
+    }, [assets, assetTags]);
+
     // 从所有资产中提取可用的公告号列表
     const availableAnnounceNos = useMemo(() => {
+        const nos = new Set<string>();
+        assets.forEach(a => {
+            const effNos = effectiveAnnounceNos.get(a.fileName) || [];
+            effNos.forEach(n => nos.add(n));
+        });
+        return Array.from(nos).sort();
+    }, [assets, effectiveAnnounceNos]);
         const nos = new Set<string>();
         assets.forEach(a => a.announceNos?.forEach(n => nos.add(n)));
         return Array.from(nos).sort();
@@ -343,7 +362,8 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const namingCompliance = useMemo(() => {
         const nonCompliant: { name: string; errors: string[] }[] = [];
         assets.forEach(a => {
-            const v = validateAssetName(a.fileName, a.announceNos);
+            const effNos = effectiveAnnounceNos.get(a.fileName) || [];
+            const v = validateAssetName(a.fileName, effNos);
             if (!v.valid) nonCompliant.push({ name: a.fileName, errors: v.errors });
         });
         return { total: assets.length, nonCompliant };
@@ -384,8 +404,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         // 公告号过滤（并集：资产包含任意一个匹配到的公告号即显示）
         if (announceNoMatchResult.matched.length > 0) {
             result = result.filter(a => {
-                if (!a.announceNos || a.announceNos.length === 0) return false;
-                return announceNoMatchResult.matched.some(no => a.announceNos!.includes(no));
+                const effNos = effectiveAnnounceNos.get(a.fileName) || [];
+                if (effNos.length === 0) return false;
+                return announceNoMatchResult.matched.some(no => effNos.includes(no));
             });
         }
 
@@ -710,7 +731,8 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         </span>
                                                     </Tooltip>
                                                     {(() => {
-                                                        const v = validateAssetName(info.fileName, info.announceNos);
+                                                        const effNos = effectiveAnnounceNos.get(info.fileName) || [];
+                                                        const v = validateAssetName(info.fileName, effNos);
                                                         const allMsgs = [...v.errors, ...v.suggestions.map(s => `💡 ${s}`)];
                                                         if (!v.valid) {
                                                             return (
@@ -739,9 +761,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         return null;
                                                     })()}
                                                     {(() => {
-                                                        const v = validateAssetName(info.fileName, info.announceNos);
-                                                        if (v.valid || !info.announceNos?.length) return null;
-                                                        const fixName = fixAssetName(info.fileName, info.announceNos[0]);
+                                                        const effNos = effectiveAnnounceNos.get(info.fileName) || [];
+                                                        const v = validateAssetName(info.fileName, effNos);
+                                                        if (v.valid || effNos.length === 0) return null;
+                                                        const fixName = fixAssetName(info.fileName, effNos[0]);
                                                         return (
                                                             <Tooltip title={`修复为：${fixName}`}>
                                                                 <Button
@@ -788,12 +811,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         icon={<CopyOutlined className="!text-[14px] text-slate-400 hover:text-blue-500" />}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            const announceNos = info.announceNos;
-                                                            if (!announceNos || announceNos.length === 0) {
+                                                            const effNos = effectiveAnnounceNos.get(info.fileName) || [];
+                                                            if (effNos.length === 0) {
                                                                 message.info('未找到公告号');
                                                                 return;
                                                             }
-                                                            const announceNo = announceNos[0];
+                                                            const announceNo = effNos[0];
                                                             // 优先 Clipboard API，回退 execCommand
                                                             if (navigator.clipboard?.writeText) {
                                                                 navigator.clipboard.writeText(announceNo).then(() => {

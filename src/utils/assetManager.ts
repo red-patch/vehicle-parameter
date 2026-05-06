@@ -84,8 +84,10 @@ export interface AssetFileInfo {
     updatedAt: string | null;
     totalParams: number;
     filledParams: number;
-    /** 公告号列表（从参数中提取的产品号/产品ID等） */
+    /** 公告号列表（从参数中提取的产品号/产品ID/公告号等） */
     announceNos: string[];
+    /** 车辆型号（公告数据源以此为公告号） */
+    vehicleModel: string | null;
 }
 
 /**
@@ -108,13 +110,17 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                     const filled = params.filter(p => p.value !== undefined && p.value !== null && String(p.value).trim() !== '').length;
 
                     // 提取公告号：从参数中扫描产品号/产品ID等字段
-                    const ANNOUNCE_NAME_KEYS = ['公告号', '产品号', '产品ID', '公告产品号', '产品编号', '车辆型号'];
+                    const ANNOUNCE_NAME_KEYS = ['公告号', '产品号', '产品ID', '公告产品号', '产品编号'];
                     const announceNos = Array.from(new Set(
                         params
                             .filter(p => ANNOUNCE_NAME_KEYS.some(k => p.name === k || p.name?.includes(k)))
                             .map(p => String(p.value ?? '').trim())
                             .filter(Boolean)
                     ));
+
+                    // 公告数据源的公告号 = 车辆型号
+                    const vehicleModelParam = params.find(p => p.name === '车辆型号');
+                    const vehicleModel = vehicleModelParam?.value ? String(vehicleModelParam.value).trim() : null;
 
                     return {
                         fileName,
@@ -123,6 +129,7 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                         totalParams: params.length,
                         filledParams: filled,
                         announceNos,
+                        vehicleModel,
                     };
                 } catch (e) {
                     console.warn(`Failed to parse asset file ${fileName}`, e);
