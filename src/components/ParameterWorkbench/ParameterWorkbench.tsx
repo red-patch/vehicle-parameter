@@ -181,7 +181,12 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
                     />
                 </>
             ) : (
-                items.find((item) => item.key === activeTab)?.children
+                // 顶层 tab 切换时保持所有子 tab 内容不销毁
+                items.map(item => (
+                    <div key={item.key} style={{ display: item.key === activeTab ? 'block' : 'none' }}>
+                        {item.children}
+                    </div>
+                ))
             )}
         </div>
     );
