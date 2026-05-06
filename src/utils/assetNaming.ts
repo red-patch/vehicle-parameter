@@ -138,3 +138,32 @@ export const checkAssetLibrary = (
   });
   return { compliant, nonCompliant };
 };
+
+/**
+ * 从参数列表中提取公告号
+ * - 公告数据来源 → 取「车辆型号」字段
+ * - 其他来源 → 取「整车公告号」或参数名包含「公告」的字段
+ */
+const ANNOUNCE_NAME_KEYS = ['整车公告号', '公告号', '产品号', '产品ID', '公告产品号', '产品编号'];
+
+export const extractAnnounceNo = (params: VehicleParameter[], isAnnouncementSource: boolean): string | null => {
+  if (params.length === 0) return null;
+
+  if (isAnnouncementSource) {
+    // 公告数据来源：优先取「车辆型号」
+    const modelParam = params.find(p => p.name === '车辆型号');
+    if (modelParam?.value) return String(modelParam.value).trim();
+  }
+
+  // 否则按公告相关字段查找
+  for (const key of ANNOUNCE_NAME_KEYS) {
+    const param = params.find(p => p.name === key || p.name?.includes(key));
+    if (param?.value) return String(param.value).trim();
+  }
+
+  // 兜底：扫描所有参数名包含「公告」的字段
+  const fallback = params.find(p => p.name?.includes('公告') && p.value);
+  if (fallback?.value) return String(fallback.value).trim();
+
+  return null;
+};

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined, CopyOutlined } from '@ant-design/icons';
 import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover, Select } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -9,7 +9,7 @@ import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '.
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { clampPoolWorkspaceHeight } from '../../utils/poolLayout';
-import { getAssetDisplayName, validateAssetName } from '../../utils/assetNaming';
+import { getAssetDisplayName, validateAssetName, extractAnnounceNo } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
@@ -695,9 +695,32 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         />
                                                     </Tooltip>
                                                 )}
+                                                <Tooltip title="复制公告号">
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<CopyOutlined className="!text-[14px] text-slate-400 hover:text-blue-500" />}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            (async () => {
+                                                                const sheetData = await loadAssetFile(assetLibraryPath, info.fileName);
+                                                                if (!sheetData) { message.warning('无法读取资产文件'); return; }
+                                                                const isAnnounceSource = getAssetSourceMeta(assetTags[info.fileName] || [])?.filter === 'announcement';
+                                                                const announceNo = extractAnnounceNo(sheetData.data, isAnnounceSource);
+                                                                if (announceNo) {
+                                                                    await navigator.clipboard.writeText(announceNo);
+                                                                    message.success(`已复制公告号：${announceNo}`);
+                                                                } else {
+                                                                    message.info('未找到公告号');
+                                                                }
+                                                            })();
+                                                        }}
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
+                                                    />
+                                                </Tooltip>
                                                 <Tooltip title="导出 CSV">
-                                                    <Button 
-                                                        type="text" 
+                                                    <Button
+                                                        type="text"
                                                         size="small"
                                                         icon={<DownloadOutlined className="!text-[14px] text-slate-400 hover:text-emerald-500" />}
                                                         onClick={(e) => { e.stopPropagation(); handleExportCsv(info); }}
