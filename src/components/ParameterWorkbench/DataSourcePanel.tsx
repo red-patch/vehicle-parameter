@@ -331,10 +331,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         });
         return Array.from(nos).sort();
     }, [assets, effectiveAnnounceNos]);
-        const nos = new Set<string>();
-        assets.forEach(a => a.announceNos?.forEach(n => nos.add(n)));
-        return Array.from(nos).sort();
-    }, [assets]);
 
     // 解析用户输入的公告号（支持逗号、换行、空格、tab 分隔）
     const parsedAnnounceNos = useMemo(() => {
