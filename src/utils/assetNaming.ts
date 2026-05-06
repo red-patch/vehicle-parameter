@@ -53,35 +53,39 @@ export const parseAssetName = (name: string): ParsedAssetName | null => {
   };
 };
 
-export const validateAssetName = (name: string): NameValidation => {
+export const validateAssetName = (name: string, announceNos?: string[]): NameValidation => {
   const clean = getAssetBaseName(name);
   const errors: string[] = [];
 
-  if (!clean.includes('-')) {
-    return { valid: false, errors: ['缺少 - 分隔符，规范格式：{车型}-{年款}-{电池}-{类型}-{公告号}'], parsed: null };
+  // 核心检查：名称是否包含公告号
+  if (announceNos && announceNos.length > 0) {
+    const hasAnnounceNo = announceNos.some(no => clean.includes(no));
+    if (!hasAnnounceNo) {
+      errors.push(`名称中未包含公告号，建议追加「-${announceNos[0]}」`);
+    }
   }
 
+  // 额外检查：是否符合完整5段式规范（非必须，仅提示）
   const parsed = parseAssetName(clean);
-  if (parsed) {
-    if (parsed.battery.length > 30) errors.push(`电池厂商名过长："${parsed.battery}"`);
-    if (parsed.vehicleType.length > 6) errors.push(`车辆类型过长："${parsed.vehicleType}"`);
-    return { valid: errors.length === 0, errors, parsed };
+  if (!parsed && clean.includes('-')) {
+    const parts = clean.split('-');
+    if (parts.length !== 5) {
+      errors.push(`建议采用规范格式：{车型}-{年款}-{电池}-{类型}-{公告号}（当前${parts.length}段）`);
+    }
   }
 
-  // 逐段诊断
-  const parts = clean.split('-');
-  if (parts.length < 5) {
-    errors.push(`段数不足（${parts.length}/5）：缺少 ${5 - parts.length} 段`);
-  } else if (parts.length > 5) {
-    errors.push(`段数过多（${parts.length}/5），检查多余分隔符`);
-  } else {
-    if (!/^[A-Za-z0-9]+$/.test(parts[0])) errors.push(`第1段「车型」应为英文+数字，当前："${parts[0]}"`);
-    if (!/^\d{2}款$/.test(parts[1])) errors.push(`第2段「年款」应为 25款/24款 等，当前："${parts[1]}"`);
-    if (!/^[一-龥A-Za-z]+\d+(\.\d+)?kWh$/.test(parts[2])) errors.push(`第3段「电池」应为厂商+电量，如宁德55kWh，当前："${parts[2]}"`);
-    if (!/^[一-龥]+$/.test(parts[3])) errors.push(`第4段「车辆类型」应为纯中文，当前："${parts[3]}"`);
-    if (!/^[A-Z0-9]+$/.test(parts[4])) errors.push(`第5段「公告号」应为大写字母+数字，当前："${parts[4]}"`);
-  }
-  return { valid: false, errors, parsed: null };
+  return {
+    valid: errors.length === 0,
+    errors,
+    parsed,
+  };
+};
+
+/** 一键修复：在当前名称末尾追加 -公告号 */
+export const fixAssetName = (currentName: string, announceNo: string): string => {
+  const clean = getAssetBaseName(currentName);
+  if (clean.includes(announceNo)) return currentName; // 已包含，无需修复
+  return `${clean}-${announceNo}.json`;
 };
 
 export const suggestAssetName = (

@@ -9,7 +9,7 @@ import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '.
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { clampPoolWorkspaceHeight } from '../../utils/poolLayout';
-import { getAssetDisplayName, validateAssetName, extractAnnounceNo } from '../../utils/assetNaming';
+import { getAssetDisplayName, validateAssetName, extractAnnounceNo, fixAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
@@ -143,6 +143,26 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const handleCancelRename = () => {
         setEditingAsset(null);
         setEditName('');
+    };
+
+    const handleQuickFix = async (info: AssetFileInfo, fixedName: string) => {
+        if (!assetLibraryPath) return;
+        const oldFileName = info.fileName;
+        try {
+            const result = await renameAssetIdentity(assetLibraryPath, oldFileName, fixedName.replace(/\.json$/i, ''));
+            if (result.success) {
+                if (activeAssets.includes(oldFileName)) {
+                    renameActiveAsset(oldFileName, result.fileName, result.productName);
+                }
+                message.success(`已修复：${result.fileName}`);
+                fetchAssets();
+                if (focusedFile === oldFileName) onFocusFile(result.fileName);
+            } else {
+                message.error('修复失败');
+            }
+        } catch {
+            message.error('操作异常');
+        }
     };
 
     const handleConfirmFileRename = async (info: AssetFileInfo) => {
@@ -301,7 +321,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const namingCompliance = useMemo(() => {
         const nonCompliant: { name: string; errors: string[] }[] = [];
         assets.forEach(a => {
-            const v = validateAssetName(a.fileName);
+            const v = validateAssetName(a.fileName, a.announceNos);
             if (!v.valid) nonCompliant.push({ name: a.fileName, errors: v.errors });
         });
         return { total: assets.length, nonCompliant };
@@ -407,8 +427,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
                             <ExclamationCircleOutlined className="text-[13px] flex-shrink-0" />
                             <span>
-                                <b>{namingCompliance.nonCompliant.length}</b>/{namingCompliance.total} 个资产命名不规范，
-                                规范格式：<code className="text-[10px] bg-amber-100 px-1 rounded">车型-年款-电池-类型-公告号</code>
+                                <b>{namingCompliance.nonCompliant.length}</b>/{namingCompliance.total} 个资产命名未包含公告号，点击 <CheckOutlined className="text-[11px] text-amber-500" /> 一键修复
                             </span>
                         </div>
                     </div>
@@ -658,7 +677,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         </span>
                                                     </Tooltip>
                                                     {(() => {
-                                                        const v = validateAssetName(info.fileName);
+                                                        const v = validateAssetName(info.fileName, info.announceNos);
                                                         if (v.valid) return null;
                                                         return (
                                                             <Tooltip
@@ -668,6 +687,25 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                                 <Tag color="orange" className="m-0 text-[10px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0">
                                                                     命名不规范
                                                                 </Tag>
+                                                            </Tooltip>
+                                                        );
+                                                    })()}
+                                                    {(() => {
+                                                        const v = validateAssetName(info.fileName, info.announceNos);
+                                                        if (v.valid || !info.announceNos?.length) return null;
+                                                        const fixName = fixAssetName(info.fileName, info.announceNos[0]);
+                                                        return (
+                                                            <Tooltip title={`修复为：${fixName}`}>
+                                                                <Button
+                                                                    type="text"
+                                                                    size="small"
+                                                                    icon={<CheckOutlined className="!text-[12px] text-amber-500 hover:text-green-600" />}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleQuickFix(info, fixName);
+                                                                    }}
+                                                                    className="w-5 h-5 p-0 min-w-0 flex items-center justify-center rounded hover:bg-amber-50 flex-shrink-0"
+                                                                />
                                                             </Tooltip>
                                                         );
                                                     })()}
