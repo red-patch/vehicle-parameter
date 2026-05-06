@@ -37,6 +37,8 @@ export interface ParsedAssetName {
 export interface NameValidation {
   valid: boolean;
   errors: string[];
+  /** 格式建议（不影响 valid 判定） */
+  suggestions: string[];
   parsed: ParsedAssetName | null;
 }
 
@@ -56,8 +58,9 @@ export const parseAssetName = (name: string): ParsedAssetName | null => {
 export const validateAssetName = (name: string, announceNos?: string[]): NameValidation => {
   const clean = getAssetBaseName(name);
   const errors: string[] = [];
+  const suggestions: string[] = [];
 
-  // 核心检查：名称是否包含公告号
+  // 核心检查：名称是否包含公告号（决定 valid）
   if (announceNos && announceNos.length > 0) {
     const hasAnnounceNo = announceNos.some(no => clean.includes(no));
     if (!hasAnnounceNo) {
@@ -65,18 +68,19 @@ export const validateAssetName = (name: string, announceNos?: string[]): NameVal
     }
   }
 
-  // 额外检查：是否符合完整5段式规范（非必须，仅提示）
+  // 格式建议（不影响 valid）：是否接近5段式规范
   const parsed = parseAssetName(clean);
   if (!parsed && clean.includes('-')) {
     const parts = clean.split('-');
     if (parts.length !== 5) {
-      errors.push(`建议采用规范格式：{车型}-{年款}-{电池}-{类型}-{公告号}（当前${parts.length}段）`);
+      suggestions.push(`推荐格式：{车型}-{年款}-{电池}-{类型}-{公告号}（当前${parts.length}段）`);
     }
   }
 
   return {
     valid: errors.length === 0,
     errors,
+    suggestions,
     parsed,
   };
 };

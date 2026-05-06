@@ -711,17 +711,32 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                     </Tooltip>
                                                     {(() => {
                                                         const v = validateAssetName(info.fileName, info.announceNos);
-                                                        if (v.valid) return null;
-                                                        return (
-                                                            <Tooltip
-                                                                title={v.errors.map((e, i) => <div key={i}>• {e}</div>)}
-                                                                overlayStyle={{ maxWidth: 360 }}
-                                                            >
-                                                                <Tag color="orange" className="m-0 text-[10px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0">
-                                                                    命名不规范
-                                                                </Tag>
-                                                            </Tooltip>
-                                                        );
+                                                        const allMsgs = [...v.errors, ...v.suggestions.map(s => `💡 ${s}`)];
+                                                        if (!v.valid) {
+                                                            return (
+                                                                <Tooltip
+                                                                    title={allMsgs.map((m, i) => <div key={i}>• {m}</div>)}
+                                                                    overlayStyle={{ maxWidth: 360 }}
+                                                                >
+                                                                    <Tag color="orange" className="m-0 text-[10px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0">
+                                                                        命名不规范
+                                                                    </Tag>
+                                                                </Tooltip>
+                                                            );
+                                                        }
+                                                        if (v.suggestions.length > 0) {
+                                                            return (
+                                                                <Tooltip
+                                                                    title={v.suggestions.map((s, i) => <div key={i}>💡 {s}</div>)}
+                                                                    overlayStyle={{ maxWidth: 360 }}
+                                                                >
+                                                                    <Tag color="blue" className="m-0 text-[10px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0">
+                                                                        命名建议
+                                                                    </Tag>
+                                                                </Tooltip>
+                                                            );
+                                                        }
+                                                        return null;
                                                     })()}
                                                     {(() => {
                                                         const v = validateAssetName(info.fileName, info.announceNos);
