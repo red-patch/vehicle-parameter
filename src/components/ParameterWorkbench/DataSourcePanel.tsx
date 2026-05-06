@@ -85,7 +85,29 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [tagEditingAsset, setTagEditingAsset] = useState<string | null>(null);
     const [newTagInput, setNewTagInput] = useState('');
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
-    const [selectedAnnounceNos, setSelectedAnnounceNos] = useState<Set<string>>(new Set());
+    const [announceNoInput, setAnnounceNoInput] = useState('');
+
+    // 解析用户输入的公告号（支持逗号、换行、空格、tab 分隔）
+    const parsedAnnounceNos = useMemo(() => {
+        if (!announceNoInput.trim()) return [];
+        return announceNoInput
+            .split(/[\s,，\n\t]+/)
+            .map(s => s.trim().toUpperCase())
+            .filter(Boolean);
+    }, [announceNoInput]);
+
+    // 匹配/未匹配分类
+    const announceNoMatchResult = useMemo(() => {
+        if (parsedAnnounceNos.length === 0) return { matched: [] as string[], unmatched: [] as string[] };
+        const matched: string[] = [];
+        const unmatched: string[] = [];
+        const allNos = new Set(availableAnnounceNos);
+        parsedAnnounceNos.forEach(no => {
+            if (allNos.has(no)) matched.push(no);
+            else unmatched.push(no);
+        });
+        return { matched, unmatched };
+    }, [parsedAnnounceNos, availableAnnounceNos]);
 
     useEffect(() => {
         if (!draggingWorkspace) return;
@@ -359,16 +381,16 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
             });
         }
 
-        // 公告号过滤（交集：资产需包含所有选中的公告号）
-        if (selectedAnnounceNos.size > 0) {
+        // 公告号过滤（交集：资产需包含所有匹配到的公告号）
+        if (announceNoMatchResult.matched.length > 0) {
             result = result.filter(a => {
                 if (!a.announceNos || a.announceNos.length === 0) return false;
-                return Array.from(selectedAnnounceNos).every(no => a.announceNos!.includes(no));
+                return announceNoMatchResult.matched.every(no => a.announceNos!.includes(no));
             });
         }
 
         return result;
-    }, [assets, searchKeyword, assetTags, sourceFilter, selectedVehicleFamilyTag, selectedManufacturerTag, selectedOtherFilterTags, selectedAnnounceNos, assetTagGroupsVersion]);
+    }, [assets, searchKeyword, assetTags, sourceFilter, selectedVehicleFamilyTag, selectedManufacturerTag, selectedOtherFilterTags, announceNoMatchResult, assetTagGroupsVersion]);
 
     return (
         <div ref={panelRef} className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
@@ -472,32 +494,43 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                     </div>
                 )}
 
-                {/* 公告号多选筛选 */}
+                {/* 公告号输入筛选 */}
                 {availableAnnounceNos.length > 0 && (
-                    <div className="mb-2 px-1">
-                        <div className="flex items-center gap-2 text-[11px]">
-                            <span className="text-slate-400 font-medium flex-shrink-0">公告号</span>
-                            <Select
-                                mode="multiple"
+                    <div className="mb-2 px-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-slate-400 font-medium flex-shrink-0">公告号</span>
+                            <Input.TextArea
                                 size="small"
-                                style={{ flex: 1, minWidth: 0 }}
-                                placeholder="选择公告号筛选..."
-                                value={Array.from(selectedAnnounceNos)}
-                                onChange={vals => setSelectedAnnounceNos(new Set(vals))}
-                                options={availableAnnounceNos.map(no => ({ value: no, label: no }))}
-                                allowClear
-                                maxTagCount={2}
-                                className="rounded-lg"
+                                rows={2}
+                                placeholder="粘贴公告号，支持逗号、换行、空格分隔..."
+                                value={announceNoInput}
+                                onChange={e => setAnnounceNoInput(e.target.value)}
+                                className="text-[12px] rounded-lg"
+                                style={{ resize: 'none' }}
                             />
-                            {selectedAnnounceNos.size > 0 && (
+                        </div>
+                        {announceNoInput.trim() && (
+                            <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                                {announceNoMatchResult.matched.length > 0 && (
+                                    <span className="text-emerald-600">
+                                        匹配 <b>{announceNoMatchResult.matched.length}</b> 个
+                                    </span>
+                                )}
+                                {announceNoMatchResult.unmatched.length > 0 && (
+                                    <Tooltip title={announceNoMatchResult.unmatched.join('、')}>
+                                        <span className="text-amber-500 cursor-help">
+                                            未匹配 <b>{announceNoMatchResult.unmatched.length}</b> 个
+                                        </span>
+                                    </Tooltip>
+                                )}
                                 <span
-                                    className="text-[10px] text-blue-500 cursor-pointer hover:underline flex-shrink-0"
-                                    onClick={() => setSelectedAnnounceNos(new Set())}
+                                    className="text-blue-500 cursor-pointer hover:underline"
+                                    onClick={() => setAnnounceNoInput('')}
                                 >
                                     清除
                                 </span>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
