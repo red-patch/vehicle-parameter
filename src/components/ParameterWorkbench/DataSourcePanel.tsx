@@ -9,7 +9,7 @@ import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '.
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { clampPoolWorkspaceHeight } from '../../utils/poolLayout';
-import { getAssetDisplayName } from '../../utils/assetNaming';
+import { getAssetDisplayName, validateAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
@@ -297,6 +297,16 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         return Array.from(nos).sort();
     }, [assets]);
 
+    // 命名合规统计
+    const namingCompliance = useMemo(() => {
+        const nonCompliant: { name: string; errors: string[] }[] = [];
+        assets.forEach(a => {
+            const v = validateAssetName(a.fileName);
+            if (!v.valid) nonCompliant.push({ name: a.fileName, errors: v.errors });
+        });
+        return { total: assets.length, nonCompliant };
+    }, [assets]);
+
     // 按关键字 + 标签过滤资产列表
     const filteredAssets = useMemo(() => {
         let result = assets;
@@ -390,6 +400,19 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         </Tooltip>
                     </div>
                 </div>
+
+                {/* 命名规范提醒 */}
+                {namingCompliance.nonCompliant.length > 0 && (
+                    <div className="mb-2 px-1">
+                        <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+                            <ExclamationCircleOutlined className="text-[13px] flex-shrink-0" />
+                            <span>
+                                <b>{namingCompliance.nonCompliant.length}</b>/{namingCompliance.total} 个资产命名不规范，
+                                规范格式：<code className="text-[10px] bg-amber-100 px-1 rounded">车型-年款-电池-类型-公告号</code>
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 {/* 搜索框 */}
                 {assets.length > 5 && (
@@ -634,6 +657,20 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                             {getAssetDisplayName(info.fileName, info.productName)}
                                                         </span>
                                                     </Tooltip>
+                                                    {(() => {
+                                                        const v = validateAssetName(info.fileName);
+                                                        if (v.valid) return null;
+                                                        return (
+                                                            <Tooltip
+                                                                title={v.errors.map((e, i) => <div key={i}>• {e}</div>)}
+                                                                overlayStyle={{ maxWidth: 360 }}
+                                                            >
+                                                                <Tag color="orange" className="m-0 text-[10px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0">
+                                                                    命名不规范
+                                                                </Tag>
+                                                            </Tooltip>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-1 group-hover:translate-x-0 ml-2">
