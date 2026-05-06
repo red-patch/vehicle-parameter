@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined, CopyOutlined } from '@ant-design/icons';
-import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover, Select } from 'antd';
+import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -86,28 +86,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [newTagInput, setNewTagInput] = useState('');
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
     const [announceNoInput, setAnnounceNoInput] = useState('');
-
-    // 解析用户输入的公告号（支持逗号、换行、空格、tab 分隔）
-    const parsedAnnounceNos = useMemo(() => {
-        if (!announceNoInput.trim()) return [];
-        return announceNoInput
-            .split(/[\s,，\n\t]+/)
-            .map(s => s.trim().toUpperCase())
-            .filter(Boolean);
-    }, [announceNoInput]);
-
-    // 匹配/未匹配分类
-    const announceNoMatchResult = useMemo(() => {
-        if (parsedAnnounceNos.length === 0) return { matched: [] as string[], unmatched: [] as string[] };
-        const matched: string[] = [];
-        const unmatched: string[] = [];
-        const allNos = new Set(availableAnnounceNos);
-        parsedAnnounceNos.forEach(no => {
-            if (allNos.has(no)) matched.push(no);
-            else unmatched.push(no);
-        });
-        return { matched, unmatched };
-    }, [parsedAnnounceNos, availableAnnounceNos]);
 
     useEffect(() => {
         if (!draggingWorkspace) return;
@@ -338,6 +316,28 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         assets.forEach(a => a.announceNos?.forEach(n => nos.add(n)));
         return Array.from(nos).sort();
     }, [assets]);
+
+    // 解析用户输入的公告号（支持逗号、换行、空格、tab 分隔）
+    const parsedAnnounceNos = useMemo(() => {
+        if (!announceNoInput.trim()) return [];
+        return announceNoInput
+            .split(/[\s,，\n\t]+/)
+            .map(s => s.trim().toUpperCase())
+            .filter(Boolean);
+    }, [announceNoInput]);
+
+    // 匹配/未匹配分类
+    const announceNoMatchResult = useMemo(() => {
+        if (parsedAnnounceNos.length === 0) return { matched: [] as string[], unmatched: [] as string[] };
+        const matched: string[] = [];
+        const unmatched: string[] = [];
+        const allNos = new Set(availableAnnounceNos);
+        parsedAnnounceNos.forEach(no => {
+            if (allNos.has(no)) matched.push(no);
+            else unmatched.push(no);
+        });
+        return { matched, unmatched };
+    }, [parsedAnnounceNos, availableAnnounceNos]);
 
     // 命名合规统计
     const namingCompliance = useMemo(() => {
@@ -774,6 +774,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             (async () => {
+                                                                if (!assetLibraryPath) { message.warning('未配置资产库路径'); return; }
                                                                 const sheetData = await loadAssetFile(assetLibraryPath, info.fileName);
                                                                 if (!sheetData) { message.warning('无法读取资产文件'); return; }
                                                                 const isAnnounceSource = getAssetSourceMeta(assetTags[info.fileName] || [])?.filter === 'announcement';
