@@ -29,7 +29,6 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     // 预览对话框状态
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewData, setPreviewData] = useState<SheetPreview[]>([]);
-    const [pendingWorkbook, setPendingWorkbook] = useState<XLSX.WorkBook | null>(null);
     const [pendingFileName, setPendingFileName] = useState('');
     const [assetDrawerVisible, setAssetDrawerVisible] = useState(false);
     const [sheetPickerOpen, setSheetPickerOpen] = useState(false);

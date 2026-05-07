@@ -4,7 +4,6 @@
  * 
  * 默认：size="small", pagination 开启 showSizeChanger + showTotal, scroll.x 自动 max-content
  */
-import React from 'react';
 import { Table } from 'antd';
 import type { TableProps } from 'antd';
 
