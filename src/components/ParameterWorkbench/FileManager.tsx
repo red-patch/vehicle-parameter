@@ -7,7 +7,6 @@ import { parseExcelAsync, parseWithConfigAsync } from '../../utils/excelParserAs
 import { EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
 import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
-import type * as XLSX from 'xlsx';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
 import SheetPickerModal from './SheetPickerModal';
@@ -75,7 +74,6 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
         try {
             const workbook = await readFileAsWorkbook(file);
             const previews = previewWorkbook(workbook);
-            setPendingWorkbook(workbook);
             setPendingFileName(file.name);
             setPreviewData(previews);
             // 多 sheet 时先弹出 sheet 选择器
@@ -105,7 +103,6 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
             addFile(data);
             message.success(`已添加: ${pendingFileName}（手动配置解析）`);
             setPreviewOpen(false);
-            setPendingWorkbook(null);
             setPendingFileName('');
         } catch (err) {
             message.error(`解析失败: ${(err as Error).message}`);
@@ -127,7 +124,6 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
 
     const handleSheetPickerCancel = () => {
         setSheetPickerOpen(false);
-        setPendingWorkbook(null);
         setPreselectedDisabledSheets(new Set());
     };
 
@@ -350,7 +346,6 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
                 onConfirm={handlePreviewConfirm}
                 onCancel={() => {
                     setPreviewOpen(false);
-                    setPendingWorkbook(null);
                     setPreselectedDisabledSheets(new Set());
                 }}
                 preselectedDisabledSheets={preselectedDisabledSheets}
