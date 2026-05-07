@@ -94,7 +94,6 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
         setSaveAsVisible(false);
         setPreviewOpen(false);
         setPreviewData([]);
-        setPendingWorkbook(null);
         setPendingFileName('');
     }, [setAssetUpgradeDraft]);
 
@@ -173,7 +172,6 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
     const openPreviewDialog = useCallback(async (file: File) => {
         try {
             const workbook = await readFileAsWorkbook(file);
-            setPendingWorkbook(workbook);
             setPendingFileName(file.name);
             pendingFileRef.current = file; // 缓存原始 File 供 Worker 重解析
             setPreviewData(previewWorkbook(workbook));
@@ -220,7 +218,6 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
             const parsed = await parseWithConfigAsync(file, configs);
             applyImportedSheet(parsed);
             setPreviewOpen(false);
-            setPendingWorkbook(null);
             setPendingFileName('');
             pendingFileRef.current = null;
             setPreviewData([]);
@@ -719,7 +716,6 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                 onConfirm={handlePreviewConfirm}
                 onCancel={() => {
                     setPreviewOpen(false);
-                    setPendingWorkbook(null);
                     setPendingFileName('');
                     setPreviewData([]);
                 }}
