@@ -80,9 +80,9 @@ export const getProductData = (
  * 根据已配置的 files 和 selected names，生成下拉组件所需的 productOptions
  */
 export const getProductOptions = (
-    uploadedFiles: SheetData[], 
+    _uploadedFiles: SheetData[], 
     selectedProductNames: string[],
-    assetFiles: SheetData[] = []
+    _assetFiles: SheetData[] = []
 ) => {
     const candidateKeys: string[] = [];
     const added = new Set<string>();
