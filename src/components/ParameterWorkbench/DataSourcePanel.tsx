@@ -48,6 +48,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         setPoolWorkspaceHeight,
         resetPoolLayout,
         assetTagGroupsVersion,
+        assetVersion,
     } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         uploadedFiles: state.uploadedFiles,
@@ -60,6 +61,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         setPoolWorkspaceHeight: state.setPoolWorkspaceHeight,
         resetPoolLayout: state.resetPoolLayout,
         assetTagGroupsVersion: state.assetTagGroupsVersion,
+        assetVersion: state.assetVersion,
     })));
     const panelRef = useRef<HTMLDivElement>(null);
     const [draggingWorkspace, setDraggingWorkspace] = useState(false);
@@ -133,7 +135,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
     useEffect(() => {
         fetchAssets();
-    }, [assetLibraryPath, uploadedFiles]); // Re-fetch if files uploaded
+    }, [assetLibraryPath, uploadedFiles, assetVersion]); // Re-fetch if files uploaded or asset version bumped
 
     const handleStartFileRename = (info: AssetFileInfo) => {
         setEditingAsset(info.fileName);
@@ -629,24 +631,29 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 >
                                     清除筛选
                                 </span>
-                                <span
-                                    className="text-[10px] text-emerald-600 cursor-pointer hover:underline font-medium"
-                                    onClick={() => {
-                                        const toActivate = filteredAssets.filter(a => !selectedProductNames.includes(buildVehicleInstanceKey('asset', a.fileName, a.productName)));
-                                        if (toActivate.length === 0) {
-                                            message.info('筛选结果中的资产均已激活');
-                                            return;
-                                        }
-                                        toActivate.forEach(a => addActiveAsset(a.fileName, a.productName));
-                                        message.success(`已将 ${toActivate.length} 个资产新增到待分析工作区`);
-                                    }}
-                                >
-                                    ⚡ 将筛选结果新增到工作区 ({filteredAssets.filter(a => !selectedProductNames.includes(buildVehicleInstanceKey('asset', a.fileName, a.productName))).length})
-                                </span>
                             </div>
                         )}
                     </div>
                 )}
+
+                {/* 全局一键激活按钮 — 不依赖特定筛选条件 */}
+                {(() => {
+                    const toActivate = filteredAssets.filter(a => !selectedProductNames.includes(buildVehicleInstanceKey('asset', a.fileName, a.productName)));
+                    if (toActivate.length === 0 || filteredAssets.length === 0) return null;
+                    return (
+                        <div className="flex items-center gap-2 mb-2">
+                            <span
+                                className="text-[11px] text-emerald-600 cursor-pointer hover:underline font-medium"
+                                onClick={() => {
+                                    toActivate.forEach(a => addActiveAsset(a.fileName, a.productName));
+                                    message.success(`已将 ${toActivate.length} 个资产新增到待分析工作区`);
+                                }}
+                            >
+                                ⚡ 将筛选结果新增到工作区 ({toActivate.length})
+                            </span>
+                        </div>
+                    );
+                })()}
 
                 <div className="space-y-2">
                     {filteredAssets.map(info => {

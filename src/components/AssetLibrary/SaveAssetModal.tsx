@@ -12,11 +12,12 @@ interface SaveAssetModalProps {
     visible: boolean;
     onClose: () => void;
     onSave: (fileName: string) => Promise<void>;
+    onSaved?: () => void;
     defaultName: string;
     defaultTags?: string[];
 }
 
-const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSave, defaultName, defaultTags = [] }) => {
+const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSave, onSaved, defaultName, defaultTags = [] }) => {
     const [fileName, setFileName] = useState(defaultName);
     const [loading, setLoading] = useState(false);
     const { assetLibraryPath } = useVehicleStore();
@@ -100,6 +101,8 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
             if (assetLibraryPath && selectedTags.length > 0) {
                 await setAssetFileTags(assetLibraryPath, fileName.trim() + '.json', selectedTags);
             }
+            // 标签已落盘，通知父级刷新
+            onSaved?.();
             onClose();
         } catch (error) {
             console.error("Save failed:", error);

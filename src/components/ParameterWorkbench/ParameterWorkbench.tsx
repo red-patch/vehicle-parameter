@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import DataSourcePanel from './DataSourcePanel';
@@ -56,11 +56,6 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         }
     };
 
-    const handleGoRepair = () => setActiveTab('purify');
-    const handleReturnToModule = (sourceModule: RepairSourceModule) => {
-        setActiveTab(repairModuleTabMap[sourceModule] as WorkbenchTabKey);
-    };
-
     const [sidebarWidth, setSidebarWidth] = useState(() =>
         clampPoolSidebarWidth(poolSidebarWidth, 1400)
     );
@@ -94,7 +89,15 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         };
     }, [activeTab, draggingSidebar, setPoolSidebarWidth]);
 
-    const items: { key: WorkbenchTabKey; label: React.ReactNode; children: React.ReactNode }[] = [
+    const handleGoRepair = useCallback(() => setActiveTab('purify'), [setActiveTab]);
+    const handleReturnToModule = useCallback(
+        (sourceModule: RepairSourceModule) => {
+            setActiveTab(repairModuleTabMap[sourceModule] as WorkbenchTabKey);
+        },
+        [setActiveTab],
+    );
+
+    const items: { key: WorkbenchTabKey; label: React.ReactNode; children: React.ReactNode }[] = useMemo(() => [
         {
             key: 'pool',
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 数据池</span>,
@@ -169,7 +172,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
                 </React.Suspense>
             )
         }
-    ];
+    ], [handleGoRepair, handleReturnToModule, focusedFile, sidebarWidth, draggingSidebar, activeTab]);
 
     return (
         <div className="h-full bg-slate-50/50 p-4">
@@ -179,16 +182,16 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
                     <div className="mb-3">
                         <h1 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight">参数工作台</h1>
                     </div>
-
                     <Tabs
                         activeKey={activeTab}
                         onChange={(key) => setActiveTab(key as WorkbenchTabKey)}
-                        items={items}
                         className="parameter-workbench-tabs"
+                        destroyInactiveTabPane={false}
+                        items={items}
                     />
                 </>
             ) : (
-                // 顶层 tab 切换时保持所有子 tab 内容不销毁
+                // 子模块嵌入模式：父级菜单控制切换，这里只负责 content 保活
                 items.map(item => (
                     <div key={item.key} className="h-full" style={{ display: item.key === activeTab ? undefined : 'none' }}>
                         {item.children}

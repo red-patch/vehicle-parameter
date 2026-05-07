@@ -163,15 +163,19 @@ export const extractAnnounceNo = (params: VehicleParameter[], isAnnouncementSour
     if (modelParam?.value) return String(modelParam.value).trim();
   }
 
-  // 否则按公告相关字段查找
+  // 否则按公告相关字段查找（仅保留纯车架号格式，过滤复合ID）
   for (const key of ANNOUNCE_NAME_KEYS) {
     const param = params.find(p => p.name === key || p.name?.includes(key));
-    if (param?.value) return String(param.value).trim();
+    const raw = param?.value ? String(param.value).trim() : '';
+    if (raw && /^[A-Za-z0-9]+$/.test(raw)) return raw;
   }
 
   // 兜底：扫描所有参数名包含「公告」的字段
   const fallback = params.find(p => p.name?.includes('公告') && p.value);
-  if (fallback?.value) return String(fallback.value).trim();
+  if (fallback?.value) {
+    const raw = String(fallback.value).trim();
+    if (/^[A-Z0-9]+$/i.test(raw)) return raw;
+  }
 
   return null;
 };

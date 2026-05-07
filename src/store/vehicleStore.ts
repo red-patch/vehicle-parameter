@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode, RepairContext, AssetUpgradeDraft } from '../types';
 import { calculateProductConfidence } from '../utils/productConfidence';
 import { DEFAULT_POOL_SIDEBAR_WIDTH, DEFAULT_POOL_WORKSPACE_HEIGHT } from '../utils/poolLayout';
-import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../utils/vehicleInstance';
+import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam, parseVehicleInstanceKey } from '../utils/vehicleInstance';
 
 interface VehicleStore {
     baseFile: SheetData | null;
@@ -100,6 +100,9 @@ interface VehicleStore {
 
     fieldGroupsVersion: number;
     bumpFieldGroupsVersion: () => void;
+
+    assetVersion: number;
+    bumpAssetVersion: () => void;
 }
 
 
@@ -197,7 +200,18 @@ export const useVehicleStore = create<VehicleStore>()(
             .filter(([, product]) => calculateProductConfidence(product.name, product.paramCount).level !== 'low')
             .map(([instanceKey]) => instanceKey);
 
-        nextSelectedNames = Array.from(new Set([...nextSelectedNames, ...autoSelected]));
+        // 去重：同一 productName 可能来自不同 source（asset vs excel），避免重复勾选
+        const existingProductNames = new Set(
+            nextSelectedNames
+                .map(k => parseVehicleInstanceKey(k)?.productName)
+                .filter(Boolean) as string[]
+        );
+        const dedupedAutoSelected = autoSelected.filter(key => {
+            const parsed = parseVehicleInstanceKey(key);
+            return parsed && !existingProductNames.has(parsed.productName);
+        });
+
+        nextSelectedNames = Array.from(new Set([...nextSelectedNames, ...dedupedAutoSelected]));
 
         return { 
             uploadedFiles: nextFiles,
@@ -399,11 +413,18 @@ export const useVehicleStore = create<VehicleStore>()(
         // 同步勾选核心选集
         selectedProductNames: Array.from(new Set([...state.selectedProductNames, buildVehicleInstanceKey('asset', fileName, productName)]))
     })),
-    removeActiveAsset: (fileName, productName) => set((state) => ({
-        activeAssets: state.activeAssets.filter(n => n !== fileName),
-        // 同步移出核心选集，保持状态闭环
-        selectedProductNames: state.selectedProductNames.filter(n => n !== buildVehicleInstanceKey('asset', fileName, productName))
-    })),
+    removeActiveAsset: (fileName, productName) => set((state) => {
+        const removedKey = buildVehicleInstanceKey('asset', fileName, productName);
+        return {
+            activeAssets: state.activeAssets.filter(n => n !== fileName),
+            selectedProductNames: state.selectedProductNames.filter(n => n !== removedKey),
+            // 同步修剪各模块的当前选中，保持状态闭环
+            currentPurifyProduct: state.currentPurifyProduct === removedKey ? null : state.currentPurifyProduct,
+            currentCompareProducts: state.currentCompareProducts.filter(n => n !== removedKey),
+            currentMultiVehicleProducts: state.currentMultiVehicleProducts.filter(n => n !== removedKey),
+            currentSmartFillProduct: state.currentSmartFillProduct === removedKey ? null : state.currentSmartFillProduct,
+        };
+    }),
     renameActiveAsset: (oldFileName, newFileName, newProductName) => set((state) => {
         const oldProductName = state.assetFiles.find(file => file.fileName === oldFileName)?.data[0]?.productName
             || oldFileName.replace(/\.json$/i, '');
@@ -460,6 +481,9 @@ export const useVehicleStore = create<VehicleStore>()(
 
     fieldGroupsVersion: 0,
     bumpFieldGroupsVersion: () => set((state) => ({ fieldGroupsVersion: state.fieldGroupsVersion + 1 })),
+
+    assetVersion: 0,
+    bumpAssetVersion: () => set((state) => ({ assetVersion: state.assetVersion + 1 })),
 }), {
     name: 'vehicle-parameter-storage',
     storage: createJSONStorage(() => localStorage),

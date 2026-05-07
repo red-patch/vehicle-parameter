@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Table, Tag, Select, Progress, Button, message, Input, Switch, Tooltip } from 'antd';
+import { Tag, Select, Progress, Button, message, Input, Switch, Tooltip } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
+import DataTable from '../common/DataTable';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { getProductData } from '../../store/vehicleSelectors';
 import { useShallow } from 'zustand/react/shallow';
@@ -549,12 +550,11 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                 </FilterItem>
             </FilterBar>
 
-            <Table
+            <DataTable
                 dataSource={filteredResults}
                 columns={columns}
                 rowKey="id"
-                pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `共 ${total} 条` }}
-                scroll={{ y: 600 }}
+                scrollY={600}
             />
         </div>
     );

@@ -109,13 +109,14 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                     const params = parsed.parameters || [];
                     const filled = params.filter(p => p.value !== undefined && p.value !== null && String(p.value).trim() !== '').length;
 
-                    // 提取公告号：从参数中扫描产品号/产品ID等字段
+                    // 提取公告号：从参数中扫描公告相关字段
+                    // 仅保留形如 JHC6507BEVR2 的纯车架号，过滤掉复合ID（如 "V7E 50kwh_20260303-JHC6507BEVR2"）
                     const ANNOUNCE_NAME_KEYS = ['公告号', '产品号', '产品ID', '公告产品号', '产品编号'];
                     const announceNos = Array.from(new Set(
                         params
                             .filter(p => ANNOUNCE_NAME_KEYS.some(k => p.name === k || p.name?.includes(k)))
                             .map(p => String(p.value ?? '').trim())
-                            .filter(Boolean)
+                            .filter(v => /^[A-Za-z0-9]+$/.test(v)) // 只取纯车架号格式（不区分大小写）
                     ));
 
                     // 公告数据源的公告号 = 车辆型号

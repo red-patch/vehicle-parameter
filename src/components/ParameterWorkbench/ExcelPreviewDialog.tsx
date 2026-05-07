@@ -131,20 +131,20 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         }));
     }, [updateConfig]);
 
-    // 初始化时自动检测所有 Sheet
+    // 初始化并同步 SheetPicker 传入的禁用列表
     React.useEffect(() => {
-        if (previews.length > 0) {
-            const missingSheets = previews.filter(p => !sheetConfigs.has(p.sheetName));
-            if (missingSheets.length > 0) {
-                missingSheets.forEach(p => {
-                    autoDetect(p);
-                    if (preselectedDisabledSheets?.has(p.sheetName)) {
-                        setSheetEnabled(p.sheetName, false);
-                    }
-                });
+        if (previews.length === 0) return;
+        previews.forEach(p => {
+            // 首次打开：自动检测列角色
+            if (!sheetConfigs.has(p.sheetName)) {
+                autoDetect(p);
             }
-        }
-    }, [previews, sheetConfigs, autoDetect, preselectedDisabledSheets]);
+            // 始终同步跳过状态（包括重新配置场景）
+            if (preselectedDisabledSheets?.has(p.sheetName)) {
+                setSheetEnabled(p.sheetName, false);
+            }
+        });
+    }, [previews, preselectedDisabledSheets]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 设置列角色
     const setColumnRole = (colIdx: number, role: ColumnRole) => {
@@ -253,6 +253,15 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         () => Array.from(sheetConfigs.values()).filter(cfg => cfg.enabled).length,
         [sheetConfigs]
     );
+
+    const currentSheetStats = useMemo(() => {
+        if (!currentPreview || !config) return null;
+        if (!config.enabled) return null;
+        const headerRows = config.headerEnd - config.headerStart + 1;
+        const dataRows = currentPreview.rows.length - config.dataStart;
+        const productCols = Array.from(config.columns.values()).filter(c => c.role === 'product').length;
+        return { headerRows, dataRows, productCols, estimated: dataRows * productCols };
+    }, [currentPreview, config]);
 
     // 构建并提交配置
     const handleConfirm = () => {
@@ -439,6 +448,16 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                             <InfoCircleOutlined style={{ color: '#999' }} />
                         </Tooltip>
                     </div>
+
+                    {/* 统计摘要 */}
+                    {currentSheetStats && (
+                        <div style={{ marginBottom: 8, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#666' }}>
+                            <Tag color="default">表头 {currentSheetStats.headerRows} 行</Tag>
+                            <Tag color="blue">数据 {currentSheetStats.dataRows} 行</Tag>
+                            <Tag color="orange">产品 {currentSheetStats.productCols} 列</Tag>
+                            <Tag color="green">预计提取 {currentSheetStats.estimated} 个参数</Tag>
+                        </div>
+                    )}
 
                     {/* 预览表格 */}
                     <div style={{ overflowX: 'auto', border: '1px solid #e8e8e8', borderRadius: 6, opacity: config.enabled ? 1 : 0.55, filter: config.enabled ? 'none' : 'grayscale(30%)' }}>

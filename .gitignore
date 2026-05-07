@@ -33,3 +33,4 @@ src-tauri/Cargo.lock
 # Temp and test files
 *.csv
 *.tmp
+.alma-snapshots

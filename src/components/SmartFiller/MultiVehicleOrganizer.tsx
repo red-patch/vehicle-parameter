@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Upload, Card, Button, Input, Table, message, Spin, Tag, Empty, Tooltip, Tabs } from 'antd';
 import { UploadOutlined, DownloadOutlined, DeleteOutlined, FileExcelOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
-import { parseExcel } from '../../utils/excelParser';
+import { parseExcelAsync } from '../../utils/excelParserAsync';
 import { findBestMatch } from '../../utils/matchingEngine';
 
 const { Dragger } = Upload;
@@ -30,7 +30,7 @@ const MultiVehicleOrganizer: React.FC = () => {
         setLoading(true);
         try {
             // 复用 excelParser 中的 parseExcel 函数
-            const sheetData = await parseExcel(file);
+            const sheetData = await parseExcelAsync(file);
             
             // 按 productName 分组，构建 VehicleData
             const productMap = new Map<string, Map<string, string | number>>();

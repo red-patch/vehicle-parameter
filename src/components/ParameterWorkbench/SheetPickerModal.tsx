@@ -77,7 +77,7 @@ const SheetPickerModal: React.FC<Props> = ({ open, sheets, onConfirm, onSkip, on
             >
               {sheet.name}
             </Checkbox>
-            <span style={{ fontSize: 12, color: '#999' }}>{sheet.totalRows} 行</span>
+            <span style={{ fontSize: 12, color: '#999' }}>共 {sheet.totalRows} 行（含表头）</span>
           </div>
         ))}
       </div>
