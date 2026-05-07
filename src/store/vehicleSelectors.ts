@@ -86,8 +86,6 @@ export const getProductOptions = (
 ) => {
     const candidateKeys: string[] = [];
     const added = new Set<string>();
-    const uploadedIndex = getOrCreateIndex(uploadedFiles, uploadedIndexCache);
-    const assetIndex = getOrCreateIndex(assetFiles, assetIndexCache);
 
     const appendCandidate = (instanceKey: string) => {
         if (added.has(instanceKey)) return;
@@ -95,20 +93,8 @@ export const getProductOptions = (
         added.add(instanceKey);
     };
 
-    const collect = (
-        selection: string,
-        index: Map<string, VehicleParameter[]>
-    ) => {
-        for (const instanceKey of index.keys()) {
-            if (matchesVehicleSelection(selection, instanceKey)) appendCandidate(instanceKey);
-        }
-    };
-
     selectedProductNames.forEach(selection => {
-        // 选中状态是下游模块最先感知到的来源，先用它保证下拉立即可见。
         appendCandidate(selection);
-        collect(selection, uploadedIndex);
-        collect(selection, assetIndex);
     });
 
     const labels = buildVehicleDisplayLabels(candidateKeys);

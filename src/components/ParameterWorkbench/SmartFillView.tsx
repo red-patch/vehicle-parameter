@@ -43,6 +43,13 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         activeAssets: state.activeAssets,
         fieldGroupsVersion: state.fieldGroupsVersion,
     })));
+    // 自动清理：已在主工作区中移除的车型，同步清除本模块参考车型
+    useEffect(() => {
+        if (referenceProduct && !selectedProductNames.includes(referenceProduct)) {
+            setReferenceProduct(null);
+        }
+    }, [selectedProductNames, referenceProduct, setReferenceProduct]);
+
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string | undefined>(undefined);
     const referenceProductState = useMemo(
         () => referenceProduct ? getVehicleSelectionState(uploadedFiles, referenceProduct, assetFiles, activeAssets) : null,
