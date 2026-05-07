@@ -77,7 +77,7 @@ const parseRequirementSync = (buffer: ArrayBuffer, fileName: string): SheetData 
 /**
  * 通过 Worker 发送任务（自动 fallback）
  */
-const postTask = <T extends { type: string }>(msg: T, buffer: ArrayBuffer, fileName: string, fallback: () => SheetData): Promise<SheetData> => {
+const postTask = <T extends { type: string }>(msg: T, buffer: ArrayBuffer, _fileName: string, fallback: () => SheetData): Promise<SheetData> => {
   const worker = getWorker();
   if (!worker) {
     // Worker 不可用，直接主线程执行

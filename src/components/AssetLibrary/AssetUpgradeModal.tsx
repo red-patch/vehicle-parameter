@@ -81,7 +81,6 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
 
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewData, setPreviewData] = useState<SheetPreview[]>([]);
-    const [pendingWorkbook, setPendingWorkbook] = useState<Awaited<ReturnType<typeof readFileAsWorkbook>> | null>(null);
     const [pendingFileName, setPendingFileName] = useState('');
     const pendingFileRef = useRef<File | null>(null);
 
