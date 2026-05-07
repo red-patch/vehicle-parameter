@@ -406,13 +406,31 @@ export const useVehicleStore = create<VehicleStore>()(
 
     // V6.2 Implementation
     activeAssets: [],
-    addActiveAsset: (fileName, productName) => set((state) => ({
-        activeAssets: state.activeAssets.includes(fileName) 
-            ? state.activeAssets 
-            : [...state.activeAssets, fileName],
-        // 同步勾选核心选集
-        selectedProductNames: Array.from(new Set([...state.selectedProductNames, buildVehicleInstanceKey('asset', fileName, productName)]))
-    })),
+    addActiveAsset: (fileName, productName) => set((state) => {
+        const newKey = buildVehicleInstanceKey('asset', fileName, productName);
+        const newProductName = parseVehicleInstanceKey(newKey)?.productName;
+        // 同名产品替换：资产版优先级高于 Excel/公告等原始来源
+        const oldKeys = newProductName
+            ? state.selectedProductNames.filter(k => {
+                const parsed = parseVehicleInstanceKey(k);
+                return parsed && parsed.productName === newProductName && parsed.source !== 'asset';
+            })
+            : [];
+        const replaceInList = (list: string[]) =>
+            Array.from(new Set(
+                (oldKeys.length > 0 ? list.filter(k => !oldKeys.includes(k)) : list).concat(newKey)
+            ));
+        return {
+            activeAssets: state.activeAssets.includes(fileName) 
+                ? state.activeAssets 
+                : [...state.activeAssets, fileName],
+            selectedProductNames: replaceInList(state.selectedProductNames),
+            currentCompareProducts: replaceInList(state.currentCompareProducts),
+            currentMultiVehicleProducts: replaceInList(state.currentMultiVehicleProducts),
+            currentSmartFillProduct: oldKeys.includes(state.currentSmartFillProduct || '') ? newKey : state.currentSmartFillProduct,
+            currentPurifyProduct: oldKeys.includes(state.currentPurifyProduct || '') ? newKey : state.currentPurifyProduct,
+        };
+    }),
     removeActiveAsset: (fileName, productName) => set((state) => {
         const removedKey = buildVehicleInstanceKey('asset', fileName, productName);
         return {

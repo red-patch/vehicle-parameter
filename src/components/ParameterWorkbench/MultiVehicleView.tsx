@@ -55,6 +55,17 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         setRepairContext: state.setRepairContext,
         fieldGroupsVersion: state.fieldGroupsVersion,
     })));
+    const { selectedProductNames: globalSelection } = useVehicleStore(useShallow(state => ({
+        selectedProductNames: state.selectedProductNames,
+    })));
+    // 自动清理：已在主工作区中移除的车型，同步踢出本模块选择
+    useEffect(() => {
+        const valid = localSelection.filter((name: string) => globalSelection.includes(name));
+        if (valid.length !== localSelection.length) {
+            setLocalSelection(valid);
+        }
+    }, [globalSelection, localSelection, setLocalSelection]);
+
     const [organizedData, setOrganizedData] = useState<OrganizedRow[]>([]);
     const [isCalculating, setIsCalculating] = useState(false);
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string | undefined>(undefined);

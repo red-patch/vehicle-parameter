@@ -34,12 +34,22 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
     const reportRef = useRef<HTMLDivElement>(null);
 
-    // 默认填充：当本模块尚未选择车型时，自动从大纲中填充
+    // 自动清理：已在待分析区中被移除的车型，同步踢出对比选择
     useEffect(() => {
-        if (localSelection.length === 0 && selectedProductNames.length > 0) {
+        const valid = localSelection.filter(name => selectedProductNames.includes(name));
+        if (valid.length !== localSelection.length) {
+            setLocalSelection(valid);
+        }
+    }, [selectedProductNames, localSelection, setLocalSelection]);
+
+    // 首次填充：本模块尚未选择车型时，自动从大纲中填充（仅一次，清空后不复填）
+    const didInitialFill = useRef(false);
+    useEffect(() => {
+        if (!didInitialFill.current && localSelection.length === 0 && selectedProductNames.length > 0) {
+            didInitialFill.current = true;
             setLocalSelection(selectedProductNames.length <= 5 ? [...selectedProductNames] : [selectedProductNames[0]]);
         }
-    }, [selectedProductNames]);
+    }, [selectedProductNames, localSelection, setLocalSelection]);
 
     const selectionStates = useMemo(
         () => getVehicleSelectionStates(uploadedFiles, localSelection, assetFiles, activeAssets),
