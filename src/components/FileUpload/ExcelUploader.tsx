@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Upload, Button, Card, Typography, Spin, message, Modal } from 'antd';
 import { UploadOutlined, FileExcelOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { parseExcel, ParseError, type ParseDiagnostics } from '../../utils/excelParser';
+import { ParseError, type ParseDiagnostics } from '../../utils/excelParser';
+import { parseExcelAsync } from '../../utils/excelParserAsync';
 import { useVehicleStore } from '../../store/vehicleStore';
 import type { SheetData } from '../../types';
 
@@ -50,7 +51,7 @@ const ExcelUploader: React.FC = () => {
     const handleUpload = async (file: File, type: 'base' | 'target') => {
         setLoading(true);
         try {
-            const data = await parseExcel(file);
+            const data = await parseExcelAsync(file);
             if (type === 'base') {
                 setBaseFile(data);
                 message.success(`基准版本 "${file.name}" 解析成功`);

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Table, Select, Button, Tag, Input, Tooltip, message, Popconfirm, Space, Alert } from 'antd';
+import { Select, Button, Tag, Input, Tooltip, message, Popconfirm, Space, Alert } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
+import DataTable from '../common/DataTable';
 import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -32,6 +33,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         repairContext,
         clearRepairContext,
         fieldGroupsVersion,
+        bumpAssetVersion,
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         selectedProductNames: state.selectedProductNames,
@@ -43,6 +45,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         repairContext: state.repairContext,
         clearRepairContext: state.clearRepairContext,
         fieldGroupsVersion: state.fieldGroupsVersion,
+        bumpAssetVersion: state.bumpAssetVersion,
     })));
     const [purifyParams, setPurifyParams] = useState<VehicleParameter[]>([]);
     const [enumLoaded, setEnumLoaded] = useState(isEnumDataLoaded());
@@ -154,6 +157,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 purifyParams
             );
             message.success(`已成功保存资产: ${fileName}`);
+            // bumpAssetVersion 移至 SaveAssetModal.performSave 中标签保存后触发
             // 更新状态
             if (fileName === selectedProductName || fileName === `${selectedProductName}.json`) {
                 setIsExistingAsset(true);
@@ -522,20 +526,13 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 </FilterItem>
             </FilterBar>
 
-            <div className="flex-1 overflow-hidden border border-gray-200 rounded">
-                <Table 
+            <div className="flex-1 overflow-auto border border-gray-200 rounded">
+                <DataTable 
                     columns={columns}
                     dataSource={displayedParams}
                     rowKey="id"
-                    pagination={{
-                        pageSize: 50,
-                        showSizeChanger: true,
-                        size: 'small',
-                        showTotal: (total) => `共 ${total} 条`
-                    }}
-                    scroll={{ y: 'calc(100vh - 320px)' }}
-                    size="small"
-                    rowClassName={(record) => targetFieldName && record.name === targetFieldName ? 'bg-blue-50' : ''}
+                    scrollY="calc(100vh - 320px)"
+                    rowClassName={(record: { name: string }) => targetFieldName && record.name === targetFieldName ? 'bg-blue-50' : ''}
                 />
             </div>
 
@@ -543,6 +540,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 visible={saveModalVisible}
                 onClose={() => setSaveModalVisible(false)}
                 onSave={handleSaveToAsset}
+                onSaved={bumpAssetVersion}
                 defaultName={`${selectedProductName || '未知车型'}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`}
                 defaultTags={[ASSET_SOURCE_TAGS.purify]}
             />

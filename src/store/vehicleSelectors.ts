@@ -56,12 +56,22 @@ export const getProductData = (
     }
 
     // 兼容旧状态：如果传入的是纯车型名，则回退到按显示名聚合
+    // 按 param.id 去重，防止同一参数从两个 source 各被匹配一次导致翻倍
     const legacyMatches: VehicleParameter[] = [];
+    const seenIds = new Set<string>();
     for (const [instanceKey, params] of uploadedIndex.entries()) {
-        if (matchesVehicleSelection(productName, instanceKey)) legacyMatches.push(...params);
+        if (matchesVehicleSelection(productName, instanceKey)) {
+            for (const p of params) {
+                if (!seenIds.has(p.id)) { seenIds.add(p.id); legacyMatches.push(p); }
+            }
+        }
     }
     for (const [instanceKey, params] of assetIndex.entries()) {
-        if (matchesVehicleSelection(productName, instanceKey)) legacyMatches.push(...params);
+        if (matchesVehicleSelection(productName, instanceKey)) {
+            for (const p of params) {
+                if (!seenIds.has(p.id)) { seenIds.add(p.id); legacyMatches.push(p); }
+            }
+        }
     }
     return legacyMatches;
 };

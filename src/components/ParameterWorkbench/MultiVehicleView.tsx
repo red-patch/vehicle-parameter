@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Input, Button, Table, message, Empty, Space, Upload, Spin, Select, Alert, Tag } from 'antd';
+import { Card, Input, Button, message, Empty, Space, Upload, Spin, Select, Alert, Tag } from 'antd';
 import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -11,7 +11,9 @@ import * as XLSX from 'xlsx';
 import { downloadCsv } from '../../utils/downloadCsv';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
+import DataTable from '../common/DataTable';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
+import { getVehicleProductName } from '../../utils/vehicleInstance';
 
 
 const { TextArea } = Input;
@@ -170,7 +172,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         if (organizedData.length === 0) return;
 
         // Headers: 字段名, Car1, Car2...
-        const headers = ['字段名', ...selectedVehicles.map(v => v.name)];
+        const headers = ['字段名', ...selectedVehicles.map(v => getVehicleProductName(v.name))];
         const rows = organizedData.map(row => {
             return [
                 row.targetField,
@@ -219,7 +221,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
             render: (text: string) => <b>{text}</b>
         },
         ...selectedVehicles.map(v => ({
-            title: v.name,
+            title: getVehicleProductName(v.name),
             dataIndex: v.name,
             key: v.name,
             width: 200,
@@ -374,7 +376,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 </Space>
             </Card>
 
-            <div className="flex-1 overflow-hidden border border-gray-200 rounded relative bg-white dark:bg-gray-900" style={{ minHeight: 400 }}>
+            <div className="flex-1 overflow-auto border border-gray-200 rounded relative bg-white dark:bg-gray-900" style={{ minHeight: 400 }}>
                 <Spin spinning={isCalculating} tip="正在智能解析字段...">
                     <div className="h-full flex flex-col p-3">
                         {organizedData.length > 0 || isCalculating ? (
@@ -383,21 +385,12 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                     <h3 className="font-bold">整理结果</h3>
                                     <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={isCalculating}>导出 CSV</Button>
                                 </div>
-                                <Table 
+                                <DataTable 
                                     columns={columns}
                                     dataSource={organizedData}
                                     rowKey="key"
                                     className="custom-organized-table"
-                                    pagination={{
-                                        pageSize: 20,
-                                        showSizeChanger: true,
-                                        size: 'small'
-                                    }}
-                                    scroll={{ 
-                                        y: 'calc(100vh - 460px)',
-                                        x: 'max-content'
-                                    }}
-                                    size="small"
+                                    scrollY="calc(100vh - 460px)"
                                     bordered
                                     locale={{
                                         emptyText: isCalculating ? <div style={{ height: 100 }} /> : <Empty description="暂无整理结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />

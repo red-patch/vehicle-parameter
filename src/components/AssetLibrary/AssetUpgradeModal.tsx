@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Collapse, Descriptions, Empty, Modal, Space, Spin, Statistic, Table, Tag, Typography, Upload, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CheckCircleOutlined, CloudUploadOutlined, ExclamationCircleOutlined, FilePdfOutlined, HistoryOutlined, SaveOutlined } from '@ant-design/icons';
@@ -7,7 +7,8 @@ import type { AssetUpgradeCategory, AssetUpgradeItem, SheetData, SheetParseConfi
 import { useVehicleStore } from '../../store/vehicleStore';
 import { loadAssetFile, saveAssetFile, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
 import { applyAssetUpgradeDraft, buildAssetUpgradeDraft, buildAssetUpgradePreview } from '../../utils/assetUpgrade';
-import { parseExcel, parseWorkbookWithConfig, previewWorkbook, readFileAsWorkbook } from '../../utils/excelParser';
+import { previewWorkbook, readFileAsWorkbook } from '../../utils/excelParser';
+import { parseExcelAsync, parseWithConfigAsync } from '../../utils/excelParserAsync';
 import { exportAssetUpgradeReviewPdf } from '../../utils/assetUpgradeReport';
 import SaveAssetModal from './SaveAssetModal';
 import ExcelPreviewDialog from '../ParameterWorkbench/ExcelPreviewDialog';
@@ -82,6 +83,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
     const [previewData, setPreviewData] = useState<SheetPreview[]>([]);
     const [pendingWorkbook, setPendingWorkbook] = useState<Awaited<ReturnType<typeof readFileAsWorkbook>> | null>(null);
     const [pendingFileName, setPendingFileName] = useState('');
+    const pendingFileRef = useRef<File | null>(null);
 
     const resetSession = useCallback(() => {
         setBaselineData(null);
@@ -174,6 +176,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
             const workbook = await readFileAsWorkbook(file);
             setPendingWorkbook(workbook);
             setPendingFileName(file.name);
+            pendingFileRef.current = file; // 缓存原始 File 供 Worker 重解析
             setPreviewData(previewWorkbook(workbook));
             setPreviewOpen(true);
         } catch (error) {
@@ -188,7 +191,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
         setUploading(true);
 
         try {
-            const parsed = await parseExcel(file);
+            const parsed = await parseExcelAsync(file);
             if (!parsed.data || parsed.data.length === 0) {
                 await openPreviewDialog(file);
                 return false;
@@ -206,23 +209,27 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
         return false;
     }, [applyImportedSheet, openPreviewDialog]);
 
-    const handlePreviewConfirm = useCallback((configs: SheetParseConfig[]) => {
-        if (!pendingWorkbook) {
+    const handlePreviewConfirm = useCallback(async (configs: SheetParseConfig[]) => {
+        const file = pendingFileRef.current;
+        if (!file) {
+            message.error('文件缓存已过期，请重新上传');
+            setPreviewOpen(false);
             return;
         }
 
         try {
-            const parsed = parseWorkbookWithConfig(pendingWorkbook, pendingFileName, configs);
+            const parsed = await parseWithConfigAsync(file, configs);
             applyImportedSheet(parsed);
             setPreviewOpen(false);
             setPendingWorkbook(null);
             setPendingFileName('');
+            pendingFileRef.current = null;
             setPreviewData([]);
         } catch (error) {
             console.error('Failed to parse configured workbook for upgrade import', error);
             message.error(`解析失败：${(error as Error).message}`);
         }
-    }, [applyImportedSheet, pendingFileName, pendingWorkbook]);
+    }, [applyImportedSheet]);
 
     const pendingConflictCount = useMemo(
         () => assetUpgradeDraft?.items.filter((item) => item.category === 'conflict' && item.decision === 'pending').length ?? 0,

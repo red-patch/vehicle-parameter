@@ -31,7 +31,7 @@ const BOOKMARKLET_CODE = `javascript:(function(){try{const table=document.queryS
 const AnnouncementQuery: React.FC = () => {
     const [announcementNo, setAnnouncementNo] = useState<string>('');
     const [importJson, setImportJson] = useState<string>('');
-    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath } = useVehicleStore();
+    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath, bumpAssetVersion } = useVehicleStore();
     const bookmarkLinkRef = React.useRef<HTMLAnchorElement>(null);
     const [saveModalVisible, setSaveModalVisible] = useState(false);
 
@@ -410,6 +410,7 @@ const AnnouncementQuery: React.FC = () => {
                     await saveAssetFile(assetLibraryPath, fileName, fileName, miitData.data);
                     message.success(`已保存至资产库: ${fileName}`);
                 }}
+                onSaved={bumpAssetVersion}
                 defaultName={announcementNo.trim() || miitData?.fileName || `公告_${new Date().toISOString().slice(0, 10)}`}
                 defaultTags={[ASSET_SOURCE_TAGS.announcement]}
             />

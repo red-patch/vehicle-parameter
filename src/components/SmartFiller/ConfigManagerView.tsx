@@ -72,21 +72,14 @@ const ConfigManagerView: React.FC = () => {
     const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion } = useVehicleStore();
 
     useEffect(() => {
-        if (!isEnumDataLoaded()) {
-            setLoading(true);
-            preloadEnumData(assetLibraryPath || undefined).then(() => {
+        const init = async () => {
+            // 确保 custom_fields.json 已加载，再读取字段组
+            if (assetLibraryPath) await reloadCustomFields(assetLibraryPath);
+            if (!isEnumDataLoaded()) {
+                setLoading(true);
+                await preloadEnumData(assetLibraryPath || undefined);
                 setLoading(false);
-                const nextFieldGroups = getFieldGroupsSync();
-                setFieldGroups(nextFieldGroups);
-                setSelectedFieldGroupId(nextFieldGroups[0]?.id || 'system-required');
-                const nextTagGroups = getAssetTagGroupsSync();
-                setEditManualTags(nextTagGroups.manualTags);
-                setEditOtherTags(nextTagGroups.otherTags);
-                setEditVehicleFamilyTags(nextTagGroups.vehicleFamilyTags);
-                setEditManufacturerTags(nextTagGroups.manufacturerTags);
-            });
-        } else {
-            setLoading(false);
+            }
             const nextFieldGroups = getFieldGroupsSync();
             setFieldGroups(nextFieldGroups);
             setSelectedFieldGroupId(nextFieldGroups[0]?.id || 'system-required');
@@ -95,7 +88,8 @@ const ConfigManagerView: React.FC = () => {
             setEditOtherTags(tagGroups.otherTags);
             setEditVehicleFamilyTags(tagGroups.vehicleFamilyTags);
             setEditManufacturerTags(tagGroups.manufacturerTags);
-        }
+        };
+        init().catch((e) => console.error(e));
     }, [assetLibraryPath]);
 
     useEffect(() => {

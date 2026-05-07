@@ -33,7 +33,7 @@ const compareByContent = (base: SheetData, target: SheetData): DiffResult => {
     });
 
     // Step 2: 模糊匹配剩余项
-    // 准备未匹配的 target 列表
+    // 准备未匹配的 target 列表（不修改此数组，避免破坏 matchingEngine 的 WeakMap 缓存）
     const unmatchedTargetCandidates: VehicleParameter[] = [];
     targetMap.forEach((p, key) => {
         if (!matchedTargetKeys.has(key)) {
@@ -41,21 +41,17 @@ const compareByContent = (base: SheetData, target: SheetData): DiffResult => {
         }
     });
 
+    // 追踪已被模糊匹配占用的 target 名称，防止多对一匹配
+    const usedTargetNames = new Set<string>(matchedTargetKeys);
+
     baseMap.forEach((_, baseName) => {
         if (!finalMatches.has(baseName)) {
-            // 使用统一匹配引擎
-            // 阈值设为 0.4 与之前保持一致
             const matchResult = findBestMatch(baseName, unmatchedTargetCandidates, 0.4);
             
-            if (matchResult.matchedParam) {
+            if (matchResult.matchedParam && !usedTargetNames.has(matchResult.matchedParam.name)) {
                 finalMatches.set(baseName, matchResult.matchedParam);
                 matchedTargetKeys.add(matchResult.matchedParam.name);
-                // 从候选池中移除已匹配的，避免多对一？ 
-                // findBestMatch 不会修改 unmatchedTargetCandidates，这里简单处理
-                // 严格来说应该动态更新候选池，但为了性能，暂时允许一对多匹配的可能性？
-                // 实际上我们应该手动从列表中移除
-                const idx = unmatchedTargetCandidates.findIndex(p => p.name === matchResult.matchedParam!.name);
-                if (idx !== -1) unmatchedTargetCandidates.splice(idx, 1);
+                usedTargetNames.add(matchResult.matchedParam.name);
             }
         }
     });

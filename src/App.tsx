@@ -140,99 +140,99 @@ const App: React.FC = () => {
       <ErrorBoundary>
         <MainLayout activeTab={activeTab} onTabChange={setActiveTab}>
           
-          {['pool', 'compare', 'fill', 'multi', 'purify'].includes(activeTab) && (
-            <React.Suspense fallback={<Skeleton active />}>
+          {/* 所有模块保持挂载，用 display:none 切换，避免顶层菜单切换的 mount/unmount 开销 */}
+          <React.Suspense fallback={<Skeleton active />}>
+            <div style={{ display: ['pool', 'compare', 'fill', 'multi', 'purify'].includes(activeTab) ? undefined : 'none' }}>
               <ParameterWorkbench activeTab={activeTab as 'pool' | 'compare' | 'fill' | 'multi' | 'purify'} onTabChange={setActiveTab} showTabs={false} />
-            </React.Suspense>
-          )}
+            </div>
+          </React.Suspense>
 
           {/* Legacy Tabs (Hidden from Menu but logic kept for safety) */}
-          {activeTab === 'diff' && (
-            <React.Suspense fallback={<Skeleton active />}>
-              <>
-                {/* Steps Flow Guide */}
-                <div className="mb-6">
-                  <Steps
-                    current={baseFile && targetFile ? 2 : (baseFile || targetFile ? 1 : 0)}
-                    items={[
-                      {
-                        title: '上传基准版本',
-                        description: baseFile ? baseFile.fileName : '请上传Excel文件',
-                        icon: <UploadOutlined />,
-                      },
-                      {
-                        title: '上传新版本',
-                        description: targetFile ? targetFile.fileName : '请上传对比文件',
-                        icon: <FileSearchOutlined />,
-                      },
-                      {
-                        title: '查看差异',
-                        description: baseFile && targetFile ? '对比结果已生成' : '等待文件上传',
-                        icon: <CheckCircleOutlined />,
-                      },
-                    ]}
-                  />
-                </div>
+          <React.Suspense fallback={<Skeleton active />}>
+            <div style={{ display: activeTab === 'diff' ? undefined : 'none' }}>
+                <>
+                  <div className="mb-6">
+                    <Steps
+                      current={baseFile && targetFile ? 2 : (baseFile || targetFile ? 1 : 0)}
+                      items={[
+                        {
+                          title: '上传基准版本',
+                          description: baseFile ? baseFile.fileName : '请上传Excel文件',
+                          icon: <UploadOutlined />,
+                        },
+                        {
+                          title: '上传新版本',
+                          description: targetFile ? targetFile.fileName : '请上传对比文件',
+                          icon: <FileSearchOutlined />,
+                        },
+                        {
+                          title: '查看差异',
+                          description: baseFile && targetFile ? '对比结果已生成' : '等待文件上传',
+                          icon: <CheckCircleOutlined />,
+                        },
+                      ]}
+                    />
+                  </div>
 
-                <ExcelUploader />
+                  <ExcelUploader />
 
-                {baseFile && !targetFile && (
-                  <div className="mt-8">
-                    <div className="flex justify-between items-center mb-4">
-                       <h3 className="text-lg font-bold">基准版预览</h3>
-                       {baseSheets.length > 0 && (
-                          <div className="flex items-center gap-2">
-                             <span>按工作表筛选:</span>
-                             <Select
-                               mode="multiple"
-                               value={selectedBaseSheets}
-                               onChange={setSelectedBaseSheets}
-                               style={{ minWidth: 280 }}
-                               placeholder="全部工作表"
-                               allowClear
-                               maxTagCount={2}
-                               options={baseSheets.map(s => ({ label: s, value: s }))}
-                             />
-                          </div>
-                       )}
+                  {baseFile && !targetFile && (
+                    <div className="mt-8">
+                      <div className="flex justify-between items-center mb-4">
+                         <h3 className="text-lg font-bold">基准版预览</h3>
+                         {baseSheets.length > 0 && (
+                            <div className="flex items-center gap-2">
+                               <span>按工作表筛选:</span>
+                               <Select
+                                 mode="multiple"
+                                 value={selectedBaseSheets}
+                                 onChange={setSelectedBaseSheets}
+                                 style={{ minWidth: 280 }}
+                                 placeholder="全部工作表"
+                                 allowClear
+                                 maxTagCount={2}
+                                 options={baseSheets.map(s => ({ label: s, value: s }))}
+                               />
+                            </div>
+                         )}
+                      </div>
+                      <ParametersTable data={filteredBaseData} />
                     </div>
-                    <ParametersTable data={filteredBaseData} />
-                  </div>
-                )}
+                  )}
 
-                {targetFile && !baseFile && (
-                  <div className="mt-8">
-                    <h3 className="text-lg font-bold mb-4">新版本预览</h3>
-                    <ParametersTable data={targetFile.data} />
-                  </div>
-                )}
+                  {targetFile && !baseFile && (
+                    <div className="mt-8">
+                      <h3 className="text-lg font-bold mb-4">新版本预览</h3>
+                      <ParametersTable data={targetFile.data} />
+                    </div>
+                  )}
 
-                {baseFile && targetFile && (
-                  <div className="mt-8">
-                    <DiffResultView />
-                  </div>
-                )}
-              </>
-            </React.Suspense>
-          )}
+                  {baseFile && targetFile && (
+                    <div className="mt-8">
+                      <DiffResultView />
+                    </div>
+                  )}
+                </>
+            </div>
+          </React.Suspense>
 
-          {activeTab === 'search' && (
-            <React.Suspense fallback={<Skeleton active />}>
+          <React.Suspense fallback={<Skeleton active />}>
+            <div style={{ display: activeTab === 'search' ? undefined : 'none' }}>
               <SmartLayout />
-            </React.Suspense>
-          )}
+            </div>
+          </React.Suspense>
 
-          {activeTab === 'announcement' && (
-            <React.Suspense fallback={<Skeleton active />}>
+          <React.Suspense fallback={<Skeleton active />}>
+            <div style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
               <AnnouncementQuery />
-            </React.Suspense>
-          )}
+            </div>
+          </React.Suspense>
 
-          {activeTab === 'dict' && (
-            <React.Suspense fallback={<Skeleton active />}>
+          <React.Suspense fallback={<Skeleton active />}>
+            <div style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
               <ConfigManagerView />
-            </React.Suspense>
-          )}
+            </div>
+          </React.Suspense>
 
         </MainLayout>
       </ErrorBoundary>

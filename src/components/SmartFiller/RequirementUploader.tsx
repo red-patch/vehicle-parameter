@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Card, Typography, Spin, message, Button, Select, Tabs, Input } from 'antd';
 import { UploadOutlined, FileExcelOutlined, FileTextOutlined, HistoryOutlined } from '@ant-design/icons';
-import { parseRequirementExcel } from '../../utils/excelParser';
+import { parseRequirementAsync } from '../../utils/excelParserAsync';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { findMatches } from '../../utils/matcher';
 import type { MatchItem } from '../../types';
@@ -86,7 +86,7 @@ const RequirementUploader: React.FC = () => {
                 return false;
             }
 
-            const data = await parseRequirementExcel(file);
+            const data = await parseRequirementAsync(file);
             setRequirementFile(data);
 
             // Trigger Matching with Filtering

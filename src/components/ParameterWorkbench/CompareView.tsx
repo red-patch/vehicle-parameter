@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Button, Empty, Table, Tag, Alert, Space, Input, Segmented, message, Select, Spin } from 'antd';
+import { Card, Button, Empty, Tag, Alert, Space, Input, Segmented, message, Select, Spin } from 'antd';
 import { DiffOutlined, InfoCircleOutlined, SearchOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -7,6 +7,7 @@ import ProductSourceSelector from './ProductSourceSelector';
 import { isFieldRequired } from '../../assets/requiredFields';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
+import DataTable from '../common/DataTable';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { buildVehicleDisplayLabels, getVehicleProductName } from '../../utils/vehicleInstance';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
@@ -369,9 +370,9 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             {/* Results Area */}
             <div className="flex-1 overflow-auto bg-white rounded-lg border border-gray-200">
                 {comparisonData.length > 0 ? (
-                    <div className="p-3" ref={reportRef}>
+                    <div className="p-3 flex flex-col min-h-0 flex-1" ref={reportRef}>
                         {/* 统计 + 工具栏 */}
-                        <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+                        <div className="mb-3 flex items-center justify-between flex-wrap gap-2 shrink-0">
                             <div className="flex items-center gap-3">
                                 <span className="text-gray-500 text-sm">共 {comparisonData.length} 项</span>
                                 <Segmented
@@ -416,14 +417,11 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                 </Button>
                             </Space>
                         </div>
-                        <Table
+                        <DataTable
                             dataSource={filteredData}
                             columns={columns}
                             rowKey="key"
-                            size="small"
-                            scroll={{ x: 'max-content' }}
-                            pagination={{ pageSize: 20, showSizeChanger: true, showTotal: t => `共 ${t} 条` }}
-                            rowClassName={(record) => record.hasDiff ? 'bg-yellow-50' : ''}
+                            rowClassName={(record: { hasDiff: boolean }) => record.hasDiff ? 'bg-yellow-50' : ''}
                         />
                     </div>
                 ) : pendingSelectionCount > 0 ? (

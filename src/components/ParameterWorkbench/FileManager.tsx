@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Upload, Button, message, Tooltip } from 'antd';
 import { DeleteOutlined, FileExcelOutlined, PlusOutlined, SettingOutlined, BankOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
-import { parseExcel, readFileAsWorkbook, previewWorkbook, parseWorkbookWithConfig } from '../../utils/excelParser';
+import { readFileAsWorkbook, previewWorkbook } from '../../utils/excelParser';
+import { parseExcelAsync, parseWithConfigAsync } from '../../utils/excelParserAsync';
 import { EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
 import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
@@ -49,8 +50,8 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
         });
         
         try {
-            // 先尝试自动解析
-            const data: SheetData = await parseExcel(file);
+            // 先尝试自动解析（Worker 线程，不阻塞 UI）
+            const data: SheetData = await parseExcelAsync(file);
             
             if (!data.data || data.data.length === 0) {
                 // 自动解析结果为空 → 打开预览框
@@ -92,15 +93,21 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
         }
     };
 
-    // 用户确认配置后，使用配置化解析
-    const handlePreviewConfirm = (configs: SheetParseConfig[]) => {
-        if (!pendingWorkbook) return;
+    // 用户确认配置后，使用配置化解析（Worker 线程）
+    const handlePreviewConfirm = async (configs: SheetParseConfig[]) => {
+        const file = fileCache.get(pendingFileName);
+        if (!file) {
+            message.error('文件缓存已过期，请重新上传');
+            setPreviewOpen(false);
+            return;
+        }
         try {
-            const data = parseWorkbookWithConfig(pendingWorkbook, pendingFileName, configs);
+            const data = await parseWithConfigAsync(file, configs);
             addFile(data);
             message.success(`已添加: ${pendingFileName}（手动配置解析）`);
             setPreviewOpen(false);
             setPendingWorkbook(null);
+            setPendingFileName('');
         } catch (err) {
             message.error(`解析失败: ${(err as Error).message}`);
         }
