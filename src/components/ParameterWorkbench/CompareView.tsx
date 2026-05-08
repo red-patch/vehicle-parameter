@@ -341,7 +341,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         <div className="flex flex-col gap-3 h-full">
             {selectedProductNames.length === 0 && (
                 <Alert
-                    message="请先在左侧数据池中选择车型"
+                    message="请先在资产管理中选择车型"
                     type="info"
                     showIcon
                     icon={<InfoCircleOutlined />}

@@ -1,13 +1,10 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import DataSourcePanel from './DataSourcePanel';
 import VehicleListPanel from './VehicleListPanel';
 import AssetDataSynchronizer from './AssetDataSynchronizer';
 import type { RepairSourceModule } from '../../types';
-import { useVehicleStore } from '../../store/vehicleStore';
-import { useShallow } from 'zustand/react/shallow';
-import { clampPoolSidebarWidth } from '../../utils/poolLayout';
 
 const CompareView = React.lazy(() => import('./CompareView'));
 const SmartFillView = React.lazy(() => import('./SmartFillView'));
@@ -36,12 +33,6 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
     const [innerActiveTab, setInnerActiveTab] = useState<WorkbenchTabKey>('pool');
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
     const [focusedProduct, setFocusedProduct] = useState<string | null>(null);
-    const poolContainerRef = useRef<HTMLDivElement>(null);
-    const { poolSidebarWidth, setPoolSidebarWidth } = useVehicleStore(useShallow((state) => ({
-        poolSidebarWidth: state.poolSidebarWidth,
-        setPoolSidebarWidth: state.setPoolSidebarWidth,
-    })));
-    const [draggingSidebar, setDraggingSidebar] = useState(false);
 
     const handleFocusFile = (fileName: string | null) => {
         setFocusedFile(fileName);
@@ -56,39 +47,6 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         }
     };
 
-    const [sidebarWidth, setSidebarWidth] = useState(() =>
-        clampPoolSidebarWidth(poolSidebarWidth, 1400)
-    );
-
-    // DOM 更新后重新计算宽度，避免 display:none 时 clientWidth=0 导致误缩
-    useLayoutEffect(() => {
-        const containerWidth = poolContainerRef.current?.clientWidth;
-        if (containerWidth && containerWidth > 0) {
-            setSidebarWidth(clampPoolSidebarWidth(poolSidebarWidth, containerWidth));
-        }
-    }, [activeTab, poolSidebarWidth]);
-
-    useEffect(() => {
-        if (activeTab !== 'pool' || !draggingSidebar) return;
-
-        const handlePointerMove = (event: PointerEvent) => {
-            const rect = poolContainerRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            const nextWidth = clampPoolSidebarWidth(event.clientX - rect.left, rect.width);
-            setPoolSidebarWidth(nextWidth);
-        };
-
-        const handlePointerUp = () => setDraggingSidebar(false);
-
-        window.addEventListener('pointermove', handlePointerMove);
-        window.addEventListener('pointerup', handlePointerUp);
-
-        return () => {
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-        };
-    }, [activeTab, draggingSidebar, setPoolSidebarWidth]);
-
     const handleGoRepair = useCallback(() => setActiveTab('purify'), [setActiveTab]);
     const handleReturnToModule = useCallback(
         (sourceModule: RepairSourceModule) => {
@@ -100,39 +58,24 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
     const items: { key: WorkbenchTabKey; label: React.ReactNode; children: React.ReactNode }[] = useMemo(() => [
         {
             key: 'pool',
-            label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 数据池</span>,
+            label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 资产管理</span>,
             children: (
-                <div
-                    ref={poolContainerRef}
-                    className="flex flex-1 h-full min-h-0 bg-slate-200/50 border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm backdrop-blur-sm"
-                >
-                    <div
-                        className="flex-shrink-0 bg-slate-50/40"
-                        style={{ width: sidebarWidth }}
-                    >
+                <div className="flex gap-3 h-full">
+                    <div className="flex-1 min-w-0 bg-slate-200/50 border border-slate-200/60 rounded-2xl shadow-sm backdrop-blur-sm" style={{ flex: focusedFile ? '1' : undefined }}>
                         <DataSourcePanel
                             focusedFile={focusedFile}
                             onFocusFile={handleFocusFile}
                         />
                     </div>
-
-                    <div
-                        className={`w-2 flex-shrink-0 cursor-col-resize bg-slate-200/70 hover:bg-blue-200 transition-colors relative ${draggingSidebar ? 'bg-blue-300' : ''}`}
-                        onPointerDown={(event) => {
-                            event.preventDefault();
-                            setDraggingSidebar(true);
-                        }}
-                    >
-                        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-white/80" />
-                    </div>
-
-                    <div className="flex-1 min-w-0 bg-white border-l border-slate-200/60">
-                        <VehicleListPanel
-                            focusedProduct={focusedProduct}
-                            onFocusProduct={setFocusedProduct}
-                            onGoCompare={() => setActiveTab('compare')}
-                        />
-                    </div>
+                    {focusedFile && (
+                        <div className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm">
+                            <VehicleListPanel
+                                focusedProduct={focusedProduct}
+                                onFocusProduct={setFocusedProduct}
+                                onGoCompare={() => setActiveTab('compare')}
+                            />
+                        </div>
+                    )}
                 </div>
             )
         },
@@ -172,7 +115,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
                 </React.Suspense>
             )
         }
-    ], [handleGoRepair, handleReturnToModule, focusedFile, sidebarWidth, draggingSidebar, activeTab]);
+    ], [handleGoRepair, handleReturnToModule, focusedFile, activeTab]);
 
     return (
         <div className="h-full bg-slate-50/50 p-4">

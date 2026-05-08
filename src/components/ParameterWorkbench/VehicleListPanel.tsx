@@ -227,7 +227,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
-                            <h3 className="text-[15px] font-bold text-slate-800 m-0 tracking-tight">待分析车型工作区</h3>
+                            <h3 className="text-[15px] font-bold text-slate-800 m-0 tracking-tight">待分析车型</h3>
                         </div>
                         <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider m-0">
                             Gathered {activeVehicles.length} effective datasets

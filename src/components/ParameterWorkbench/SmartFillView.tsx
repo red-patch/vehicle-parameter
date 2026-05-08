@@ -129,7 +129,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
             {/* 提示信息 */}
             {selectedProductNames.length === 0 && (
                 <Alert
-                    message="请先在左侧数据池中选择车型"
+                    message="请先在资产管理中选择车型"
                     type="info"
                     showIcon
                     icon={<InfoCircleOutlined />}
@@ -152,7 +152,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                                 mode="single"
                                 value={referenceProduct}
                                 onChange={setReferenceProduct}
-                                placeholder={selectedProductNames.length > 0 ? "选择参考车型" : "请先在数据池中激活车型"}
+                                placeholder={selectedProductNames.length > 0 ? "选择参考车型" : "请先在资产管理中激活车型"}
                                 showTags={false}
                             />
                         </div>
