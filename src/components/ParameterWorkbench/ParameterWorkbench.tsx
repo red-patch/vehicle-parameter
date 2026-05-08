@@ -61,21 +61,19 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 资产管理</span>,
             children: (
                 <div className="flex gap-3 h-full">
-                    <div className="flex-1 min-w-0 bg-slate-200/50 border border-slate-200/60 rounded-2xl shadow-sm backdrop-blur-sm" style={{ flex: focusedFile ? '1' : undefined }}>
+                    <div className="flex-1 min-w-0 bg-slate-200/50 border border-slate-200/60 rounded-2xl shadow-sm backdrop-blur-sm">
                         <DataSourcePanel
                             focusedFile={focusedFile}
                             onFocusFile={handleFocusFile}
                         />
                     </div>
-                    {focusedFile && (
-                        <div className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm">
-                            <VehicleListPanel
-                                focusedProduct={focusedProduct}
-                                onFocusProduct={setFocusedProduct}
-                                onGoCompare={() => setActiveTab('compare')}
-                            />
-                        </div>
-                    )}
+                    <div className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm">
+                        <VehicleListPanel
+                            focusedProduct={focusedProduct}
+                            onFocusProduct={setFocusedProduct}
+                            onGoCompare={() => setActiveTab('compare')}
+                        />
+                    </div>
                 </div>
             )
         },
