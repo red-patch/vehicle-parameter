@@ -23,7 +23,7 @@ const items = [
     {
         key: 'pool',
         icon: <DatabaseOutlined />,
-        label: '数据池',
+        label: '资产管理',
     },
     {
         key: 'compare',

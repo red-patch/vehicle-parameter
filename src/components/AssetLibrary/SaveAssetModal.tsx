@@ -113,12 +113,12 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
 
     return (
         <Modal
-            title="📥 保存至数据资产库"
+            title="📥 保存车型至资产库"
             open={visible}
             onCancel={onClose}
             onOk={handleSave}
             confirmLoading={loading}
-            okText="确定保存"
+            okText="保存并加入待分析"
             cancelText="取消"
             destroyOnClose
             width={480}

@@ -34,7 +34,7 @@ describe('MainLayout navigation', () => {
       </MainLayout>
     );
 
-    expect(screen.getByRole('menuitem', { name: /数据池/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /资产管理/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /版本对比/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /智能填报/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /多车型管理/ })).toBeInTheDocument();

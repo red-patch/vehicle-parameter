@@ -77,8 +77,13 @@ const ConfigManagerView: React.FC = () => {
             if (assetLibraryPath) await reloadCustomFields(assetLibraryPath);
             if (!isEnumDataLoaded()) {
                 setLoading(true);
-                await preloadEnumData(assetLibraryPath || undefined);
-                setLoading(false);
+                try {
+                    await preloadEnumData(assetLibraryPath || undefined);
+                } catch (e) {
+                    console.error('加载枚举数据失败', e);
+                } finally {
+                    setLoading(false);
+                }
             }
             const nextFieldGroups = getFieldGroupsSync();
             setFieldGroups(nextFieldGroups);

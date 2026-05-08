@@ -8,7 +8,6 @@ import { getAssetFilesWithInfo, renameAssetIdentity, deleteAssetFile, loadAssetF
 import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '../../utils/assetSourceTags';
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
-import { clampPoolWorkspaceHeight } from '../../utils/poolLayout';
 import { getAssetDisplayName, validateAssetName, fixAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
@@ -44,9 +43,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         removeActiveAsset, 
         renameActiveAsset,
         selectedProductNames,
-        poolWorkspaceHeight,
-        setPoolWorkspaceHeight,
-        resetPoolLayout,
         assetTagGroupsVersion,
         assetVersion,
     } = useVehicleStore(useShallow(state => ({
@@ -57,14 +53,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         removeActiveAsset: state.removeActiveAsset,
         renameActiveAsset: state.renameActiveAsset,
         selectedProductNames: state.selectedProductNames,
-        poolWorkspaceHeight: state.poolWorkspaceHeight,
-        setPoolWorkspaceHeight: state.setPoolWorkspaceHeight,
-        resetPoolLayout: state.resetPoolLayout,
         assetTagGroupsVersion: state.assetTagGroupsVersion,
         assetVersion: state.assetVersion,
     })));
     const panelRef = useRef<HTMLDivElement>(null);
-    const [draggingWorkspace, setDraggingWorkspace] = useState(false);
+    
 
     // 智能联动逻辑：根据当前选中的车型，判断某个资产是否处于“激活”状态
     // 此处定义：如果该资产内含的车型（通常为 info.productName）已在 selectedProductNames 中，则视为已激活
@@ -89,26 +82,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
     const [announceNoInput, setAnnounceNoInput] = useState('');
 
-    useEffect(() => {
-        if (!draggingWorkspace) return;
-
-        const handlePointerMove = (event: PointerEvent) => {
-            const rect = panelRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            const nextHeight = clampPoolWorkspaceHeight(event.clientY - rect.top, rect.height);
-            setPoolWorkspaceHeight(nextHeight);
-        };
-
-        const handlePointerUp = () => setDraggingWorkspace(false);
-
-        window.addEventListener('pointermove', handlePointerMove);
-        window.addEventListener('pointerup', handlePointerUp);
-
-        return () => {
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-        };
-    }, [draggingWorkspace, setPoolWorkspaceHeight]);
 
     const fetchAssets = useCallback(async () => {
         if (!assetLibraryPath) return;
@@ -199,8 +172,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
     const handleToggleAsset = (info: AssetFileInfo, currentlyActive: boolean) => {
         if (!currentlyActive) {
-            // 一键激活：添加到 activeAssets 并勾选该车型
+            // 一键激活：添加到 activeAssets 并勾选该车型，同时弹出右侧面板
             addActiveAsset(info.fileName, info.productName);
+            onFocusFile(info.fileName);
             message.success(`已激活资产：${info.productName}`);
         } else {
             // 一键移出：从工作集和激活列表中移除
@@ -413,37 +387,23 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
     return (
         <div ref={panelRef} className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
-            {/* Middle: Excel WorkSpace */}
-            <div className="flex-none p-3 border-b border-slate-200/60 bg-white/40 overflow-hidden" style={{ height: poolWorkspaceHeight }}>
-                <FileManager 
-                    hiddenAssetButton={true} 
-                    onSelectFile={onFocusFile} 
-                    focusedFile={focusedFile} 
-                />
-            </div>
-
-            <div
-                className={`h-2 flex-shrink-0 cursor-row-resize bg-slate-200/70 hover:bg-blue-200 transition-colors relative ${draggingWorkspace ? 'bg-blue-300' : ''}`}
-                onPointerDown={(event) => {
-                    event.preventDefault();
-                    setDraggingWorkspace(true);
-                }}
-            >
-                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] bg-white/80" />
-            </div>
-
-            {/* Bottom Half: Asset Library */}
+            {/* Asset Library */}
             <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-2 px-1">
                     <div className="flex items-center gap-2">
                         <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
-                        <span className="text-[15px] font-bold text-slate-800 tracking-tight">资产库 (Assets)</span>
+                        <span className="text-[15px] font-bold text-slate-800 tracking-tight">车型资产库</span>
                     </div>
                     <div className="flex items-center gap-1.5">
+                        <FileManager
+                            hiddenAssetButton={true}
+                            onSelectFile={onFocusFile}
+                            focusedFile={focusedFile}
+                        />
                         <Button
                             type="text"
                             size="small"
-                            onClick={resetPoolLayout}
+                            onClick={() => {}}
                             className="text-[11px] text-slate-400 hover:!text-blue-500"
                         >
                             恢复布局
