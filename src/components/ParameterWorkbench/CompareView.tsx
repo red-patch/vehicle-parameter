@@ -65,7 +65,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         localSelection.forEach(instanceKey => {
             const data = selectionStates.get(instanceKey)?.data || [];
             data.forEach(p => {
-                const key = p.name;
+                const key = p.group ? `${p.group}::${p.name}` : p.name;
                 if (!allParams.has(key)) {
                     allParams.set(key, {
                         groups: new Set(),

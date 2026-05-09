@@ -69,10 +69,9 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     if (!assetLibraryPath) { message.error('请先设置资产库路径'); return; }
     const selected = pendingProducts.filter(p => p.checked !== false);
     if (selected.length === 0) { message.warning('请至少选择一个车型'); return; }
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     for (const prod of selected) {
       const params = pendingProductData.filter(p => (p.productName || pendingPendingFileName) === prod.name);
-      const fileNameBase = prod.name + '_' + dateStr;
+      const fileNameBase = prod.customName || prod.name;
       const fileNameJson = fileNameBase + '.json';
       await saveAssetFile(assetLibraryPath, fileNameBase, prod.name, params);
       addActiveAsset(fileNameJson, prod.name);
@@ -91,7 +90,7 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
   const [sheetPickerData, setSheetPickerData] = useState<{ name: string; totalRows: number }[]>([]);
   const [preselectedDisabledSheets, setPreselectedDisabledSheets] = useState<Set<string>>(new Set());
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-  const [pendingProducts, setPendingProducts] = useState<{ name: string; count: number; checked?: boolean }[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<{ name: string; count: number; checked?: boolean; customName?: string }[]>([]);
   const [pendingProductData, setPendingProductData] = useState<import('../../types').VehicleParameter[]>([]);
   const [pendingPendingFileName, setPendingPendingFileName] = useState('');
   const [assetDrawerVisible, setAssetDrawerVisible] = useState(false);
@@ -120,6 +119,61 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
         onConfirm={handlePreviewConfirm} onCancel={() => setPreviewOpen(false)} preselectedDisabledSheets={preselectedDisabledSheets} />
       <SheetPickerModal open={sheetPickerOpen} sheets={sheetPickerData}
         onConfirm={handleSheetPickerConfirm} onSkip={handleSheetPickerSkip} onCancel={handleSheetPickerCancel} />
+      
+      {/* 多车型导入确认弹窗 */}
+      {confirmModalVisible && (
+        <Modal
+          open={confirmModalVisible}
+          title="确认导入车型"
+          width={520}
+          onCancel={() => { setConfirmModalVisible(false); setPendingProductData([]); }}
+          footer={[
+            <Button key="cancel" onClick={() => { setConfirmModalVisible(false); setPendingProductData([]); }}>取消</Button>,
+            <Button key="confirm" type="primary" onClick={handleConfirmSave}>
+              保存至资产库 ({pendingProducts.filter(p => p.checked !== false).length})
+            </Button>,
+          ]}
+        >
+          <div style={{ marginBottom: 12, fontSize: 13, color: '#666' }}>
+            解析发现 {pendingProducts.length} 个车型，请选择需要保存到资产库的车型：
+          </div>
+          {pendingProducts.map((prod, idx) => (
+            <div key={idx} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px',
+              borderBottom: '1px solid #f0f0f0'
+            }}>
+              <Checkbox
+                checked={prod.checked !== false}
+                onChange={e => {
+                  const next = [...pendingProducts];
+                  next[idx] = { ...next[idx], checked: e.target.checked };
+                  setPendingProducts(next);
+                }}
+              />
+              <span style={{ flex: 1, fontSize: 13 }}>{prod.name}</span>
+              <span style={{ fontSize: 12, color: '#999' }}>{prod.count} 个参数</span>
+              <input
+                type="text"
+                value={prod.customName || prod.name + '.json'}
+                onChange={e => {
+                  const next = [...pendingProducts];
+                  next[idx] = { ...next[idx], customName: e.target.value.replace(/\.json$/i, '') };
+                  setPendingProducts(next);
+                }}
+                style={{
+                  fontSize: 11, width: 180, padding: '1px 4px',
+                  border: '1px solid #d9d9d9', borderRadius: 3, outline: 'none', color: '#333'
+                }}
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          ))}
+          <div style={{ marginTop: 12, fontSize: 12, color: '#999' }}>
+            保存后车型将自动加入待分析工作区
+          </div>
+        </Modal>
+      )}
+
       <AssetListDrawer visible={assetDrawerVisible} onClose={() => setAssetDrawerVisible(false)} />
     </>
   );

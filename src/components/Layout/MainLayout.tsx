@@ -1,15 +1,13 @@
 import React, { type ReactNode } from 'react';
 import { version } from '../../../package.json';
-import { Layout as AntLayout, Menu, Switch, Tooltip, Button, message } from 'antd';
+import { Layout as AntLayout, Menu, Switch, Tooltip, Button } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined, GlobalOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
-import { open } from '@tauri-apps/plugin-dialog';
 import { reloadCustomFields } from '../../utils/fieldLists';
 import { preloadEnumData } from '../../utils/attributeEnums';
 import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import { Modal } from 'antd';
-import { useShallow } from 'zustand/react/shallow';
 
 const { Header, Content, Footer } = AntLayout;
 
@@ -59,10 +57,7 @@ const items = [
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbench', onTabChange }) => {
     const { isDarkMode, toggleDarkMode } = useThemeStore();
-    const { assetLibraryPath, setAssetLibraryPath } = useVehicleStore(useShallow(state => ({
-        assetLibraryPath: state.assetLibraryPath,
-        setAssetLibraryPath: state.setAssetLibraryPath
-    })));
+    const assetLibraryPath = useVehicleStore(state => state.assetLibraryPath);
 
     // 监听本地资产路径挂载事件，触发字典与标准的超级同化机制
     React.useEffect(() => {
@@ -74,23 +69,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
             void reloadCustomAssetTagGroups('');
         }
     }, [assetLibraryPath]);
-
-    const handleSetAssetLibrary = async () => {
-        try {
-            const selected = await open({
-                directory: true,
-                multiple: false,
-                title: '选择资产库目录'
-            });
-            if (selected && typeof selected === 'string') {
-                setAssetLibraryPath(selected);
-                message.success(`已设置资产库目录: ${selected}`);
-            }
-        } catch (err) {
-            console.error('Failed to select directory', err);
-            message.error('选择目录失败');
-        }
-    };
 
     const handleClearCache = () => {
         Modal.confirm({
@@ -153,15 +131,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                             onChange={toggleDarkMode}
                             checkedChildren={<MoonOutlined />}
                             unCheckedChildren={<SunOutlined />}
-                        />
-                    </Tooltip>
-                    <Tooltip title={assetLibraryPath ? `资产库: ${assetLibraryPath}` : '设置资产库目录'}>
-                        <Button 
-                            type="text" 
-                            size="small"
-                            icon={<SettingOutlined className={assetLibraryPath ? (isDarkMode ? "text-blue-400" : "text-blue-500") : "text-gray-400"} />} 
-                            onClick={handleSetAssetLibrary}
-                            className="ml-2"
                         />
                     </Tooltip>
                     <Tooltip title="清除缓存并重置系统">

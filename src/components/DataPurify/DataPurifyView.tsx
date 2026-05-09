@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Select, Button, Tag, Input, Tooltip, message, Popconfirm, Space, Alert } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
 import DataTable from '../common/DataTable';
@@ -10,11 +10,11 @@ import { getFieldGroupsSync, getSystemRequiredFieldsSync, getQualityCheckFieldsS
 import Fuse from 'fuse.js';
 import type { VehicleParameter } from '../../types';
 import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
-import { saveAssetFile, checkAssetExists } from '../../utils/assetManager';
+import { loadAssetFile, saveAssetFile, checkAssetExists } from '../../utils/assetManager';
 import { ASSET_SOURCE_TAGS } from '../../utils/assetSourceTags';
 import { getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
 import type { RepairSourceModule } from '../../types';
-import { buildVehicleDisplayLabels, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
+import { buildVehicleDisplayLabels, buildVehicleInstanceKey, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
 import { getVehicleSelectionState } from '../../utils/vehicleSelectionState';
 
 interface DataPurifyViewProps {
@@ -34,6 +34,9 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         clearRepairContext,
         fieldGroupsVersion,
         bumpAssetVersion,
+        addActiveAsset,
+        removeActiveAsset,
+        setAssetFiles,
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         selectedProductNames: state.selectedProductNames,
@@ -46,6 +49,9 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         clearRepairContext: state.clearRepairContext,
         fieldGroupsVersion: state.fieldGroupsVersion,
         bumpAssetVersion: state.bumpAssetVersion,
+        addActiveAsset: state.addActiveAsset,
+        removeActiveAsset: state.removeActiveAsset,
+        setAssetFiles: state.setAssetFiles,
     })));
     const [purifyParams, setPurifyParams] = useState<VehicleParameter[]>([]);
     const [enumLoaded, setEnumLoaded] = useState(isEnumDataLoaded());
@@ -68,6 +74,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     const [valueSearch, setValueSearch] = useState('');
     const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'anomaly'>('none');
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
+    const [manualValueRows, setManualValueRows] = useState<Set<string>>(new Set());
 
     // 预加载枚举数据
     useEffect(() => {
@@ -157,6 +164,32 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 purifyParams
             );
             message.success(`已成功保存资产: ${fileName}`);
+
+            // 同步更新 activeAssets 和 selectedProductNames
+            const newFileNameJson = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
+            // 如果是重命名，先移除旧文件
+            if (currentAssetFileName && currentAssetFileName !== newFileNameJson) {
+                removeActiveAsset(currentAssetFileName, selectedProductName);
+            }
+            // 始终注册新文件到 activeAssets（首次保存和重命名都需要）
+            addActiveAsset(newFileNameJson, selectedProductName);
+            // 同步更新当前选择的 instance key，使下游模块立即感知
+            const newInstanceKey = buildVehicleInstanceKey('asset', newFileNameJson, selectedProductName);
+            if (selectedProduct && !selectedProductNames.includes(newInstanceKey)) {
+                setSelectedProduct(newInstanceKey);
+            }
+
+            // 立即加载资产数据到 assetFiles，不等 AssetDataSynchronizer 异步同步
+            const targetJson = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
+            const loaded = await loadAssetFile(assetLibraryPath, targetJson);
+            if (loaded) {
+                const exists = assetFiles.some(f => f.fileName === targetJson);
+                setAssetFiles(exists
+                    ? assetFiles.map(f => f.fileName === targetJson ? loaded : f)
+                    : [...assetFiles, loaded]
+                );
+            }
+
             // bumpAssetVersion 移至 SaveAssetModal.performSave 中标签保存后触发
             // 更新状态
             if (fileName === selectedProductName || fileName === `${selectedProductName}.json`) {
@@ -195,28 +228,35 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     };
 
     // 为每一行计算异常状态和推荐
+    // 性能优化：用 ref 缓存上次计算结果，仅当 purifyParams.name 或 enumLoaded 变化时重算 fuse
+    const prevNameKeys = useRef('');
+    const nameFixesCache = useRef<Map<string, string[]>>(new Map());
     const augmentedParams = useMemo(() => {
-        return purifyParams.map(p => {
-            const isNameStandard = allStandardFields.includes(p.name);
-            let nameFixes: string[] = [];
-            
-            if (!isNameStandard && p.name.trim() !== '') {
+        const nameKey = purifyParams.map(p => `${p.id}:${p.name}`).join('|');
+        if (nameKey !== prevNameKeys.current) {
+            prevNameKeys.current = nameKey;
+            nameFixesCache.current = new Map();
+            purifyParams.forEach(p => {
+                if (allStandardFields.includes(p.name) || !p.name.trim()) {
+                    nameFixesCache.current.set(p.id, []);
+                    return;
+                }
                 const results = standardFieldsFuse.search(p.name);
-                nameFixes = results.slice(0, 3).map((r: any) => r.item.name);
-            }
-
+                nameFixesCache.current.set(p.id, results.slice(0, 3).map((r: any) => r.item.name));
+            });
+        }
+        return purifyParams.map(p => {
             const enums = enumLoaded && p.name ? getEnumValuesSync(p.name) : [];
             const hasEnums = enums.length > 0;
             const strValue = String(p.value || '').trim();
             const isEnumMismatch = hasEnums && strValue !== '' && !enums.includes(strValue);
-
             return {
                 ...p,
-                isNameStandard,
-                nameFixes,
+                isNameStandard: allStandardFields.includes(p.name),
+                nameFixes: nameFixesCache.current.get(p.id) || [],
                 enums,
                 hasEnums,
-                isEnumMismatch
+                isEnumMismatch,
             };
         });
     }, [purifyParams, enumLoaded]);
@@ -322,46 +362,64 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 </div>
             )
         },
+
         {
             title: '参数值',
             key: 'value',
             width: 350,
-            render: (_: any, record: any) => (
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                        {record.hasEnums ? (
-                            <Select
-                                showSearch
-                                allowClear
-                                style={{ flex: 1 }}
-                                value={record.value ? String(record.value) : undefined}
-                                onChange={val => handleUpdateParam(record.id, 'value', val || '')}
-                                options={record.enums.map((e: string) => ({ value: e, label: e }))}
-                                status={record.isEnumMismatch ? 'error' : ''}
-                                placeholder="选择或查找标准值"
-                                dropdownStyle={{ minWidth: 200 }}
-                            />
-                        ) : (
-                            <Input 
-                                value={record.value}
-                                onChange={e => handleUpdateParam(record.id, 'value', e.target.value)}
-                                placeholder="输入数值"
-                                style={{ flex: 1 }}
-                            />
-                        )}
-                        {record.isEnumMismatch && (
-                            <Tooltip title={`"${record.value}" 不在标准字典内`}>
-                                <WarningOutlined className="text-red-500" />
-                            </Tooltip>
+            render: (_: any, record: any) => {
+                const isManual = manualValueRows.has(record.id);
+                return (
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                            {record.hasEnums && !isManual ? (
+                                <Select
+                                    showSearch
+                                    allowClear
+                                    style={{ flex: 1 }}
+                                    value={record.value ? String(record.value) : undefined}
+                                    onChange={val => handleUpdateParam(record.id, 'value', val || '')}
+                                    options={record.enums.map((e: string) => ({ value: e, label: e }))}
+                                    status={record.isEnumMismatch ? 'error' : ''}
+                                    placeholder="选择或查找标准值"
+                                    dropdownStyle={{ minWidth: 200 }}
+                                />
+                            ) : (
+                                <Input
+                                    value={record.value}
+                                    onChange={(e) => handleUpdateParam(record.id, 'value', e.target.value)}
+                                    placeholder="输入数值"
+                                    style={{ flex: 1 }}
+                                />
+                            )}
+                            {record.isEnumMismatch && (
+                                <Tooltip title={'"' + record.value + '" 不在标准字典内'}>
+                                    <WarningOutlined className="text-red-500" />
+                                </Tooltip>
+                            )}
+                            {record.hasEnums && (
+                                <Tooltip title={isManual ? '切换为标准选择' : '手动输入'}>
+                                    <span
+                                        style={{ fontSize: 11, color: '#1890ff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                        onClick={() => {
+                                            const next = new Set(manualValueRows);
+                                            if (isManual) next.delete(record.id); else next.add(record.id);
+                                            setManualValueRows(next);
+                                        }}
+                                    >
+                                        {isManual ? '📋 标准选择' : '✏️ 手动输入'}
+                                    </span>
+                                </Tooltip>
+                            )}
+                        </div>
+                        {record.updatedAt && (
+                            <div className="text-[10px] text-gray-400 mt-1 cursor-default">
+                                已于 {record.updatedAt} 手动更新
+                            </div>
                         )}
                     </div>
-                    {record.updatedAt && (
-                        <div className="text-[10px] text-gray-400 mt-1 cursor-default">
-                            已于 {record.updatedAt} 手动更新
-                        </div>
-                    )}
-                </div>
-            )
+                );
+            },
         },
         {
             title: '操作',
