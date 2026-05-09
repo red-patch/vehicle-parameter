@@ -187,6 +187,19 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         });
     };
 
+    // 一键：仅保留当前产品列，其余产品列全部设为跳过
+    const keepOnlyThisProductColumn = (colIdx: number) => {
+        if (!currentPreview) return;
+        updateConfig(currentPreview.sheetName, prev => {
+            const cols = new Map(prev.columns);
+            cols.forEach((col, idx) => {
+                if (col.role === 'product' && idx !== colIdx) cols.set(idx, { ...col, role: 'skip' });
+                if (idx === colIdx) cols.set(idx, { ...col, role: 'product' });
+            });
+            return { ...prev, columns: cols };
+        });
+    };
+
     const enableAllSheets = () => {
         setSheetConfigs(prev => {
             const next = new Map(prev);
@@ -479,17 +492,25 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                                 options={ROLE_OPTIONS.map(r => ({ value: r.value, label: r.label }))}
                                             />
                                             {getColumnRole(ci) === 'product' && (
-                                                <input
-                                                    type="text"
-                                                    value={config.columns.get(ci)?.customName || ''}
-                                                    disabled={!config.enabled}
-                                                    onChange={e => setProductName(ci, e.target.value)}
-                                                    placeholder="产品名"
-                                                    style={{
-                                                        marginTop: 2, width: '100%', fontSize: 11, padding: '1px 4px',
-                                                        border: '1px solid #d9d9d9', borderRadius: 3, outline: 'none'
-                                                    }}
-                                                />
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        value={config.columns.get(ci)?.customName || ''}
+                                                        disabled={!config.enabled}
+                                                        onChange={e => setProductName(ci, e.target.value)}
+                                                        placeholder="产品名"
+                                                        style={{
+                                                            marginTop: 2, width: '100%', fontSize: 11, padding: '1px 4px',
+                                                            border: '1px solid #d9d9d9', borderRadius: 3, outline: 'none'
+                                                        }}
+                                                    />
+                                                    <span
+                                                        style={{ fontSize: 10, color: '#1890ff', cursor: 'pointer', display: 'block', marginTop: 2, textAlign: 'right' }}
+                                                        onClick={() => keepOnlyThisProductColumn(ci)}
+                                                    >
+                                                        仅此列
+                                                    </span>
+                                                </>
                                             )}
                                         </th>
                                     ))}

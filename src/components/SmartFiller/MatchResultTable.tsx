@@ -319,8 +319,9 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                             {isManualMode ? (
                             // 手动输入模式
                             <Input
-                                value={currentValue}
-                                onChange={(e) => updateManualValue(record.id, e.target.value)}
+                                defaultValue={currentValue}
+                                onBlur={(e) => updateManualValue(record.id, e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { updateManualValue(record.id, (e.target as HTMLInputElement).value); (e.target as HTMLInputElement).blur(); } }}
                                 placeholder="手动输入..."
                                 style={{ flex: 1, minWidth: 0 }}
                                 className={isModified ? 'border-blue-400' : ''}
@@ -349,8 +350,9 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                         ) : (
                             // 无枚举时默认输入框
                             <Input
-                                value={currentValue}
-                                onChange={(e) => updateManualValue(record.id, e.target.value)}
+                                defaultValue={currentValue}
+                                onBlur={(e) => updateManualValue(record.id, e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') updateManualValue(record.id, (e.target as HTMLInputElement).value); }}
                                 placeholder="输入填报值"
                                 style={{ flex: 1, minWidth: 0 }}
                                 className={`font-mono ${isModified ? 'border-blue-400' : ''}`}

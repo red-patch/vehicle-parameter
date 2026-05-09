@@ -79,6 +79,9 @@ export const getVehicleInstanceMetaFromParam = (
 export const buildVehicleOptionLabel = (instanceKey: string): string => {
     const parsed = parseVehicleInstanceKey(instanceKey);
     if (!parsed) return instanceKey;
+    // 同名时只显示产品名，避免重复显示（如"新石器_X3 · 新石器_X3.json"）
+    const fileNameBase = parsed.fileName.replace(/\.json$/i, '');
+    if (parsed.productName === fileNameBase) return parsed.productName;
     return `${parsed.productName} · ${parsed.fileName}`;
 };
 
@@ -114,7 +117,7 @@ export const buildVehicleDisplayLabels = (instanceKeys: string[]): Map<string, V
         sorted.forEach((meta, index) => {
             labels.set(meta.key, {
                 shortLabel: sorted.length > 1 ? `${meta.productName}（${index + 1}）` : meta.productName,
-                fullLabel: `${meta.productName} · ${meta.fileName}`,
+                fullLabel: buildVehicleOptionLabel(meta.key),
             });
         });
     });

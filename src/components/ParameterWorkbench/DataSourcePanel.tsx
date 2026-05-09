@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined, CopyOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined } from '@ant-design/icons';
 import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -45,6 +45,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         selectedProductNames,
         assetTagGroupsVersion,
         assetVersion,
+        assetFiles,
+        setAssetFiles,
+        setAssetLibraryPath,
     } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         uploadedFiles: state.uploadedFiles,
@@ -55,8 +58,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         selectedProductNames: state.selectedProductNames,
         assetTagGroupsVersion: state.assetTagGroupsVersion,
         assetVersion: state.assetVersion,
+        assetFiles: state.assetFiles,
+        setAssetFiles: state.setAssetFiles,
+        setAssetLibraryPath: state.setAssetLibraryPath,
     })));
     const panelRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<any>(null);
     
 
     // 智能联动逻辑：根据当前选中的车型，判断某个资产是否处于“激活”状态
@@ -110,6 +117,25 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         fetchAssets();
     }, [assetLibraryPath, uploadedFiles, assetVersion]); // Re-fetch if files uploaded or asset version bumped
 
+    // 更换资产库目录
+    const handleSetAssetLibrary = async () => {
+        try {
+            const { open } = await import('@tauri-apps/plugin-dialog');
+            const selected = await open({
+                directory: true,
+                multiple: false,
+                title: '选择资产库目录'
+            });
+            if (selected && typeof selected === 'string') {
+                setAssetLibraryPath(selected);
+                message.success(`已设置资产库目录: ${selected}`);
+            }
+        } catch (err) {
+            console.error('Failed to select directory', err);
+            message.error('选择目录失败');
+        }
+    };
+
     const handleStartFileRename = (info: AssetFileInfo) => {
         setEditingAsset(info.fileName);
         setEditName(getAssetDisplayName(info.fileName, info.productName));
@@ -119,6 +145,14 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         setEditingAsset(null);
         setEditName('');
     };
+
+    // focus the rename input once (autoFocus causes keyboard event loop)
+    useEffect(() => {
+        if (editingAsset) {
+            const timer = setTimeout(() => inputRef.current?.focus?.(), 0);
+            return () => clearTimeout(timer);
+        }
+    }, [editingAsset]);
 
     const handleQuickFix = async (info: AssetFileInfo, fixedName: string) => {
         if (!assetLibraryPath) return;
@@ -156,6 +190,15 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                     renameActiveAsset(oldFileName, result.fileName, result.productName);
                 }
 
+                // 立即加载新名称的资产数据到 assetFiles，不等同步器
+                const newLoaded = await loadAssetFile(assetLibraryPath, result.fileName);
+                if (newLoaded) {
+                    setAssetFiles(assetFiles
+                        .filter(f => f.fileName !== oldFileName)
+                        .concat(newLoaded)
+                    );
+                }
+
                 message.success('资产名称更新成功');
                 handleCancelRename();
                 fetchAssets();
@@ -183,7 +226,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         }
     };
 
-    const handleDelete = (fileName: string) => {
+    const handleDelete = (fileName: string, productName: string) => {
         Modal.confirm({
             title: '确认删除该资产？',
             icon: <ExclamationCircleOutlined className="text-red-500" />,
@@ -196,6 +239,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 try {
                     const success = await deleteAssetFile(assetLibraryPath, fileName);
                     if (success) {
+                        removeActiveAsset(fileName, productName);
                         message.success('资产已移除');
                         fetchAssets();
                         if (focusedFile === fileName) {
@@ -211,6 +255,28 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
     const handleOpenUpgradeModal = (info: AssetFileInfo) => {
         setUpgradeAsset(info);
+    };
+
+    // 在 Finder 中显示资产文件
+    const handleRevealInFinder = async (info: AssetFileInfo) => {
+        if (!assetLibraryPath) return;
+        try {
+            const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+            await revealItemInDir(`${assetLibraryPath}/${info.fileName}`);
+        } catch (e) {
+            message.error(`无法在 Finder 中打开: ${e}`);
+        }
+    };
+
+    // 用默认编辑器打开资产文件
+    const handleOpenInEditor = async (info: AssetFileInfo) => {
+        if (!assetLibraryPath) return;
+        try {
+            const { openPath } = await import('@tauri-apps/plugin-opener');
+            await openPath(`${assetLibraryPath}/${info.fileName}`);
+        } catch (e) {
+            message.error(`无法打开文件: ${e}`);
+        }
     };
 
     const handleExportCsv = async (info: AssetFileInfo) => {
@@ -417,6 +483,15 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 onClick={fetchAssets}
                                 disabled={loading}
                                 className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg hover:bg-blue-50"
+                            />
+                        </Tooltip>
+                        <Tooltip title={assetLibraryPath ? '更换资产库目录' : '设置资产库目录'}>
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={<FolderOpenOutlined className={`!text-[14px] ${assetLibraryPath ? 'text-slate-400 hover:text-amber-500' : 'text-red-400 animate-pulse'}`} />}
+                                onClick={handleSetAssetLibrary}
+                                className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg hover:bg-amber-50"
                             />
                         </Tooltip>
                     </div>
@@ -640,11 +715,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 {isEditing ? (
                                     <div className="flex items-center gap-2 w-full">
                                         <Input 
+                                            ref={inputRef}
                                             size="small"
                                             value={editName}
                                             onChange={e => setEditName(e.target.value)}
                                             onPressEnter={() => handleConfirmFileRename(info)}
-                                            autoFocus
                                             placeholder="输入资产名称"
                                             className="flex-1 text-[13px] h-7 px-2 border-blue-200 focus:border-blue-500"
                                         />
@@ -812,6 +887,30 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
                                                     />
                                                 </Tooltip>
+                                                <Tooltip title="在 Finder 中显示">
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<FolderOpenOutlined className="!text-[14px] text-slate-400 hover:text-cyan-500" />}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleRevealInFinder(info);
+                                                        }}
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-cyan-50"
+                                                    />
+                                                </Tooltip>
+                                                <Tooltip title="打开文件">
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<FileTextOutlined className="!text-[14px] text-slate-400 hover:text-amber-500" />}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenInEditor(info);
+                                                        }}
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-amber-50"
+                                                    />
+                                                </Tooltip>
                                                 <Tooltip title="重命名">
                                                     <Button 
                                                         type="text" 
@@ -835,7 +934,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         type="text" 
                                                         size="small"
                                                         icon={<DeleteOutlined className="!text-[14px] text-slate-400 hover:text-red-500" />}
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(info.fileName); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(info.fileName, info.productName); }}
                                                         className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-red-50"
                                                     />
                                                 </Tooltip>
