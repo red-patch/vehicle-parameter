@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Table, Input, Tag, Card, Spin, Empty, Typography, Tabs, Button, message, Popconfirm, Modal, Space, AutoComplete, Select } from 'antd';
-import { SearchOutlined, SettingOutlined, DownloadOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Table, Input, Tag, Card, Spin, Empty, Typography, Tabs, Button, message, Modal, Space, AutoComplete, Select } from 'antd';
+import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined } from '@ant-design/icons';
 import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
 import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
 import { assignTagToGroup, getAssetTagGroupsSync, reloadCustomAssetTagGroups, saveCustomAssetTagGroups, type AssetTagGroupKey } from '../../utils/assetTagGroups';
@@ -9,6 +9,7 @@ import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { parseFieldBatchInput } from './coreFieldRules';
 import { loadAssetTags } from '../../utils/assetManager';
+import EnumImportModal from './EnumImportModal';
 
 const { Text } = Typography;
 
@@ -17,6 +18,19 @@ interface EnumItem {
     name: string;
     values: string[];
     count: number;
+    fieldKey: string;
+    category: string;
+    required: string;
+    categoryPath: string;
+}
+
+interface EnumMeta {
+    [fieldName: string]: {
+        category?: string;
+        required?: string;
+        key?: string;
+        categoryPath?: string;
+    };
 }
 
 interface TagGroupRow {
@@ -40,6 +54,8 @@ const ConfigManagerView: React.FC = () => {
     const [editingKey, setEditingKey] = useState<string>('');
     const [editingValues, setEditingValues] = useState<string[]>([]);
     const [isCreatingNewEnum, setIsCreatingNewEnum] = useState(false);
+    const [enumImportVisible, setEnumImportVisible] = useState(false);
+    const [enumMeta, setEnumMeta] = useState<EnumMeta>({});
 
     const [fieldGroups, setFieldGroups] = useState<FieldGroupConfigItem[]>(getFieldGroupsSync());
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string>(getFieldGroupsSync()[0]?.id || 'system-required');
@@ -93,6 +109,15 @@ const ConfigManagerView: React.FC = () => {
             setEditOtherTags(tagGroups.otherTags);
             setEditVehicleFamilyTags(tagGroups.vehicleFamilyTags);
             setEditManufacturerTags(tagGroups.manufacturerTags);
+
+            // 加载枚举元数据
+            if (assetLibraryPath) {
+                try {
+                    const { readTextFile } = await import('@tauri-apps/plugin-fs');
+                    const metaPath = await join(assetLibraryPath, 'custom_enum_meta.json');
+                    setEnumMeta(JSON.parse(await readTextFile(metaPath)));
+                } catch { /* 文件可能不存在 */ }
+            }
         };
         init().catch((e) => console.error(e));
     }, [assetLibraryPath]);
@@ -110,46 +135,23 @@ const ConfigManagerView: React.FC = () => {
         });
     }, [assetLibraryPath]);
 
-    const handleExportDefaults = async () => {
-        if (!assetLibraryPath) {
-            message.warning('请先在页面右上角设置您的资产库大目录');
-            return;
-        }
-        try {
-            const allNames = getAllAttributeNames();
-            const enumDict: Record<string, string[]> = {};
-            allNames.forEach(name => {
-                enumDict[name] = getEnumValuesSync(name);
-            });
-            const enumPath = await join(assetLibraryPath, 'custom_enums.json');
-            await writeTextFile(enumPath, JSON.stringify(enumDict, null, 2));
-
-            const fieldDict = {
-                groups: getFieldGroupsSync(),
-            };
-            const fieldPath = await join(assetLibraryPath, 'custom_fields.json');
-            await writeTextFile(fieldPath, JSON.stringify(fieldDict, null, 2));
-
-            const assetTagGroupPath = await join(assetLibraryPath, 'custom_asset_tag_groups.json');
-            await writeTextFile(assetTagGroupPath, JSON.stringify(getAssetTagGroupsSync(), null, 2));
-
-            message.success('导出成功！已在您的资产库生成 custom_enums.json、custom_fields.json 及 custom_asset_tag_groups.json');
-        } catch (e) {
-            console.error(e);
-            message.error('导出系统预设模版失败');
-        }
-    };
-
     const enumData: EnumItem[] = useMemo(() => {
         if (loading) return [];
         const names = getAllAttributeNames();
-        return names.map(name => ({
-            key: name,
-            name,
-            values: getEnumValuesSync(name),
-            count: getEnumValuesSync(name).length
-        }));
-    }, [loading]);
+        return names.map(name => {
+            const meta = enumMeta[name] || {};
+            return {
+                key: name,
+                name,
+                values: getEnumValuesSync(name),
+                count: getEnumValuesSync(name).length,
+                fieldKey: meta.key || '',
+                category: meta.category || '',
+                required: meta.required || '',
+                categoryPath: meta.categoryPath || '',
+            };
+        });
+    }, [loading, enumMeta]);
 
     const filteredData = useMemo(() => {
         if (!searchText.trim()) return enumData;
@@ -295,6 +297,26 @@ const ConfigManagerView: React.FC = () => {
         }
     };
 
+    const openConfigFile = async (fileName: string) => {
+        if (!assetLibraryPath) { message.warning('请先设置资产库目录'); return; }
+        try {
+            const { openPath } = await import('@tauri-apps/plugin-opener');
+            const fullPath = await join(assetLibraryPath, fileName);
+            await openPath(fullPath);
+        } catch (e) {
+            message.error(`无法打开文件: ${e}`);
+        }
+    };
+
+    const handleRemoveTag = (tag: string, section: 'manual' | 'other' | 'vehicleFamily' | 'manufacturer') => {
+        switch (section) {
+            case 'manual': setEditManualTags(prev => prev.filter(t => t !== tag)); break;
+            case 'other': setEditOtherTags(prev => prev.filter(t => t !== tag)); break;
+            case 'vehicleFamily': setEditVehicleFamilyTags(prev => prev.filter(t => t !== tag)); break;
+            case 'manufacturer': setEditManufacturerTags(prev => prev.filter(t => t !== tag)); break;
+        }
+    };
+
     const allTagRows = useMemo<TagGroupRow[]>(() => {
         const assetTagSet = new Set(availableAssetTags);
         const tags = Array.from(new Set([
@@ -323,44 +345,76 @@ const ConfigManagerView: React.FC = () => {
             title: '字段名称',
             dataIndex: 'name',
             key: 'name',
-            width: '40%',
+            width: 180,
+            fixed: 'left' as const,
             sorter: (a: EnumItem, b: EnumItem) => a.name.localeCompare(b.name, 'zh-CN'),
         },
         {
-            title: '枚举值数量',
+            title: '字段标识',
+            dataIndex: 'fieldKey',
+            key: 'fieldKey',
+            width: 130,
+            ellipsis: true,
+            render: (v: string) => v || <span className="text-slate-300">-</span>,
+        },
+        {
+            title: '属性类别',
+            dataIndex: 'category',
+            key: 'category',
+            width: 90,
+            render: (v: string) => v ? <Tag className="text-xs">{v}</Tag> : <span className="text-slate-300">-</span>,
+        },
+        {
+            title: '必填',
+            dataIndex: 'required',
+            key: 'required',
+            width: 60,
+            render: (v: string) => v === '是' ? <Tag color="red" className="text-xs">是</Tag> : v === '否' ? <Tag className="text-xs">否</Tag> : <span className="text-slate-300">-</span>,
+        },
+        {
+            title: '所属类目',
+            dataIndex: 'categoryPath',
+            key: 'categoryPath',
+            width: 120,
+            ellipsis: true,
+            render: (v: string) => v || <span className="text-slate-300">-</span>,
+        },
+        {
+            title: '枚举数',
             dataIndex: 'count',
             key: 'count',
-            width: '15%',
+            width: 70,
             sorter: (a: EnumItem, b: EnumItem) => a.count - b.count,
-            render: (count: number) => <Tag color={count > 0 ? 'success' : 'default'}>{count} 个</Tag>
+            render: (count: number) => <Tag color={count > 0 ? 'success' : 'default'}>{count}</Tag>
         },
         {
             title: '枚举值预览',
             dataIndex: 'values',
             key: 'values',
-            width: '35%',
+            width: 260,
             render: (values: string[]) => {
                 const preview = values.slice(0, 5);
                 const hasMore = values.length > 5;
                 return (
                     <div className="flex flex-wrap gap-1">
                         {preview.map((v, i) => (
-                            <Tag key={i} className="text-xs">{v}</Tag>
+                            <Tag key={i} className="text-xs max-w-[120px] overflow-hidden text-ellipsis">{v}</Tag>
                         ))}
                         {hasMore && (
-                            <Tag color="default" className="text-xs">+{values.length - 5} 更多</Tag>
+                            <Tag color="default" className="text-xs">+{values.length - 5}</Tag>
                         )}
                     </div>
                 );
             }
         },
         {
-            title: '操作',
+            title: '',
             key: 'action',
-            width: '10%',
+            width: 60,
             render: (_: unknown, record: EnumItem) => (
                 <Button
                     type="link"
+                    size="small"
                     icon={<EditOutlined />}
                     onClick={() => {
                         setIsCreatingNewEnum(false);
@@ -368,30 +422,13 @@ const ConfigManagerView: React.FC = () => {
                         setEditingValues([...record.values]);
                         setEditModalVisible(true);
                     }}
-                >
-                    编辑
-                </Button>
+                />
             )
         }
     ];
 
     const expandedRowRender = (record: EnumItem) => (
-        <div className="p-4 bg-gray-50 rounded">
-            <Text type="secondary" className="mb-2 block">全部枚举值 ({record.count} 个):</Text>
-            <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
-                {record.values.map((v, i) => (
-                    <Tag
-                        key={i}
-                        color="blue"
-                        className="cursor-pointer hover:opacity-80"
-                        onClick={() => navigator.clipboard.writeText(v)}
-                        title="点击复制"
-                    >
-                        {v}
-                    </Tag>
-                ))}
-            </div>
-        </div>
+        <EnumExpandedRow record={record} />
     );
 
     if (loading) {
@@ -410,17 +447,9 @@ const ConfigManagerView: React.FC = () => {
                         <SettingOutlined className="text-blue-500" />
                         <span>系统配置中控台</span>
                     </div>
-                    <Popconfirm
-                        title="导出系统默认配置"
-                        description="此操作将在您的资产库内生成两份带有当前所有规则的 JSON 文件（若已存在则会覆盖）。确定继续吗？"
-                        onConfirm={handleExportDefaults}
-                        okText="确认覆盖导出"
-                        cancelText="取消"
-                    >
-                        <Button type="primary" icon={<DownloadOutlined />}>
-                            导出当前系统配置模板
-                        </Button>
-                    </Popconfirm>
+                    <Button icon={<FileExcelOutlined />} onClick={() => setEnumImportVisible(true)}>
+                        从 Excel 导入枚举
+                    </Button>
                 </div>
             }
             className="shadow-sm"
@@ -443,6 +472,8 @@ const ConfigManagerView: React.FC = () => {
                                 />
                                 <Space>
                                     <Tag>{enumData.length} 个字段</Tag>
+                                    <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_enums.json')}>枚举字典</Button>
+                                    <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_enum_meta.json')}>枚举元数据</Button>
                                     <Button
                                         type="primary"
                                         icon={<PlusOutlined />}
@@ -550,6 +581,7 @@ const ConfigManagerView: React.FC = () => {
                                                     <Text type="secondary">管理当前字段配置组中的字段集合</Text>
                                                 </div>
                                                 <Tag color="blue" className="m-0">字段数 {selectedFieldGroup.fields.length}</Tag>
+                                                <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_fields.json')}>配置文件</Button>
                                             </div>
 
                                             <div className="flex flex-wrap gap-2 mb-3">
@@ -632,6 +664,7 @@ const ConfigManagerView: React.FC = () => {
                                             prefix={<SearchOutlined className="text-gray-400" />}
                                             className="w-72"
                                         />
+                                        <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
                                         <Button icon={<PlusOutlined />} onClick={() => setTagCreateModal({ open: true, value: '', group: 'other' })}>
                                             新建标签
                                         </Button>
@@ -694,7 +727,7 @@ const ConfigManagerView: React.FC = () => {
                                         <Tag className="m-0">{editOtherTags.length}</Tag>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {editOtherTags.length > 0 ? editOtherTags.map((tag) => <Tag key={tag} className="m-0">{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
+                                        {editOtherTags.length > 0 ? editOtherTags.map((tag) => <Tag key={tag} className="m-0" closable onClose={() => handleRemoveTag(tag, 'other')}>{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
                                     </div>
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -703,7 +736,7 @@ const ConfigManagerView: React.FC = () => {
                                         <Tag color="blue" className="m-0">{editVehicleFamilyTags.length}</Tag>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {editVehicleFamilyTags.length > 0 ? editVehicleFamilyTags.map((tag) => <Tag color="blue" key={tag} className="m-0">{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
+                                        {editVehicleFamilyTags.length > 0 ? editVehicleFamilyTags.map((tag) => <Tag color="blue" key={tag} className="m-0" closable onClose={() => handleRemoveTag(tag, 'vehicleFamily')}>{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
                                     </div>
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -712,7 +745,7 @@ const ConfigManagerView: React.FC = () => {
                                         <Tag color="green" className="m-0">{editManufacturerTags.length}</Tag>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {editManufacturerTags.length > 0 ? editManufacturerTags.map((tag) => <Tag color="green" key={tag} className="m-0">{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
+                                        {editManufacturerTags.length > 0 ? editManufacturerTags.map((tag) => <Tag color="green" key={tag} className="m-0" closable onClose={() => handleRemoveTag(tag, 'manufacturer')}>{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
                                     </div>
                                 </div>
                             </div>
@@ -733,7 +766,7 @@ const ConfigManagerView: React.FC = () => {
                 onOk={handleSaveEnum}
                 onCancel={() => setEditModalVisible(false)}
                 okText="保存并使之生效"
-                width={600}
+                width={640}
                 destroyOnClose
             >
                 <div className="flex flex-col gap-4 mt-4">
@@ -747,21 +780,10 @@ const ConfigManagerView: React.FC = () => {
                             />
                         </div>
                     )}
-                    <div>
-                        <Text strong className="mb-1 block">允许的枚举值集合:</Text>
-                        <Text type="secondary" className="mb-2 block text-xs">录入后回车即可分块。代表这些选项是合规库内的绝对权威标准。</Text>
-                        <Input
-                            placeholder="输入枚举项后用逗号、分号或换行分隔"
-                            value={editingValues.join('，')}
-                            onChange={(event) => {
-                                const next = event.target.value
-                                    .split(/[\n,，；;]+/)
-                                    .map(item => item.trim())
-                                    .filter(Boolean)
-                                setEditingValues(next)
-                            }}
-                        />
-                    </div>
+                    <EnumEditPanel
+                        values={editingValues}
+                        onChange={setEditingValues}
+                    />
                 </div>
             </Modal>
 
@@ -867,7 +889,137 @@ const ConfigManagerView: React.FC = () => {
                     />
                 </div>
             </Modal>
+
+            <EnumImportModal
+                open={enumImportVisible}
+                onClose={() => setEnumImportVisible(false)}
+                assetLibraryPath={assetLibraryPath}
+                onImported={async () => {
+                    await preloadEnumData(assetLibraryPath || undefined);
+                    message.info('枚举数据已刷新');
+                }}
+            />
         </Card>
+    );
+};
+
+// 展开行组件（独立组件避免 hook 数量不一致）
+const EnumExpandedRow: React.FC<{ record: EnumItem }> = ({ record }) => {
+    const [valSearch, setValSearch] = useState('');
+    const filtered = valSearch.trim()
+        ? record.values.filter(v => v.toLowerCase().includes(valSearch.toLowerCase()))
+        : record.values;
+    return (
+        <div className="p-3 bg-gray-50 rounded">
+            <div className="flex items-center gap-2 mb-2">
+                <Typography.Text type="secondary">全部枚举值 ({record.count} 个):</Typography.Text>
+                <Input
+                    size="small"
+                    placeholder="搜索枚举值..."
+                    prefix={<SearchOutlined />}
+                    value={valSearch}
+                    onChange={e => setValSearch(e.target.value)}
+                    style={{ width: 200 }}
+                />
+            </div>
+            <div className="flex flex-wrap gap-1 max-h-60 overflow-y-auto">
+                {filtered.map((v, i) => (
+                    <Tag
+                        key={i}
+                        color="blue"
+                        className="cursor-pointer hover:opacity-80 text-xs"
+                        onClick={() => navigator.clipboard.writeText(v)}
+                        title="点击复制"
+                    >
+                        {v}
+                    </Tag>
+                ))}
+                {filtered.length === 0 && <span className="text-xs text-slate-400">无匹配</span>}
+            </div>
+        </div>
+    );
+};
+
+// 枚举值编辑面板：搜索 + 标签式管理，替代原来的 Input 编辑大文本
+const EnumEditPanel: React.FC<{ values: string[]; onChange: (v: string[]) => void }> = ({ values, onChange }) => {
+    const [search, setSearch] = React.useState('');
+    const [newVal, setNewVal] = React.useState('');
+    const filtered = search.trim()
+        ? values.filter(v => v.toLowerCase().includes(search.toLowerCase()))
+        : values;
+
+    const handleAdd = () => {
+        const trimmed = newVal.trim();
+        if (!trimmed) return;
+        if (!values.includes(trimmed)) {
+            onChange([...values, trimmed]);
+        }
+        setNewVal('');
+    };
+
+    const handleRemove = (val: string) => {
+        onChange(values.filter(v => v !== val));
+    };
+
+    const handlePasteBatch = (text: string) => {
+        const items = text.split(/[\n,，；;、]+/).map(s => s.trim()).filter(Boolean);
+        const merged = [...new Set([...values, ...items])];
+        onChange(merged);
+        setNewVal('');
+    };
+
+    return (
+        <div>
+            <Text strong className="mb-1 block">允许的枚举值集合</Text>
+            <Text type="secondary" className="mb-2 block text-xs">代表这些选项是合规库内的绝对权威标准。</Text>
+
+            <div className="flex items-center gap-2 mb-3">
+                <Input
+                    size="small"
+                    placeholder="搜索已有枚举值..."
+                    prefix={<SearchOutlined />}
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    style={{ width: 220 }}
+                    allowClear
+                />
+                <span className="text-xs text-slate-400">{values.length} 个</span>
+            </div>
+
+            <div className="flex items-center gap-2 mb-3">
+                <Input
+                    size="small"
+                    placeholder="新增枚举值，回车添加"
+                    value={newVal}
+                    onChange={e => setNewVal(e.target.value)}
+                    onPressEnter={handleAdd}
+                    style={{ flex: 1 }}
+                />
+                <Button size="small" type="primary" onClick={handleAdd} disabled={!newVal.trim()}>添加</Button>
+                <Button size="small" onClick={() => {
+                    const batch = prompt('批量粘贴枚举值，用逗号、分号或换行分隔:');
+                    if (batch) handlePasteBatch(batch);
+                }}>批量粘贴</Button>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 max-h-80 overflow-y-auto p-3 border rounded-lg bg-gray-50/50 min-h-[80px]">
+                {filtered.map(v => (
+                    <Tag
+                        key={v}
+                        closable
+                        onClose={() => handleRemove(v)}
+                        className="text-xs max-w-[200px] overflow-hidden text-ellipsis cursor-default"
+                    >
+                        {v}
+                    </Tag>
+                ))}
+                {filtered.length === 0 && (
+                    <span className="text-xs text-slate-400 w-full text-center py-4">
+                        {search.trim() ? '无匹配的枚举值' : '暂无枚举值，请在上方添加'}
+                    </span>
+                )}
+            </div>
+        </div>
     );
 };
 
