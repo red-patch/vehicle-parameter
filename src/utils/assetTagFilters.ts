@@ -1,46 +1,23 @@
 import type { AssetTagGroupsConfig } from './assetTagGroups';
-import { DEFAULT_ASSET_TAG_GROUPS } from './assetTagGroups';
 
-export interface AssetTagClassification {
+interface ClassificationResult {
     vehicleFamilyTags: string[];
     manufacturerTags: string[];
     otherTags: string[];
 }
 
-const buildSets = (config: AssetTagGroupsConfig) => ({
-    vehicleFamilySet: new Set<string>(config.vehicleFamilyTags),
-    manufacturerSet: new Set<string>(config.manufacturerTags),
-});
-
-export const classifyAssetTags = (
-    tags: string[],
-    config: AssetTagGroupsConfig = DEFAULT_ASSET_TAG_GROUPS
-): AssetTagClassification => {
-    const { vehicleFamilySet, manufacturerSet } = buildSets(config);
-    const classification: AssetTagClassification = {
-        vehicleFamilyTags: [],
-        manufacturerTags: [],
-        otherTags: [],
+function buildSets(config: AssetTagGroupsConfig): { vehicleFamilySet: Set<string>; manufacturerSet: Set<string> } {
+    // 支持新旧两种格式
+    const groups = config as any;
+    const vehicleFamilyTags: string[] = groups.vehicleFamilyTags || groups.groups?.find((g: any) => g.name === '车型族群')?.tags || [];
+    const manufacturerTags: string[] = groups.manufacturerTags || groups.groups?.find((g: any) => g.name === '厂商')?.tags || [];
+    return {
+        vehicleFamilySet: new Set(vehicleFamilyTags),
+        manufacturerSet: new Set(manufacturerTags),
     };
+}
 
-    tags.forEach((tag) => {
-        if (vehicleFamilySet.has(tag)) {
-            classification.vehicleFamilyTags.push(tag);
-            return;
-        }
-
-        if (manufacturerSet.has(tag)) {
-            classification.manufacturerTags.push(tag);
-            return;
-        }
-
-        classification.otherTags.push(tag);
-    });
-
-    return classification;
-};
-
-interface FilterAssetInfosParams<T extends { fileName: string }> {
+export interface FilterAssetInfosParams<T> {
     assets: T[];
     assetTags: Record<string, string[]>;
     selectedVehicleFamilyTag: string | null;
@@ -49,60 +26,40 @@ interface FilterAssetInfosParams<T extends { fileName: string }> {
     config?: AssetTagGroupsConfig;
 }
 
-export const filterAssetInfos = <T extends { fileName: string }>({
+export function filterAssetInfos<T extends { fileName: string }>({
     assets,
     assetTags,
     selectedVehicleFamilyTag,
     selectedManufacturerTag,
     selectedOtherFilterTags,
-    config = DEFAULT_ASSET_TAG_GROUPS,
-}: FilterAssetInfosParams<T>) => {
+    config = { groups: [], exclusiveGroups: [] },
+}: FilterAssetInfosParams<T>) {
     buildSets(config);
     return assets.filter((asset) => {
         const tags = assetTags[asset.fileName] || [];
-
-        if (selectedVehicleFamilyTag && !tags.includes(selectedVehicleFamilyTag)) {
-            return false;
-        }
-
-        if (selectedManufacturerTag && !tags.includes(selectedManufacturerTag)) {
-            return false;
-        }
-
-        if (selectedOtherFilterTags.length > 0 && !selectedOtherFilterTags.every((tag) => tags.includes(tag))) {
-            return false;
-        }
-
+        if (selectedVehicleFamilyTag && !tags.includes(selectedVehicleFamilyTag)) return false;
+        if (selectedManufacturerTag && !tags.includes(selectedManufacturerTag)) return false;
+        if (selectedOtherFilterTags.length > 0 && !selectedOtherFilterTags.every((tag) => tags.includes(tag))) return false;
         return true;
     });
-};
-
-export const classifyAvailableTags = (allTags: string[]) => {
-    return classifyAvailableTagsWithConfig(allTags, DEFAULT_ASSET_TAG_GROUPS);
-};
+}
 
 export const classifyAvailableTagsWithConfig = (
     allTags: string[],
     config: AssetTagGroupsConfig
-) => {
+): ClassificationResult => {
     const { vehicleFamilySet, manufacturerSet } = buildSets(config);
     const vehicleFamilyTags: string[] = [];
     const manufacturerTags: string[] = [];
     const otherTags: string[] = [];
-
     allTags.forEach((tag) => {
-        if (vehicleFamilySet.has(tag)) {
-            vehicleFamilyTags.push(tag);
-        } else if (manufacturerSet.has(tag)) {
-            manufacturerTags.push(tag);
-        } else {
-            otherTags.push(tag);
-        }
+        if (vehicleFamilySet.has(tag)) vehicleFamilyTags.push(tag);
+        else if (manufacturerSet.has(tag)) manufacturerTags.push(tag);
+        else otherTags.push(tag);
     });
+    return { vehicleFamilyTags, manufacturerTags, otherTags };
+};
 
-    return {
-        vehicleFamilyTags,
-        manufacturerTags,
-        otherTags,
-    };
+export const classifyAvailableTags = (allTags: string[]): ClassificationResult => {
+    return classifyAvailableTagsWithConfig(allTags, { groups: [], exclusiveGroups: [] });
 };

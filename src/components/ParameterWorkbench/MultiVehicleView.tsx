@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Input, Button, message, Empty, Space, Upload, Spin, Select, Alert, Tag } from 'antd';
-import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ClearOutlined, UploadOutlined, SearchOutlined } from '@ant-design/icons';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -69,6 +69,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
     const [organizedData, setOrganizedData] = useState<OrganizedRow[]>([]);
     const [isCalculating, setIsCalculating] = useState(false);
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string | undefined>(undefined);
+    const [multiSearch, setMultiSearch] = useState('');
     const selectionStates = useMemo(
         () => getVehicleSelectionStates(uploadedFiles, localSelection, assetFiles, activeAssets),
         [uploadedFiles, localSelection, assetFiles, activeAssets]
@@ -220,6 +221,20 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
         setTargetFields(group.fields.join('\n'));
         message.success(`已导入字段组：${group.name}（${group.fields.length} 项）`);
     };
+
+    // 搜索结果过滤
+    const filteredData = useMemo(() => {
+        if (!multiSearch.trim()) return organizedData;
+        const q = multiSearch.trim().toLowerCase();
+        return organizedData.filter(row => {
+            if (row.targetField.toLowerCase().includes(q)) return true;
+            for (const v of localSelection) {
+                const val = String(row[v] ?? '').toLowerCase();
+                if (val.includes(q)) return true;
+            }
+            return false;
+        });
+    }, [organizedData, multiSearch, localSelection]);
 
     // Table Columns
     const columns = [
@@ -394,11 +409,22 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                             <>
                                 <div className="mb-3 flex justify-between items-center">
                                     <h3 className="font-bold">整理结果</h3>
-                                    <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={isCalculating}>导出 CSV</Button>
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            size="small"
+                                            style={{ width: 200 }}
+                                            placeholder="搜索参数名或值..."
+                                            prefix={<SearchOutlined className="text-gray-400" />}
+                                            value={multiSearch}
+                                            onChange={e => setMultiSearch(e.target.value)}
+                                            allowClear
+                                        />
+                                        <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={isCalculating}>导出 CSV</Button>
+                                    </div>
                                 </div>
                                 <DataTable 
                                     columns={columns}
-                                    dataSource={organizedData}
+                                    dataSource={filteredData}
                                     rowKey="key"
                                     className="custom-organized-table"
                                     scrollY="calc(100vh - 460px)"

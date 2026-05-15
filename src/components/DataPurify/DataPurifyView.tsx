@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Select, Button, Tag, Input, Tooltip, message, Popconfirm, Space, Alert } from 'antd';
+import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Space, Alert } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
 import DataTable from '../common/DataTable';
 import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames } from '../../utils/attributeEnums';
-import { getFieldGroupsSync, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
+import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName } from '../../utils/attributeEnums';
+import { getFieldGroupsSync } from '../../utils/fieldLists';
 import Fuse from 'fuse.js';
 import type { VehicleParameter } from '../../types';
 import SaveAssetModal from '../AssetLibrary/SaveAssetModal';
@@ -60,7 +60,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     const [saving, setSaving] = useState(false);
 
     // 动态计算标准字段集（仅限枚举字典）
-    const { allStandardFields, standardFieldsFuse } = useMemo(() => {
+    const { standardFieldsFuse } = useMemo(() => {
         const fields = enumLoaded ? getAllAttributeNames() : [];
         const fuse = new Fuse(fields.map(f => ({ name: f })), {
             keys: ['name'],
@@ -71,7 +71,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
     // 过滤状态
     const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
-    const [valueSearch, setValueSearch] = useState('');
+    const [paramSearch, setParamSearch] = useState('');
     const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'anomaly'>('none');
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
     const [manualValueRows, setManualValueRows] = useState<Set<string>>(new Set());
@@ -237,7 +237,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             prevNameKeys.current = nameKey;
             nameFixesCache.current = new Map();
             purifyParams.forEach(p => {
-                if (allStandardFields.includes(p.name) || !p.name.trim()) {
+                if (isKnownAttributeName(p.name) || !p.name.trim()) {
                     nameFixesCache.current.set(p.id, []);
                     return;
                 }
@@ -249,10 +249,10 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             const enums = enumLoaded && p.name ? getEnumValuesSync(p.name) : [];
             const hasEnums = enums.length > 0;
             const strValue = String(p.value || '').trim();
-            const isEnumMismatch = hasEnums && strValue !== '' && !enums.includes(strValue);
+            const isEnumMismatch = hasEnums && strValue !== '' && !enums.some(e => String(e).toLowerCase() === strValue.toLowerCase());
             return {
                 ...p,
-                isNameStandard: allStandardFields.includes(p.name),
+                isNameStandard: isKnownAttributeName(p.name),
                 nameFixes: nameFixesCache.current.get(p.id) || [],
                 enums,
                 hasEnums,
@@ -272,31 +272,32 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
     // 三级衍生：基于过滤状态对数据进行可见性过滤
     const filteredParams = useMemo(() => {
-        const sysReq = getSystemRequiredFieldsSync();
-        const qualCheck = getQualityCheckFieldsSync();
         const selectedFieldGroup = getFieldGroupsSync().find((group) => group.id === fieldGroupFilter);
-        const searchKeyword = valueSearch.trim().toLowerCase();
+        const searchKeyword = paramSearch.trim().toLowerCase();
 
         return augmentedParams.filter(p => {
             // 组过滤器优先
             if (filterGroup && p.group !== filterGroup) return false;
             if (selectedFieldGroup && !selectedFieldGroup.fields.includes(p.name)) return false;
 
-            // 参数值搜索
-            if (searchKeyword && !String(p.value ?? '').toLowerCase().includes(searchKeyword)) return false;
+            // 统一搜索：参数名 / 分组名 / 参数值
+            if (searchKeyword) {
+                const matchName = p.name.toLowerCase().includes(searchKeyword);
+                const matchGroup = (p.group || '').toLowerCase().includes(searchKeyword);
+                const matchValue = String(p.value ?? '').toLowerCase().includes(searchKeyword);
+                if (!matchName && !matchGroup && !matchValue) return false;
+            }
             
-            // 快捷过滤器
-            if (quickFilter === 'system') return sysReq.includes(p.name);
-            if (quickFilter === 'quality') return qualCheck.includes(p.name);
+            // 快捷过滤器（仅保留「仅异常」，其他通过字段组下拉实现）
             if (quickFilter === 'anomaly') {
                 const isNameHealthy = p.isNameStandard;
                 const isValueHealthy = !p.isEnumMismatch;
-                return !(isNameHealthy && isValueHealthy); // 如果名字不规范或者值不对，放行
+                return !(isNameHealthy && isValueHealthy);
             }
 
             return true;
         });
-    }, [augmentedParams, filterGroup, quickFilter, valueSearch, fieldGroupFilter, fieldGroupsVersion]);
+    }, [augmentedParams, filterGroup, quickFilter, paramSearch, fieldGroupFilter, fieldGroupsVersion]);
 
     const fieldGroupOptions = useMemo(
         () => [{ value: 'all', label: '全部字段组' }, ...getFieldGroupsSync().map((group) => ({ value: group.id, label: group.name }))],
@@ -340,25 +341,34 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                             placeholder="输入参数名"
                         />
                         {!record.isNameStandard && record.name && (
-                            <Tooltip title="非标准名称">
-                                <WarningOutlined className="text-yellow-500" />
-                            </Tooltip>
+                            <Popover
+                                trigger="click"
+                                placement="bottom"
+                                title="推荐的标准字段名"
+                                content={
+                                    record.nameFixes.length > 0 ? (
+                                        <div className="flex flex-col gap-1 max-w-[240px]">
+                                            {record.nameFixes.map((fix: string) => (
+                                                <Button
+                                                    key={fix}
+                                                    type="text"
+                                                    size="small"
+                                                    className="text-left"
+                                                    onClick={() => handleUpdateParam(record.id, 'name', fix)}
+                                                >
+                                                    {fix}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs text-slate-400">无匹配的推荐字段名</div>
+                                    )
+                                }
+                            >
+                                <WarningOutlined className="text-amber-500 cursor-pointer hover:text-amber-600 text-[15px]" />
+                            </Popover>
                         )}
                     </div>
-                    {record.nameFixes.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            <span className="text-xs text-gray-400">名推荐:</span>
-                            {record.nameFixes.map((fix: string) => (
-                                <Tag 
-                                    key={fix}
-                                    className="cursor-pointer hover:border-blue-400 text-xs m-0"
-                                    onClick={() => handleUpdateParam(record.id, 'name', fix)}
-                                >
-                                    {fix}
-                                </Tag>
-                            ))}
-                        </div>
-                    )}
                 </div>
             )
         },
@@ -537,12 +547,12 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                     />
                 </FilterItem>
 
-                <FilterItem label="参数值:">
+                <FilterItem label="搜索:">
                     <Input
-                        style={{ width: 220 }}
-                        value={valueSearch}
-                        onChange={e => setValueSearch(e.target.value)}
-                        placeholder="搜索参数值..."
+                        style={{ width: 260 }}
+                        value={paramSearch}
+                        onChange={e => setParamSearch(e.target.value)}
+                        placeholder="搜索参数名、分组或参数值..."
                         allowClear
                         prefix={<SearchOutlined className="text-gray-400" />}
                     />
@@ -558,20 +568,6 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 </FilterItem>
 
                 <FilterItem label="快捷:">
-                    <Button
-                        type={quickFilter === 'system' ? 'primary' : 'default'}
-                        size="small"
-                        onClick={() => setQuickFilter(quickFilter === 'system' ? 'none' : 'system')}
-                    >
-                        系统必填 ({getSystemRequiredFieldsSync().length})
-                    </Button>
-                    <Button
-                        type={quickFilter === 'quality' ? 'primary' : 'default'}
-                        size="small"
-                        onClick={() => setQuickFilter(quickFilter === 'quality' ? 'none' : 'quality')}
-                    >
-                        质量验车 ({getQualityCheckFieldsSync().length})
-                    </Button>
                     <Button
                         type={quickFilter === 'anomaly' ? 'primary' : 'default'}
                         size="small"

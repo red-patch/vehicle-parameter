@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Table, Input, Tag, Card, Spin, Empty, Typography, Tabs, Button, message, Modal, Space, AutoComplete, Select } from 'antd';
-import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined } from '@ant-design/icons';
-import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
+import { Table, Input, Tag, Card, Skeleton, Empty, Typography, Tabs, Button, message, Modal, Space, AutoComplete, Select, Switch } from 'antd';
+import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
+import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded, getEnumActiveFilter, setEnumActiveFilter, getAllCategoryPaths, getAllCategories, isEnumActive } from '../../utils/attributeEnums';
 import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
-import { assignTagToGroup, getAssetTagGroupsSync, reloadCustomAssetTagGroups, saveCustomAssetTagGroups, type AssetTagGroupKey } from '../../utils/assetTagGroups';
+import { getAssetTagGroupsSync, reloadCustomAssetTagGroups, saveCustomAssetTagGroups, type TagGroupItem } from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { parseFieldBatchInput } from './coreFieldRules';
-import { loadAssetTags } from '../../utils/assetManager';
 import EnumImportModal from './EnumImportModal';
 
 const { Text } = Typography;
@@ -22,6 +21,7 @@ interface EnumItem {
     category: string;
     required: string;
     categoryPath: string;
+    isActive: boolean;
 }
 
 interface EnumMeta {
@@ -31,13 +31,6 @@ interface EnumMeta {
         key?: string;
         categoryPath?: string;
     };
-}
-
-interface TagGroupRow {
-    key: string;
-    tag: string;
-    group: AssetTagGroupKey;
-    source: 'asset' | 'manual';
 }
 
 interface FieldRow {
@@ -56,14 +49,15 @@ const ConfigManagerView: React.FC = () => {
     const [isCreatingNewEnum, setIsCreatingNewEnum] = useState(false);
     const [enumImportVisible, setEnumImportVisible] = useState(false);
     const [enumMeta, setEnumMeta] = useState<EnumMeta>({});
+    const [enumPageSize, setEnumPageSize] = useState(20);
+    const [filterModalVisible, setFilterModalVisible] = useState(false);
+    const [editingFilter, setEditingFilter] = useState<{ categoryPaths: string[]; categories: string[] }>({ categoryPaths: [], categories: [] });
 
     const [fieldGroups, setFieldGroups] = useState<FieldGroupConfigItem[]>(getFieldGroupsSync());
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string>(getFieldGroupsSync()[0]?.id || 'system-required');
-    const [editManualTags, setEditManualTags] = useState<string[]>(getAssetTagGroupsSync().manualTags);
-    const [editOtherTags, setEditOtherTags] = useState<string[]>(getAssetTagGroupsSync().otherTags);
-    const [editVehicleFamilyTags, setEditVehicleFamilyTags] = useState<string[]>(getAssetTagGroupsSync().vehicleFamilyTags);
-    const [editManufacturerTags, setEditManufacturerTags] = useState<string[]>(getAssetTagGroupsSync().manufacturerTags);
-    const [availableAssetTags, setAvailableAssetTags] = useState<string[]>([]);
+    const [tagGroups, setTagGroups] = useState<TagGroupItem[]>(getAssetTagGroupsSync().groups);
+    const [editExclusiveGroups, setEditExclusiveGroups] = useState<string[]>(getAssetTagGroupsSync().exclusiveGroups || []);
+
     const [fieldSearch, setFieldSearch] = useState('');
     const [fieldCreateModal, setFieldCreateModal] = useState<{ open: boolean; value: string }>({
         open: false,
@@ -78,62 +72,45 @@ const ConfigManagerView: React.FC = () => {
         mode: 'create',
         value: '',
     });
-    const [tagSearch, setTagSearch] = useState('');
-    const [tagCreateModal, setTagCreateModal] = useState<{ open: boolean; value: string; group: AssetTagGroupKey }>({
-        open: false,
-        value: '',
-        group: 'other',
-    });
+
+
 
     const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion } = useVehicleStore();
 
     useEffect(() => {
         const init = async () => {
-            // 确保 custom_fields.json 已加载，再读取字段组
-            if (assetLibraryPath) await reloadCustomFields(assetLibraryPath);
-            if (!isEnumDataLoaded()) {
-                setLoading(true);
-                try {
+            try {
+                if (assetLibraryPath) await reloadCustomFields(assetLibraryPath);
+                if (!isEnumDataLoaded()) {
+                    setLoading(true);
                     await preloadEnumData(assetLibraryPath || undefined);
-                } catch (e) {
-                    console.error('加载枚举数据失败', e);
-                } finally {
-                    setLoading(false);
                 }
-            }
-            const nextFieldGroups = getFieldGroupsSync();
-            setFieldGroups(nextFieldGroups);
-            setSelectedFieldGroupId(nextFieldGroups[0]?.id || 'system-required');
-            const tagGroups = getAssetTagGroupsSync();
-            setEditManualTags(tagGroups.manualTags);
-            setEditOtherTags(tagGroups.otherTags);
-            setEditVehicleFamilyTags(tagGroups.vehicleFamilyTags);
-            setEditManufacturerTags(tagGroups.manufacturerTags);
+                const nextFieldGroups = getFieldGroupsSync();
+                setFieldGroups(nextFieldGroups);
+                setSelectedFieldGroupId(nextFieldGroups[0]?.id || 'system-required');
+                const tagGroupsConfig = getAssetTagGroupsSync();
+                setTagGroups(tagGroupsConfig.groups);
+                setEditExclusiveGroups(tagGroupsConfig.exclusiveGroups || []);
 
-            // 加载枚举元数据
-            if (assetLibraryPath) {
-                try {
-                    const { readTextFile } = await import('@tauri-apps/plugin-fs');
-                    const metaPath = await join(assetLibraryPath, 'custom_enum_meta.json');
-                    setEnumMeta(JSON.parse(await readTextFile(metaPath)));
-                } catch { /* 文件可能不存在 */ }
+                // 加载枚举元数据 + 激活过滤器
+                if (assetLibraryPath) {
+                    try {
+                        const { readTextFile } = await import('@tauri-apps/plugin-fs');
+                        const metaPath = await join(assetLibraryPath, 'custom_enum_meta.json');
+                        setEnumMeta(JSON.parse(await readTextFile(metaPath)));
+                    } catch { /* 文件可能不存在 */ }
+                }
+                setEditingFilter(getEnumActiveFilter());
+            } catch (e) {
+                console.error('系统配置初始化失败', e);
+            } finally {
+                setLoading(false);
             }
         };
-        init().catch((e) => console.error(e));
+        init();
     }, [assetLibraryPath]);
 
-    useEffect(() => {
-        if (!assetLibraryPath) {
-            setAvailableAssetTags([]);
-            return;
-        }
 
-        loadAssetTags(assetLibraryPath).then((tagsMap) => {
-            const next = new Set<string>();
-            Object.values(tagsMap).forEach((tags) => tags.forEach((tag) => next.add(tag)));
-            setAvailableAssetTags(Array.from(next).sort((left, right) => left.localeCompare(right, 'zh-CN')));
-        });
-    }, [assetLibraryPath]);
 
     const enumData: EnumItem[] = useMemo(() => {
         if (loading) return [];
@@ -149,6 +126,7 @@ const ConfigManagerView: React.FC = () => {
                 category: meta.category || '',
                 required: meta.required || '',
                 categoryPath: meta.categoryPath || '',
+                isActive: isEnumActive(name),
             };
         });
     }, [loading, enumMeta]);
@@ -262,19 +240,7 @@ const ConfigManagerView: React.FC = () => {
         }
     };
 
-    const assignTagGroup = (tag: string, group: AssetTagGroupKey) => {
-        const normalized = assignTagToGroup({
-            manualTags: editManualTags,
-            otherTags: editOtherTags,
-            vehicleFamilyTags: editVehicleFamilyTags,
-            manufacturerTags: editManufacturerTags,
-        }, tag, group);
-
-        setEditManualTags(normalized.manualTags);
-        setEditOtherTags(normalized.otherTags);
-        setEditVehicleFamilyTags(normalized.vehicleFamilyTags);
-        setEditManufacturerTags(normalized.manufacturerTags);
-    };
+;
 
     const handleSaveTagGroups = async () => {
         if (!assetLibraryPath) {
@@ -283,10 +249,8 @@ const ConfigManagerView: React.FC = () => {
         }
         try {
             await saveCustomAssetTagGroups(assetLibraryPath, {
-                manualTags: editManualTags,
-                otherTags: editOtherTags,
-                vehicleFamilyTags: editVehicleFamilyTags,
-                manufacturerTags: editManufacturerTags,
+                groups: tagGroups,
+                exclusiveGroups: editExclusiveGroups,
             });
             await reloadCustomAssetTagGroups(assetLibraryPath);
             bumpAssetTagGroupsVersion();
@@ -308,37 +272,9 @@ const ConfigManagerView: React.FC = () => {
         }
     };
 
-    const handleRemoveTag = (tag: string, section: 'manual' | 'other' | 'vehicleFamily' | 'manufacturer') => {
-        switch (section) {
-            case 'manual': setEditManualTags(prev => prev.filter(t => t !== tag)); break;
-            case 'other': setEditOtherTags(prev => prev.filter(t => t !== tag)); break;
-            case 'vehicleFamily': setEditVehicleFamilyTags(prev => prev.filter(t => t !== tag)); break;
-            case 'manufacturer': setEditManufacturerTags(prev => prev.filter(t => t !== tag)); break;
-        }
-    };
+;
 
-    const allTagRows = useMemo<TagGroupRow[]>(() => {
-        const assetTagSet = new Set(availableAssetTags);
-        const tags = Array.from(new Set([
-            ...availableAssetTags,
-            ...editManualTags,
-        ]))
-            .filter((tag) => tag.trim())
-            .sort((left, right) => left.localeCompare(right, 'zh-CN'));
 
-        return tags
-            .filter((tag) => !tagSearch.trim() || tag.toLowerCase().includes(tagSearch.trim().toLowerCase()))
-            .map((tag) => ({
-                key: tag,
-                tag,
-                group: editVehicleFamilyTags.includes(tag)
-                    ? 'vehicleFamily'
-                    : editManufacturerTags.includes(tag)
-                        ? 'manufacturer'
-                        : 'other',
-                source: assetTagSet.has(tag) ? 'asset' : 'manual',
-            }));
-    }, [availableAssetTags, editManualTags, editOtherTags, editVehicleFamilyTags, editManufacturerTags, tagSearch]);
 
     const columns = [
         {
@@ -358,10 +294,26 @@ const ConfigManagerView: React.FC = () => {
             render: (v: string) => v || <span className="text-slate-300">-</span>,
         },
         {
+            title: '已激活',
+            dataIndex: 'isActive',
+            key: 'isActive',
+            width: 65,
+            filters: [
+                { text: '已激活', value: true },
+                { text: '未激活', value: false },
+            ],
+            onFilter: (value: any, record: EnumItem) => record.isActive === value,
+            render: (v: boolean) => v ? <Tag color="green" className="text-xs">已激活</Tag> : <span className="text-slate-300">-</span>,
+        },
+        {
             title: '属性类别',
             dataIndex: 'category',
             key: 'category',
             width: 90,
+            filters: enumData.length > 0
+                ? [...new Set(enumData.map(d => d.category).filter(Boolean))].map(v => ({ text: v, value: v }))
+                : undefined,
+            onFilter: (value: any, record: EnumItem) => record.category === value,
             render: (v: string) => v ? <Tag className="text-xs">{v}</Tag> : <span className="text-slate-300">-</span>,
         },
         {
@@ -369,6 +321,11 @@ const ConfigManagerView: React.FC = () => {
             dataIndex: 'required',
             key: 'required',
             width: 60,
+            filters: [
+                { text: '是', value: '是' },
+                { text: '否', value: '否' },
+            ],
+            onFilter: (value: any, record: EnumItem) => record.required === value,
             render: (v: string) => v === '是' ? <Tag color="red" className="text-xs">是</Tag> : v === '否' ? <Tag className="text-xs">否</Tag> : <span className="text-slate-300">-</span>,
         },
         {
@@ -377,6 +334,10 @@ const ConfigManagerView: React.FC = () => {
             key: 'categoryPath',
             width: 120,
             ellipsis: true,
+            filters: enumData.length > 0
+                ? [...new Set(enumData.map(d => d.categoryPath).filter(Boolean))].map(v => ({ text: v, value: v }))
+                : undefined,
+            onFilter: (value: any, record: EnumItem) => record.categoryPath === value,
             render: (v: string) => v || <span className="text-slate-300">-</span>,
         },
         {
@@ -433,8 +394,10 @@ const ConfigManagerView: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <Spin size="large" tip="加载枚举数据中..." />
+            <div className="p-6 space-y-4">
+                <Skeleton active paragraph={{ rows: 1 }} title={{ width: '40%' }} />
+                <Skeleton active paragraph={{ rows: 6 }} />
+                <Skeleton active paragraph={{ rows: 3 }} />
             </div>
         );
     }
@@ -470,10 +433,21 @@ const ConfigManagerView: React.FC = () => {
                                     size="large"
                                     className="max-w-md"
                                 />
-                                <Space>
+                                <Space wrap>
                                     <Tag>{enumData.length} 个字段</Tag>
+                                    <Tag color="blue">{enumData.filter(d => isEnumActive(d.name)).length} 激活</Tag>
+                                    <Button size="small" icon={<CopyOutlined />} onClick={() => {
+                                        const required = enumData.filter(d => d.required === '是').map(d => d.name);
+                                        if (required.length === 0) { message.info('没有必填字段'); return; }
+                                        navigator.clipboard.writeText(required.join('\n'));
+                                        message.success(`已复制 ${required.length} 个必填字段名`);
+                                    }}>复制必填</Button>
                                     <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_enums.json')}>枚举字典</Button>
                                     <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_enum_meta.json')}>枚举元数据</Button>
+                                    <Button size="small" onClick={() => {
+                                        setEditingFilter(getEnumActiveFilter());
+                                        setFilterModalVisible(true);
+                                    }}>激活配置</Button>
                                     <Button
                                         type="primary"
                                         icon={<PlusOutlined />}
@@ -497,9 +471,11 @@ const ConfigManagerView: React.FC = () => {
                                     dataSource={filteredData}
                                     rowKey="key"
                                     pagination={{
-                                        pageSize: 20,
+                                        pageSize: enumPageSize,
                                         showSizeChanger: true,
-                                        showTotal: (total) => `共 ${total} 个字段`
+                                        pageSizeOptions: ['10', '20', '50', '100', '200'],
+                                        onShowSizeChange: (_current: number, size: number) => setEnumPageSize(size),
+                                        showTotal: (total: number) => `共 ${total} 个字段`
                                     }}
                                     expandable={{
                                         expandedRowRender,
@@ -642,6 +618,7 @@ const ConfigManagerView: React.FC = () => {
                                     保存并应用
                                 </Button>
                             </div>
+
                         </div>
                     )
                 },
@@ -649,113 +626,18 @@ const ConfigManagerView: React.FC = () => {
                     key: 'asset-tag-groups',
                     label: '标签分组配置',
                     children: (
-                        <div className="p-4 flex flex-col gap-6">
-                            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                <div className="flex flex-wrap items-center gap-2 justify-between mb-3">
-                                    <div>
-                                        <div className="text-[16px] font-bold text-slate-900">全部标签池</div>
-                                        <Text type="secondary">默认归入“其他标签”。仅当你手动指定时，才会进入“车型族群”或“厂商”。</Text>
-                                    </div>
-                                    <Space>
-                                        <Input
-                                            value={tagSearch}
-                                            onChange={(event) => setTagSearch(event.target.value)}
-                                            placeholder="搜索已有标签"
-                                            prefix={<SearchOutlined className="text-gray-400" />}
-                                            className="w-72"
-                                        />
-                                        <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
-                                        <Button icon={<PlusOutlined />} onClick={() => setTagCreateModal({ open: true, value: '', group: 'other' })}>
-                                            新建标签
-                                        </Button>
-                                    </Space>
-                                </div>
-
-                                <Table
-                                    size="small"
-                                    rowKey="key"
-                                    pagination={{ pageSize: 12, showSizeChanger: false }}
-                                    dataSource={allTagRows}
-                                    columns={[
-                                        {
-                                            title: '标签',
-                                            dataIndex: 'tag',
-                                            key: 'tag',
-                                        },
-                                        {
-                                            title: '当前分组',
-                                            dataIndex: 'group',
-                                            key: 'group',
-                                            width: 140,
-                                            render: (group: AssetTagGroupKey) => (
-                                                <Tag color={group === 'vehicleFamily' ? 'blue' : group === 'manufacturer' ? 'green' : 'default'}>
-                                                    {group === 'vehicleFamily' ? '车型族群' : group === 'manufacturer' ? '厂商' : '其他'}
-                                                </Tag>
-                                            ),
-                                        },
-                                        {
-                                            title: '来源',
-                                            dataIndex: 'source',
-                                            key: 'source',
-                                            width: 120,
-                                            render: (source: 'asset' | 'manual') => (
-                                                <Tag color={source === 'asset' ? 'blue' : 'purple'}>
-                                                    {source === 'asset' ? '资产在用' : '手动新建'}
-                                                </Tag>
-                                            ),
-                                        },
-                                        {
-                                            title: '归类动作',
-                                            key: 'actions',
-                                            width: 260,
-                                            render: (_: unknown, row: TagGroupRow) => (
-                                                <Space wrap>
-                                                    <Button size="small" type={row.group === 'other' ? 'primary' : 'default'} onClick={() => assignTagGroup(row.tag, 'other')}>其他</Button>
-                                                    <Button size="small" type={row.group === 'vehicleFamily' ? 'primary' : 'default'} onClick={() => assignTagGroup(row.tag, 'vehicleFamily')}>车型族群</Button>
-                                                    <Button size="small" type={row.group === 'manufacturer' ? 'primary' : 'default'} onClick={() => assignTagGroup(row.tag, 'manufacturer')}>厂商</Button>
-                                                </Space>
-                                            ),
-                                        },
-                                    ]}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="text-sm font-bold text-slate-800">其他标签</div>
-                                        <Tag className="m-0">{editOtherTags.length}</Tag>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {editOtherTags.length > 0 ? editOtherTags.map((tag) => <Tag key={tag} className="m-0" closable onClose={() => handleRemoveTag(tag, 'other')}>{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
-                                    </div>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="text-sm font-bold text-slate-800">车型族群</div>
-                                        <Tag color="blue" className="m-0">{editVehicleFamilyTags.length}</Tag>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {editVehicleFamilyTags.length > 0 ? editVehicleFamilyTags.map((tag) => <Tag color="blue" key={tag} className="m-0" closable onClose={() => handleRemoveTag(tag, 'vehicleFamily')}>{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
-                                    </div>
-                                </div>
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="text-sm font-bold text-slate-800">厂商</div>
-                                        <Tag color="green" className="m-0">{editManufacturerTags.length}</Tag>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {editManufacturerTags.length > 0 ? editManufacturerTags.map((tag) => <Tag color="green" key={tag} className="m-0" closable onClose={() => handleRemoveTag(tag, 'manufacturer')}>{tag}</Tag>) : <Text type="secondary">暂无标签</Text>}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end mt-2">
-                                <Button type="primary" size="large" onClick={handleSaveTagGroups} icon={<SettingOutlined />}>
-                                    保存并应用
-                                </Button>
-                            </div>
-                        </div>
+                        <TagGroupsConfig
+                            groups={tagGroups}
+                            exclusiveGroups={editExclusiveGroups}
+                            onGroupsChange={setTagGroups}
+                            onExclusiveGroupsChange={setEditExclusiveGroups}
+                            onSave={handleSaveTagGroups}
+                            onAddGroup={() => {
+                                const id = 'group_' + Date.now();
+                                setTagGroups(prev => [...prev, { id, name: '新标签分组', tags: [] }]);
+                            }}
+                            openConfigFile={openConfigFile}
+                        />
                     )
                 }
             ]} />
@@ -860,33 +742,57 @@ const ConfigManagerView: React.FC = () => {
                 />
             </Modal>
 
+
+            {/* 激活配置弹窗 */}
             <Modal
-                title="新建标签"
-                open={tagCreateModal.open}
-                onOk={() => {
-                    assignTagGroup(tagCreateModal.value, tagCreateModal.group)
-                    setTagCreateModal({ open: false, value: '', group: 'other' })
+                title="配置激活的枚举字段范围"
+                open={filterModalVisible}
+                onOk={async () => {
+                    if (!assetLibraryPath) return;
+                    try {
+                        await setEnumActiveFilter(assetLibraryPath, editingFilter);
+                        message.success('激活配置已保存');
+                        setFilterModalVisible(false);
+                        // 刷新枚举数据
+                        await preloadEnumData(assetLibraryPath);
+                    } catch (e) {
+                        message.error('保存失败');
+                        console.error(e);
+                    }
                 }}
-                onCancel={() => setTagCreateModal({ open: false, value: '', group: 'other' })}
-                okText="创建并归组"
-                destroyOnClose
+                onCancel={() => setFilterModalVisible(false)}
+                width={550}
+                okText="保存配置"
             >
-                <div className="flex flex-col gap-4">
-                    <Input
-                        autoFocus
-                        placeholder="输入新标签名称"
-                        value={tagCreateModal.value}
-                        onChange={(event) => setTagCreateModal((prev) => ({ ...prev, value: event.target.value }))}
-                    />
-                    <Select
-                        value={tagCreateModal.group}
-                        onChange={(value) => setTagCreateModal((prev) => ({ ...prev, group: value }))}
-                        options={[
-                            { value: 'other', label: '其他' },
-                            { value: 'vehicleFamily', label: '车型族群' },
-                            { value: 'manufacturer', label: '厂商' },
-                        ]}
-                    />
+                <div className="space-y-4 mt-2">
+                    <div>
+                        <div className="text-sm font-medium mb-2 text-slate-700">选择激活的所属类目（不选 = 全部激活）</div>
+                        <Select
+                            mode="multiple"
+                            value={editingFilter.categoryPaths}
+                            onChange={v => setEditingFilter(p => ({ ...p, categoryPaths: v }))}
+                            style={{ width: '100%' }}
+                            placeholder="选择所属类目..."
+                            options={getAllCategoryPaths().map(v => ({ value: v, label: v }))}
+                            allowClear
+                        />
+                    </div>
+                    <div>
+                        <div className="text-sm font-medium mb-2 text-slate-700">选择激活的属性类别（不选 = 全部激活）</div>
+                        <Select
+                            mode="multiple"
+                            value={editingFilter.categories}
+                            onChange={v => setEditingFilter(p => ({ ...p, categories: v }))}
+                            style={{ width: '100%' }}
+                            placeholder="选择属性类别..."
+                            options={getAllCategories().map(v => ({ value: v, label: v }))}
+                            allowClear
+                        />
+                    </div>
+                    <div className="text-xs text-slate-400 pt-2 border-t">
+                        <p>激活规则：字段需同时满足选中的"所属类目"和"属性类别"才会在数据体检匹配等模块中生效。</p>
+                        <p>留空 = 全部字段都激活（默认行为）。</p>
+                    </div>
                 </div>
             </Modal>
 
@@ -903,6 +809,186 @@ const ConfigManagerView: React.FC = () => {
     );
 };
 
+// 标签分组配置面板（双栏布局：左侧分组列表 + 右侧标签管理）
+
+// 标签分组配置（动态 CRUD，跟核心字段配置一样）
+interface TagGroupsConfigProps {
+    groups: TagGroupItem[];
+    exclusiveGroups: string[];
+    onGroupsChange: (groups: TagGroupItem[]) => void;
+    onExclusiveGroupsChange: (groups: string[]) => void;
+    onSave: () => void;
+    onAddGroup: () => void;
+    openConfigFile: (fileName: string) => void;
+}
+
+const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
+    groups, exclusiveGroups, onGroupsChange, onExclusiveGroupsChange,
+    onSave, onAddGroup, openConfigFile,
+}) => {
+    const [selectedId, setSelectedId] = useState<string>(groups[0]?.id || '');
+    const [addInput, setAddInput] = useState('');
+    const [renaming, setRenaming] = useState<string | null>(null);
+    const [renameValue, setRenameValue] = useState('');
+
+    useEffect(() => {
+        if (groups.length > 0 && !groups.find(g => g.id === selectedId)) {
+            setSelectedId(groups[0].id);
+        }
+    }, [groups]);
+
+    const selected = groups.find(g => g.id === selectedId);
+
+    const updateGroup = (id: string, updater: (g: TagGroupItem) => TagGroupItem) => {
+        onGroupsChange(groups.map(g => g.id === id ? updater(g) : g));
+    };
+
+    const handleAddTag = () => {
+        const t = addInput.trim();
+        if (!t || !selected) return;
+        if (!selected.tags.includes(t)) {
+            updateGroup(selected.id, g => ({ ...g, tags: [...g.tags, t] }));
+        }
+        setAddInput('');
+    };
+
+    const handleRemoveTag = (tag: string) => {
+        if (!selected) return;
+        updateGroup(selected.id, g => ({ ...g, tags: g.tags.filter(t => t !== tag) }));
+    };
+
+    const handleRemoveGroup = (id: string) => {
+        const next = groups.filter(g => g.id !== id);
+        onGroupsChange(next);
+        if (selectedId === id) setSelectedId(next[0]?.id || '');
+    };
+
+    // 候选可用标签：所有分组中已存在的标签，排除当前组已有的
+    const allGroupTags = Array.from(new Set(groups.flatMap(g => g.tags)));
+    const candidateTags = allGroupTags
+        .filter(t => !selected?.tags.includes(t))
+        .slice(0, 30);
+
+    return (
+        <div className="p-4 flex flex-col gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-5">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="text-[16px] font-bold text-slate-900">标签分组</div>
+                        <Button size="small" icon={<PlusOutlined />} onClick={onAddGroup}>新建分组</Button>
+                    </div>
+                    <div className="space-y-2">
+                        {groups.map(g => (
+                            <div key={g.id}
+                                className={`cursor-pointer rounded-xl px-3 py-2 border flex items-center justify-between gap-2 ${
+                                    selectedId === g.id ? 'border-blue-300 bg-blue-50' : 'border-slate-100 hover:border-slate-200'
+                                }`}
+                                onClick={() => setSelectedId(g.id)}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-slate-800 truncate">{g.name}</div>
+                                    <div className="text-xs text-slate-400">标签数 {g.tags.length}</div>
+                                </div>
+                                <Button type="text" size="small" icon={<DeleteOutlined />} danger
+                                    onClick={e => { e.stopPropagation(); handleRemoveGroup(g.id); }}
+                                />
+                            </div>
+                        ))}
+                        {groups.length === 0 && (
+                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无分组，请新建" />
+                        )}
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    {selected ? (
+                        <>
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <div className="flex items-center gap-2">
+                                    {renaming === selected.id ? (
+                                        <Input size="small" value={renameValue}
+                                            onChange={e => setRenameValue(e.target.value)}
+                                            onPressEnter={() => {
+                                                if (renameValue.trim()) updateGroup(selected.id, g => ({ ...g, name: renameValue.trim() }));
+                                                setRenaming(null);
+                                            }}
+                                            style={{ width: 200 }}
+                                            onBlur={() => setRenaming(null)}
+                                            autoFocus
+                                        />
+                                    ) : (
+                                        <div className="text-[18px] font-bold text-slate-900">{selected.name}</div>
+                                    )}
+                                    <Button type="text" size="small" icon={<EditOutlined />}
+                                        onClick={() => { setRenaming(selected.id); setRenameValue(selected.name); }}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500">互斥</span>
+                                    <Switch size="small" checked={exclusiveGroups.includes(selected.id)}
+                                        onChange={checked => {
+                                            if (checked) onExclusiveGroupsChange([...exclusiveGroups, selected.id]);
+                                            else onExclusiveGroupsChange(exclusiveGroups.filter(g => g !== selected.id));
+                                        }}
+                                    />
+                                    <Tag color="blue">标签数 {selected.tags.length}</Tag>
+                                    <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 mb-3">
+                                <Input
+                                    value={addInput}
+                                    onChange={e => setAddInput(e.target.value)}
+                                    onPressEnter={handleAddTag}
+                                    placeholder="输入标签名称，回车添加"
+                                    style={{ flex: 1, minWidth: 200 }}
+                                />
+                                <Button type="primary" onClick={handleAddTag} disabled={!addInput.trim()}>添加</Button>
+                            </div>
+                            {addInput && candidateTags.filter(t => t.includes(addInput)).length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                    {candidateTags.filter(t => t.includes(addInput)).slice(0, 8).map(t => (
+                                        <Tag key={t} className="cursor-pointer text-xs" onClick={() => { setAddInput(t); }}>{t}</Tag>
+                                    ))}
+                                </div>
+                            )}
+
+                            {selected.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-2 mb-3 max-h-80 overflow-y-auto">
+                                    {selected.tags.map(tag => (
+                                        <Tag key={tag} closable onClose={() => handleRemoveTag(tag)} className="text-xs">{tag}</Tag>
+                                    ))}
+                                </div>
+                            ) : (
+                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前分组暂无标签" />
+                            )}
+
+                            {candidateTags.length > 0 && (
+                                <div className="border-t border-slate-100 pt-3 mt-2">
+                                    <Text type="secondary" className="text-xs mb-2 block">从其他分组快速添加</Text>
+                                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                                        {candidateTags.map(tag => (
+                                            <Tag key={tag} className="cursor-pointer text-xs"
+                                                onClick={() => updateGroup(selected.id, g => ({ ...g, tags: [...g.tags, tag] }))}
+                                            >+ {tag}</Tag>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <Empty description="请先选择或创建标签分组" />
+                    )}
+                </div>
+            </div>
+
+            <div className="flex justify-end mt-2">
+                <Button type="primary" size="large" onClick={onSave} icon={<SettingOutlined />}>保存并应用</Button>
+            </div>
+        </div>
+    );
+};
 // 展开行组件（独立组件避免 hook 数量不一致）
 const EnumExpandedRow: React.FC<{ record: EnumItem }> = ({ record }) => {
     const [valSearch, setValSearch] = useState('');

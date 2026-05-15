@@ -4,12 +4,26 @@
  * 并且支持通过注入 libraryPath 热替换为使用本地资产目录的 custom_enums.json
  */
 import { loadCustomConfig } from './assetManager';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { join } from '@tauri-apps/api/path';
 import defaultEnumCsv from '../assets/attribute_values.txt?raw';
+
+interface EnumFieldMeta {
+    category?: string;
+    categoryPath?: string;
+    required?: string;
+    key?: string;
+}
 
 // 枚举值缓存
 let enumCache: Map<string, string[]> | null = null;
+// 字段元数据缓存：字段名 → 元数据
+let enumMetaCache: Record<string, EnumFieldMeta> | null = null;
 // 标准化名称到原始名称的映射
 let normalizedNameMap: Map<string, string> | null = null;
+
+// 激活过滤器配置：用户勾选的所属类目 + 属性类别
+let activeFilterConfig: { categoryPaths: string[]; categories: string[] } | null = null;
 
 /**
  * 标准化属性名称（去除空格、统一括号格式）
@@ -200,6 +214,138 @@ export function getAllAttributeNames(): string[] {
  */
 export async function preloadEnumData(libraryPath?: string): Promise<void> {
     await loadEnumData(libraryPath);
+
+    // 加载字段元数据
+    if (libraryPath) {
+        try {
+            const meta = await loadCustomConfig<Record<string, EnumFieldMeta>>(libraryPath, 'custom_enum_meta.json');
+            enumMetaCache = meta ?? {};
+        } catch {
+            enumMetaCache = {};
+        }
+        // 加载激活过滤器配置
+        try {
+            const filter = await loadCustomConfig<{ categoryPaths: string[]; categories: string[] }>(libraryPath, 'custom_enum_active_filter.json');
+            activeFilterConfig = filter ?? null;
+        } catch {
+            activeFilterConfig = null;
+        }
+    } else {
+        enumMetaCache = {};
+        activeFilterConfig = null;
+    }
+}
+
+/**
+ * 获取当前的激活过滤器配置
+ */
+export function getEnumActiveFilter(): { categoryPaths: string[]; categories: string[] } {
+    return {
+        categoryPaths: activeFilterConfig?.categoryPaths ?? [],
+        categories: activeFilterConfig?.categories ?? [],
+    };
+}
+
+/**
+ * 设置激活过滤器配置（并保存到文件）
+ */
+export async function setEnumActiveFilter(
+    libraryPath: string,
+    config: { categoryPaths: string[]; categories: string[] }
+): Promise<void> {
+    activeFilterConfig = config;
+    const filePath = await join(libraryPath, 'custom_enum_active_filter.json');
+    await writeTextFile(filePath, JSON.stringify(config, null, 2));
+}
+
+/**
+ * 判断字段是否已激活（需同时满足用户勾选的所属类目 + 属性类别）
+ */
+export function isEnumActive(fieldName: string): boolean {
+    const meta = enumMetaCache;
+    const filter = activeFilterConfig;
+    if (!meta) return true;
+    if (!filter) return true;
+    if (filter.categoryPaths.length === 0 && filter.categories.length === 0) return true;
+
+    // 先精确查找，再按标准化名称模糊匹配（处理括号全角/半角差异）
+    let f = meta[fieldName];
+    if (!f) {
+        const normalized = normalizeName(fieldName);
+        for (const [key, val] of Object.entries(meta)) {
+            if (normalizeName(key) === normalized) {
+                f = val;
+                break;
+            }
+        }
+    }
+    if (!f) return false;
+
+    const matchCategoryPath = filter.categoryPaths.length === 0
+        || (!!f.categoryPath && filter.categoryPaths.includes(f.categoryPath));
+    const matchCategory = filter.categories.length === 0
+        || (!!f.category && filter.categories.includes(f.category));
+
+    return matchCategoryPath && matchCategory;
+}
+
+/**
+ * 获取所有可能的所属类目列表（从元数据中提取）
+ */
+export function getAllCategoryPaths(): string[] {
+    if (!enumMetaCache) return [];
+    const set = new Set<string>();
+    for (const meta of Object.values(enumMetaCache)) {
+        if (meta.categoryPath) set.add(meta.categoryPath);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+}
+
+/**
+ * 获取所有可能的属性类别列表（从元数据中提取）
+ */
+export function getAllCategories(): string[] {
+    if (!enumMetaCache) return [];
+    const set = new Set<string>();
+    for (const meta of Object.values(enumMetaCache)) {
+        if (meta.category) set.add(meta.category);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+}
+
+/**
+ * 判断字段名是否在枚举字典中（支持标准化匹配：忽略大小写、全角半角括号）
+ */
+export function isKnownAttributeName(name: string): boolean {
+    if (!enumCache) return false;
+    if (enumCache.has(name)) return true;
+    const normalized = normalizeName(name);
+    return normalizedNameMap ? normalizedNameMap.has(normalized) : false;
+}
+
+/**
+ * 获取已激活的字段名列表（根据用户配置的过滤器）
+ */
+export function getActiveAttributeNames(): string[] {
+    const all = getAllAttributeNames();
+    const meta = enumMetaCache;
+    const filter = activeFilterConfig;
+    if (!meta || !filter) return all;
+    if (filter.categoryPaths.length === 0 && filter.categories.length === 0) return all;
+    return all.filter(name => isEnumActive(name));
+}
+
+/**
+ * 获取已激活的枚举字段中必填属性为"是"的字段名列表
+ */
+export function getActiveRequiredFields(): string[] {
+    const active = getActiveAttributeNames();
+    const meta = enumMetaCache;
+    if (!meta) return active;
+    return active.filter(name => {
+        const f = meta[name] as EnumFieldMeta | undefined;
+        return f?.required === '是';
+    });
 }
 
 /**
