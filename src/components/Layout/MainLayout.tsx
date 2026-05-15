@@ -70,6 +70,73 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
         }
     }, [assetLibraryPath]);
 
+    // 保存/恢复窗口位置和大小
+    React.useEffect(() => {
+        const restore = async () => {
+            try {
+                const { getCurrentWindow, LogicalPosition, LogicalSize } = await import('@tauri-apps/api/window');
+                const { readTextFile, writeTextFile } = await import('@tauri-apps/plugin-fs');
+                const { appDataDir } = await import('@tauri-apps/api/path');
+                const appWindow = getCurrentWindow();
+                const statePath = `${await appDataDir()}window_state.json`;
+                try {
+                    const saved = JSON.parse(await readTextFile(statePath));
+                    if (saved.x !== undefined && saved.y !== undefined) {
+                        await appWindow.setPosition(new LogicalPosition(saved.x, saved.y));
+                    }
+                    if (saved.width && saved.height) {
+                        await appWindow.setSize(new LogicalSize(saved.width, saved.height));
+                    }
+                } catch { /* 首次启动，没有保存的状态 */ }
+                // 窗口关闭时保存位置和大小
+                appWindow.onCloseRequested(async () => {
+                    try {
+                        const pos = await appWindow.outerPosition();
+                        const size = await appWindow.outerSize();
+                        await writeTextFile(statePath, JSON.stringify({
+                            x: pos.x, y: pos.y, width: size.width, height: size.height,
+                        }));
+                    } catch { /* 静默保存失败 */ }
+                });
+            } catch { /* 非 Tauri 环境 */ }
+        };
+        restore();
+    }, []);
+
+    // 全局键盘快捷键
+    React.useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            const isCmd = e.metaKey || e.ctrlKey;
+            // Cmd/Ctrl + S: 触发保存（冒泡到当前激活的 save 按钮）
+            if (isCmd && e.key === 's') {
+                e.preventDefault();
+                // 寻找页面上第一个 type="primary" 且文本含"保存"的按钮并点击
+                const saveBtn = document.querySelector<HTMLButtonElement>(
+                    'button.ant-btn-primary:not(.ant-btn-background-ghost)'
+                );
+                saveBtn?.click();
+            }
+            // Cmd/Ctrl + F: 聚焦搜索框
+            if (isCmd && e.key === 'f') {
+                e.preventDefault();
+                const searchInput = document.querySelector<HTMLInputElement>(
+                    'input[placeholder*="搜索"], input[placeholder*="Search"]'
+                );
+                searchInput?.focus();
+                searchInput?.select();
+            }
+            // Escape: 关闭最顶层的 Modal/Drawer
+            if (e.key === 'Escape') {
+                const closeBtn = document.querySelector<HTMLButtonElement>(
+                    '.ant-modal-close, .ant-drawer-close'
+                );
+                closeBtn?.click();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
+
     const handleClearCache = () => {
         Modal.confirm({
             title: '确认清除系统缓存？',

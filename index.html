@@ -1,10 +1,45 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>shining-lagoon</title>
+    <title>车辆参数管理系统</title>
+    <style>
+      /* 原生质感：系统字体栈 + 细滚动条 */
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* 细滚动条（macOS 风格） */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
+
+      /* 原生质感覆写 — 让 Web 感最重的样式向桌面看齐 */
+
+      /* ① 所有过渡动画缩到 100ms，原生感不拖沓 */
+      *, *::before, *::after {
+        transition-duration: 100ms !important;
+        transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+      }
+
+      /* ② 卡片/面板圆角从 16px 减到 8px（更接近 macOS 原生） */
+      .rounded-xl, .rounded-2xl { border-radius: 10px !important; }
+
+      /* ③ 移除卡片悬浮上浮效果（原生桌面不下沉/上浮） */
+      [class*="hover:-translate"] { transform: none !important; }
+      [class*="hover:shadow-sm"] { box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
+
+      /* ④ 列表中文本选择为划过底色，更像 Finder 列表 */
+      ::selection { background: rgba(0, 122, 255, 0.15); color: inherit; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

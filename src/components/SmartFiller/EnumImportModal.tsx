@@ -3,7 +3,7 @@ import { Modal, Button, message, Select, Table, Tag, Spin, Statistic, Divider, I
 import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined, SearchOutlined } from '@ant-design/icons';
 import { readFile, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import * as XLSX from 'xlsx';
+
 
 interface EnumImportModalProps {
     open: boolean;
@@ -73,6 +73,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
             setFilePath(selected);
             setLoading(true);
 
+            const XLSX = await import('xlsx');
             const buffer = await readFile(selected);
             const data = new Uint8Array(buffer);
             let binary = '';

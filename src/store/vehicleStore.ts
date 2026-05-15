@@ -135,10 +135,14 @@ export const useVehicleStore = create<VehicleStore>()(
         matchResults: state.matchResults.map(m => {
             if (m.id !== id) return m;
             
-            // 智能检测：如果修改后的值等于自动匹配的值，清除manualValue
+            // 空值或纯空格 = 没填任何内容，恢复为自动匹配状态
+            if (!value || !value.trim()) {
+                return { ...m, manualValue: undefined, isManual: false };
+            }
+            
+            // 如果修改后的值等于自动匹配的值，清除manualValue
             const autoMatchValue = m.matchedParam?.value?.toString() || '';
             if (value === autoMatchValue) {
-                // 恢复为自动匹配状态
                 return { ...m, manualValue: undefined, isManual: false };
             }
             

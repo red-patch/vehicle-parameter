@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState } from 'react';
-import { Upload, Modal, Checkbox, Button, message, Tooltip } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { readFileAsWorkbook, previewWorkbook } from '../../utils/excelParser';
@@ -10,7 +10,8 @@ import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
 import SheetPickerModal from './SheetPickerModal';
 import { FolderOpenOutlined } from '@ant-design/icons';
-import { saveAssetFile } from '../../utils/assetManager';
+import { saveAssetFile, loadAssetTags, setAssetFileTags } from '../../utils/assetManager';
+import TagSelector from '../common/TagSelector';
 
 interface FileManagerProps {
     hiddenAssetButton?: boolean;
@@ -73,8 +74,13 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
       const params = pendingProductData.filter(p => (p.productName || pendingPendingFileName) === prod.name);
       const fileNameBase = prod.customName || prod.name;
       const fileNameJson = fileNameBase + '.json';
-      await saveAssetFile(assetLibraryPath, fileNameBase, prod.name, params);
-      addActiveAsset(fileNameJson, prod.name);
+      // 文件名和产品名统一用 fileNameBase，让资产显示名与文件名一致
+      await saveAssetFile(assetLibraryPath, fileNameBase, fileNameBase, params);
+      addActiveAsset(fileNameJson, fileNameBase);
+      // 保存标签
+      if (prod.tags && prod.tags.length > 0) {
+        await setAssetFileTags(assetLibraryPath, fileNameJson, prod.tags);
+      }
     }
     bumpAssetVersion();
     setConfirmModalVisible(false);
@@ -90,9 +96,21 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
   const [sheetPickerData, setSheetPickerData] = useState<{ name: string; totalRows: number }[]>([]);
   const [preselectedDisabledSheets, setPreselectedDisabledSheets] = useState<Set<string>>(new Set());
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-  const [pendingProducts, setPendingProducts] = useState<{ name: string; count: number; checked?: boolean; customName?: string }[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<{ name: string; count: number; checked?: boolean; customName?: string; tags?: string[] }[]>([]);
   const [pendingProductData, setPendingProductData] = useState<import('../../types').VehicleParameter[]>([]);
   const [pendingPendingFileName, setPendingPendingFileName] = useState('');
+  const [allImportTags, setAllImportTags] = useState<string[]>([]);
+
+  // 打开确认弹窗时加载可用标签
+  useEffect(() => {
+    if (confirmModalVisible && assetLibraryPath) {
+      loadAssetTags(assetLibraryPath).then(tagsMap => {
+        const tagSet = new Set<string>();
+        Object.values(tagsMap).forEach(tags => tags.forEach(t => tagSet.add(t)));
+        setAllImportTags(Array.from(tagSet).sort());
+      }).catch(() => {});
+    }
+  }, [confirmModalVisible, assetLibraryPath]);
   const [assetDrawerVisible, setAssetDrawerVisible] = useState(false);
 
   const handleSheetPickerConfirm = (disabledSheets: Set<string>) => {
@@ -152,19 +170,27 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
               />
               <span style={{ flex: 1, fontSize: 13 }}>{prod.name}</span>
               <span style={{ fontSize: 12, color: '#999' }}>{prod.count} 个参数</span>
-              <input
-                type="text"
-                value={prod.customName || prod.name + '.json'}
+              <Input
+                size="small"
+                defaultValue={prod.name}
                 onChange={e => {
                   const next = [...pendingProducts];
-                  next[idx] = { ...next[idx], customName: e.target.value.replace(/\.json$/i, '') };
+                  next[idx] = { ...next[idx], customName: e.target.value };
                   setPendingProducts(next);
                 }}
-                style={{
-                  fontSize: 11, width: 180, padding: '1px 4px',
-                  border: '1px solid #d9d9d9', borderRadius: 3, outline: 'none', color: '#333'
-                }}
+                style={{ width: 160 }}
+                placeholder="输入文件名"
                 onClick={e => e.stopPropagation()}
+                addonAfter=".json"
+              />
+              <TagSelector
+                selected={prod.tags || []}
+                availableTags={allImportTags}
+                onChange={tags => {
+                  const next = [...pendingProducts];
+                  next[idx] = { ...next[idx], tags };
+                  setPendingProducts(next);
+                }}
               />
             </div>
           ))}
@@ -178,4 +204,5 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     </>
   );
 };
+
 export default FileManager;

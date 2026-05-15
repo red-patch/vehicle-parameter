@@ -34,3 +34,4 @@ src-tauri/Cargo.lock
 *.csv
 *.tmp
 .alma-snapshots
+.claude/

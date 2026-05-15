@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Drawer, Input, List, Button, message, Tooltip } from 'antd';
 import { CloudDownloadOutlined, SearchOutlined, FolderOpenOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { getAssetFiles, loadAssetFile, renameAssetFile, deleteAssetFile } from '../../utils/assetManager';
@@ -18,6 +18,14 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
     // Rename State
     const [editingFile, setEditingFile] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
+    const renameInputRef = useRef<any>(null);
+
+    // 进入编辑时聚焦一次，避免 autoFocus 每次渲染重置光标
+    useEffect(() => {
+        if (editingFile && renameInputRef.current) {
+            setTimeout(() => renameInputRef.current?.focus(), 0);
+        }
+    }, [editingFile]);
 
     useEffect(() => {
         if (visible && assetLibraryPath) {
@@ -172,11 +180,11 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                             {isEditing ? (
                                                 <div className="flex items-center w-full gap-2" onClick={e => e.stopPropagation()}>
                                                     <Input 
+                                                        ref={renameInputRef}
                                                         size="small"
                                                         value={editName}
                                                         onChange={e => setEditName(e.target.value)}
                                                         onPressEnter={(e) => handleConfirmRename(e, item)}
-                                                        autoFocus
                                                         className="flex-1 text-sm"
                                                     />
                                                     <div className="flex items-center gap-1 flex-shrink-0">

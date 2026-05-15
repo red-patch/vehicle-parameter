@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, PlusOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined } from '@ant-design/icons';
-import { Spin, Tooltip, Input, Button, Modal, message, Tag, Popover } from 'antd';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Spin, Tooltip, Input, Button, Modal, message, Tag } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -11,7 +11,9 @@ import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { getAssetDisplayName, validateAssetName, fixAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
+import TagSelector from '../common/TagSelector';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
+import { useContextMenu } from '../../hooks/useContextMenu';
 
 // 标签颜色池，根据标签内容确定性地分配颜色
 const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
@@ -63,7 +65,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         setAssetLibraryPath: state.setAssetLibraryPath,
     })));
     const panelRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<any>(null);
     
 
     // 智能联动逻辑：根据当前选中的车型，判断某个资产是否处于“激活”状态
@@ -74,7 +75,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [loading, setLoading] = useState(false);
     
     // Rename state
-    const [editingAsset, setEditingAsset] = useState<string | null>(null);
+    const [renameModal, setRenameModal] = useState<{ open: boolean; info: AssetFileInfo | null }>({ open: false, info: null });
     const [editName, setEditName] = useState('');
     const [searchKeyword, setSearchKeyword] = useState('');
     const [sourceFilter, setSourceFilter] = useState<AssetSourceFilter>('all');
@@ -84,8 +85,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [selectedVehicleFamilyTag, setSelectedVehicleFamilyTag] = useState<string | null>(null);
     const [selectedManufacturerTag, setSelectedManufacturerTag] = useState<string | null>(null);
     const [selectedOtherFilterTags, setSelectedOtherFilterTags] = useState<string[]>([]);
-    const [tagEditingAsset, setTagEditingAsset] = useState<string | null>(null);
-    const [newTagInput, setNewTagInput] = useState('');
+
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
     const [announceNoInput, setAnnounceNoInput] = useState('');
 
@@ -137,22 +137,14 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     };
 
     const handleStartFileRename = (info: AssetFileInfo) => {
-        setEditingAsset(info.fileName);
         setEditName(getAssetDisplayName(info.fileName, info.productName));
+        setRenameModal({ open: true, info });
     };
 
     const handleCancelRename = () => {
-        setEditingAsset(null);
+        setRenameModal({ open: false, info: null });
         setEditName('');
     };
-
-    // focus the rename input once (autoFocus causes keyboard event loop)
-    useEffect(() => {
-        if (editingAsset) {
-            const timer = setTimeout(() => inputRef.current?.focus?.(), 0);
-            return () => clearTimeout(timer);
-        }
-    }, [editingAsset]);
 
     const handleQuickFix = async (info: AssetFileInfo, fixedName: string) => {
         if (!assetLibraryPath) return;
@@ -301,15 +293,13 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     };
 
     // 标签管理
-    const handleAddTag = async (fileName: string, tag: string) => {
-        if (!assetLibraryPath || !tag.trim()) return;
-        const trimmed = tag.trim();
-        const current = assetTags[fileName] || [];
-        if (current.includes(trimmed)) return;
-        const updated = [...current, trimmed];
-        setAssetTags(prev => ({ ...prev, [fileName]: updated }));
-        await setAssetFileTags(assetLibraryPath, fileName, updated);
+    const handleSetTags = async (fileName: string, tags: string[]) => {
+        if (!assetLibraryPath) return;
+        setAssetTags(prev => ({ ...prev, [fileName]: tags }));
+        await setAssetFileTags(assetLibraryPath, fileName, tags);
     };
+
+    const { onContextMenu, ContextMenuPortal } = useContextMenu();
 
     const handleRemoveTag = async (fileName: string, tag: string) => {
         if (!assetLibraryPath) return;
@@ -693,7 +683,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 <div className="space-y-2">
                     {filteredAssets.map(info => {
                         const isFocused = focusedFile === info.fileName;
-                        const isEditing = editingAsset === info.fileName;
+                        const isEditing = false;
                         // 智能感知：如果该资产下的车型已在工作集中，则视为激活
                         const isActive = selectedProductNames.includes(buildVehicleInstanceKey('asset', info.fileName, info.productName));
                         const sourceMeta = getAssetSourceMeta(assetTags[info.fileName] || []);
@@ -701,8 +691,17 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         return (
                             <div 
                                 key={info.fileName}
-                                onClick={() => !isEditing && onFocusFile(info.fileName)}
-                                className={`flex flex-col justify-center py-2.5 px-3.5 rounded-xl border cursor-pointer transition-all duration-200 group relative ${
+                                onClick={() => onFocusFile(info.fileName)}
+                                onContextMenu={onContextMenu([
+                                    { key: 'focus', label: '聚焦查看', onClick: () => onFocusFile(info.fileName) },
+                                    { key: 'rename', label: '重命名', onClick: () => handleStartFileRename(info) },
+                                    { key: 'divider1', divider: true, onClick: () => {} },
+                                    { key: 'finder', label: '在 Finder 中显示', onClick: () => handleRevealInFinder(info) },
+                                    { key: 'open', label: '打开文件', onClick: () => handleOpenInEditor(info) },
+                                    { key: 'divider2', divider: true, onClick: () => {} },
+                                    { key: 'delete', label: '删除资产', danger: true, onClick: () => handleDelete(info.fileName, info.productName) },
+                                ])}
+                                className={`flex flex-col justify-center py-2.5 px-3.5 rounded-xl border transition-all duration-200 group relative ${
                                     isEditing
                                         ? 'border-blue-400 bg-white shadow-md ring-1 ring-blue-100'
                                         : isFocused 
@@ -712,38 +711,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 : 'bg-white/60 border-slate-200/60 hover:border-slate-300 hover:bg-white hover:shadow-sm hover:-translate-y-0.5'
                                 }`}
                             >
-                                {isEditing ? (
-                                    <div className="flex items-center gap-2 w-full">
-                                        <Input 
-                                            ref={inputRef}
-                                            size="small"
-                                            value={editName}
-                                            onChange={e => setEditName(e.target.value)}
-                                            onPressEnter={() => handleConfirmFileRename(info)}
-                                            placeholder="输入资产名称"
-                                            className="flex-1 text-[13px] h-7 px-2 border-blue-200 focus:border-blue-500"
-                                        />
-                                        <div className="flex items-center gap-0.5">
-                                            <Button 
-                                                type="text" 
-                                                size="small" 
-                                                icon={<CheckOutlined className="text-green-600 !text-[12px]" />} 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleConfirmFileRename(info);
-                                                }}
-                                                className="w-6 h-6 p-0 min-w-0 flex items-center justify-center"
-                                            />
-                                            <Button 
-                                                type="text" 
-                                                size="small" 
-                                                icon={<CloseOutlined className="text-slate-400 !text-[12px]" />} 
-                                                onClick={(e) => { e.stopPropagation(); handleCancelRename(); }}
-                                                className="w-6 h-6 p-0 min-w-0 flex items-center justify-center"
-                                            />
-                                        </div>
-                                    </div>
-                                ) : (
+                                {false ? null : (
                                     <>
                                         <div className="flex items-center justify-between min-w-0">
                                             <div className="flex items-center gap-2.5 min-w-0">
@@ -953,53 +921,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                     {tag}
                                                 </Tag>
                                             ))}
-                                            <Popover
-                                                open={tagEditingAsset === info.fileName}
-                                                onOpenChange={(open) => { if (!open) { setTagEditingAsset(null); setNewTagInput(''); } }}
-                                                trigger="click"
-                                                placement="bottomLeft"
-                                                content={
-                                                    <div className="w-48" onClick={e => e.stopPropagation()}>
-                                                        <div className="text-[11px] font-bold text-slate-500 mb-2">添加标签</div>
-                                                        <Input
-                                                            size="small"
-                                                            placeholder="输入标签名称…"
-                                                            value={newTagInput}
-                                                            autoFocus
-                                                            onChange={e => setNewTagInput(e.target.value)}
-                                                            onPressEnter={() => {
-                                                                if (newTagInput.trim()) {
-                                                                    handleAddTag(info.fileName, newTagInput);
-                                                                    setNewTagInput('');
-                                                                }
-                                                            }}
-                                                            className="mb-2"
-                                                        />
-                                                        {/* 已有标签快速选择 */}
-                                                        {allTags.filter(t => !(assetTags[info.fileName] || []).includes(t)).length > 0 && (
-                                                            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                                                                {allTags.filter(t => !(assetTags[info.fileName] || []).includes(t)).map(t => (
-                                                                    <Tag
-                                                                        key={t}
-                                                                        color={getTagColor(t)}
-                                                                        className="cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg hover:opacity-80"
-                                                                        onClick={() => handleAddTag(info.fileName, t)}
-                                                                    >
-                                                                        + {t}
-                                                                    </Tag>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                }
-                                            >
-                                                <div
-                                                    onClick={(e) => { e.stopPropagation(); setTagEditingAsset(info.fileName); }}
-                                                    className="w-4 h-4 rounded border border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-blue-400 hover:text-blue-400 text-slate-300 transition-colors"
-                                                >
-                                                    <PlusOutlined className="!text-[8px]" />
-                                                </div>
-                                            </Popover>
+                                            <TagSelector
+                                                selected={assetTags[info.fileName] || []}
+                                                onChange={tags => handleSetTags(info.fileName, tags)}
+                                            />
                                             {info.updatedAt && (
                                                 <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1 opacity-80 ml-auto">
                                                     <EditOutlined className="text-[11px]"/> {formatDate(info.updatedAt)}
@@ -1019,6 +944,29 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 </div>
             </div>
 
+            {/* 重命名弹窗 */}
+            <Modal
+                title="重命名资产"
+                open={renameModal.open}
+                onOk={() => renameModal.info && handleConfirmFileRename(renameModal.info)}
+                onCancel={handleCancelRename}
+                okText="确认重命名"
+                cancelText="取消"
+                destroyOnClose
+            >
+                <div className="py-3">
+                    <div className="text-sm text-slate-500 mb-2">输入新的资产名称</div>
+                    <Input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        onPressEnter={() => renameModal.info && handleConfirmFileRename(renameModal.info)}
+                        placeholder="输入资产名称"
+                        autoFocus
+                        addonAfter=".json"
+                    />
+                </div>
+            </Modal>
+
             <AssetUpgradeModal
                 open={Boolean(upgradeAsset)}
                 assetInfo={upgradeAsset}
@@ -1026,6 +974,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 onClose={() => setUpgradeAsset(null)}
                 onSaved={fetchAssets}
             />
+            {ContextMenuPortal}
         </div>
     );
 };

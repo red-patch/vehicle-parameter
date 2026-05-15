@@ -7,10 +7,9 @@ import { getProductData } from '../../store/vehicleSelectors';
 import { useShallow } from 'zustand/react/shallow';
 import Fuse from 'fuse.js';
 import type { MatchItem } from '../../types';
-import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, FilterOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
-import { preloadFieldLists, getSystemRequiredFieldsSync, getQualityCheckFieldsSync } from '../../utils/fieldLists';
 import { buildRepairContext, getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
 import RepairableValue from '../common/RepairableValue';
 import { getVehicleProductName } from '../../utils/vehicleInstance';
@@ -38,10 +37,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
     const [manualInputMode, setManualInputMode] = useState<Record<string, boolean>>({});
     // V3.1: 枚举数据加载状态
     const [enumLoaded, setEnumLoaded] = useState(isEnumDataLoaded());
-    // V3.1: 字段列表加载状态
-    const [fieldListsLoaded, setFieldListsLoaded] = useState(false);
-    // V3.1: 快捷筛选状态
-    const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'enum_mismatch'>('none');
+    const [quickFilter, setQuickFilter] = useState<'none' | 'enum_mismatch'>('none');
 
     // 预加载枚举数据
     useEffect(() => {
@@ -51,13 +47,6 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
             });
         }
     }, [enumLoaded]);
-
-    // V3.1: 预加载字段列表
-    useEffect(() => {
-        preloadFieldLists().then(() => {
-            setFieldListsLoaded(true);
-        });
-    }, []);
 
     // 计算当前车型的字典(用于 Quick Fix)
     const library = useMemo(() => {
@@ -143,14 +132,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
             results = results.filter(m => !m.matchedParam && m.manualValue === undefined);
         }
 
-        // V3.1: 快捷字段筛选（精确匹配）
-        if (quickFilter === 'system' && fieldListsLoaded) {
-            const systemFields = new Set(getSystemRequiredFieldsSync());
-            results = results.filter(m => systemFields.has(m.requirementName));
-        } else if (quickFilter === 'quality' && fieldListsLoaded) {
-            const qualityFields = new Set(getQualityCheckFieldsSync());
-            results = results.filter(m => qualityFields.has(m.requirementName));
-        } else if (quickFilter === 'enum_mismatch' && enumLoaded) {
+        // 快捷字段筛选
+        if (quickFilter === 'enum_mismatch' && enumLoaded) {
             results = results.filter(m => {
                 const value = m.manualValue !== undefined
                     ? m.manualValue
@@ -162,7 +145,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
         }
         
         return results;
-    }, [matchResults, searchText, confidenceFilter, statusFilter, quickFilter, fieldListsLoaded]);
+    }, [matchResults, searchText, confidenceFilter, statusFilter, quickFilter]);
 
     const handleCopy = () => {
         if (!filteredResults.length) {
@@ -521,24 +504,6 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
 
                 {/* V3.1: 快捷筛选按钮 */}
                 <FilterItem label="快捷:">
-                    <Button
-                        type={quickFilter === 'system' ? 'primary' : 'default'}
-                        size="small"
-                        icon={<FilterOutlined />}
-                        onClick={() => setQuickFilter(quickFilter === 'system' ? 'none' : 'system')}
-                        loading={!fieldListsLoaded}
-                    >
-                        系统必填 ({getSystemRequiredFieldsSync().length})
-                    </Button>
-                    <Button
-                        type={quickFilter === 'quality' ? 'primary' : 'default'}
-                        size="small"
-                        icon={<FilterOutlined />}
-                        onClick={() => setQuickFilter(quickFilter === 'quality' ? 'none' : 'quality')}
-                        loading={!fieldListsLoaded}
-                    >
-                        质量验车 ({getQualityCheckFieldsSync().length})
-                    </Button>
                     <Button
                         type={quickFilter === 'enum_mismatch' ? 'primary' : 'default'}
                         size="small"
