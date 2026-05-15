@@ -24,10 +24,10 @@
 
       /* 原生质感覆写 — 让 Web 感最重的样式向桌面看齐 */
 
-      /* ① 所有过渡动画缩到 100ms，原生感不拖沓 */
-      *, *::before, *::after {
-        transition-duration: 100ms !important;
-        transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+      /* ① 过渡动画缩到 100ms（使用 CSS 变量避免覆盖 Ant Design 弹出层） */
+      :root { --ag-transition-duration: 100ms; }
+      .ant-btn, .ant-tag, .ant-card, .ant-tabs-tab, [class*="hover:"] {
+        transition-duration: var(--ag-transition-duration) !important;
       }
 
       /* ② 卡片/面板圆角从 16px 减到 8px（更接近 macOS 原生） */

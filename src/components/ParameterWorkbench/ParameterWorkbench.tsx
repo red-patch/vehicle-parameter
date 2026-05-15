@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import DataSourcePanel from './DataSourcePanel';
@@ -33,6 +33,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
     const [innerActiveTab, setInnerActiveTab] = useState<WorkbenchTabKey>('pool');
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
     const [focusedProduct, setFocusedProduct] = useState<string | null>(null);
+    const [mountedTabs, setMountedTabs] = useState<Set<string>>(new Set(['pool'])); // 懒挂载：只渲染激活过的 tab
 
     const handleFocusFile = (fileName: string | null) => {
         setFocusedFile(fileName);
@@ -115,6 +116,13 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         }
     ], [handleGoRepair, handleReturnToModule, focusedFile, activeTab]);
 
+    // 懒挂载：激活过的 tab 才渲染，之后保活
+    useEffect(() => {
+        if (!mountedTabs.has(activeTab)) {
+            setMountedTabs(prev => new Set([...prev, activeTab]));
+        }
+    }, [activeTab]);
+
     return (
         <div className="h-full bg-slate-50/50 p-4">
             <AssetDataSynchronizer />
@@ -132,12 +140,12 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
                     />
                 </>
             ) : (
-                // 子模块嵌入模式：父级菜单控制切换，这里只负责 content 保活
-                items.map(item => (
+                // 子模块嵌入模式：懒挂载，首次激活后保活
+                items.map(item => mountedTabs.has(item.key) ? (
                     <div key={item.key} className="h-full" style={{ display: item.key === activeTab ? undefined : 'none' }}>
                         {item.children}
                     </div>
-                ))
+                ) : null)
             )}
         </div>
     );
