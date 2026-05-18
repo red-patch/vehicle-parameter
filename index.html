@@ -24,13 +24,13 @@
 
       /* 原生质感覆写 — 让 Web 感最重的样式向桌面看齐 */
 
-      /* ① 过渡动画缩到 100ms（使用 CSS 变量避免覆盖 Ant Design 弹出层） */
+      /* ① 过渡动画缩到 100ms（仅限按钮/标签/卡片，不动弹出层） */
       :root { --ag-transition-duration: 100ms; }
       .ant-btn, .ant-tag, .ant-card, .ant-tabs-tab, [class*="hover:"] {
         transition-duration: var(--ag-transition-duration) !important;
       }
 
-      /* ② 卡片/面板圆角从 16px 减到 8px（更接近 macOS 原生） */
+      /* ② 卡片/面板圆角从 16px 减到 10px（更接近 macOS 原生） */
       .rounded-xl, .rounded-2xl { border-radius: 10px !important; }
 
       /* ③ 移除卡片悬浮上浮效果（原生桌面不下沉/上浮） */
@@ -39,6 +39,15 @@
 
       /* ④ 列表中文本选择为划过底色，更像 Finder 列表 */
       ::selection { background: rgba(0, 122, 255, 0.15); color: inherit; }
+
+      /* ⑤ 表格/输入框字体稍微调小，更接近原生桌面应用 */
+      .ant-table-cell { font-size: 12.5px !important; }
+      .ant-input, .ant-select, .ant-btn { font-size: 13px !important; }
+      .ant-table-thead .ant-table-cell { font-size: 11.5px !important; font-weight: 600 !important; color: #555 !important; }
+
+      /* ⑥ 选中行底色用 macOS 系统蓝色调，更柔和 */
+      .ant-table-row-selected td { background: rgba(0, 122, 255, 0.04) !important; }
+      .ant-table-row:hover td { background: rgba(0, 122, 255, 0.02) !important; }
     </style>
   </head>
   <body>
