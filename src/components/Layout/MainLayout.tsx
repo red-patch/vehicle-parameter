@@ -125,6 +125,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                 searchInput?.focus();
                 searchInput?.select();
             }
+            // Cmd/Ctrl + W: 关闭最顶层的 Modal/Drawer
+            if (isCmd && e.key === 'w') {
+                e.preventDefault();
+                const closeBtn = document.querySelector<HTMLButtonElement>(
+                    '.ant-modal-close, .ant-drawer-close'
+                );
+                if (closeBtn) { closeBtn.click(); return; }
+                // 如果没有 Modal，回到上一个 tab（就是之前的 pool tab）
+                // 在 macOS 上 Cmd+W 关标签页是标准行为
+            }
             // Escape: 关闭最顶层的 Modal/Drawer
             if (e.key === 'Escape') {
                 const closeBtn = document.querySelector<HTMLButtonElement>(
