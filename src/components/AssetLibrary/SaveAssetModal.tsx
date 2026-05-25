@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Input, message } from 'antd';
 import TagSelector from '../common/TagSelector';
 import { checkAssetExists, setAssetFileTags } from '../../utils/assetManager';
+import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
 
 interface SaveAssetModalProps {
@@ -16,9 +17,10 @@ interface SaveAssetModalProps {
 const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSave, onSaved, defaultName, defaultTags = [] }) => {
     const [fileName, setFileName] = useState(defaultName);
     const [loading, setLoading] = useState(false);
-    const { assetLibraryPath } = useVehicleStore();
+    const { assetLibraryPath, bumpAssetTagGroupsVersion } = useVehicleStore();
 
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [allAvailableTags, setAllAvailableTags] = useState<string[]>([]);
     const inputRef = useRef<any>(null);
 
     // 弹窗打开时聚焦输入框
@@ -33,8 +35,19 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
             setFileName(defaultName);
             setLoading(false);
             setSelectedTags(defaultTags.filter(tag => tag.trim()));
+            // 加载系统中所有已有标签
+            import('../../utils/assetManager').then(({ loadAssetTags }) => {
+                if (assetLibraryPath) {
+                    loadAssetTags(assetLibraryPath).then(tagsMap => {
+                        const set = new Set<string>();
+                        Object.values(tagsMap).forEach(tags => tags.forEach(t => set.add(t)));
+                        getAssetTagGroupsSync().groups.forEach(g => g.tags.forEach(t => set.add(t)));
+                        setAllAvailableTags(Array.from(set).sort());
+                    }).catch(() => {});
+                }
+            });
         }
-    }, [visible, defaultName, defaultTags]);
+    }, [visible, defaultName, defaultTags, assetLibraryPath]);
 
     const handleSave = async () => {
         if (!fileName.trim()) {
@@ -73,9 +86,11 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
     const performSave = async () => {
         try {
             await onSave(fileName.trim());
-            // 保存成功后写入标签
+            // 保存成功后写入标签并同步到分组配置
             if (assetLibraryPath && selectedTags.length > 0) {
                 await setAssetFileTags(assetLibraryPath, fileName.trim() + '.json', selectedTags);
+                const groupsUpdated = await ensureTagsInDefaultGroup(assetLibraryPath, selectedTags);
+                if (groupsUpdated) bumpAssetTagGroupsVersion();
             }
             // 标签已落盘，通知父级刷新
             onSaved?.();
@@ -123,6 +138,7 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
                     <label className="font-medium text-gray-700 text-sm">资产标签 <span className="text-gray-400 font-normal">(可选)</span></label>
                     <TagSelector
                         selected={selectedTags}
+                        availableTags={allAvailableTags}
                         onChange={setSelectedTags}
                     />
                 </div>

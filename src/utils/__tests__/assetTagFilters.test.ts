@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyAvailableTags, filterAssetInfos } from '../assetTagFilters';
+import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../assetTagFilters';
 import type { AssetTagGroupsConfig } from '../assetTagGroups';
 
 const assets = [
@@ -14,7 +14,6 @@ const assetTags = {
     'c.json': ['大面', '大通', '冷藏'],
 };
 
-// 新格式：用 groups 替代平铺字段
 const tagGroups: AssetTagGroupsConfig = {
     groups: [
         { id: 'vf', name: '车型族群', tags: ['大面', '小卡'] },
@@ -25,22 +24,20 @@ const tagGroups: AssetTagGroupsConfig = {
 };
 
 describe('assetTagFilters', () => {
-    it('classifies tags into vehicle family, manufacturer, and other groups', () => {
-        expect(classifyAvailableTags(['大面', '福田', '客运版', '公告数据'])).toEqual({
-            vehicleFamilyTags: ['大面'],
-            manufacturerTags: ['福田'],
-            otherTags: ['客运版', '公告数据'],
-        });
+    it('classifies tags by groups, puts ungrouped into _other', () => {
+        const result = classifyAvailableTagsWithConfig(['大面', '福田', '客运版', '公告数据', '未知标签'], tagGroups);
+        expect(result.vf).toEqual(['大面']);
+        expect(result.mf).toEqual(['福田']);
+        expect(result.other).toEqual(['客运版', '公告数据']);
+        expect(result._other).toEqual(['未知标签']);
     });
 
     it('filters assets using grouped selections and other-tag intersection', () => {
         const result = filterAssetInfos({
             assets,
             assetTags,
-            selectedVehicleFamilyTag: '大面',
-            selectedManufacturerTag: '福田',
+            selectedGroupTags: { vf: '大面', mf: '福田' },
             selectedOtherFilterTags: ['客运版'],
-            config: tagGroups,
         });
 
         expect(result.map((asset) => asset.fileName)).toEqual(['a.json']);

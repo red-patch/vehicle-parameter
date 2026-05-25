@@ -3,7 +3,16 @@ import { Table, Input, Tag, Card, Skeleton, Empty, Typography, Tabs, Button, mes
 import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded, getEnumActiveFilter, setEnumActiveFilter, getAllCategoryPaths, getAllCategories, isEnumActive } from '../../utils/attributeEnums';
 import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
-import { getAssetTagGroupsSync, reloadCustomAssetTagGroups, saveCustomAssetTagGroups, type TagGroupItem } from '../../utils/assetTagGroups';
+import {
+    getAssetTagGroupsSync,
+    reloadCustomAssetTagGroups,
+    saveCustomAssetTagGroups,
+    normalizeTagGroupsConfig,
+    normalizeTagList,
+    purgeTagFromLibrary,
+    DEFAULT_GROUP_ID,
+    type TagGroupItem,
+} from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
@@ -75,7 +84,7 @@ const ConfigManagerView: React.FC = () => {
 
 
 
-    const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion } = useVehicleStore();
+    const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion, bumpAssetVersion } = useVehicleStore();
 
     useEffect(() => {
         const init = async () => {
@@ -240,16 +249,19 @@ const ConfigManagerView: React.FC = () => {
         }
     };
 
-;
-
     const handleSaveTagGroups = async () => {
         if (!assetLibraryPath) {
             message.warning('请先设置资产库大目录');
             return;
         }
         try {
-            await saveCustomAssetTagGroups(assetLibraryPath, {
+            const normalizedGroups = normalizeTagGroupsConfig({
                 groups: tagGroups,
+                exclusiveGroups: editExclusiveGroups,
+            }).groups;
+            setTagGroups(normalizedGroups);
+            await saveCustomAssetTagGroups(assetLibraryPath, {
+                groups: normalizedGroups,
                 exclusiveGroups: editExclusiveGroups,
             });
             await reloadCustomAssetTagGroups(assetLibraryPath);
@@ -637,6 +649,11 @@ const ConfigManagerView: React.FC = () => {
                                 setTagGroups(prev => [...prev, { id, name: '新标签分组', tags: [] }]);
                             }}
                             openConfigFile={openConfigFile}
+                            assetLibraryPath={assetLibraryPath}
+                            onAfterTagPurged={() => {
+                                bumpAssetTagGroupsVersion();
+                                bumpAssetVersion();
+                            }}
                         />
                     )
                 }
@@ -820,24 +837,43 @@ interface TagGroupsConfigProps {
     onSave: () => void;
     onAddGroup: () => void;
     openConfigFile: (fileName: string) => void;
+    assetLibraryPath: string | null;
+    onAfterTagPurged?: () => void;
 }
+
+const UNGROUPED_ID = '_ungrouped';
 
 const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
     groups, exclusiveGroups, onGroupsChange, onExclusiveGroupsChange,
-    onSave, onAddGroup, openConfigFile,
+    onSave, onAddGroup, openConfigFile, assetLibraryPath, onAfterTagPurged,
 }) => {
     const [selectedId, setSelectedId] = useState<string>(groups[0]?.id || '');
     const [addInput, setAddInput] = useState('');
     const [renaming, setRenaming] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
+    const [orphanTags, setOrphanTags] = useState<string[]>([]);
+
+    // 加载所有资产标签，找出未归入任何分组的游离标签
+    useEffect(() => {
+        if (!assetLibraryPath) { setOrphanTags([]); return; }
+        import('../../utils/assetManager').then(({ loadAssetTags }) => {
+            loadAssetTags(assetLibraryPath).then(tagsMap => {
+                const allAssetTags = Array.from(new Set(Object.values(tagsMap).flat()));
+                const grouped = new Set(groups.flatMap(g => g.tags));
+                setOrphanTags(allAssetTags.filter(t => !grouped.has(t)));
+            }).catch(() => {});
+        });
+    }, [assetLibraryPath, groups]);
 
     useEffect(() => {
-        if (groups.length > 0 && !groups.find(g => g.id === selectedId)) {
+        if (groups.length > 0 && !groups.find(g => g.id === selectedId) && selectedId !== UNGROUPED_ID) {
             setSelectedId(groups[0].id);
         }
     }, [groups]);
 
-    const selected = groups.find(g => g.id === selectedId);
+    const selected = selectedId === UNGROUPED_ID
+        ? { id: UNGROUPED_ID, name: '未分组', tags: orphanTags }
+        : groups.find(g => g.id === selectedId);
 
     const updateGroup = (id: string, updater: (g: TagGroupItem) => TagGroupItem) => {
         onGroupsChange(groups.map(g => g.id === id ? updater(g) : g));
@@ -845,29 +881,60 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
 
     const handleAddTag = () => {
         const t = addInput.trim();
-        if (!t || !selected) return;
-        if (!selected.tags.includes(t)) {
-            updateGroup(selected.id, g => ({ ...g, tags: [...g.tags, t] }));
-        }
+        if (!t || !selected || selected.id === UNGROUPED_ID) return;
+        updateGroup(selected.id, g => ({ ...g, tags: normalizeTagList([...g.tags, t]) }));
         setAddInput('');
     };
 
-    const handleRemoveTag = (tag: string) => {
-        if (!selected) return;
-        updateGroup(selected.id, g => ({ ...g, tags: g.tags.filter(t => t !== tag) }));
+    const applyGroupsWithoutTag = (tag: string) => {
+        onGroupsChange(groups.map(g => ({ ...g, tags: g.tags.filter(t => t !== tag) })));
+    };
+
+    const confirmPurgeTag = (tag: string) => {
+        if (!assetLibraryPath) {
+            message.warning('请先设置资产库大目录');
+            return;
+        }
+        Modal.confirm({
+            title: '彻底删除标签',
+            content: (
+                <span>
+                    将从<strong>所有分组词典</strong>及<strong>已绑定该标签的资产</strong>中移除「{tag}」，此操作不可恢复。
+                </span>
+            ),
+            okText: '彻底删除',
+            okButtonProps: { danger: true },
+            cancelText: '取消',
+            onOk: async () => {
+                try {
+                    const assetsUpdated = await purgeTagFromLibrary(assetLibraryPath, tag);
+                    applyGroupsWithoutTag(tag);
+                    setOrphanTags(prev => prev.filter(t => t !== tag));
+                    onAfterTagPurged?.();
+                    message.success(
+                        assetsUpdated > 0
+                            ? `已删除「${tag}」，并从 ${assetsUpdated} 个资产中移除`
+                            : `已从分组词典中删除「${tag}」`,
+                    );
+                } catch (e) {
+                    console.error(e);
+                    message.error('删除标签失败');
+                }
+            },
+        });
     };
 
     const handleRemoveGroup = (id: string) => {
+        if (id === UNGROUPED_ID) return;
         const next = groups.filter(g => g.id !== id);
         onGroupsChange(next);
         if (selectedId === id) setSelectedId(next[0]?.id || '');
     };
 
-    // 候选可用标签：所有分组中已存在的标签，排除当前组已有的
-    const allGroupTags = Array.from(new Set(groups.flatMap(g => g.tags)));
-    const candidateTags = allGroupTags
-        .filter(t => !selected?.tags.includes(t))
-        .slice(0, 30);
+    // 候选标签：当选择「未分组」时显示所有分组标签供添加；选择普通分组时显示游离标签
+    const candidateTags = selected?.id === UNGROUPED_ID
+        ? groups.flatMap(g => g.tags).slice(0, 30)  // 未分组：展示所有已分组标签
+        : orphanTags.slice(0, 30);                   // 普通分组：展示游离标签
 
     return (
         <div className="p-4 flex flex-col gap-6">
@@ -887,96 +954,180 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="font-semibold text-slate-800 truncate">{g.name}</div>
-                                    <div className="text-xs text-slate-400">标签数 {g.tags.length}</div>
+                                    <div className="text-xs text-slate-400">标签数 {normalizeTagList(g.tags).length}</div>
                                 </div>
                                 <Button type="text" size="small" icon={<DeleteOutlined />} danger
                                     onClick={e => { e.stopPropagation(); handleRemoveGroup(g.id); }}
                                 />
                             </div>
                         ))}
-                        {groups.length === 0 && (
+                        {orphanTags.length > 0 && (
+                            <div key={UNGROUPED_ID}
+                                className={`cursor-pointer rounded-xl px-3 py-2 border flex items-center justify-between gap-2 ${
+                                    selectedId === UNGROUPED_ID ? 'border-amber-300 bg-amber-50' : 'border-dashed border-slate-300 hover:border-slate-400'
+                                }`}
+                                onClick={() => setSelectedId(UNGROUPED_ID)}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-slate-800 truncate">未分组</div>
+                                    <div className="text-xs text-slate-400">{orphanTags.length} 个游离标签</div>
+                                </div>
+                            </div>
+                        )}
+                        {groups.length === 0 && orphanTags.length === 0 && (
                             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无分组，请新建" />
                         )}
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     {selected ? (
-                        <>
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <div className="flex items-center gap-2">
-                                    {renaming === selected.id ? (
-                                        <Input size="small" value={renameValue}
-                                            onChange={e => setRenameValue(e.target.value)}
-                                            onPressEnter={() => {
-                                                if (renameValue.trim()) updateGroup(selected.id, g => ({ ...g, name: renameValue.trim() }));
-                                                setRenaming(null);
-                                            }}
-                                            style={{ width: 200 }}
-                                            onBlur={() => setRenaming(null)}
-                                            autoFocus
-                                        />
-                                    ) : (
-                                        <div className="text-[18px] font-bold text-slate-900">{selected.name}</div>
-                                    )}
-                                    <Button type="text" size="small" icon={<EditOutlined />}
-                                        onClick={() => { setRenaming(selected.id); setRenameValue(selected.name); }}
-                                    />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-slate-500">互斥</span>
-                                    <Switch size="small" checked={exclusiveGroups.includes(selected.id)}
-                                        onChange={checked => {
-                                            if (checked) onExclusiveGroupsChange([...exclusiveGroups, selected.id]);
-                                            else onExclusiveGroupsChange(exclusiveGroups.filter(g => g !== selected.id));
-                                        }}
-                                    />
-                                    <Tag color="blue">标签数 {selected.tags.length}</Tag>
-                                    <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 mb-3">
-                                <Input
-                                    value={addInput}
-                                    onChange={e => setAddInput(e.target.value)}
-                                    onPressEnter={handleAddTag}
-                                    placeholder="输入标签名称，回车添加"
-                                    style={{ flex: 1, minWidth: 200 }}
-                                />
-                                <Button type="primary" onClick={handleAddTag} disabled={!addInput.trim()}>添加</Button>
-                            </div>
-                            {addInput && candidateTags.filter(t => t.includes(addInput)).length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {candidateTags.filter(t => t.includes(addInput)).slice(0, 8).map(t => (
-                                        <Tag key={t} className="cursor-pointer text-xs" onClick={() => { setAddInput(t); }}>{t}</Tag>
-                                    ))}
-                                </div>
-                            )}
-
-                            {selected.tags.length > 0 ? (
-                                <div className="flex flex-wrap gap-2 mb-3 max-h-80 overflow-y-auto">
-                                    {selected.tags.map(tag => (
-                                        <Tag key={tag} closable onClose={() => handleRemoveTag(tag)} className="text-xs">{tag}</Tag>
-                                    ))}
-                                </div>
-                            ) : (
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前分组暂无标签" />
-                            )}
-
-                            {candidateTags.length > 0 && (
-                                <div className="border-t border-slate-100 pt-3 mt-2">
-                                    <Text type="secondary" className="text-xs mb-2 block">从其他分组快速添加</Text>
-                                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                                        {candidateTags.map(tag => (
-                                            <Tag key={tag} className="cursor-pointer text-xs"
-                                                onClick={() => updateGroup(selected.id, g => ({ ...g, tags: [...g.tags, tag] }))}
-                                            >+ {tag}</Tag>
-                                        ))}
+                        selected.id === UNGROUPED_ID ? (
+                            <>
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-[18px] font-bold text-slate-900">未分组</div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Tag color="orange">游离标签 {orphanTags.length}</Tag>
+                                        <Button size="small" onClick={() => {
+                                            // 一键归入默认分组
+                                            if (orphanTags.length === 0) return;
+                                            const g = groups.find(gr => gr.id === DEFAULT_GROUP_ID || gr.name === '其他标签' || gr.name === '其他');
+                                            if (g) {
+                                                updateGroup(g.id, gr => ({
+                                                    ...gr,
+                                                    tags: normalizeTagList([...gr.tags, ...orphanTags]),
+                                                }));
+                                                setOrphanTags([]);
+                                            }
+                                            message.success('已归入默认分组');
+                                        }} disabled={orphanTags.length === 0}>一键归入</Button>
+                                        <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
                                     </div>
                                 </div>
-                            )}
-                        </>
+                                {orphanTags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
+                                        {orphanTags.map(tag => (
+                                            <div key={tag} className="flex items-center gap-2 mb-1 w-full">
+                                                <Tag className="text-xs flex-1">{tag}</Tag>
+                                                <Select
+                                                    size="small"
+                                                    style={{ width: 140 }}
+                                                    placeholder="归入分组..."
+                                                    onChange={groupId => {
+                                                        updateGroup(groupId, gr => ({
+                                                            ...gr,
+                                                            tags: normalizeTagList([...gr.tags, tag]),
+                                                        }));
+                                                        setOrphanTags(prev => prev.filter(t => t !== tag));
+                                                    }}
+                                                    options={groups.map(g => ({ value: g.id, label: g.name }))}
+                                                />
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    danger
+                                                    icon={<DeleteOutlined />}
+                                                    title="彻底删除"
+                                                    onClick={() => confirmPurgeTag(tag)}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="所有标签已归组" />
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <div className="flex items-center gap-2">
+                                        {renaming === selected.id ? (
+                                            <Input size="small" value={renameValue}
+                                                onChange={e => setRenameValue(e.target.value)}
+                                                onPressEnter={() => {
+                                                    if (renameValue.trim()) updateGroup(selected.id, g => ({ ...g, name: renameValue.trim() }));
+                                                    setRenaming(null);
+                                                }}
+                                                style={{ width: 200 }}
+                                                onBlur={() => setRenaming(null)}
+                                                autoFocus
+                                            />
+                                        ) : (
+                                            <div className="text-[18px] font-bold text-slate-900">{selected.name}</div>
+                                        )}
+                                        <Button type="text" size="small" icon={<EditOutlined />}
+                                            onClick={() => { setRenaming(selected.id); setRenameValue(selected.name); }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-slate-500">互斥</span>
+                                        <Switch size="small" checked={exclusiveGroups.includes(selected.id)}
+                                            onChange={checked => {
+                                                if (checked) onExclusiveGroupsChange([...exclusiveGroups, selected.id]);
+                                                else onExclusiveGroupsChange(exclusiveGroups.filter(g => g !== selected.id));
+                                            }}
+                                        />
+                                        <Tag color="blue">标签数 {normalizeTagList(selected.tags).length}</Tag>
+                                        <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Input
+                                        value={addInput}
+                                        onChange={e => setAddInput(e.target.value)}
+                                        onPressEnter={handleAddTag}
+                                        placeholder="输入标签名称，回车添加"
+                                        style={{ flex: 1, minWidth: 200 }}
+                                    />
+                                    <Button type="primary" onClick={handleAddTag} disabled={!addInput.trim()}>添加</Button>
+                                </div>
+                                {addInput && candidateTags.filter(t => t.includes(addInput)).length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {candidateTags.filter(t => t.includes(addInput)).slice(0, 8).map(t => (
+                                            <Tag key={t} className="cursor-pointer text-xs" onClick={() => { setAddInput(t); }}>{t}</Tag>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {selected.tags.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2 mb-3 max-h-80 overflow-y-auto">
+                                        {selected.tags.map(tag => (
+                                            <Tag
+                                                key={tag}
+                                                closable
+                                                className="text-xs"
+                                                onClose={(e) => {
+                                                    e.preventDefault();
+                                                    confirmPurgeTag(tag);
+                                                }}
+                                            >
+                                                {tag}
+                                            </Tag>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前分组暂无标签" />
+                                )}
+
+                                {candidateTags.length > 0 && (
+                                    <div className="border-t border-slate-100 pt-3 mt-2">
+                                        <Text type="secondary" className="text-xs mb-2 block">
+                                            {selected?.id === UNGROUPED_ID ? '从已分组标签添加' : '从游离标签添加'}
+                                        </Text>
+                                        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                                            {candidateTags.map(tag => (
+                                                <Tag key={tag} className="cursor-pointer text-xs"
+                                                    onClick={() => updateGroup(selected.id, g => ({ ...g, tags: normalizeTagList([...g.tags, tag]) }))}
+                                                >+ {tag}</Tag>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )
                     ) : (
                         <Empty description="请先选择或创建标签分组" />
                     )}

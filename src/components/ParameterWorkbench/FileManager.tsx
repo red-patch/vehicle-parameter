@@ -11,6 +11,7 @@ import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
 import SheetPickerModal from './SheetPickerModal';
 import { FolderOpenOutlined } from '@ant-design/icons';
 import { saveAssetFile, loadAssetTags, setAssetFileTags } from '../../utils/assetManager';
+import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import TagSelector from '../common/TagSelector';
 
 interface FileManagerProps {
@@ -21,7 +22,7 @@ interface FileManagerProps {
 const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFile, focusedFile }) => {
 
   const [uploading, setUploading] = useState(false);
-  const { assetLibraryPath, addActiveAsset, bumpAssetVersion } = useVehicleStore();
+  const { assetLibraryPath, addActiveAsset, bumpAssetVersion, bumpAssetTagGroupsVersion } = useVehicleStore();
 
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -70,17 +71,23 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     if (!assetLibraryPath) { message.error('请先设置资产库路径'); return; }
     const selected = pendingProducts.filter(p => p.checked !== false);
     if (selected.length === 0) { message.warning('请至少选择一个车型'); return; }
+    // 收集所有新产品中出现的新标签，同步到标签分组的"其他"组
+    const allNewTags = new Set<string>();
     for (const prod of selected) {
       const params = pendingProductData.filter(p => (p.productName || pendingPendingFileName) === prod.name);
       const fileNameBase = prod.customName || prod.name;
       const fileNameJson = fileNameBase + '.json';
-      // 文件名和产品名统一用 fileNameBase，让资产显示名与文件名一致
       await saveAssetFile(assetLibraryPath, fileNameBase, fileNameBase, params);
       addActiveAsset(fileNameJson, fileNameBase);
-      // 保存标签
       if (prod.tags && prod.tags.length > 0) {
         await setAssetFileTags(assetLibraryPath, fileNameJson, prod.tags);
+        prod.tags.forEach(t => allNewTags.add(t));
       }
+    }
+    // 新建标签同步到标签分组的"其他"分组
+    if (allNewTags.size > 0 && assetLibraryPath) {
+      const groupsUpdated = await ensureTagsInDefaultGroup(assetLibraryPath, Array.from(allNewTags));
+      if (groupsUpdated) bumpAssetTagGroupsVersion();
     }
     bumpAssetVersion();
     setConfirmModalVisible(false);
@@ -107,6 +114,7 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
       loadAssetTags(assetLibraryPath).then(tagsMap => {
         const tagSet = new Set<string>();
         Object.values(tagsMap).forEach(tags => tags.forEach(t => tagSet.add(t)));
+        getAssetTagGroupsSync().groups.forEach(g => g.tags.forEach(t => tagSet.add(t)));
         setAllImportTags(Array.from(tagSet).sort());
       }).catch(() => {});
     }
@@ -155,43 +163,88 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
           <div style={{ marginBottom: 12, fontSize: 13, color: '#666' }}>
             解析发现 {pendingProducts.length} 个车型，请选择需要保存到资产库的车型：
           </div>
+
+          {/* 批量操作栏 */}
+          <BatchOperationsBar
+            total={pendingProducts.length}
+            checkedCount={pendingProducts.filter(p => p.checked !== false).length}
+            onSelectAll={(checked) => setPendingProducts(prev => prev.map(p => ({ ...p, checked })))}
+            onBatchTag={(tag) => {
+              setPendingProducts(prev => prev.map(p => ({
+                ...p,
+                tags: p.checked !== false ? [...new Set([...(p.tags || []), ...tag])] : p.tags,
+              })));
+              // 新标签也同步到可用列表
+              setAllImportTags(prev => {
+                const merged = new Set(prev);
+                tag.forEach(t => merged.add(t));
+                return Array.from(merged).sort();
+              });
+            }}
+            onBatchRename={(prefix, suffix) => {
+              setPendingProducts(prev => prev.map(p => ({
+                ...p,
+                customName: p.checked !== false ? `${prefix}${p.customName || p.name}${suffix}` : p.customName,
+              })));
+            }}
+            allImportTags={allImportTags}
+          />
+
           {pendingProducts.map((prod, idx) => (
-            <div key={idx} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px',
-              borderBottom: '1px solid #f0f0f0'
-            }}>
-              <Checkbox
-                checked={prod.checked !== false}
-                onChange={e => {
-                  const next = [...pendingProducts];
-                  next[idx] = { ...next[idx], checked: e.target.checked };
-                  setPendingProducts(next);
-                }}
-              />
-              <span style={{ flex: 1, fontSize: 13 }}>{prod.name}</span>
-              <span style={{ fontSize: 12, color: '#999' }}>{prod.count} 个参数</span>
-              <Input
-                size="small"
-                defaultValue={prod.name}
-                onChange={e => {
-                  const next = [...pendingProducts];
-                  next[idx] = { ...next[idx], customName: e.target.value };
-                  setPendingProducts(next);
-                }}
-                style={{ width: 160 }}
-                placeholder="输入文件名"
-                onClick={e => e.stopPropagation()}
-                addonAfter=".json"
-              />
-              <TagSelector
-                selected={prod.tags || []}
-                availableTags={allImportTags}
-                onChange={tags => {
-                  const next = [...pendingProducts];
-                  next[idx] = { ...next[idx], tags };
-                  setPendingProducts(next);
-                }}
-              />
+            <div key={idx}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px',
+                borderBottom: prod.tags && prod.tags.length > 0 ? 'none' : '1px solid #f0f0f0'
+              }}>
+                <Checkbox
+                  checked={prod.checked !== false}
+                  onChange={e => {
+                    const next = [...pendingProducts];
+                    next[idx] = { ...next[idx], checked: e.target.checked };
+                    setPendingProducts(next);
+                  }}
+                />
+                <span style={{ flex: 1, fontSize: 13 }}>{prod.name}</span>
+                <span style={{ fontSize: 12, color: '#999' }}>{prod.count} 个参数</span>
+                <Input
+                  size="small"
+                  defaultValue={prod.name}
+                  onChange={e => {
+                    const next = [...pendingProducts];
+                    next[idx] = { ...next[idx], customName: e.target.value };
+                    setPendingProducts(next);
+                  }}
+                  style={{ width: 160 }}
+                  placeholder="输入文件名"
+                  onClick={e => e.stopPropagation()}
+                  addonAfter=".json"
+                />
+                <TagSelector
+                  selected={prod.tags || []}
+                  availableTags={allImportTags}
+                  onChange={tags => {
+                    const next = [...pendingProducts];
+                    next[idx] = { ...next[idx], tags };
+                    setPendingProducts(next);
+                    // 新建的标签立即加入可用列表，关闭再打开也能看见
+                    setAllImportTags(prev => {
+                      const merged = new Set(prev);
+                      tags.forEach(t => merged.add(t));
+                      return Array.from(merged).sort();
+                    });
+                  }}
+                />
+              </div>
+              {(prod.tags || []).length > 0 && (
+                <div style={{ display: 'flex', gap: 4, padding: '2px 30px 6px', borderBottom: '1px solid #f0f0f0', flexWrap: 'wrap' }}>
+                  {prod.tags!.map(tag => (
+                    <span key={tag} style={{
+                      fontSize: 11, padding: '1px 6px', borderRadius: 3,
+                      background: '#e8f4fd', color: '#1677ff',
+                    }}>{tag}</span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           <div style={{ marginTop: 12, fontSize: 12, color: '#999' }}>
@@ -202,6 +255,136 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
 
       <AssetListDrawer visible={assetDrawerVisible} onClose={() => setAssetDrawerVisible(false)} />
     </>
+  );
+};
+
+// 批量操作栏组件
+interface BatchOperationsBarProps {
+  total: number;
+  checkedCount: number;
+  onSelectAll: (checked: boolean) => void;
+  onBatchTag: (tags: string[]) => void;
+  onBatchRename: (prefix: string, suffix: string) => void;
+  allImportTags: string[];
+}
+
+const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
+  total, checkedCount, onSelectAll, onBatchTag, onBatchRename, allImportTags,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const [batchTagInput, setBatchTagInput] = useState('');
+  const [prefixInput, setPrefixInput] = useState('');
+  const [suffixInput, setSuffixInput] = useState('');
+  const allChecked = total > 0 && checkedCount === total;
+
+  const handleApplyTag = () => {
+    const tags = batchTagInput.split(/[,，、\s]+/).map(t => t.trim()).filter(Boolean);
+    if (tags.length > 0) onBatchTag(tags);
+    setBatchTagInput('');
+  };
+
+  const handleApplyRename = () => {
+    onBatchRename(prefixInput, suffixInput);
+  };
+
+  return (
+    <div style={{
+      marginBottom: 8, padding: '8px 10px',
+      background: '#f8f9fa', borderRadius: 8,
+      border: '1px solid #e8e8e8',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'default' }}>
+          <Checkbox checked={allChecked} onChange={e => onSelectAll(e.target.checked)} />
+          <span>全选 ({checkedCount}/{total})</span>
+        </label>
+        <Button size="small" onClick={() => setExpanded(!expanded)}>
+          {expanded ? '收起批量操作' : '批量操作 ▼'}
+        </Button>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* 批量加标签 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap', width: 60 }}>批量标签</span>
+            <Input
+              size="small"
+              value={batchTagInput}
+              onChange={e => setBatchTagInput(e.target.value)}
+              onPressEnter={handleApplyTag}
+              placeholder="输入标签，逗号/空格分隔"
+              style={{ flex: 1, minWidth: 120 }}
+            />
+            <Button size="small" type="primary" onClick={handleApplyTag} disabled={!batchTagInput.trim()}>
+              应用到已选
+            </Button>
+            {allImportTags.length > 0 && (() => {
+            const groupsConfig = getAssetTagGroupsSync();
+            // 「其他标签」是默认兜底分组，合并到「未分组」中，不单独显示
+            const realGroups = groupsConfig.groups.filter(g => g.id !== '_default_other' && g.name !== '其他标签' && g.name !== '其他');
+            const grouped = realGroups.map(g => ({ ...g, tags: g.tags.filter(t => allImportTags.includes(t)) })).filter(g => g.tags.length > 0);
+            const defaultGroup = groupsConfig.groups.find(g => g.id === '_default_other' || g.name === '其他标签' || g.name === '其他');
+            const knownSet = new Set(realGroups.flatMap(g => g.tags));
+            const ungrouped = allImportTags.filter(t => !knownSet.has(t));
+            // 把兜底分组的标签也归入未分组
+            if (defaultGroup) {
+              defaultGroup.tags.filter(t => allImportTags.includes(t)).forEach(t => { if (!ungrouped.includes(t)) ungrouped.push(t); });
+            }
+            return (
+              <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto" style={{ marginTop: 4 }}>
+                {grouped.map(g => (
+                  <div key={g.id} className="flex items-start gap-1" style={{ marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, color: '#999', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>{g.name}</span>
+                    <div className="flex flex-wrap gap-1">
+                      {g.tags.map(t => (
+                        <Tag key={t} className="cursor-pointer" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {ungrouped.length > 0 && (
+                  <div className="flex items-start gap-1">
+                    <span style={{ fontSize: 10, color: '#999', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>未分组</span>
+                    <div className="flex flex-wrap gap-1">
+                      {ungrouped.map(t => (
+                        <Tag key={t} className="cursor-pointer" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          </div>
+
+          {/* 批量命名 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap', width: 60 }}>批量命名</span>
+            <Input
+              size="small"
+              value={prefixInput}
+              onChange={e => setPrefixInput(e.target.value)}
+              placeholder="前缀"
+              style={{ width: 100 }}
+            />
+            <span style={{ fontSize: 11, color: '#999' }}>文件名</span>
+            <Input
+              size="small"
+              value={suffixInput}
+              onChange={e => setSuffixInput(e.target.value)}
+              placeholder="后缀"
+              style={{ width: 100 }}
+            />
+            <span style={{ fontSize: 11, color: '#999' }}>.json</span>
+            <Button size="small" type="primary" onClick={handleApplyRename}
+              disabled={!prefixInput && !suffixInput}>
+              应用到已选
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
