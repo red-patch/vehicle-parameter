@@ -5,12 +5,12 @@ import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getAssetFilesWithInfo, renameAssetIdentity, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
-import { ASSET_SOURCE_META, getAssetSourceMeta, type AssetSourceFilter } from '../../utils/assetSourceTags';
+import { getAssetSourceMeta } from '../../utils/assetSourceTags';
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { getAssetDisplayName, validateAssetName, fixAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
-import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
+import { getAssetTagGroupsSync, ensureTagsInDefaultGroup } from '../../utils/assetTagGroups';
 import TagSelector from '../common/TagSelector';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { useContextMenu } from '../../hooks/useContextMenu';
@@ -18,12 +18,7 @@ import { useContextMenu } from '../../hooks/useContextMenu';
 // 标签颜色池，根据标签内容确定性地分配颜色
 const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
 const getTagColor = (tag: string) => TAG_COLORS[Math.abs([...tag].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % TAG_COLORS.length];
-const SOURCE_FILTER_HOVER_CLASS: Record<string, string> = {
-    blue: 'hover:border-blue-300 hover:text-blue-500',
-    green: 'hover:border-emerald-300 hover:text-emerald-600',
-    cyan: 'hover:border-cyan-300 hover:text-cyan-600',
-    purple: 'hover:border-purple-300 hover:text-purple-600',
-};
+
 
 // 简易格式化函数，替代 date-fns 避免依赖问题
 const formatDate = (dateStr: string) => {
@@ -50,6 +45,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         assetFiles,
         setAssetFiles,
         setAssetLibraryPath,
+        bumpAssetTagGroupsVersion,
     } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         uploadedFiles: state.uploadedFiles,
@@ -63,6 +59,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         assetFiles: state.assetFiles,
         setAssetFiles: state.setAssetFiles,
         setAssetLibraryPath: state.setAssetLibraryPath,
+        bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
     })));
     const panelRef = useRef<HTMLDivElement>(null);
     
@@ -78,12 +75,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [renameModal, setRenameModal] = useState<{ open: boolean; info: AssetFileInfo | null }>({ open: false, info: null });
     const [editName, setEditName] = useState('');
     const [searchKeyword, setSearchKeyword] = useState('');
-    const [sourceFilter, setSourceFilter] = useState<AssetSourceFilter>('all');
 
     // 标签系统
     const [assetTags, setAssetTags] = useState<Record<string, string[]>>({});
-    const [selectedVehicleFamilyTag, setSelectedVehicleFamilyTag] = useState<string | null>(null);
-    const [selectedManufacturerTag, setSelectedManufacturerTag] = useState<string | null>(null);
+    const [selectedGroupTag, setSelectedGroupTag] = useState<Record<string, string | null>>({});
     const [selectedOtherFilterTags, setSelectedOtherFilterTags] = useState<string[]>([]);
 
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
@@ -295,8 +290,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     // 标签管理
     const handleSetTags = async (fileName: string, tags: string[]) => {
         if (!assetLibraryPath) return;
-        setAssetTags(prev => ({ ...prev, [fileName]: tags }));
         await setAssetFileTags(assetLibraryPath, fileName, tags);
+        const groupsUpdated = await ensureTagsInDefaultGroup(assetLibraryPath, tags);
+        if (groupsUpdated) bumpAssetTagGroupsVersion();
+        setAssetTags(prev => ({ ...prev, [fileName]: tags }));
     };
 
     const { onContextMenu, ContextMenuPortal } = useContextMenu();
@@ -320,10 +317,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         );
     };
 
-    // 全局标签集合
+    // 全局标签集合 = 资产上已使用的标签 ∪ 系统分组内的全部标签（分组里的标签还没绑到资产上也可见）
     const allTags = useMemo(() => {
         const set = new Set<string>();
         Object.values(assetTags).forEach(tags => tags.forEach(t => set.add(t)));
+        getAssetTagGroupsSync().groups.forEach(g => g.tags.forEach(t => set.add(t)));
         return Array.from(set).sort();
     }, [assetTags]);
 
@@ -332,16 +330,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         [allTags, assetTagGroupsVersion]
     );
 
-    const availableSourceFilters = useMemo(() => {
-        const present = new Set<AssetSourceFilter>();
-        assets.forEach(asset => {
-            const sourceMeta = getAssetSourceMeta(assetTags[asset.fileName] || []);
-            if (sourceMeta) present.add(sourceMeta.filter);
-        });
-
-        return (Object.values(ASSET_SOURCE_META)).filter(source => present.has(source.filter));
-    }, [assets, assetTags]);
-
+    
     // 按来源计算每个资产的有效公告号
     // 公告数据源 → 仅用车辆型号；其他源 → 用参数中的公告字段
     const effectiveAnnounceNos = useMemo(() => {
@@ -401,21 +390,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const filteredAssets = useMemo(() => {
         let result = assets;
 
-        if (sourceFilter !== 'all') {
-            result = result.filter(asset => {
-                const sourceMeta = getAssetSourceMeta(assetTags[asset.fileName] || []);
-                return sourceMeta?.filter === sourceFilter;
-            });
-        }
-
         // 标签过滤（取交集）
         result = filterAssetInfos({
             assets: result,
             assetTags,
-            selectedVehicleFamilyTag,
-            selectedManufacturerTag,
+            selectedGroupTags: selectedGroupTag,
             selectedOtherFilterTags,
-            config: getAssetTagGroupsSync(),
         });
 
         // 关键字过滤（同时匹配文件名、产品名、标签）
@@ -439,7 +419,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         }
 
         return result;
-    }, [assets, searchKeyword, assetTags, sourceFilter, selectedVehicleFamilyTag, selectedManufacturerTag, selectedOtherFilterTags, announceNoMatchResult, assetTagGroupsVersion]);
+    }, [assets, searchKeyword, assetTags, selectedGroupTag, selectedOtherFilterTags, announceNoMatchResult, assetTagGroupsVersion]);
 
     return (
         <div ref={panelRef} className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
@@ -512,28 +492,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             className="rounded-lg border-slate-200 hover:border-blue-300 focus:border-blue-400"
                         />
                         <div className="flex items-center gap-2 flex-wrap">
-                            {availableSourceFilters.map(source => (
-                                <Tag
-                                    key={source.filter}
-                                    color={sourceFilter === source.filter ? source.color : undefined}
-                                    onClick={() => setSourceFilter(prev => prev === source.filter ? 'all' : source.filter)}
-                                    className={`cursor-pointer text-[11px] m-0 px-2.5 py-0.5 leading-[22px] rounded-lg border transition-all select-none ${
-                                        sourceFilter === source.filter
-                                            ? 'font-bold shadow-sm'
-                                            : `bg-slate-50 border-slate-200 text-slate-500 ${SOURCE_FILTER_HOVER_CLASS[source.color]}`
-                                    }`}
-                                >
-                                    {source.label}
-                                </Tag>
-                            ))}
-                            {sourceFilter !== 'all' && (
-                                <span
-                                    className="text-[10px] text-blue-500 cursor-pointer hover:underline"
-                                    onClick={() => setSourceFilter('all')}
-                                >
-                                    取消来源筛选
-                                </span>
-                            )}
                         </div>
                     </div>
                 )}
@@ -578,79 +536,58 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                     </div>
                 )}
 
-                {/* 标签过滤栏 */}
+                {/* 标签过滤栏 — 动态按标签分组展示 */}
                 {allTags.length > 0 && (
                     <div className="mb-2 px-1 space-y-2">
-                        {groupedTags.vehicleFamilyTags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                                <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
-                                <span className="text-[11px] text-slate-400 font-medium">车型族群</span>
-                                {groupedTags.vehicleFamilyTags.map(tag => (
-                                    <Tag
-                                        key={tag}
-                                        color={selectedVehicleFamilyTag === tag ? getTagColor(tag) : undefined}
-                                        onClick={() => setSelectedVehicleFamilyTag(prev => prev === tag ? null : tag)}
-                                        className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
-                                            selectedVehicleFamilyTag === tag
-                                                ? 'font-bold shadow-sm'
-                                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
-                                        }`}
-                                    >
-                                        {tag}
-                                    </Tag>
-                                ))}
-                            </div>
-                        )}
+                        {(() => {
+                            const groups = getAssetTagGroupsSync();
+                            const nameMap = new Map(groups.groups.map(g => [g.id, g.name]));
+                            return Object.entries(groupedTags).map(([gid, tags]) => {
+                                const groupName = gid === '_other' ? '未分组' : (nameMap.get(gid) || gid);
+                                const isOther = gid === '_other';
+                                return (
+                                    <div key={gid} className="flex flex-wrap gap-1.5 items-center">
+                                        <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
+                                        <span className="text-[11px] text-slate-400 font-medium">{groupName}</span>
+                                        {tags.map(tag => {
+                                            const isSelected = isOther
+                                                ? selectedOtherFilterTags.includes(tag)
+                                                : selectedGroupTag[gid] === tag;
+                                            return (
+                                                <Tag
+                                                    key={tag}
+                                                    color={isSelected ? getTagColor(tag) : undefined}
+                                                    onClick={() => {
+                                                        if (isOther) {
+                                                            toggleFilterTag(tag);
+                                                        } else {
+                                                            setSelectedGroupTag(prev => ({
+                                                                ...prev,
+                                                                [gid]: prev[gid] === tag ? null : tag,
+                                                            }));
+                                                        }
+                                                    }}
+                                                    className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
+                                                        isSelected
+                                                            ? 'font-bold shadow-sm'
+                                                            : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
+                                                    }`}
+                                                >
+                                                    {tag}
+                                                </Tag>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            });
+                        })()}
 
-                        {groupedTags.manufacturerTags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                                <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
-                                <span className="text-[11px] text-slate-400 font-medium">厂商</span>
-                                {groupedTags.manufacturerTags.map(tag => (
-                                    <Tag
-                                        key={tag}
-                                        color={selectedManufacturerTag === tag ? getTagColor(tag) : undefined}
-                                        onClick={() => setSelectedManufacturerTag(prev => prev === tag ? null : tag)}
-                                        className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
-                                            selectedManufacturerTag === tag
-                                                ? 'font-bold shadow-sm'
-                                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
-                                        }`}
-                                    >
-                                        {tag}
-                                    </Tag>
-                                ))}
-                            </div>
-                        )}
-
-                        {groupedTags.otherTags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 items-center">
-                                <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
-                                <span className="text-[11px] text-slate-400 font-medium">其他标签</span>
-                                {groupedTags.otherTags.map(tag => (
-                                    <Tag
-                                        key={tag}
-                                        color={selectedOtherFilterTags.includes(tag) ? getTagColor(tag) : undefined}
-                                        onClick={() => toggleFilterTag(tag)}
-                                        className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
-                                            selectedOtherFilterTags.includes(tag)
-                                                ? 'font-bold shadow-sm'
-                                                : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
-                                        }`}
-                                    >
-                                        {tag}
-                                    </Tag>
-                                ))}
-                            </div>
-                        )}
-
-                        {(selectedVehicleFamilyTag || selectedManufacturerTag || selectedOtherFilterTags.length > 0) && (
+                        {(Object.values(selectedGroupTag).some(Boolean) || selectedOtherFilterTags.length > 0) && (
                             <div className="flex flex-wrap gap-2 items-center">
                                 <span
                                     className="text-[10px] text-blue-500 cursor-pointer hover:underline"
                                     onClick={() => {
-                                        setSelectedVehicleFamilyTag(null);
-                                        setSelectedManufacturerTag(null);
+                                        setSelectedGroupTag({});
                                         setSelectedOtherFilterTags([]);
                                     }}
                                 >
@@ -923,6 +860,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                             ))}
                                             <TagSelector
                                                 selected={assetTags[info.fileName] || []}
+                                                availableTags={allTags}
                                                 onChange={tags => handleSetTags(info.fileName, tags)}
                                             />
                                             {info.updatedAt && (

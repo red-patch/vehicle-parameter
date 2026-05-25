@@ -25,15 +25,25 @@ const TagSelector: React.FC<TagSelectorProps> = ({
 
     const groupedTags = useMemo(() => {
         const groups = getAssetTagGroupsSync();
-        if (availableTags) {
-            // 如果有外部传入的可用标签，按系统分组归类
-            const tagSet = new Set(availableTags);
-            return groups.groups
-                .map(g => ({ ...g, tags: g.tags.filter(t => tagSet.has(t)) }))
-                .filter(g => g.tags.length > 0);
+        // 合并可用标签和已选标签（新标签也能显示）
+        const allKnownTags = new Set(availableTags ?? []);
+        selected.forEach(t => allKnownTags.add(t));
+
+        // 按系统分组归类
+        const grouped = groups.groups
+            .map(g => ({ ...g, tags: g.tags.filter(t => allKnownTags.has(t)) }))
+            .filter(g => g.tags.length > 0);
+
+        // 未分组的标签兜底：在 allKnownTags 但不在任何系统分组的
+        const systemTags = new Set(groups.groups.flatMap(g => g.tags));
+        const ungrouped = Array.from(allKnownTags).filter(t => !systemTags.has(t));
+
+        if (ungrouped.length > 0) {
+            grouped.push({ id: '_ungrouped', name: '未分组', tags: ungrouped });
         }
-        return groups.groups.filter(g => g.tags.length > 0);
-    }, [availableTags]);
+
+        return grouped;
+    }, [availableTags, selected]);
 
     const toggleTag = (tag: string) => {
         if (selected.includes(tag)) {
