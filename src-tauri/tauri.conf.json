@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "DST车型参数管理工具",
+  "productName": "vehicle-parameter",
   "version": "../package.json",
   "identifier": "com.vehicle.parameter",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DST车型参数管理工具",
+        "title": "vehicle-parameter",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
