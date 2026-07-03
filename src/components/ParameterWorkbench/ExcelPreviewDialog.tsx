@@ -315,7 +315,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
             title={`Excel 预览 — ${fileName}`}
             width="90vw"
             style={{ top: 20 }}
-            styles={{ body: { maxHeight: 'calc(100vh - 160px)', overflow: 'auto', padding: '12px 16px' } }}
+            styles={{ body: { maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', overflowX: 'hidden', padding: '12px 16px' } }}
             onCancel={onCancel}
             footer={[
                 <Button key="cancel" onClick={onCancel}>取消</Button>,
@@ -473,8 +473,8 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                     )}
 
                     {/* 预览表格 */}
-                    <div style={{ overflowX: 'auto', border: '1px solid #e8e8e8', borderRadius: 6, opacity: config.enabled ? 1 : 0.55, filter: config.enabled ? 'none' : 'grayscale(30%)' }}>
-                        <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%', minWidth: colCount * 100 }}>
+                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)', border: '1px solid #e8e8e8', borderRadius: 6, opacity: config.enabled ? 1 : 0.55, filter: config.enabled ? 'none' : 'grayscale(30%)' }}>
+                        <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: colCount * 100 }}>
                             {/* 列角色标签行 */}
                             <thead>
                                 <tr>
