@@ -56,9 +56,10 @@ jobs:
             - 修复括号内逗号被误拆分为多行字段的问题
 
             ---
-            下载 `.msi` 安装程序或 `.exe` 可执行文件（Windows），或 `.dmg` 磁盘映像（macOS）。
+            下载 `.exe` 安装程序（Windows）或 `.dmg` 磁盘映像（macOS）。
           releaseDraft: false
           prerelease: false
+          args: --bundles nsis
 
   build-macos:
     runs-on: macos-latest
@@ -109,6 +110,6 @@ jobs:
             - 修复括号内逗号被误拆分为多行字段的问题
 
             ---
-            下载 `.msi` 安装程序或 `.exe` 可执行文件（Windows），或 `.dmg` 磁盘映像（macOS）。
+            下载 `.exe` 安装程序（Windows）或 `.dmg` 磁盘映像（macOS）。
           releaseDraft: false
           prerelease: false
