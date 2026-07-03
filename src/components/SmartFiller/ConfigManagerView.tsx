@@ -14,7 +14,7 @@ import {
     type TagGroupItem,
 } from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { parseFieldBatchInput } from './coreFieldRules';
 import EnumImportModal from './EnumImportModal';
@@ -104,9 +104,8 @@ const ConfigManagerView: React.FC = () => {
                 // 加载枚举元数据 + 激活过滤器
                 if (assetLibraryPath) {
                     try {
-                        const { readTextFile } = await import('@tauri-apps/plugin-fs');
-                        const metaPath = await join(assetLibraryPath, 'custom_enum_meta.json');
-                        setEnumMeta(JSON.parse(await readTextFile(metaPath)));
+                    const metaPath = await join(assetLibraryPath, 'custom_enum_meta.json');
+                    setEnumMeta(JSON.parse(await readTextFile(metaPath)));
                     } catch { /* 文件可能不存在 */ }
                 }
                 setEditingFilter(getEnumActiveFilter());
