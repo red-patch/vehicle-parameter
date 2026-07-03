@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "vehicle-parameter",
+  "productName": "DST车型参数管理工具",
   "version": "../package.json",
   "identifier": "com.vehicle.parameter",
   "build": {
@@ -29,11 +29,9 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
+      "icons/icon.ico",
       "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/icon.png"
     ]
   }
 }
