@@ -7,14 +7,23 @@
   ],
   "permissions": [
     "core:default",
+    "window-state:default",
     "opener:default",
     {
       "identifier": "opener:allow-open-path",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        {
+          "path": "$HOME/**"
+        }
+      ]
     },
     {
       "identifier": "opener:allow-reveal-item-in-dir",
-      "allow": [{ "path": "$HOME/**" }]
+      "allow": [
+        {
+          "path": "$HOME/**"
+        }
+      ]
     },
     "dialog:default",
     "fs:default",
@@ -26,7 +35,11 @@
     "fs:allow-remove",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     }
   ]
 }

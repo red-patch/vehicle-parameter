@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="zh-CN" data-page-node-id="MY6EDnDXKzQxPjGz1G1EOl">
+<head data-page-node-id="a9E6eALuOM5Y3JPDWJzwFd">
+<meta charset="utf-8" data-page-node-id="bXYpA2T4kGhF4kGX4XBiLo" />
+<meta name="viewport" content="width=device-width,initial-scale=1" data-page-node-id="KDH4PjfQrJAf25nUq46v7r" />
+<title>DST · 青墨工坊 v3 · 视觉规范</title>
+<style>
+  /* ============================================================
+     DST · 青墨工坊 v3 — 视觉规范预览
+     设计：暖白木纹底 + 铜锈青品牌色 + 5 角色信号
+     单一文件、嵌入 CSS/JS，左右切换 light / dark
+     ============================================================ */
+
+  :root {
+    /* 表面（木桌 · 亮） */
+    --surface-1: #FBF8F1;
+    --surface-2: #FFFFFF;
+    --surface-3: #F5EFE3;
+    --border-default: #E8E2D2;
+    --border-strong: #C9C0A8;
+
+    /* 文字 */
+    --text-1: #1B1714;
+    --text-2: #5C5246;
+    --text-3: #9C8E7A;
+
+    /* 角色 */
+    --brand: #0F766E;
+    --brand-weak: rgba(15, 118, 110, 0.08);
+    --success: #15803D;
+    --success-text: #166534;
+    --success-weak: rgba(21, 128, 61, 0.10);
+    --info: #0369A7;
+    --info-weak: rgba(3, 105, 167, 0.08);
+    --warning: #C2410C;
+    --warning-text: #9A3412;
+    --warning-weak: rgba(194, 65, 12, 0.10);
+    --danger: #B91C1C;
+    --danger-weak: rgba(185, 28, 28, 0.08);
+
+    /* 形制 */
+    --r-sm: 3px;
+    --r-md: 4px;
+    --r-lg: 6px;
+
+    /* 阴影 */
+    --shadow-pop: 0 6px 24px rgba(27, 23, 20, 0.08), 0 2px 4px rgba(27, 23, 20, 0.04);
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --surface-1: #1B1714;
+    --surface-2: #221E1A;
+    --surface-3: #2B2521;
+    --border-default: #3A332C;
+    --border-strong: #544A3F;
+
+    --text-1: #F5EFE3;
+    --text-2: #C9C0A8;
+    --text-3: #877A6A;
+
+    --brand: #5EEAD4;
+    --brand-weak: rgba(94, 234, 212, 0.14);
+    --success: #4ADE80;
+    --success-weak: rgba(74, 222, 128, 0.14);
+    --info: #38BDF8;
+    --info-weak: rgba(56, 189, 248, 0.14);
+    --warning: #FB923C;
+    --warning-weak: rgba(251, 146, 60, 0.14);
+    --danger: #F87171;
+    --danger-weak: rgba(248, 113, 113, 0.12);
+
+    --shadow-pop: 0 6px 24px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--surface-1);
+    color: var(--text-1);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace; font-size: 12px; }
+
+  /* ============================================================
+     顶部 Hero
+     ============================================================ */
+  .hero {
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid var(--border-default);
+    background:
+      linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 100%);
+    position: relative;
+  }
+  .hero-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    max-width: 1180px; margin: 0 auto;
+  }
+  .hero-mark {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .hero-mark-logo {
+    width: 44px; height: 44px; border-radius: var(--r-lg);
+    background: var(--brand);
+    display: grid; place-items: center;
+    color: white; font-weight: 600; font-size: 18px;
+    box-shadow: 0 2px 8px var(--brand-weak);
+  }
+  .hero h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+  .hero .tag {
+    margin-top: 4px; font-size: 12px; color: var(--text-3);
+    letter-spacing: 0.5px;
+  }
+
+  .toggle {
+    display: inline-flex; align-items: center; gap: 0;
+    background: var(--surface-3); border: 1px solid var(--border-default);
+    border-radius: var(--r-md); padding: 2px;
+  }
+  .toggle button {
+    border: none; background: transparent; cursor: pointer;
+    padding: 4px 12px; font-size: 12px; color: var(--text-2);
+    border-radius: 3px; transition: 0.15s;
+    font-family: inherit;
+  }
+  .toggle button.active { background: var(--surface-2); color: var(--text-1); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+  .hero-tagline {
+    max-width: 1180px; margin: 28px auto 0;
+  }
+  .hero-tagline p { margin: 0; font-size: 15px; color: var(--text-2); max-width: 720px; line-height: 1.7; }
+  .hero-tagline em { font-style: normal; color: var(--brand); font-weight: 500; }
+
+  /* ============================================================
+     配色板
+     ============================================================ */
+  .swatch-row {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+    max-width: 1180px; margin: 28px auto 0;
+  }
+  .swatch {
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border-default);
+    padding: 14px;
+    background: var(--surface-2);
+    transition: transform 0.15s;
+  }
+  .swatch:hover { transform: translateY(-1px); }
+  .swatch-chip { height: 36px; border-radius: var(--r-md); margin-bottom: 12px; }
+  .swatch-name { font-size: 13px; font-weight: 600; }
+  .swatch-role { font-size: 11px; color: var(--text-3); margin: 2px 0 8px; }
+  .swatch-hex { font-size: 11px; color: var(--text-2); font-family: ui-monospace, "SF Mono", monospace; }
+  .swatch-use { font-size: 11px; color: var(--text-2); margin-top: 8px; line-height: 1.5; }
+
+  /* ============================================================
+     主容器
+     ============================================================ */
+  main {
+    max-width: 1180px; margin: 0 auto; padding: 40px;
+  }
+  section { margin-bottom: 56px; }
+  .sec-title {
+    font-size: 14px; font-weight: 600; color: var(--text-1);
+    margin: 0 0 4px; letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sec-title::before {
+    content: ""; display: inline-block; width: 16px; height: 2px;
+    background: var(--brand); border-radius: 1px;
+  }
+  .sec-sub { margin: 0 0 20px; color: var(--text-3); font-size: 12px; }
+
+  /* ============================================================
+     字体阶
+     ============================================================ */
+  .type-grid {
+    display: grid; grid-template-columns: 110px 1fr; gap: 12px 20px;
+    padding: 20px; border: 1px solid var(--border-default); border-radius: var(--r-lg);
+    background: var(--surface-2);
+  }
+  .type-grid .key { color: var(--text-3); font-size: 11px; padding-top: 6px; }
+  .type-grid .val { color: var(--text-1); }
+  .type-lg  { font-size: 16px; font-weight: 600; }
+  .type-md  { font-size: 14px; font-weight: 600; }
+  .type-sm  { font-size: 13px; font-weight: 400; }
+  .type-xs  { font-size: 11px; font-weight: 400; color: var(--text-3); }
+
+  /* ============================================================
+     组件示例
+     ============================================================ */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  .panel {
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-lg);
+    padding: 16px;
+  }
+  .panel-title { font-size: 12px; color: var(--text-3); margin: 0 0 12px; }
+
+  /* 资产卡四态 */
+  .asset-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-lg);
+    padding: 12px 14px;
+    position: relative;
+    overflow: hidden;
+    transition: 0.15s;
+  }
+  .asset-card.hover { border-color: var(--border-strong); }
+  .asset-card.active::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--success);
+  }
+  .asset-card.focus { border-color: var(--brand); border-width: 2px; padding: 11px 13px; }
+  .asset-card.focus .asset-tag { color: var(--brand); }
+  .asset-card-body { display: flex; align-items: flex-start; gap: 10px; }
+  .asset-icon {
+    width: 32px; height: 32px; border-radius: var(--r-md);
+    background: var(--surface-3); display: grid; place-items: center;
+    color: var(--text-2); flex-shrink: 0; font-size: 14px;
+    position: relative;
+  }
+  .asset-card.focus .asset-icon { background: var(--brand); color: white; }
+  .asset-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .asset-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; font-family: ui-monospace, monospace; }
+  .asset-tag {
+    display: inline-block; margin-top: 6px;
+    padding: 1px 6px; border-radius: var(--r-sm);
+    background: var(--surface-3); color: var(--text-2); font-size: 11px;
+  }
+
+  /* 列尾状态点（v3 新增） */
+  .status-dot {
+    position: absolute; right: -2px; bottom: -2px;
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 2px solid var(--surface-2);
+  }
+  .dot-ok { background: var(--success); }
+  .dot-danger { background: var(--danger); }
+  .dot-warning { background: var(--warning); }
+  .dot-info { background: var(--brand); }
+
+  /* Diff 行 */
+  .diff-row {
+    display: grid; grid-template-columns: 28px 1fr 1fr;
+    background: var(--surface-2); border: 1px solid var(--border-default);
+    border-radius: var(--r-md); padding: 10px 12px; gap: 10px;
+    align-items: center; position: relative; overflow: hidden;
+  }
+  .diff-row.added::before, .diff-row.removed::before, .diff-row.modified::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  }
+  .diff-row.added::before { background: var(--success); }
+  .diff-row.removed::before { background: var(--danger); }
+  .diff-row.modified::before { background: var(--warning); }
+  .diff-label { font-size: 11px; color: var(--text-3); font-weight: 500; }
+  .diff-old { font-size: 13px; color: var(--text-3); text-decoration: line-through; }
+  .diff-new { font-size: 13px; color: var(--text-1); font-weight: 500; }
+  .diff-new.added-text { color: var(--success-text); }
+  .diff-new.removed-text { color: var(--danger); text-decoration: line-through; }
+
+  /* 置信度 */
+  .conf {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-variant-numeric: tabular-nums; font-weight: 600;
+  }
+  .conf-hi { color: var(--success-text); }
+  .conf-mid { color: var(--warning-text); }
+  .conf-low { color: var(--danger); }
+
+  /* 按钮 */
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 14px; height: 28px; border-radius: var(--r-md);
+    border: 1px solid transparent; cursor: pointer; font-size: 13px;
+    font-family: inherit; font-weight: 500; transition: 0.15s;
+  }
+  .btn-primary { background: var(--brand); color: white; border-color: var(--brand); }
+  .btn-primary:hover { box-shadow: 0 2px 6px var(--brand-weak); }
+  .btn-default { background: var(--surface-2); color: var(--text-1); border-color: var(--border-default); }
+  .btn-default:hover { border-color: var(--border-strong); }
+  .btn-ghost { background: transparent; color: var(--text-2); }
+  .btn-ghost:hover { background: var(--surface-3); color: var(--text-1); }
+  .btn-danger { background: var(--danger); color: white; border-color: var(--danger); }
+  .btn-sm { height: 24px; padding: 0 10px; font-size: 12px; }
+
+  /* 输入 */
+  .input {
+    height: 28px; padding: 0 10px; font-size: 13px;
+    background: var(--surface-2); color: var(--text-1);
+    border: 1px solid var(--border-default); border-radius: var(--r-md);
+    font-family: inherit; outline: none; transition: 0.15s;
+    width: 100%;
+  }
+  .input:hover { border-color: var(--border-strong); }
+  .input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-weak); }
+
+  /* 工作集胶囊条（v3 新增） */
+  .workspace {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: var(--surface-3); border: 1px solid var(--border-default);
+    border-radius: var(--r-md); min-height: 40px;
+    flex-wrap: wrap;
+  }
+  .workspace-label {
+    font-size: 11px; color: var(--text-3); font-weight: 600;
+    letter-spacing: 0.5px; padding-right: 4px;
+  }
+  .capsule {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--surface-2); border: 1px solid var(--border-default);
+    border-radius: 12px; padding: 2px 4px 2px 10px;
+    font-size: 12px; color: var(--text-1); font-variant-numeric: tabular-nums;
+    transition: 0.15s;
+  }
+  .capsule .x {
+    width: 16px; height: 16px; display: grid; place-items: center;
+    border-radius: 50%; color: var(--text-3); cursor: pointer;
+    font-size: 11px; line-height: 1;
+  }
+  .capsule .x:hover { background: var(--danger-weak); color: var(--danger); }
+  .workspace-action { margin-left: auto; }
+
+  /* 空态（v3 新增木纹底+线插画） */
+  .empty {
+    background: var(--surface-3); border-radius: var(--r-lg);
+    padding: 36px 24px; text-align: center; color: var(--text-2);
+  }
+  .empty-illus { margin: 0 auto 12px; }
+  .empty-title { font-size: 14px; font-weight: 600; color: var(--text-1); margin: 0 0 4px; }
+  .empty-desc { font-size: 12px; color: var(--text-3); margin: 0 0 16px; }
+
+  /* 模拟屏幕（应用壳） */
+  .mock-app {
+    background: var(--surface-1); border: 1px solid var(--border-default);
+    border-radius: var(--r-lg); overflow: hidden;
+    box-shadow: var(--shadow-pop);
+  }
+  .mock-header {
+    background: var(--surface-2); border-bottom: 1px solid var(--border-default);
+    padding: 0 16px 0 88px; height: 40px; display: flex; align-items: center;
+    gap: 16px; position: relative;
+    font-size: 12px;
+  }
+  .mock-traffic {
+    position: absolute; left: 14px; top: 14px; display: flex; gap: 6px;
+  }
+  .mock-traffic span {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .mock-traffic .r { background: #FF5F57; }
+  .mock-traffic .y { background: #FEBC2E; }
+  .mock-traffic .g { background: #28C840; }
+  .mock-title { font-weight: 600; color: var(--text-1); }
+  .mock-tabs { display: flex; gap: 18px; margin-left: 18px; }
+  .mock-tab {
+    color: var(--text-2); cursor: pointer; padding: 4px 0;
+    border-bottom: 2px solid transparent; font-size: 13px;
+    position: relative; bottom: -1px;
+  }
+  .mock-tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
+  .mock-body { padding: 16px; display: grid; grid-template-columns: 280px 1fr; gap: 12px; min-height: 360px; }
+  .mock-side { background: var(--surface-2); border-radius: var(--r-md); padding: 12px; }
+  .mock-main { background: var(--surface-2); border-radius: var(--r-md); padding: 12px; }
+
+  /* mock 内的列表行 */
+  .m-list-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: var(--r-sm);
+    font-size: 12px; position: relative;
+  }
+  .m-list-row:hover { background: var(--surface-3); }
+  .m-list-row.active { background: var(--surface-3); }
+  .m-list-row.active::before {
+    content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+    width: 3px; background: var(--success); border-radius: 0 2px 2px 0;
+  }
+  .m-list-row.low::before {
+    content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+    width: 3px; background: var(--danger); border-radius: 0 2px 2px 0;
+  }
+  .m-list-row.modified::before {
+    content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+    width: 3px; background: var(--warning); border-radius: 0 2px 2px 0;
+  }
+  .m-list-name { flex: 1; }
+  .m-list-meta { font-size: 11px; color: var(--text-3); font-family: ui-monospace, monospace; }
+
+  /* mock 表格 */
+  .m-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .m-table th, .m-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border-default); }
+  .m-table th { background: var(--surface-3); color: var(--text-2); font-weight: 500; font-size: 11px; }
+  .m-table tr:hover td { background: var(--surface-3); }
+  .m-table tr.required-empty td { background: var(--danger-weak); }
+  .m-table tr.required-empty td:first-child { border-left: 3px solid var(--danger); padding-left: 7px; }
+  .m-table .num { font-variant-numeric: tabular-nums; }
+
+  /* 反馈分层演示 */
+  .feedback-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border-default); font-size: 12px; }
+  .feedback-row:last-child { border-bottom: none; }
+  .feedback-tier { font-size: 11px; font-weight: 600; color: var(--brand); width: 80px; }
+  .feedback-desc { color: var(--text-2); flex: 1; }
+
+  /* 内嵌提示 */
+  .kbadge {
+    display: inline-block; padding: 1px 6px; border-radius: var(--r-sm);
+    background: var(--surface-3); color: var(--text-2);
+    font-family: ui-monospace, monospace; font-size: 11px;
+    border: 1px solid var(--border-default);
+  }
+  .kbadge.brand { background: var(--brand-weak); color: var(--brand); border-color: transparent; }
+  .kbadge.warn  { background: var(--warning-weak); color: var(--warning-text); border-color: transparent; }
+  .kbadge.danger{ background: var(--danger-weak); color: var(--danger); border-color: transparent; }
+  .kbadge.success{ background: var(--success-weak); color: var(--success-text); border-color: transparent; }
+  .kbadge.info  { background: var(--info-weak); color: var(--info); border-color: transparent; }
+
+  /* 对照表 */
+  .compare-table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+    background: var(--surface-2); border: 1px solid var(--border-default);
+    border-radius: var(--r-lg); overflow: hidden;
+  }
+  .compare-table th, .compare-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-default); }
+  .compare-table th { background: var(--surface-3); font-weight: 600; font-size: 11px; color: var(--text-2); }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table td:nth-child(2) { color: var(--text-2); }
+  .compare-table td:nth-child(3) { color: var(--text-1); }
+
+  /* 段间距 */
+  h4 { margin: 24px 0 12px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+  p  { margin: 0 0 12px; color: var(--text-2); }
+  .lead { font-size: 13px; color: var(--text-2); max-width: 720px; line-height: 1.7; }
+
+  .smallnote { font-size: 11px; color: var(--text-3); margin-top: 6px; }
+
+  /* 工作台 mock 中的列尾点 */
+  .row-trailing { display: flex; align-items: center; gap: 6px; }
+  .row-trailing .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .row-trailing .dot.danger { background: var(--danger); }
+  .row-trailing .dot.success { background: var(--success); }
+  .row-trailing .dot.warn { background: var(--warning); }
+  .row-trailing .icon { font-size: 11px; color: var(--warning-text); }
+
+  /* 段内插画 */
+  .illus { display: block; margin: 0 auto; }
+
+  /* 滚动条 */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body data-page-node-id="jPb63fFhUVH07Cy20B8dGb">
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<header class="hero" data-page-node-id="QQgE6ub6h9dejiu49ewRxz">
+  <div class="hero-row" data-page-node-id="cx6JnCf17GLSo8f52AzSoT">
+    <div class="hero-mark" data-page-node-id="W4jB8YKiAFSpKolspl0yyP">
+      <div class="hero-mark-logo" data-page-node-id="dyNwpa2s1CihZ8HltnZzOZ">D</div>
+      <div data-page-node-id="barz2V0oU3RTvjiODsW86s">
+        <h1 data-page-node-id="hTDr2RpjAdwVrBUc8MZ5gc">DST · 青墨工坊 v3</h1>
+        <div class="tag" data-page-node-id="ZLpwNoE2I4MDwJgnDAe18O">Visual &amp; Interaction Spec · 2026-09-16</div>
+      </div>
+    </div>
+    <div class="toggle" role="tablist" data-page-node-id="13r5PKqQbIryYNPxpABC6S">
+      <button class="active" data-theme="light" data-page-node-id="4RsO8wKRhXywIKgFepnLek">☀ 亮 · 工坊</button>
+      <button data-theme="dark" data-page-node-id="6MqqRN2m9arRpNx8IaO1tB">🌙 暗 · 夜台灯</button>
+    </div>
+  </div>
+
+  <div class="hero-tagline" data-page-node-id="wAw3JEUU4mYBQPDNpF4xmy">
+    <p data-page-node-id="kMRG3CL2JS2xWmMR9BphNn">
+      把工程师桌上的工作台搬进屏幕：<em data-page-node-id="Rtrv3BKtmKzihS5B4PsTkn">暖色木纹底</em>、<em data-page-node-id="2GiV69WFyQbERnr1ZCU2kN">青铜仪器</em>、<em data-page-node-id="0LE5WDUSbEMfpOV4AarDMV">一盏可调色温的台灯</em>。
+      这是 v2.0「精密量具」的替代方案——同样从 PRD 与用户画像出发，但立意不同：把"专家工具"从冷峻仪器重新定位为有温度的工作台。
+    </p>
+  </div>
+
+  <div class="swatch-row" data-page-node-id="zboDrfaoDYXKlh7CujFDlk">
+    <div class="swatch" data-page-node-id="dHb200d1DnTtTNKI5xDkFZ">
+      <div class="swatch-chip" style="background: #0F766E;" data-page-node-id="d03LQ1BVMdl2GEqNlE1qV8"></div>
+      <div class="swatch-name" data-page-node-id="dzhBvNke7OYViTjDxdyyDE">品牌青 · 铜锈</div>
+      <div class="swatch-role" data-page-node-id="iqMSpeT2cOItFCc5yVG6tP">brand · #0F766E</div>
+      <div class="swatch-hex mono" data-page-node-id="LgfWZKivElvApG0mhW11uu">5.6:1 ✓ AA 正文</div>
+      <div class="swatch-use" data-page-node-id="7EFjC6GMJtVKrc9QhtfQs2">顶栏激活 · 焦点边框 · 行动按钮 · Tab 指示条</div>
+    </div>
+    <div class="swatch" data-page-node-id="LxvAycDtCdhJTFoLlWp8aT">
+      <div class="swatch-chip" style="background: #15803D;" data-page-node-id="FN12NDvABviyy5irzviXra"></div>
+      <div class="swatch-name" data-page-node-id="EiOchAEAJ0pWYUVKe30Mkd">激活绿</div>
+      <div class="swatch-role" data-page-node-id="EbMTZuTPOK2j516GlU3A2M">success · #166534（文字）</div>
+      <div class="swatch-hex mono" data-page-node-id="xbaxVKhfwLTdrC9ynw7ofY">7.1:1 ✓ AA 正文</div>
+      <div class="swatch-use" data-page-node-id="BPb8eEXFhSI8WpTUCFAb0t">已激活徽标 · 列尾绿点 · 新增值文字</div>
+    </div>
+    <div class="swatch" data-page-node-id="Cg1rwjx7FDZUnAIrB69LNi">
+      <div class="swatch-chip" style="background: #0369A7;" data-page-node-id="gnhxaEdiSAYYMc5RpTfFYX"></div>
+      <div class="swatch-name" data-page-node-id="Bklcskr2sbgnGLcBnGXmUg">信息蓝</div>
+      <div class="swatch-role" data-page-node-id="89xx3yko4Idl7CMrtbEC4H">info · #0369A7</div>
+      <div class="swatch-hex mono" data-page-node-id="yv9cqjYIphgf5f54EFwfTC">5.9:1 ✓ AA 正文</div>
+      <div class="swatch-use" data-page-node-id="T33ho8FshPehXF63gGS4Ad">跨页跳转链接 · 参考信息 · 文档出处</div>
+    </div>
+    <div class="swatch" data-page-node-id="1RkqbuwkDGvr6CXWJymnrF">
+      <div class="swatch-chip" style="background: #C2410C;" data-page-node-id="AXxDfmDHbrvT0xqTIgLbGP"></div>
+      <div class="swatch-name" data-page-node-id="59xrcXAkhDKh0aY38N0zWk">变更橙</div>
+      <div class="swatch-role" data-page-node-id="pBvxM4RMUxqKvG6gkfDYKj">warning · #9A3412（文字）</div>
+      <div class="swatch-hex mono" data-page-node-id="3Dq5hszYvMMYS1K2Eucj8k">6.3:1 ✓ AA 正文</div>
+      <div class="swatch-use" data-page-node-id="BQX7HiSQF7RmnjsAT4dU9o">对比变更 · 中置信度 · 命名建议</div>
+    </div>
+    <div class="swatch" data-page-node-id="r0h8QMdbdIrXeiiQaIzAYC">
+      <div class="swatch-chip" style="background: #B91C1C;" data-page-node-id="TYMaDjFBrN4qvwIoqkq3Dd"></div>
+      <div class="swatch-name" data-page-node-id="yD05C4HWGHjZFN5Asu0tKE">缺失红</div>
+      <div class="swatch-role" data-page-node-id="0hgdOO5I6vR47DfH5E4lP8">danger · #B91C1C</div>
+      <div class="swatch-hex mono" data-page-node-id="uj7G7wqTZlI2tmHmzUVfTh">6.8:1 ✓ AA 正文</div>
+      <div class="swatch-use" data-page-node-id="6EsIOSy0Tg25sru6KhQ191">必填缺失 · 枚举异常 · 低置信度</div>
+    </div>
+  </div>
+</header>
+
+<main data-page-node-id="sCGgpfYSP1qQtnAhUuqYtd">
+
+  <!-- ============================================================
+       字体阶
+       ============================================================ -->
+  <section data-page-node-id="AChO5RSx0Mp3IjSuS2f0Ue">
+    <h2 class="sec-title" data-page-node-id="NL44eHGvIkumcfRRvJISLw">字体阶</h2>
+    <p class="sec-sub" data-page-node-id="zmHynL9kRlDGP34K7x2DXE">4 档封顶；中文优先 PingFang SC / 思源黑体；所有数字列 tabular-nums</p>
+    <div class="type-grid" data-page-node-id="epPZA4vINi8SL9xmW4Jk5p">
+      <div class="key" data-page-node-id="9B0C6vu8RGl99uKGdMknpi">16 / lg</div>    <div class="val type-lg" data-page-node-id="j1IZnC7kqqJS3MYMe45cnw">参数管理 · 页面主标题</div>
+      <div class="key" data-page-node-id="JhCHmZOkgt0nplnCsLml9d">14 / md</div>    <div class="val type-md" data-page-node-id="JBjAWrBpgx5ufjhs3T1Bzr">车辆参数概览 · Tab / 卡片标题</div>
+      <div class="key" data-page-node-id="B7lGKtDV43SSsLDv3AtX7b">13 / sm</div>    <div class="val type-sm" data-page-node-id="iJFSHBCXzIPs1JH4OGed05">动力电池类型 · 正文 / 控件默认值</div>
+      <div class="key" data-page-node-id="8j6IeWaLkvhXFi1ekTuJ7K">11 / xs</div>    <div class="val type-xs" data-page-node-id="eGMxmUZDqveiXOojqpzbLW">07-02 11:22 · 元信息 / 时间戳 / 列脚注</div>
+      <div class="key" data-page-node-id="EfJTM3aCEjlF4xXCOEQ2WQ">数字</div>        <div class="val type-md tnum" data-page-node-id="f9auG7M3TwHPM1z430993w">3,256 条 · 完成率 85.7% · 置信度 92%</div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       资产卡四态
+       ============================================================ -->
+  <section data-page-node-id="ZzGwIvoJ8vfEOL7WSAQG7g">
+    <h2 class="sec-title" data-page-node-id="ObjFf9OHQpjgHD9O7PEqoV">资产卡四态</h2>
+    <p class="sec-sub" data-page-node-id="U21ltjLdDaTrPr7bNFo82M">逐级只变一个变量；列尾 8px 状态点让"已激活"在长列表里能数出来（v3 新增）</p>
+    <div class="grid-4" data-page-node-id="w9rK9bSb4dJDHgaaZJk77Z">
+      <div data-page-node-id="LznSaepxfzHzdQ2LZgGBTV">
+        <div class="asset-card" data-page-node-id="enbFv8Z60kr46JAADuW2J4">
+          <div class="asset-card-body" data-page-node-id="vWlpkW6nO8yGS3Zw0W5lNM">
+            <div class="asset-icon" data-page-node-id="t0CF3nb8OH6tCrCjlLrGjZ">📋</div>
+            <div data-page-node-id="d1TcjolDXplHkJGJdXg3W5">
+              <div class="asset-name" data-page-node-id="43kED7dWlCSXuTaOnCK5V1">X6T-大通</div>
+              <div class="asset-meta" data-page-node-id="EqGEXsT0tuFgn1w7ZY6U4a">@X6T-大通.json</div>
+              <div class="asset-tag" data-page-node-id="ioOOeH5rpzQILaq2nl6mgE">标签</div>
+            </div>
+          </div>
+        </div>
+        <p class="smallnote" data-page-node-id="kbeeJMDF0DC5G5IQw5q9R5">默认 · 白卡 + 1px 灰边</p>
+      </div>
+      <div data-page-node-id="D881h2pkj9DHDtQklABYNZ">
+        <div class="asset-card hover" data-page-node-id="MR8xAYjGnYmaE64FAmNgOw">
+          <div class="asset-card-body" data-page-node-id="Bdb4GEY9lISrfcKipCX4C1">
+            <div class="asset-icon" data-page-node-id="hU08CbOkGJueSRFoBaGETk">📋</div>
+            <div data-page-node-id="B5GcO0JLIcFaEsAJpFY5YV">
+              <div class="asset-name" data-page-node-id="cqyUlHYOLPzXpyV5XTXGer">X6T-五菱</div>
+              <div class="asset-meta" data-page-node-id="fpf96HNMc5ZFt6vEIlN1qI">@X6T-五菱.json</div>
+              <div class="asset-tag" data-page-node-id="AIswwojxr4qK9Uk7NdHqcR">标签</div>
+            </div>
+          </div>
+        </div>
+        <p class="smallnote" data-page-node-id="23VnDtp8JGcKwlWdgjcxyh">hover · 仅边框变深</p>
+      </div>
+      <div data-page-node-id="B443usUaHHHrS4JARUi5dY">
+        <div class="asset-card active" data-page-node-id="LlUwwuxPula7VVwPh4askE">
+          <div class="asset-card-body" data-page-node-id="0Igu6BWrXxWoKGhnJKe6J7">
+            <div class="asset-icon" data-page-node-id="49RGPVr0Xu50RLLwcFbShi">
+              📋
+              <span class="status-dot dot-ok" data-page-node-id="60Qixtj0zGmn0QuiG0rIiG"></span>
+            </div>
+            <div data-page-node-id="imHwKU2w1lypGyKaxbc5SC">
+              <div class="asset-name" data-page-node-id="YDXZT8xOKYBiMRX7QNsvWC">远景V8E客运版V250808</div>
+              <div class="asset-meta" data-page-node-id="DoCd7UG6iHx06arL0JcNdO">@远景V8E.json · 325 参数</div>
+              <div class="asset-tag" data-page-node-id="Y7kENkcexVTQGQMS9XEj5C">资产库</div>
+            </div>
+          </div>
+        </div>
+        <p class="smallnote" data-page-node-id="b3pxVBzI0z9HE1DjTPpMsB">已激活 · 左缘绿条 + 列尾绿点</p>
+      </div>
+      <div data-page-node-id="9oEQaTIDFLv0JheHy4EMwq">
+        <div class="asset-card focus" data-page-node-id="ZIRN1fYjlVG7vlxnZUAjZE">
+          <div class="asset-card-body" data-page-node-id="XZF3OexGxZeb2xWo9xMKrr">
+            <div class="asset-icon" data-page-node-id="Xf4jn7Vogpkq4mOPDcd6ql">📋</div>
+            <div data-page-node-id="hSfODiGFxaeq8NhgtQFwLu">
+              <div class="asset-name" style="color: var(--brand);" data-page-node-id="JuA14gDdCAHgSFayXrT5OZ">V7E 50kwh-JHC6507BEVR2</div>
+              <div class="asset-meta" data-page-node-id="LScJjhA5r6GHHinLjGTuwq">@V7E.json · 285 参数</div>
+              <div class="asset-tag" data-page-node-id="uX84AIXfAO9HKMIjbD7iIS">资产库</div>
+            </div>
+          </div>
+        </div>
+        <p class="smallnote" data-page-node-id="NTR58nEppLdN1jqb83EGAp">聚焦 · 2px 品牌青边框（唯一强视觉）</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       Diff 四态
+       ============================================================ -->
+  <section data-page-node-id="VDCeevdo9g8P0tKO4EZ4K5">
+    <h2 class="sec-title" data-page-node-id="b7ps4He54K5TNEzbLUj89T">对比差异四态</h2>
+    <p class="sec-sub" data-page-node-id="T9CALUYGQcHYQ3xK9NUZjL">左缘 3px 状态条 + 旧值删除线 + 新值加粗；色彩全部是冗余编码，灰度下信息不丢</p>
+    <div class="grid-2" data-page-node-id="be8FI8C9AmemZ1gJ70s4MA">
+      <div class="panel" data-page-node-id="6mK3KDT62PHjviiXHE29kr">
+        <p class="panel-title" data-page-node-id="FQ9GrLKhAi2eGYBGciCFEl">新增 · 绿条</p>
+        <div class="diff-row added" data-page-node-id="g9PoQIXiPSdqGAUA5whOLl">
+          <div class="diff-label" data-page-node-id="cBbHCIHBGcjnLZZ8ywezib">+</div>
+          <div class="diff-old" style="visibility:hidden" data-page-node-id="UkfcUwDaIMfQJgsDNnSqeL">—</div>
+          <div class="diff-new added-text" data-page-node-id="ACCk1UiLPEPIZR49l2lj7o">磷酸铁锂电池 · 容量 60.3 kWh</div>
+        </div>
+      </div>
+      <div class="panel" data-page-node-id="jY6WJMS8j3aEGeZH8iaL7d">
+        <p class="panel-title" data-page-node-id="yhRrK1MuZZNEienAif3m9o">移除 · 红条 + 删除线</p>
+        <div class="diff-row removed" data-page-node-id="jMepZWLvIyWirp2FBvx5HR">
+          <div class="diff-label" data-page-node-id="6Y8gW3UJa1lQHfrFjbz0sd">−</div>
+          <div class="diff-old" data-page-node-id="Bv9OBCudo19ECVDCXzC1cs">三元锂电池 · 容量 55.0 kWh</div>
+          <div class="diff-new removed-text" data-page-node-id="qDjBiTD5fDKIutRr2QTEH9">—</div>
+        </div>
+      </div>
+      <div class="panel" data-page-node-id="UOnarFnCBoQA28pM7K9xPO">
+        <p class="panel-title" data-page-node-id="QjByjCxQXFCY9rG8OFFjrP">变更 · 橙条</p>
+        <div class="diff-row modified" data-page-node-id="YvIhYB0mGl526Dk5GTHWHm">
+          <div class="diff-label" data-page-node-id="tdwzPwLADPr1piVwSGMuXk">Δ</div>
+          <div class="diff-old" data-page-node-id="eA28C0UdvhgwgagRUuWwHw">续航里程 380 km</div>
+          <div class="diff-new" data-page-node-id="w49w18YdAu4EPYLIxfDL4F">续航里程 <strong data-page-node-id="F29fAC16cWuQHUL7T98Msc">420</strong> km</div>
+        </div>
+      </div>
+      <div class="panel" data-page-node-id="GJvn3smcDfIyMxnQ3ACDO2">
+        <p class="panel-title" data-page-node-id="p51FYYY7FKdE24EDuiXHTF">未变 · 无信号</p>
+        <div class="diff-row" data-page-node-id="Ls30BbDsvnGvmaCBOK7qO9">
+          <div class="diff-label" data-page-node-id="8Di2b6ki2OmXL52qODLJ7i">·</div>
+          <div class="diff-old" style="visibility:hidden" data-page-node-id="OUiBGTdjw3TVIlOOLYLFDV">—</div>
+          <div class="diff-new" data-page-node-id="0vHMv2F4uwcfHhy4EQQvEl">车身长度 5995 mm</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       置信度
+       ============================================================ -->
+  <section data-page-node-id="uHK6JsXfSGCHCUpA7rQCVK">
+    <h2 class="sec-title" data-page-node-id="LDg6cx974SOwWOFMhrHB3P">填报置信度三态</h2>
+    <p class="sec-sub" data-page-node-id="0GbPRPnt5dahHSOJF9f2rs">仅文字着色；v3.0 新增强化：&lt;100% 行整行加左缘色条</p>
+    <div class="panel" data-page-node-id="nt1V7MYBYQzDw0yYGq1JVP">
+      <table class="m-table" data-page-node-id="DIcaZHbaP9VXAQ7FCizdON">
+        <thead data-page-node-id="unIKZ79TpDilzIxKYwTP0R">
+          <tr data-page-node-id="5SDjMILxZupUWYgV3cpcnS"><th data-page-node-id="rcpZRUNlsMltoaNc2X6pQi">需求参数</th><th data-page-node-id="SzFP6ubFHUffPSYYmJd809">匹配字段</th><th style="text-align:right" data-page-node-id="C5LCNbIpwqSfGbvQIig9DD">置信度</th><th data-page-node-id="gsMLfRdsr4NmVITcH3RiDk">状态</th></tr>
+        </thead>
+        <tbody data-page-node-id="8dUdzCAtuHijtq2tU1Smb0">
+          <tr data-page-node-id="HdCIjBdcDg3fqIK6IHJFPC">
+            <td data-page-node-id="bFQqqz4VmA2wPEXj38C3JU">整备质量 (kg)</td>
+            <td data-page-node-id="LsRgsaaHvQq2p8rBgiJrMH">整车整备质量</td>
+            <td class="num" style="text-align:right" data-page-node-id="d1UbcWoq0ls5AB0wTzAkxO"><span class="conf conf-hi" data-page-node-id="CgIkb3zJzWVP8HLhbMNG68">100%</span></td>
+            <td data-page-node-id="hWMi5yzrgv7MJkIUIyvJU3"><span class="kbadge success" data-page-node-id="DVnqKgQDaDrd6j4MhGrp52">高</span></td>
+          </tr>
+          <tr data-page-node-id="g2T8dyF1By3MMQWNQDELSh">
+            <td data-page-node-id="a6bzci6WlufKCICa6PLl2W">续航里程 (km，等速法)</td>
+            <td data-page-node-id="LdW6lmsduKDV6mUBxxSE73">续驶里程(等速法)</td>
+            <td class="num" style="text-align:right" data-page-node-id="TBkZVx4EDCeQZC2VH6Eimx"><span class="conf conf-mid" data-page-node-id="Jm5U89UttjiyiFHtaOKyHs">82%</span></td>
+            <td data-page-node-id="O6SA19dPOyzWCNw82b6RFv"><span class="kbadge warn" data-page-node-id="NEWpF5ceqAi9RNdkpxwhat">中</span></td>
+          </tr>
+          <tr data-page-node-id="TpgM7y4ljhJqoEqn7LDBdO">
+            <td data-page-node-id="R24Ehm85DuBszgwDCi5THz">电机峰值功率</td>
+            <td data-page-node-id="exBvOpC2NzaHAUmfYuYt6f">驱动电机额定功率</td>
+            <td class="num" style="text-align:right" data-page-node-id="isCxzMJSAVQyLAE7Wg7uOR"><span class="conf conf-low" data-page-node-id="R0CyE6DYbI8dQfSQr6E9vV">47%</span></td>
+            <td data-page-node-id="EHATOtMHwFoFF3jJz7iIRf"><span class="kbadge danger" data-page-node-id="hH0DZZpPsNBJnHeqxquIyY">低</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="smallnote" data-page-node-id="rdYVhGURaCg2arB3DzDsjc">v3 强化：低置信度（&lt;80%）加左缘红条（演示见下方"模拟屏幕 · 智能填报"）</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       按钮 / 输入
+       ============================================================ -->
+  <section data-page-node-id="3OTeAAELXOPfBGMEf9b3Zf">
+    <h2 class="sec-title" data-page-node-id="79mQPzycuLWs4fL3Z9HPXa">按钮与输入</h2>
+    <p class="sec-sub" data-page-node-id="zdmDgdljlc5IoQGSXZWIZ0">主按钮品牌青；默认按钮白底；ghost 透明；危险按钮深红；输入 focus 2px 品牌青 + 8% weak 环</p>
+
+    <h4 data-page-node-id="1rEWgT1jh1Tr5WsNqNbsEF">按钮</h4>
+    <div class="panel" data-page-node-id="FMEkFqukw65rSPQLokBszq">
+      <div class="btn-row" data-page-node-id="wCDNEjS1MIXgAZKvmDWSKa">
+        <button class="btn btn-primary" data-page-node-id="jGcdSottdNHXA1yAUTL4V8">+ 导入车型数据</button>
+        <button class="btn btn-default" data-page-node-id="UGtSulvqkoMvyBAPBCyZnN">恢复布局</button>
+        <button class="btn btn-ghost" data-page-node-id="Cdo71w5QUwibvSzEySrZIE">↻ 刷新</button>
+        <button class="btn btn-default" data-page-node-id="R0glY8PFWjT0FdNfvbXBTA">⌘F 搜索</button>
+        <button class="btn btn-danger btn-sm" data-page-node-id="Ob6hXpISIpB0wvulUU3x8Q">删除</button>
+        <button class="btn btn-primary btn-sm" style="opacity:.5; cursor:not-allowed;" data-page-node-id="0dXgtSU5sjkufmX81FoL1L">解析中…</button>
+      </div>
+    </div>
+
+    <h4 data-page-node-id="dKl2XqKfVhoLFVDs7MnTR0">输入</h4>
+    <div class="grid-2" data-page-node-id="ornZ79YOKScW2hUUe5Gf3g">
+      <div class="panel" data-page-node-id="uQfbTVXwEEnV9FQPTH3OQz">
+        <p class="panel-title" data-page-node-id="6Hcb1jImdfx5zNDroviEUp">默认 / hover</p>
+        <input class="input" placeholder="搜索资产、标签…" data-page-node-id="C30oKM1fKxgh34hBCEkcCC" />
+        <div style="height:8px" data-page-node-id="jc35HsCVZ4Sp1rTfh5M5bJ"></div>
+        <input class="input" style="border-color: var(--border-strong)" value="悬停态" data-page-node-id="ozJjF8SElNcTaf9psFYgVc" />
+      </div>
+      <div class="panel" data-page-node-id="g1wc836Q2Gips7WHJWonL7">
+        <p class="panel-title" data-page-node-id="Wmezyq3DAAREjaAgmQ1PjT">focus · 2px 品牌青 + 8% weak 环</p>
+        <input class="input" value="DNC5037XXYBEVP1" style="border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-weak);" data-page-node-id="gzSaGTTvyBxtCEMhuM393Z" />
+        <p class="smallnote" data-page-node-id="7Uh4Qijvm8qhLDS4DuD9ja">focus 是 V3 唯一允许的"大面积彩色"瞬态</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       工作集胶囊条（v3 新增）
+       ============================================================ -->
+  <section data-page-node-id="LZWwXFbTUHWpe5NCwmEAqa">
+    <h2 class="sec-title" data-page-node-id="enjahEo9mq8L4fvhPoOpgI">工作集胶囊条（v3 新增）</h2>
+    <p class="sec-sub" data-page-node-id="yfGOD47cyRTterGW9oKALs">选过的车型即时飞入右上方胶囊条；可单独移除；末尾固定主按钮按上下文变化</p>
+    <div class="panel" data-page-node-id="5OskxpO57Sk1P5GX2kg0y0">
+      <div class="workspace" data-page-node-id="aIDc18j11HcbDitgYZIpeB">
+        <span class="workspace-label" data-page-node-id="oK0F6DhLrDkVYmAp1g58Ya">工作集 · 4</span>
+        <span class="capsule tnum" data-page-node-id="zq5HwWHskJbuOKVe9iGoFY">远景V8E客运版V250808<span class="x" data-page-node-id="4CHNsFpMngA12yrDkVxkiY">×</span></span>
+        <span class="capsule tnum" data-page-node-id="6HFyVvtcYdC1RS4zTL4nNw">F1E ZB5030XXYBEVGD<span class="x" data-page-node-id="SrYhQDjMiGZiYOSVCMUsmr">×</span></span>
+        <span class="capsule tnum" data-page-node-id="FS615pr8KwXWNtOS6vHL1A">V7E 50kwh-JHC6507BEVR2<span class="x" data-page-node-id="MzZFLQcJNkXZlrSOsQiJRh">×</span></span>
+        <span class="capsule tnum" data-page-node-id="39kNVja29s1eRjOIjp2N8V">E6 HZK5030XXYBEV2<span class="x" data-page-node-id="G3XHa1x6duDfjiJsaCvJ5t">×</span></span>
+        <span class="workspace-action" data-page-node-id="7ji2CVNVVxdN6GBIfsQ3TU">
+          <button class="btn btn-primary btn-sm" data-page-node-id="We4bfHyeaTxPVXMc3NM28V">→ 开始对比</button>
+        </span>
+      </div>
+      <p class="smallnote" data-page-node-id="3rWGbUj4FAE3KYqJbnIl1E">数量变化时新胶囊飞入（FLIP 动画 200ms）；× hover 变红底</p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       空态
+       ============================================================ -->
+  <section data-page-node-id="ajsSRQk6bKEclTYb7WKvWV">
+    <h2 class="sec-title" data-page-node-id="IMxnIl6l5rJY0sIriaKRI6">空态</h2>
+    <p class="sec-sub" data-page-node-id="bfjxeZvWD0NG2w3oEpOr4W">木纹底 + 单色线插画（青墨 1.5px 描边）+ 一句人话 + 主按钮，不引入彩色插画</p>
+    <div class="empty" data-page-node-id="FladxVW7go4Xw6fJ3aPf3P">
+      <svg class="illus empty-illus" width="120" height="80" viewBox="0 0 120 80" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" data-page-node-id="HDeXFxH1hJdNyTxs7hDKOy">
+        <rect x="12" y="20" width="96" height="48" rx="4" data-page-node-id="AQKsiixHsDSC9xYJEU7C0L" />
+        <path d="M12 32 H108" data-page-node-id="IFEjOWOgQaL9zziajTrr0I" />
+        <path d="M28 20 V12 H78 V20" data-page-node-id="BbX1FO7o36V39YegGjSgkJ" />
+        <circle cx="40" cy="46" r="2" data-page-node-id="lqWvdDOYRqnhci694k0Pl5" />
+        <path d="M50 46 H82" data-page-node-id="grd0b0tN374KG9nOOehFlM" />
+        <path d="M40 56 H72" data-page-node-id="xvkX1WlVTulwAFBZX7raCs" />
+      </svg>
+      <p class="empty-title" data-page-node-id="J0oXoEn4LJrsJkSAtOYjCn">还没有车型大纲</p>
+      <p class="empty-desc" data-page-node-id="ZUGliEqddRewcMfcqawftp">导入 Excel 或从公告号查询载入，车型会出现在这里供对比与填报</p>
+      <button class="btn btn-primary" data-page-node-id="TaoWULL0OdMiY9jkug2zPf">+ 导入车型数据</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       反馈分层
+       ============================================================ -->
+  <section data-page-node-id="f7GRG2eYeEgzqJIs6I21g7">
+    <h2 class="sec-title" data-page-node-id="36II39d6GkAi45JHcEsrr6">反馈分层（视觉层）</h2>
+    <p class="sec-sub" data-page-node-id="9pfwBTv6KmYV6auEUymZaF">5 层；L1/L2 就地为主，全局提示仅用于跨上下文事件</p>
+    <div class="panel" data-page-node-id="ZnrbQ2ERanpa8JfBDO5GPX">
+      <div class="feedback-row" data-page-node-id="hMBVtBmgzqz18WQBZzBneI"><div class="feedback-tier" data-page-node-id="p9OWn1Ng9jScTHbRFGG5kQ">L1 就地</div><div class="feedback-desc" data-page-node-id="PYHWZP9kvctB2mfSjxKADG">行变化：行高亮闪烁 1 次（青底 8% 200ms）+ 值更新</div></div>
+      <div class="feedback-row" data-page-node-id="IadzVP4bP0gFBoQoIyTrdt"><div class="feedback-tier" data-page-node-id="JoUkyQyYpJ5sNozjXw4UXA">L2 行内</div><div class="feedback-desc" data-page-node-id="5Q89oZHICGoXdhX7OXcFyQ">校验提示：行内红字 + ⚠ 图标，不动用全局提示</div></div>
+      <div class="feedback-row" data-page-node-id="RIaoYYVADbRzw2p9Eyy1xh"><div class="feedback-tier" data-page-node-id="EFIBgL5Kjoy4MFs0xek4MB">L3 卡片</div><div class="feedback-desc" data-page-node-id="A3CERdv5sQCw0e7ADSrb1k">区域错误：就地错误卡片 + [重试] 按钮，不清空已有内容</div></div>
+      <div class="feedback-row" data-page-node-id="sNfUfeB33o1luJjpYlDuTV"><div class="feedback-tier" data-page-node-id="Fo6phZDNvKqHZYF1qAZ8ti">L4 通知</div><div class="feedback-desc" data-page-node-id="NxebZvVHRya40Hx8XFo9Vl">跨上下文重要事件：右下角卡片 5s 自动消失，可悬停暂停</div></div>
+      <div class="feedback-row" data-page-node-id="qWu8XA15es4AWvRB2lFTSw"><div class="feedback-tier" data-page-node-id="paRUUKKMPl8YbQAG5dX6Ns">L5 轻提示</div><div class="feedback-desc" data-page-node-id="vem0hec34KuDp3D2ETeTg4">一句话成功确认，1.5s 自动消失</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       模拟屏幕 1：工作台
+       ============================================================ -->
+  <section data-page-node-id="bO5tx7F15Ikg4IqaM62tzM">
+    <h2 class="sec-title" data-page-node-id="h5Wme6qEbcTBndProhwGV6">模拟屏幕 · 工作台（资产管理）</h2>
+    <p class="sec-sub" data-page-node-id="r1vZnaWBM5Tv6HGdjjeZZS">顶栏 40px · 工作集胶囊条 · 列尾状态点 · 主从布局 280px + 自适应</p>
+
+    <div class="mock-app" data-page-node-id="9l2J1xnWUH8Y2UWR4eTeCG">
+      <div class="mock-header" data-page-node-id="OYBTvgTFZbS0wAhzX9Oxvu">
+        <div class="mock-traffic" data-page-node-id="IOZMk9T25divYH8S8BXHCh"><span class="r" data-page-node-id="Wg9OGVOJiiZRgnCbIioY3e"></span><span class="y" data-page-node-id="Sr8laFcTcermdELRlXOzpK"></span><span class="g" data-page-node-id="0cYX0lujmxwaIeq2u1Tjgx"></span></div>
+        <span class="mock-title" data-page-node-id="WRSF1YdV6lyuwIdWBWsIrY">DST车型参数管理工具 v4.5.16</span>
+        <div class="mock-tabs" data-page-node-id="Ws6mhX93ajsEwdJx7dlCDJ">
+          <span class="mock-tab active" data-page-node-id="vGKBvDOhqMgDlRLzZfHC7m">资产管理</span>
+          <span class="mock-tab" data-page-node-id="V2hhwtri3Le4cFXllLZUjv">版本对比</span>
+          <span class="mock-tab" data-page-node-id="Qgc5Mr7OwoZeUUpS3iClRT">智能填报</span>
+          <span class="mock-tab" data-page-node-id="rzwyFRdNQJAFHXTotq1is6">多车型管理</span>
+          <span class="mock-tab" data-page-node-id="rzgqF1RxGsGStC2MdQ4vnW">数据体检</span>
+          <span class="mock-tab" data-page-node-id="sG5W8eN7xiOD5osxtZIcWu">公告号查询</span>
+        </div>
+        <div style="margin-left:auto; color: var(--text-3); font-size: 11px;" data-page-node-id="eflKATzaohj76ZiKfkaO8G">☀ v3 工坊</div>
+      </div>
+
+      <div style="padding: 12px;" data-page-node-id="zCQa05Fg4tdCWPX5JDOV0j">
+        <div class="workspace" style="margin-bottom: 12px;" data-page-node-id="rzEY73L8hq8SSEUVyziiIM">
+          <span class="workspace-label" data-page-node-id="oMMa78u12dEKkkJmx42lXB">工作集 · 4</span>
+          <span class="capsule tnum" data-page-node-id="jERQFLXPY4UhwfwiItCJXd">远景V8E客运版<span class="x" data-page-node-id="x2cqpxHbLHqzXtSNJieJKi">×</span></span>
+          <span class="capsule tnum" data-page-node-id="VFqtPbrL5kZXHuw2yYcOzY">F1E ZB5030XXYBEVGD<span class="x" data-page-node-id="CzQRKxzz7u9Z7HhWuCxvol">×</span></span>
+          <span class="capsule tnum" data-page-node-id="mUHHG8RtS52Kt6IS0Y4yNf">V7E 50kwh-JHC6507BEVR2<span class="x" data-page-node-id="3ITLK3A6kIZG0oQOY19WDi">×</span></span>
+          <span class="capsule tnum" data-page-node-id="VPatwsq550BUpY6owVxnHV">E6 HZK5030XXYBEV2<span class="x" data-page-node-id="bUXL6kypPLpaNnjBPtzfJv">×</span></span>
+          <span class="workspace-action" data-page-node-id="UPuRfRXwumHBOHpkxqMUNQ"><button class="btn btn-primary btn-sm" data-page-node-id="bkTafrG5VWRJD5c6ZPBb9o">→ 开始对比</button></span>
+        </div>
+
+        <div class="mock-body" style="min-height: 280px;" data-page-node-id="c3lZTh5lwjJUGp1D9DTj9B">
+          <div class="mock-side" data-page-node-id="hwrGj1F1MAPW2KOPXvHM9t">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;" data-page-node-id="ZZKlPOpWn7BDsd348hKtgE">
+              <strong style="font-size: 12px;" data-page-node-id="np1e2jtEmKOU0do9VfbKmz">车型资产库</strong>
+              <button class="btn btn-primary btn-sm" data-page-node-id="GouVTxUG914Y7Do6Pgg5jU">+ 导入</button>
+            </div>
+            <input class="input" placeholder="🔍 搜索资产、标签…" style="margin-bottom: 8px;" data-page-node-id="l71wwNHomokCuWUqQGC55N" />
+            <div class="m-list-row" data-page-node-id="uo1yqYGZEsyjDJbb5xELDO">
+              <span style="color: var(--text-2);" data-page-node-id="K9QCxCYuzt62o9j8HQsxon">🏛</span>
+              <span class="m-list-name" data-page-node-id="hUYgx4u5w5xgLTnwydEBAD">远景V8E客运版V250808</span>
+              <span class="row-trailing" data-page-node-id="An7pTEY1F80jZpbHWxmZxK"><span class="dot success" data-page-node-id="UsqFaae2lRQEEgCe7hDr0R"></span></span>
+            </div>
+            <div class="m-list-row active" data-page-node-id="8PFB6inX5kbABCdKOVMRAH">
+              <span style="color: var(--text-2);" data-page-node-id="dn73uG8d7pZqBlxPlh84Tx">🏛</span>
+              <span class="m-list-name" data-page-node-id="udwDeNR5uZ7pfvNhJpysMZ">F1E ZB5030XXYBEVGD</span>
+              <span class="row-trailing" data-page-node-id="Vf696RSCdGuGBnobgUoCUH"><span class="dot success" data-page-node-id="rkDfBfkvILeM91VnhNrjUZ"></span></span>
+            </div>
+            <div class="m-list-row" data-page-node-id="IgYDlcaeDPg0Zig4tVAW77">
+              <span style="color: var(--text-2);" data-page-node-id="WSDgTHtKaicDyxEAgbN2lx">🏛</span>
+              <span class="m-list-name" data-page-node-id="UITElaLHSGfclhtipkHFGG">V7E 50kwh-JHC6507BEVR2</span>
+              <span class="row-trailing" data-page-node-id="qSDwZjpFUmGZHHuljWreVY"><span class="dot success" data-page-node-id="k8nSxkDAKa1xS35xQgOhKh"></span></span>
+            </div>
+            <div class="m-list-row low" data-page-node-id="zfA1c4arOn9tYfHh2N0HVp">
+              <span style="color: var(--text-2);" data-page-node-id="X2G1d6NuYQzLh8DHMDQk7s">🏛</span>
+              <span class="m-list-name" data-page-node-id="Abpm4Hfwc72HhwD6Zkio6n">E6 HZK5030XXYBEV2</span>
+              <span class="row-trailing" data-page-node-id="HEDGelTVAHz8y6OwRyx4ai"><span class="dot danger" data-page-node-id="E40SUNgWuymotq4UG87qMa"></span></span>
+            </div>
+            <div class="m-list-row" data-page-node-id="hRfs8dCgj50sihGFT5DBcB">
+              <span style="color: var(--text-2);" data-page-node-id="VTtnKpytj0AaaabyyJJRSw">📄</span>
+              <span class="m-list-name" data-page-node-id="VovkUmC1NWGB3ymJLtF99u">公告数据_2026Q3</span>
+              <span class="row-trailing" data-page-node-id="xVHdvNZ1oGVCXZZq5xIbpp"><span class="dot warn" data-page-node-id="oqppBGgFzYBNyqzgrZNeLq"></span></span>
+            </div>
+            <div class="m-list-row modified" data-page-node-id="epy3D1HbKwCZL8AqaszlhI">
+              <span style="color: var(--text-2);" data-page-node-id="CwH53yx1BSGlF0FGm8JqAO">📄</span>
+              <span class="m-list-name" data-page-node-id="0lvlUjbl7UBircy8X3AhIn">V6E-23款_客车</span>
+              <span class="row-trailing" data-page-node-id="0D2JxrBxbwYWSpqYUkAVJF"><span class="dot warn" data-page-node-id="49QkPR0FRqPmbty2pwB6Vw"></span><span class="icon" data-page-node-id="ytHdT5sj99uJQIKm38C99L">⚠</span></span>
+            </div>
+          </div>
+
+          <div class="mock-main" data-page-node-id="qzP2HSjJmlbxKSM9nPhmLS">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;" data-page-node-id="tbWduBGHDG2oNuUzbIMZEn">
+              <strong style="font-size: 13px;" data-page-node-id="P2036kRFxcZW6QpW2yl7dK">待分析车型</strong>
+              <span style="font-size: 11px; color: var(--text-3);" data-page-node-id="YDGCXqOGWmjd7fmrBPVYix">已收录 4 个 · 共 56 个</span>
+            </div>
+            <table class="m-table" data-page-node-id="1K8rcRhlAZOqhrFFJZfb0Z">
+              <thead data-page-node-id="a89BA2DFck5roOkRXl0tMi">
+                <tr data-page-node-id="Xuda4UPMFFJNl5FgdPMFGo"><th data-page-node-id="ChKtJxGxCzgXT5jwAf7vRp">车型</th><th data-page-node-id="hcdnYODAF5kpoFC609pXYg">来源</th><th class="num" style="text-align:right" data-page-node-id="7lAzX0ExUNvBu0KqgyVTmt">参数</th><th class="num" style="text-align:right" data-page-node-id="lb1moPe6sVUmiANGVwZDlH">空值</th><th class="num" style="text-align:right" data-page-node-id="T27Yr1Rief5aLZzxT3nJQh">完成率</th><th data-page-node-id="0DB4h59caLaOzObFIdMhQ0"></th></tr>
+              </thead>
+              <tbody data-page-node-id="z025iBDOMncdhQ28ZGvecc">
+                <tr data-page-node-id="vNSBT8s7JwhD37nB2IQyoG">
+                  <td data-page-node-id="XdrimEl1QnFPnzygyTN56G"><strong data-page-node-id="gTZnFQ7jMXCSuGTSLubjui">远景V8E客运版V250808</strong></td>
+                  <td data-page-node-id="Ra6oJbqWsH8GahlMoCc9jB"><span class="kbadge" data-page-node-id="4GTQe9ZTl68Ey67PrcSO1b">资产库</span></td>
+                  <td class="num" style="text-align:right" data-page-node-id="arb3lYTSiYIA4OL5Cp4qoK">325</td>
+                  <td class="num" style="text-align:right" data-page-node-id="TX6OsBl8NnEoxG1XQpQxGj">1</td>
+                  <td class="num" style="text-align:right" data-page-node-id="thNJS4dDhvfoGVDCjry5LM"><span class="conf conf-hi" data-page-node-id="kuJ7I4ks5f5JKrWtbLgksi">100%</span></td>
+                  <td data-page-node-id="YkwLJ5oQfaje3VweY85KND"><button class="btn btn-primary btn-sm" data-page-node-id="4a424TuVGYvECIXw3NGwEy">→ 对比</button></td>
+                </tr>
+                <tr data-page-node-id="GlGmKC3HHrWYu2pLo4ikHB">
+                  <td data-page-node-id="FBKXKx3xkIPzt2QjjFBgAH"><strong data-page-node-id="lyALqAFGacUh0qYMc5uI02">F1E ZB5030XXYBEVGD</strong></td>
+                  <td data-page-node-id="u5f6BY1cEjGJ8pVi1zYGY4"><span class="kbadge" data-page-node-id="PVgqwPHsx7UtEBNYb9bxXY">资产库</span></td>
+                  <td class="num" style="text-align:right" data-page-node-id="6Tdn4oIKA0rx3kBxHAM81y">110</td>
+                  <td class="num" style="text-align:right" data-page-node-id="vWFcjmY2iG85mHBSUye1Xb">17</td>
+                  <td class="num" style="text-align:right" data-page-node-id="cEFy9X2MGHBZJXNfk7CDNq"><span class="conf conf-mid" data-page-node-id="JNZyzKydX5xrCmV0gDyD5W">85%</span></td>
+                  <td data-page-node-id="qBgbdUINQ4GxY5PfRs5AjL"><button class="btn btn-primary btn-sm" data-page-node-id="yV0PKIcICy3iCA95r1s1xR">→ 对比</button></td>
+                </tr>
+                <tr data-page-node-id="rgXCXUXwkBEz7fFwsoHny8">
+                  <td data-page-node-id="fcFYfBuEgfYzNrxLnfnWPy"><strong data-page-node-id="LeGRKVVvtr8sxZBqLd73qw">V7E 50kwh-JHC6507BEVR2</strong></td>
+                  <td data-page-node-id="6YlSVH3Y2dlKHzU5RK4XZJ"><span class="kbadge" data-page-node-id="K6ayB1xCJkEhboonItAsuZ">资产库</span></td>
+                  <td class="num" style="text-align:right" data-page-node-id="e27twIouIJ9ZYY7PZ4vXKm">285</td>
+                  <td class="num" style="text-align:right" data-page-node-id="lmpy1sGckOlhalkoc1VLFb">0</td>
+                  <td class="num" style="text-align:right" data-page-node-id="8cQAJheGOmK2H6Di6K2ik3"><span class="conf conf-hi" data-page-node-id="AO1QTIXUDc32VFpQSZi8Rl">100%</span></td>
+                  <td data-page-node-id="Z4xy8kHViBdgG5uCmJdNki"><button class="btn btn-primary btn-sm" data-page-node-id="EeaDtHdFYseaFxZvX3IQVC">→ 对比</button></td>
+                </tr>
+                <tr class="required-empty" data-page-node-id="QBJxLyiloKwpXLEBmfYrN8">
+                  <td data-page-node-id="CkaDlIDtU0ahoA2Rlrb6Pv"><strong data-page-node-id="UnoiVoAzVvL7jAWiVU1Qrc">E6 HZK5030XXYBEV2</strong></td>
+                  <td data-page-node-id="pErmLJn0uwssIZnRHhq6Fm"><span class="kbadge" data-page-node-id="0khAdkBzs4Wzwry1cdikEg">资产库</span></td>
+                  <td class="num" style="text-align:right" data-page-node-id="14Q2A4MBcjLZsfgsdWpfTH">110</td>
+                  <td class="num" style="text-align:right" style="color: var(--danger);" data-page-node-id="uJcMX0ZOFVn8OcAw8oS7Lr">26</td>
+                  <td class="num" style="text-align:right" data-page-node-id="LADvhP7jOD3kAv6bLFNyB3"><span class="conf conf-low" data-page-node-id="sItBJXMhmtjCMNM615kxSy">76%</span></td>
+                  <td data-page-node-id="cFgMfeUvexlsW5TPQkyNb9"><button class="btn btn-default btn-sm" data-page-node-id="wPAF8ip3BoSZ2qAwXnkr0B">→ 对比</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="smallnote" data-page-node-id="YP9gXs5rO9fivvZ9yG13ds">v3 新增：列尾 8px 状态点（绿=已激活、红=必填缺失、橙=命名不规范/枚举异常），扫一眼能数出"4 个里 1 个异常"</p>
+  </section>
+
+  <!-- ============================================================
+       模拟屏幕 2：版本对比
+       ============================================================ -->
+  <section data-page-node-id="9gNW1vCWa5wGTXF2EIlvNj">
+    <h2 class="sec-title" data-page-node-id="YW0TNmljI039TyG6agg98x">模拟屏幕 · 版本对比</h2>
+    <p class="sec-sub" data-page-node-id="Pg98PrvTRgMkzOpDDSs2VO">高级筛选（全部/差异/一致/必填）+ 差异行左缘条 + 旧值删除线 + 新值加粗</p>
+
+    <div class="mock-app" data-page-node-id="q4nh4tooNfScMnKY2LBNmS">
+      <div class="mock-header" data-page-node-id="WkPNTemIg5kY99di8apjGi">
+        <div class="mock-traffic" data-page-node-id="soA0ErSEfoOmWege3clWE9"><span class="r" data-page-node-id="4xgbXflMZQsB5pmuoMtPpC"></span><span class="y" data-page-node-id="3SYHqvuIYxyyECY0FjaAXm"></span><span class="g" data-page-node-id="Z0XeKyCz3lO2vLIljf2v8M"></span></div>
+        <span class="mock-title" data-page-node-id="PHgGfThocKOCfnVvwzX4bB">DST车型参数管理工具 v4.5.16</span>
+        <div class="mock-tabs" data-page-node-id="22ow3fcZfdAd6jSrztIgqf">
+          <span class="mock-tab" data-page-node-id="i1Fra0qIcw54ImNpv7y6Dx">资产管理</span>
+          <span class="mock-tab active" data-page-node-id="k9XTT8YwaxoAnAuuWjvPWC">版本对比</span>
+          <span class="mock-tab" data-page-node-id="aSnScrYvYlyU0KTyM91j6K">智能填报</span>
+          <span class="mock-tab" data-page-node-id="NEBGw8yFCewkGufWDblXvA">多车型管理</span>
+          <span class="mock-tab" data-page-node-id="B9GRchdsEDGMGs7xssl1EL">数据体检</span>
+          <span class="mock-tab" data-page-node-id="rD2DfvGtrHYLeFNHn8q9NN">公告号查询</span>
+        </div>
+      </div>
+
+      <div style="padding: 12px;" data-page-node-id="P8qbnywV7VF5q37aArits9">
+        <div style="display:flex; align-items:center; gap: 10px; margin-bottom: 12px;" data-page-node-id="saDfSG8aPUPnEftCWzEmkf">
+          <strong style="font-size: 13px;" data-page-node-id="c8Z79IvnjYNsPmuvBHjWgk">基准</strong>
+          <span class="capsule tnum" data-page-node-id="FNnIlenyjANcUvsgNAF5Ds">远景V8E客运版V250808<span class="x" data-page-node-id="tLZIDHOr5rdAvr503uF6uL">×</span></span>
+          <strong style="font-size: 13px; color: var(--text-3);" data-page-node-id="oD2hdK5D5j39ZGhBAsFevR">↔</strong>
+          <strong style="font-size: 13px;" data-page-node-id="aK7THmiuKd13xHW1BvJ4pF">新版本</strong>
+          <span class="capsule tnum" style="border-color: var(--brand); color: var(--brand);" data-page-node-id="6Yg5hCHNnzX6k2b4b7UPTr">V7E 50kwh-JHC6507BEVR2<span class="x" data-page-node-id="lYYSPXma6YmlJ3lk91jSp0">×</span></span>
+          <div style="margin-left:auto; display:flex; gap: 6px;" data-page-node-id="CHEymsnvCbVGjBBnqf4Zv7">
+            <span class="kbadge success" data-page-node-id="YfmPcXrh7NsfsqZMEhtxsn">新增 12</span>
+            <span class="kbadge danger" data-page-node-id="VYBDzS0QuoId4n1Ud8fOf8">移除 3</span>
+            <span class="kbadge warn" data-page-node-id="EzBpuE8dVxY4mqReOKGhs7">变更 28</span>
+            <span class="kbadge" data-page-node-id="HFDClclMxIcv6T7PA29zrk">未变 266</span>
+          </div>
+          <button class="btn btn-primary btn-sm" data-page-node-id="6EAiURXeEeMr20E9T0u1LN">导出 PDF</button>
+        </div>
+
+        <div style="display:flex; gap: 8px; margin-bottom: 10px;" data-page-node-id="POHQ9dLgPrC13P07pcCLAm">
+          <button class="btn btn-default btn-sm" style="border-color: var(--brand); color: var(--brand);" data-page-node-id="InQthTRavRz6y31EYfDgjW">只看差异</button>
+          <button class="btn btn-ghost btn-sm" data-page-node-id="9EDvsoJGF3qZuNWykjbU0o">全部</button>
+          <button class="btn btn-ghost btn-sm" data-page-node-id="zefPncp82GpP7DTwGDmApQ">必填</button>
+          <input class="input" placeholder="🔍 搜索字段名 / 值…" style="max-width: 240px;" data-page-node-id="XsN6DCX4dJ3vbtkl0BnmVw" />
+        </div>
+
+        <table class="m-table" data-page-node-id="SgpXGJlK0kwDNKcw7nK84p">
+          <thead data-page-node-id="5rzZucoucHi9Jdj8tW0eO3">
+            <tr data-page-node-id="8VD7AB4YRGE14clP2x0gmF">
+              <th style="width: 28px;" data-page-node-id="1UYX5Rfuhxh6tQiEc4yvJf"></th>
+              <th data-page-node-id="HXNFnBh5guvunhoy0uLSXb">参数项</th>
+              <th data-page-node-id="TQua1vzeUuQz92S3bnfATh">分组</th>
+              <th data-page-node-id="QHSWDWhriDOxfEJmUhJu0J">基准版</th>
+              <th data-page-node-id="KHQSKKgMZPhnv1DBtH7O2e">新版本</th>
+              <th style="text-align:right" data-page-node-id="AjmmYhXFwzOL8AEGidfg2T">完成率</th>
+            </tr>
+          </thead>
+          <tbody data-page-node-id="7EdiNBiXMSKjzfR9Ac6kGs">
+            <tr data-page-node-id="BXwdHSd4gEz0lw0fVcP0FD">
+              <td data-page-node-id="Z7lSd5vRnYu6Uw7tpjYkAq"><span style="display:inline-block; width:3px; height:18px; background: var(--success); border-radius: 2px;" data-page-node-id="pM9mGX88VLSYC680l8pcbl"></span></td>
+              <td data-page-node-id="KiGv5snGGUk4MVgaJ4SY5C"><strong data-page-node-id="unvimoeOPVjlFlXacJEv7p">电池容量</strong></td>
+              <td data-page-node-id="RzwFV0ZhmcReWSTL9NCnQ3"><span class="kbadge" data-page-node-id="oL1FS2GOWEb7qHKk6nm0OQ">动力</span></td>
+              <td data-page-node-id="6DhS0pkkYj2A8aSsXmqMEY">—</td>
+              <td style="color: var(--success-text); font-weight: 600;" data-page-node-id="oRSKcvGVvCe6dqyF9huPgX">60.3 kWh</td>
+              <td class="num" style="text-align:right" data-page-node-id="GnKBbI9vAfkoN1Ky8BcZgX"><span class="conf conf-hi" data-page-node-id="08dJ3YgtgCopj4p7JSFeBj">100%</span></td>
+            </tr>
+            <tr class="required-empty" data-page-node-id="yAYHzVONbP6wvLr1DaPbdn">
+              <td data-page-node-id="18sL2csq1xPQ2qZMA7xQFc"><span style="display:inline-block; width:3px; height:18px; background: var(--danger); border-radius: 2px;" data-page-node-id="LN3CzcPT4VMtVtCTRFVzE3"></span></td>
+              <td data-page-node-id="3vzHFsTdDnBjD04uB5AFRg"><strong data-page-node-id="xs0PpJ7b9BMzLonFLuWZdf">整备质量 (必填)</strong></td>
+              <td data-page-node-id="0q7AzYLe2GoBLBsGLZMAgN"><span class="kbadge" data-page-node-id="s227vGytlWTp6rtiMkf8fW">质量</span></td>
+              <td style="color: var(--text-3); text-decoration: line-through;" data-page-node-id="fE6diM6Ya3X5vMMxNAiLEe">3200 kg</td>
+              <td style="color: var(--danger);" data-page-node-id="CXHYY0gZu1sgFBJP6brcsG">—</td>
+              <td class="num" style="text-align:right" data-page-node-id="xtHWrKdlAVNJmRfYQBLwwe"><span class="conf conf-low" data-page-node-id="7BjuKnMUUvxb4k162Np2J5">0%</span></td>
+            </tr>
+            <tr data-page-node-id="3tPuWAvNB2B2mIm1PSVYPN">
+              <td data-page-node-id="PpkjpQ7Xpt42Mx9nL0ax9d"><span style="display:inline-block; width:3px; height:18px; background: var(--warning); border-radius: 2px;" data-page-node-id="oiOvQofEhnPQXm1O3p6FBP"></span></td>
+              <td data-page-node-id="CYdZOhjoSvWBY5EfCqf2kB"><strong data-page-node-id="BCpI7hAcNM4LrXSmxZo2Ge">续航里程 (等速法)</strong></td>
+              <td data-page-node-id="ktQuOuHj0xjNClFIbyGpnJ"><span class="kbadge" data-page-node-id="rFXLApRzlYJZHgK1RggZua">动力</span></td>
+              <td style="color: var(--text-3); text-decoration: line-through;" data-page-node-id="0Vh353uPGKzIlY7q6rY9vr">380 km</td>
+              <td style="font-weight: 600;" data-page-node-id="svhXokxNgV6IfCSCOYzhbC">420 km</td>
+              <td class="num" style="text-align:right" data-page-node-id="WuxgVxi5gGaIBg9g84LsoZ"><span class="conf conf-mid" data-page-node-id="HnX6LhG12O5r3NoGvDrkHO">82%</span></td>
+            </tr>
+            <tr data-page-node-id="TkrulTZuWnvcwHFQTwoy98">
+              <td data-page-node-id="MFjE8BRYL5VK6JncQeJt4z"></td>
+              <td data-page-node-id="0l8SLjwOllbWQ0AZXYJIMy"><strong data-page-node-id="tDKHgZkiC0ssIywlHAyJOW">车身长度</strong></td>
+              <td data-page-node-id="7o2zUAep2e2EqmLHAfvrUd"><span class="kbadge" data-page-node-id="yxUmQvsJxGFFzH0PHduUMN">尺寸</span></td>
+              <td data-page-node-id="FB5wyZQgeFTdAEkeBGqi5x">5995 mm</td>
+              <td data-page-node-id="aavGJK6PeI59fozg2gSpJz">5995 mm</td>
+              <td class="num" style="text-align:right" data-page-node-id="C6c8qRHphc7OCoT96YZOx0"><span class="conf conf-hi" data-page-node-id="e2bAtINXiyInEa42caEvV3">100%</span></td>
+            </tr>
+            <tr data-page-node-id="DVPADStunRQnwBOnMbHICK">
+              <td data-page-node-id="j7eAGGXedLjJicGfhAOU2s"><span style="display:inline-block; width:3px; height:18px; background: var(--warning); border-radius: 2px;" data-page-node-id="3t3aiuLfcczuboMnbFnQIU"></span></td>
+              <td data-page-node-id="iE8z8ET3G6DnYGDdHu9WLT"><strong data-page-node-id="jgQTsP8AAHXv948atDOqmJ">电池类型</strong></td>
+              <td data-page-node-id="k9etFHTWPKxVtlOMkqdIst"><span class="kbadge" data-page-node-id="59YgPvhdCUdJC4sU5FaWWE">动力</span></td>
+              <td style="color: var(--text-3); text-decoration: line-through;" data-page-node-id="kavKSshf9EmXNQ66XktRat">三元锂</td>
+              <td style="font-weight: 600;" data-page-node-id="kC4eeTHNJxlQCHTOdklDap">磷酸铁锂</td>
+              <td class="num" style="text-align:right" data-page-node-id="UBbsd1KMFdfzQhOFLP06Do"><span class="conf conf-hi" data-page-node-id="SeAOaFctkzJv9KSCdGjTq8">100%</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       v2.0 ↔ v3.0 对照
+       ============================================================ -->
+  <section data-page-node-id="IIEGg8YiCr6pleLkAXu3cr">
+    <h2 class="sec-title" data-page-node-id="L8a6BqgXhVpUTqg2X7iCkl">v2.0 ↔ v3.0 对照（节选）</h2>
+    <p class="sec-sub" data-page-node-id="EGDopGQMSDXoWwOVgcrQBT">两套方案都从同一组前提出发，差异见下表；落地时二选一，不混搭</p>
+    <table class="compare-table" data-page-node-id="N0dXOkm8p1ytlyQAul6H1I">
+      <thead data-page-node-id="dQwm4hZ0xJy7i7jMp61fxo">
+        <tr data-page-node-id="WtB5iM26uqYj3Ttw4FBGFH"><th data-page-node-id="ZHC3bT87LSCOuCCgQ8cMa1">维度</th><th data-page-node-id="jh2eWTNGUykseIUERubMpE">v2.0 精密量具</th><th data-page-node-id="ZwaiRtTmnWDvUFGAEL0rsK">v3.0 青墨工坊</th></tr>
+      </thead>
+      <tbody data-page-node-id="C31zHXZc047rrRnLXuMF00">
+        <tr data-page-node-id="2bDFuhQlKr5nt2ccqNgX4i"><td data-page-node-id="itVSzZ2szi4Mny397nG1CB">概念</td><td data-page-node-id="01bSloTEXMEtIfABLupk34">冷峻仪器</td><td data-page-node-id="sjt2ISQmWc55dkDARgrsEy">温暖工作台</td></tr>
+        <tr data-page-node-id="VkvyXqOcxsEjCEGDcVWoM1"><td data-page-node-id="YAeSjMo21wzuzoZCAGDTts">基底</td><td data-page-node-id="IXaHXfdEeTTmlRJu3HdPae">冷灰 slate #F8FAFC</td><td data-page-node-id="4nG0Tg9DqESlTxvQX9bC39">暖白木纹 #FBF8F1</td></tr>
+        <tr data-page-node-id="gakxkyvjwiNTDycsLhpeFA"><td data-page-node-id="9LeZcbKSE4lym8g6ekQa6e">品牌色</td><td data-page-node-id="bCEQ3iWC6zBvmB3WkGHi6W">工业蓝 #2563EB</td><td data-page-node-id="C91ay1jrO33DCNJI5DQhjg">铜锈青 #0F766E</td></tr>
+        <tr data-page-node-id="5v3KNDlVSj5ZqsnWuQkG1H"><td data-page-node-id="O9gcl3cNhAMLf5mI9zmHyg">信号色数</td><td data-page-node-id="aVlrQnabpsI5wYS84LlpDN">4 色分工</td><td data-page-node-id="QrvmU2KcGs3GjotjiAKfdx">5 色主次分明</td></tr>
+        <tr data-page-node-id="P89SEexUG0zYfvMmVyTVdp"><td data-page-node-id="RZKvyP6iJi4pwMpekXIO0x">行高</td><td data-page-node-id="Hgr1GSGZM2scDe3NjJqHyJ">32px</td><td data-page-node-id="oiWuTm7CtOqRObiruXB9Ro">28px（紧凑）</td></tr>
+        <tr data-page-node-id="G8YBFeHvdVNqAQZCP8pBJT"><td data-page-node-id="r63mRRjabFHY8u0Wcu2BT2">顶栏高度</td><td data-page-node-id="8LRGA4XHsuhWPmCcJrKLEl">48px</td><td data-page-node-id="vGQZ9NIwMhUUhYC6A1atAd">40px</td></tr>
+        <tr data-page-node-id="6FgL2pD4rvaBcINEupmlEn"><td data-page-node-id="seTfDF0WMWUFpsNKVnF5kH">工作集胶囊</td><td data-page-node-id="iQu020aiNkByBuRLTt9yE3">无</td><td data-page-node-id="ZAD7Nih2QxdFTomMVA9Vty">有（v3 新增）</td></tr>
+        <tr data-page-node-id="5mOAVbsnMfB60q9XcW4Nei"><td data-page-node-id="mwd43Mlpqz2uRgw26UxXnK">列尾状态点</td><td data-page-node-id="2t2cWQqcv7u91AGE4suDLD">无</td><td data-page-node-id="aRF9xUwwci7hhBfRGRIRNx">有（v3 新增）</td></tr>
+        <tr data-page-node-id="LJL8qI0vwP8DB8cldQ4cfV"><td data-page-node-id="oWzDCGONT4HDHJ0QUeKu3W">实施成本</td><td data-page-node-id="ez3esoszhnYGGSWu4iGVJG">中（已有色板替换）</td><td data-page-node-id="JNeOW4ecVG4EnznCpFB4Nw">中（色板替换 + 2 个新组件）</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <p class="smallnote" style="text-align:center; margin: 48px 0 0;" data-page-node-id="kUIqHbowZRW7Bsce6pXaEk">
+    完整方案、色板复制、antd token、分期落地见 docs/视觉与配色_工坊方案_v3.md
+  </p>
+</main>
+
+<script>
+  // 主题切换
+  const root = document.documentElement;
+  document.querySelectorAll('.toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const theme = btn.dataset.theme;
+      if (theme === 'dark') root.classList.add('dark');
+      else root.classList.remove('dark');
+    });
+  });
+</script>
+
+</body>
+</html>

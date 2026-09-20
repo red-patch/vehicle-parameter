@@ -9,7 +9,7 @@ export interface FilterItemProps {
 export const FilterItem: React.FC<FilterItemProps> = ({ label, children, className = '' }) => {
     return (
         <div className={`flex items-center gap-2 ${className}`}>
-            {label && <span className="font-semibold text-gray-700 text-sm whitespace-nowrap">{label}</span>}
+            {label && <span className="font-semibold text-2 text-sm whitespace-nowrap">{label}</span>}
             {children}
         </div>
     );
@@ -25,7 +25,7 @@ export interface FilterBarProps {
 export const FilterBar: React.FC<FilterBarProps> = ({ children, extra, className = '', style }) => {
     return (
         <div 
-            className={`bg-white p-3 rounded shadow-sm border border-gray-100 flex items-center justify-between flex-wrap gap-4 mb-4 ${className}`}
+            className={`surface-container p-3 rounded border border-default flex items-center justify-between flex-wrap gap-4 mb-4 ${className}`}
             style={style}
         >
             <div className="flex items-center gap-4 flex-wrap flex-1">

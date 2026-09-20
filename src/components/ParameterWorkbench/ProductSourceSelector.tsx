@@ -79,7 +79,7 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                     )}
                     maxTagCount={0}
                     maxTagPlaceholder={() => (
-                        <span className="text-gray-400 text-xs italic">已选 {value && Array.isArray(value) ? value.length : 0} 个车型</span>
+                        <span className="text-2 text-xs">已选 {value && Array.isArray(value) ? value.length : 0} 个车型</span>
                     )}
                     filterOption={(input, option) =>
                         (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
@@ -109,13 +109,13 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
             </div>
 
             {showTags && mode === 'multiple' && (
-                <div className="flex flex-wrap gap-1 mt-1 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md border border-gray-100 dark:border-gray-700 min-h-[42px] max-h-[120px] overflow-y-auto">
+                <div className="flex flex-wrap gap-1 mt-1 p-2 surface-inset rounded-md border border-default min-h-[42px] max-h-[120px] overflow-y-auto">
                     {Array.isArray(value) && value.length > 0 ? (
                         value.map(name => (
                             <Tooltip key={name} title={selectedTagLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name)}>
                                 <Tag
                                     closable
-                                    className="m-0 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-sm text-[12px]"
+                                    className="m-0 surface-container border-default text-2 px-2 py-0.5 rounded-sm text-[12px]"
                                     onClose={() => onChange(value.filter(v => v !== name))}
                                 >
                                     {selectedTagLabels.get(name)?.shortLabel || getVehicleProductName(name)}
@@ -123,7 +123,7 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                             </Tooltip>
                         ))
                     ) : (
-                        <span className="text-gray-400 text-xs self-center">暂未选择车型</span>
+                        <span className="text-3 text-xs self-center">暂未选择车型</span>
                     )}
                 </div>
             )}

@@ -7,7 +7,7 @@ import { useVehicleStore } from './store/vehicleStore';
 import { useThemeStore } from './store/themeStore';
 import { compareSheets } from './utils/comparator';
 import { UploadOutlined, FileSearchOutlined, CheckCircleOutlined } from '@ant-design/icons';
-import themeConfig from './theme/themeConfig';
+import { getThemeConfig } from './theme/themeConfig';
 import { useShallow } from 'zustand/react/shallow';
 
 const ExcelUploader = React.lazy(() => import('./components/FileUpload/ExcelUploader'));
@@ -50,12 +50,8 @@ const App: React.FC = () => {
     const root = document.documentElement;
     if (isDarkMode) {
       root.classList.add('dark');
-      document.body.style.backgroundColor = '#0d1117';
-      document.body.style.color = '#c9d1d9';
     } else {
       root.classList.remove('dark');
-      document.body.style.backgroundColor = '#F9FAFB';
-      document.body.style.color = '#111827';
     }
   }, [isDarkMode]);
 
@@ -73,68 +69,12 @@ const App: React.FC = () => {
   }, [baseFile, targetFile, setDiffResult, compareMode]);
 
   return (
-    <ConfigProvider 
+    <ConfigProvider
       locale={zhCN}
       theme={{
-        ...themeConfig,
+        ...getThemeConfig(isDarkMode),
+        cssVar: {},
         algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
-        ...(isDarkMode ? {
-          token: {
-            ...themeConfig.token,
-            colorBgContainer: '#161b22',
-            colorBgLayout: '#0d1117',
-            colorBgElevated: '#21262d',
-            colorBorder: '#30363d',
-            colorBorderSecondary: '#21262d',
-            colorText: '#c9d1d9',
-            colorTextSecondary: '#8b949e',
-            colorTextTertiary: '#484f58',
-            colorTextQuaternary: '#30363d',
-            colorFill: '#21262d',
-            colorFillSecondary: '#161b22',
-            colorFillTertiary: '#0d1117',
-            colorBgTextHover: '#21262d',
-            colorBgTextActive: '#30363d',
-          },
-          components: {
-            ...themeConfig.components,
-            Table: {
-              headerBg: '#21262d',
-              headerSplitColor: '#30363d',
-              borderColor: '#30363d',
-              rowHoverBg: '#1c2128',
-            },
-            Layout: {
-              headerBg: '#161b22',
-              bodyBg: '#0d1117',
-            },
-            Select: {
-              selectorBg: '#0d1117',
-              optionActiveBg: '#21262d',
-              optionSelectedBg: 'rgba(88,166,255,0.15)',
-              multipleItemBg: '#21262d',
-              multipleItemBorderColor: '#30363d',
-            },
-            Input: {
-              activeBg: '#0d1117',
-              addonBg: '#21262d',
-            },
-            Card: {
-              colorBgContainer: '#161b22',
-            },
-            Menu: {
-              itemBg: 'transparent',
-              itemColor: '#8b949e',
-              itemHoverColor: '#c9d1d9',
-              itemSelectedColor: '#58a6ff',
-              horizontalItemSelectedColor: '#58a6ff',
-            },
-            Segmented: {
-              trackBg: '#21262d',
-              itemSelectedBg: '#0d1117',
-            },
-          },
-        } : {}),
       }}
     >
       <ErrorBoundary>

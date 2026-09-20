@@ -70,10 +70,10 @@ const CoreFieldRuleComposer: React.FC<CoreFieldRuleComposerProps> = ({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-default surface-container p-5">
       <div className="flex flex-col gap-4">
         <div>
-          <div className="text-lg font-bold text-slate-900">{title}</div>
+          <div className="text-lg font-bold text-1">{title}</div>
           <Text type="secondary">{description}</Text>
         </div>
 
@@ -81,14 +81,14 @@ const CoreFieldRuleComposer: React.FC<CoreFieldRuleComposerProps> = ({
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           placeholder="搜索字段并加入规则"
-          prefix={<SearchOutlined className="text-gray-400" />}
+          prefix={<SearchOutlined className="text-3" />}
           allowClear
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 min-h-[220px]">
+          <div className="rounded-xl border border-default surface-inset p-4 min-h-[220px]">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-slate-700">搜索与推荐</div>
+              <div className="text-sm font-semibold text-2">搜索与推荐</div>
               {keyword.trim() && <Tag className="m-0">{searchResults.length} 条命中</Tag>}
             </div>
 
@@ -96,10 +96,10 @@ const CoreFieldRuleComposer: React.FC<CoreFieldRuleComposerProps> = ({
               searchResults.length > 0 ? (
                 <div className="space-y-2">
                   {searchResults.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border border-white bg-white px-3 py-2">
+                    <div key={item.name} className="flex items-center justify-between gap-3 rounded-lg border border-default surface-container px-3 py-2">
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-slate-800 truncate">{item.name}</div>
-                        {item.alreadySelected && <div className="text-[11px] text-blue-500">已加入当前规则</div>}
+                        <div className="text-sm font-medium text-1 truncate">{item.name}</div>
+                        {item.alreadySelected && <div className="text-[12px] text-brand">已加入当前规则</div>}
                       </div>
                       <Button
                         size="small"
@@ -119,7 +119,7 @@ const CoreFieldRuleComposer: React.FC<CoreFieldRuleComposerProps> = ({
             ) : visibleRecent.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {visibleRecent.map((field) => (
-                  <Tag key={field} className="cursor-pointer m-0 px-3 py-1 text-xs" onClick={() => addField(field)}>
+                  <Tag key={field} className="m-0 px-3 py-1 text-xs" onClick={() => addField(field)}>
                     + {field}
                   </Tag>
                 ))}
@@ -129,10 +129,10 @@ const CoreFieldRuleComposer: React.FC<CoreFieldRuleComposerProps> = ({
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-default surface-container p-4">
             <div className="flex items-center justify-between mb-3 gap-3">
-              <div className="text-sm font-semibold text-slate-700">已选字段池</div>
-              <Tag color="blue" className="m-0">已选字段数 {selectedFields.length}</Tag>
+              <div className="text-sm font-semibold text-2">已选字段池</div>
+              <Tag color="default" className="m-0">已选字段数 {selectedFields.length}</Tag>
             </div>
 
             <div className="flex flex-wrap gap-2 min-h-[84px] max-h-[220px] overflow-y-auto pr-1">
@@ -163,7 +163,7 @@ const CoreFieldRuleComposer: React.FC<CoreFieldRuleComposerProps> = ({
             </div>
 
             {batchOpen && (
-              <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-3">
+              <div className="mt-4 rounded-xl border border-dashed border-default surface-inset p-3">
                 <TextArea
                   rows={4}
                   value={batchInput}
@@ -174,7 +174,7 @@ const CoreFieldRuleComposer: React.FC<CoreFieldRuleComposerProps> = ({
                   <Text type="secondary" className="text-xs">支持一次性批量录入后自动去重</Text>
                   <Button type="primary" size="small" aria-label="导入并去重" onClick={importBatch}>导入并去重</Button>
                 </div>
-                {batchSummary && <div className="mt-2 text-xs text-slate-500">{batchSummary}</div>}
+                {batchSummary && <div className="mt-2 text-xs text-3">{batchSummary}</div>}
               </div>
             )}
           </div>

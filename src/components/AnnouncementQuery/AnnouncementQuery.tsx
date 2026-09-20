@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Input, Button, Card, Typography, Space, Alert, message, Steps } from 'antd';
-import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined } from '@ant-design/icons';
+import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import ParametersTable from '../DiffViewer/ParametersTable';
 import type { SheetData } from '../../types';
@@ -248,7 +248,7 @@ const AnnouncementQuery: React.FC = () => {
                                 value={announcementNo}
                                 onChange={(e) => setAnnouncementNo(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                suffix={<SearchOutlined className="text-gray-400" />}
+                                suffix={<SearchOutlined className="text-3" />}
                             />
                             <Button 
                                 type="primary" 
@@ -284,7 +284,7 @@ const AnnouncementQuery: React.FC = () => {
                             showIcon
                             className="mb-4"
                         />
-                        <div className="flex justify-center py-4 bg-gray-50 rounded border border-dashed border-gray-300">
+                        <div className="flex justify-center py-4 bg-surface-3 rounded border border-dashed border-strong">
                             <a 
                                 ref={bookmarkLinkRef}
                                 className="ant-btn ant-btn-primary ant-btn-lg cursor-grab"
@@ -293,7 +293,7 @@ const AnnouncementQuery: React.FC = () => {
                                     message.info('请将此按钮拖动到书签栏，而不是直接点击哦'); 
                                 }}
                             >
-                                🚙 提取车辆参数
+                                <CarOutlined /> 提取车辆参数
                             </a>
                         </div>
                         
@@ -319,7 +319,7 @@ const AnnouncementQuery: React.FC = () => {
                             />
                         </div>
                         
-                        <Paragraph className="mt-2 text-xs text-gray-400 text-center">
+                        <Paragraph className="mt-2 text-xs text-3 text-center">
                             (支持 Chrome, Edge, Safari, Firefox)
                         </Paragraph>
                     </Card>
@@ -393,7 +393,7 @@ const AnnouncementQuery: React.FC = () => {
                         {miitData ? (
                             <ParametersTable data={miitData.data} />
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                            <div className="flex flex-col items-center justify-center h-full text-3">
                                 <ImportOutlined style={{ fontSize: 48, marginBottom: 16 }} />
                                 <p>暂无数据，请先导入</p>
                             </div>

@@ -29,7 +29,7 @@ const RepairableValue: React.FC<RepairableValueProps> = ({
                     event.stopPropagation();
                     onRepair();
                 }}
-                className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-left cursor-pointer transition-colors hover:bg-amber-50 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${className}`}
+                className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-left transition-colors hover:bg-[color:var(--warning-weak)] hover:text-[color:var(--warning-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--warning)] ${className}`}
             >
                 {value}
             </button>

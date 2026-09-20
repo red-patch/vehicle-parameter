@@ -297,7 +297,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 if (matchResult && matchResult.matchType !== 'none' && text !== undefined) {
                     return (
                         <span>
-                            <Tag color="green" style={{ marginRight: 4, fontSize: 10, lineHeight: '16px' }}>精确</Tag>
+                            <Tag color="success" style={{ marginRight: 4, fontSize: 10, lineHeight: '16px' }}>精确</Tag>
                             {text}
                         </span>
                     );
@@ -307,7 +307,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 if (!text) {
                     return sourceFileName ? (
                         <RepairableValue
-                            value={<span className="text-gray-300">-</span>}
+                            value={<span className="text-3">-</span>}
                             repairable={true}
                             hint="点击修复源数据"
                             onRepair={() => {
@@ -316,7 +316,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                 onGoRepair?.();
                             }}
                         />
-                    ) : <span className="text-gray-300">-</span>;
+                    ) : <span className="text-3">-</span>;
                 }
                 return text;
             }
@@ -339,7 +339,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                             <div className="mb-2 font-medium flex items-center gap-3">
                                 1. 目标字段列表 (支持逗号、换行分隔)
                                 <a 
-                                    className="text-xs font-normal text-blue-500" 
+                                    className="text-xs font-normal text-brand"
                                     onClick={() => setTargetFields("整备质量, 最高车速, 轴距, 外形尺寸长, 发动机型号")}
                                 >
                                     填入示例
@@ -375,7 +375,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                         return false;
                                     }}
                                 >
-                                    <a className="text-xs font-normal text-blue-500"><UploadOutlined /> 从文件导入</a>
+                                    <a className="text-xs font-normal text-brand"><UploadOutlined /> 从文件导入</a>
                                 </Upload>
                             </div>
                             <TextArea 
@@ -402,7 +402,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 </Space>
             </Card>
 
-            <div className="flex-1 overflow-auto border border-gray-200 rounded relative bg-white dark:bg-gray-900" style={{ minHeight: 400 }}>
+            <div className="flex-1 overflow-auto border border-default rounded relative surface-container" style={{ minHeight: 400 }}>
                 <Spin spinning={isCalculating} tip="正在智能解析字段...">
                     <div className="h-full flex flex-col p-3">
                         {organizedData.length > 0 || isCalculating ? (
@@ -414,7 +414,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                             size="small"
                                             style={{ width: 200 }}
                                             placeholder="搜索参数名或值..."
-                                            prefix={<SearchOutlined className="text-gray-400" />}
+                                            prefix={<SearchOutlined className="text-3" />}
                                             value={multiSearch}
                                             onChange={e => setMultiSearch(e.target.value)}
                                             allowClear

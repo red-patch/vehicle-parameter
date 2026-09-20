@@ -338,7 +338,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                 onChange={key => setActiveSheet(Number(key))}
                 size="small"
                 tabBarExtraContent={
-                    <Tag color="blue" style={{ marginRight: 8 }}>
+                    <Tag color="processing" style={{ marginRight: 8 }}>
                         已启用 {enabledSheetCount}/{previews.length} 个 Sheet
                     </Tag>
                 }
@@ -349,7 +349,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                         label: (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{
-                                    color: cfg.enabled ? 'inherit' : '#bbb',
+                                    color: cfg.enabled ? 'inherit' : 'var(--text-4)',
                                     textDecoration: cfg.enabled ? 'none' : 'line-through',
                                 }}>
                                     {p.sheetName} ({p.totalRows}行)
@@ -360,7 +360,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                         size="small"
                                         icon={cfg.enabled ? <StopOutlined /> : <PlayCircleOutlined />}
                                         onClick={(e) => { e.stopPropagation(); setSheetEnabled(p.sheetName, !cfg.enabled); }}
-                                        style={{ padding: 0, minWidth: 20, height: 20, color: cfg.enabled ? '#ff4d4f' : '#52c41a' }}
+                                        style={{ padding: 0, minWidth: 20, height: 20, color: cfg.enabled ? 'var(--danger)' : 'var(--success)' }}
                                     />
                                 </Tooltip>
                             </span>
@@ -391,7 +391,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 13, color: '#666' }}>表头行：</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>表头行：</span>
                             <InputNumber
                                 size="small"
                                 min={1}
@@ -410,7 +410,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                 }}
                                 style={{ width: 60 }}
                             />
-                            <span style={{ fontSize: 13, color: '#999' }}>~</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-3)' }}>~</span>
                             <InputNumber
                                 size="small"
                                 min={config.headerStart + 1}
@@ -428,11 +428,11 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                 }}
                                 style={{ width: 60 }}
                             />
-                            <span style={{ fontSize: 13, color: '#666' }}>行</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>行</span>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 13, color: '#666' }}>数据起始行：</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>数据起始行：</span>
                             <InputNumber
                                 size="small"
                                 min={config.headerEnd + 2}
@@ -445,7 +445,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                 }}
                                 style={{ width: 60 }}
                             />
-                            <span style={{ fontSize: 13, color: '#666' }}>行</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-2)' }}>行</span>
                         </div>
 
                         <Button
@@ -458,31 +458,31 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                         </Button>
 
                         <Tooltip title="点击列头下拉框可切换列角色（参数名/分组/产品值/跳过）。若需跳过整个 Sheet，请使用上方「跳过当前 Sheet」按钮或点击 Sheet 标签上的跳过图标。">
-                            <InfoCircleOutlined style={{ color: '#999' }} />
+                            <InfoCircleOutlined style={{ color: 'var(--text-3)' }} />
                         </Tooltip>
                     </div>
 
                     {/* 统计摘要 */}
                     {currentSheetStats && (
-                        <div style={{ marginBottom: 8, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#666' }}>
+                        <div style={{ marginBottom: 8, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-2)' }}>
                             <Tag color="default">表头 {currentSheetStats.headerRows} 行</Tag>
-                            <Tag color="blue">数据 {currentSheetStats.dataRows} 行</Tag>
-                            <Tag color="orange">产品 {currentSheetStats.productCols} 列</Tag>
-                            <Tag color="green">预计提取 {currentSheetStats.estimated} 个参数</Tag>
+                            <Tag color="default">数据 {currentSheetStats.dataRows} 行</Tag>
+                            <Tag color="default">产品 {currentSheetStats.productCols} 列</Tag>
+                            <Tag color="default">预计提取 {currentSheetStats.estimated} 个参数</Tag>
                         </div>
                     )}
 
                     {/* 预览表格 */}
-                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)', border: '1px solid #e8e8e8', borderRadius: 6, opacity: config.enabled ? 1 : 0.55, filter: config.enabled ? 'none' : 'grayscale(30%)' }}>
+                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)', border: '1px solid var(--border-default)', borderRadius: 6, opacity: config.enabled ? 1 : 0.55, filter: config.enabled ? 'none' : 'grayscale(30%)' }}>
                         <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: colCount * 100 }}>
                             {/* 列角色标签行 */}
                             <thead>
                                 <tr>
-                                    <th style={{ padding: '4px 8px', background: '#fafafa', border: '1px solid #e8e8e8', width: 40, fontSize: 11, color: '#999' }}>
+                                    <th style={{ padding: '4px 8px', background: 'var(--surface-3)', border: '1px solid var(--border-default)', width: 40, fontSize: 11, color: 'var(--text-3)' }}>
                                         #
                                     </th>
                                     {Array.from({ length: colCount }, (_, ci) => (
-                                        <th key={ci} style={{ padding: '4px 6px', background: '#fafafa', border: '1px solid #e8e8e8', minWidth: 80 }}>
+                                        <th key={ci} style={{ padding: '4px 6px', background: 'var(--surface-3)', border: '1px solid var(--border-default)', minWidth: 80 }}>
                                             <Select
                                                 size="small"
                                                 value={getColumnRole(ci)}
@@ -501,11 +501,11 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                                         placeholder="产品名"
                                                         style={{
                                                             marginTop: 2, width: '100%', fontSize: 11, padding: '1px 4px',
-                                                            border: '1px solid #d9d9d9', borderRadius: 3, outline: 'none'
+                                                            border: '1px solid var(--border-default)', borderRadius: 3, outline: 'none'
                                                         }}
                                                     />
                                                     <span
-                                                        style={{ fontSize: 10, color: '#1890ff', cursor: 'pointer', display: 'block', marginTop: 2, textAlign: 'right' }}
+                                                        style={{ fontSize: 10, color: 'var(--brand)', cursor: 'pointer', display: 'block', marginTop: 2, textAlign: 'right' }}
                                                         onClick={() => keepOnlyThisProductColumn(ci)}
                                                     >
                                                         仅此列
@@ -520,14 +520,14 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                 {currentPreview.rows.map((row, ri) => {
                                     const isHeader = isHeaderRow(ri);
                                     const isData = isDataRow(ri);
-                                    const bgColor = isHeader ? '#e6f7ff' : isData ? '#fff' : '#f5f5f5';
+                                    const bgColor = isHeader ? 'var(--brand-weak)' : isData ? 'var(--surface-2)' : 'var(--surface-3)';
 
                                     return (
                                         <tr key={ri}>
                                             <td style={{
-                                                padding: '3px 6px', border: '1px solid #e8e8e8',
-                                                background: isHeader ? '#1890ff' : '#fafafa',
-                                                color: isHeader ? '#fff' : '#999',
+                                                padding: '3px 6px', border: '1px solid var(--border-default)',
+                                                background: isHeader ? 'var(--brand)' : 'var(--surface-3)',
+                                                color: isHeader ? 'var(--surface-2)' : 'var(--text-3)',
                                                 fontSize: 11, textAlign: 'center', fontWeight: 500
                                             }}>
                                                 {ri + 1}
@@ -535,12 +535,12 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                             </td>
                                             {row.slice(0, colCount).map((cell, ci) => {
                                                 const role = getColumnRole(ci);
-                                                const borderLeft = role === 'name' ? '2px solid #1890ff' :
-                                                    role === 'group' ? '2px solid #52c41a' :
-                                                    role === 'product' ? '2px solid #fa8c16' : undefined;
+                                                const borderLeft = role === 'name' ? '2px solid var(--brand)' :
+                                                    role === 'group' ? '2px solid var(--success)' :
+                                                    role === 'product' ? '2px solid var(--warning)' : undefined;
                                                 return (
                                                     <td key={ci} style={{
-                                                        padding: '3px 6px', border: '1px solid #e8e8e8',
+                                                        padding: '3px 6px', border: '1px solid var(--border-default)',
                                                         background: bgColor, maxWidth: 200,
                                                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                         borderLeft, fontWeight: isHeader ? 600 : 400

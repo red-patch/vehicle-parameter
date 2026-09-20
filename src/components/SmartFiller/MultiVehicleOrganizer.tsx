@@ -188,7 +188,7 @@ const MultiVehicleOrganizer: React.FC = () => {
             render: (value: string | number | undefined) => 
                 value !== undefined 
                     ? <span className="font-mono">{String(value)}</span>
-                    : <Tag color="orange">未匹配</Tag>
+                    : <Tag color="warning">未匹配</Tag>
         }));
         
         return [...baseColumns, ...vehicleColumns];
@@ -206,10 +206,10 @@ const MultiVehicleOrganizer: React.FC = () => {
                         showUploadList={false}
                         beforeUpload={handleUpload}
                         disabled={loading}
-                        className="bg-blue-50 hover:bg-blue-100"
+                        className="bg-brand-weak hover:bg-blue-100"
                     >
                         <p className="ant-upload-drag-icon">
-                            <UploadOutlined className="text-blue-500" />
+                            <UploadOutlined className="text-brand" />
                         </p>
                         <p className="ant-upload-text">点击或拖拽文件到此区域</p>
                         <p className="ant-upload-hint">支持上传多个Excel/CSV文件，自动识别车型</p>
@@ -218,7 +218,7 @@ const MultiVehicleOrganizer: React.FC = () => {
                     {vehicleDataList.length > 0 && (
                         <div className="mt-4">
                             <div className="flex justify-between items-center mb-2">
-                                <span className="text-gray-600">已识别 {vehicleDataList.length} 个车型：</span>
+                                <span className="text-2">已识别 {vehicleDataList.length} 个车型：</span>
                                 <Button size="small" danger icon={<DeleteOutlined />} onClick={handleClear}>
                                     清空
                                 </Button>
@@ -301,7 +301,7 @@ const MultiVehicleOrganizer: React.FC = () => {
                                         }}
                                     >
                                         <Button icon={<UploadOutlined />}>选择模板文件</Button>
-                                        <span className="ml-2 text-xs text-gray-400">
+                                        <span className="ml-2 text-xs text-3">
                                             上传 Excel/CSV 模板，自动提取参数名列
                                         </span>
                                     </Upload>
@@ -310,7 +310,7 @@ const MultiVehicleOrganizer: React.FC = () => {
                         ]}
                     />
                     {targetFields && (
-                        <div className="mt-2 text-xs text-gray-500">
+                        <div className="mt-2 text-xs text-3">
                             当前已有 {targetFields.split(/[,，\n]+/).filter(s => s.trim()).length} 个目标字段
                         </div>
                     )}

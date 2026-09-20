@@ -7,6 +7,7 @@ import ProductSourceSelector from './ProductSourceSelector';
 import { isFieldRequired } from '../../assets/requiredFields';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
+import DiffLegend from '../common/DiffLegend';
 import DataTable from '../common/DataTable';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { buildVehicleDisplayLabels, getVehicleProductName } from '../../utils/vehicleInstance';
@@ -165,7 +166,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 key: 'group',
                 width: 100,
                 fixed: 'left',
-                render: (text: string) => <Tag color="blue">{text}</Tag>,
+                render: (text: string) => <Tag color="default">{text}</Tag>,
             },
             {
                 title: '参数名',
@@ -179,8 +180,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 key: 'required',
                 width: 60,
                 fixed: 'left',
-                render: (_: unknown, record: { name: string }) => 
-                    isFieldRequired(record.name) ? <Tag color="orange">是</Tag> : <span className="text-gray-400">-</span>,
+                render: (_: unknown, record: { name: string }) =>
+                    isFieldRequired(record.name) ? <Tag color="warning">是</Tag> : <span className="text-3">-</span>,
             }
         ];
 
@@ -193,11 +194,11 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 fixed: undefined,
                 render: (text: string, record: { hasDiff: boolean }) => {
                     const isRepairable = assetSourceByProduct.has(instanceKey);
-                    if (!text) return <span className="text-gray-300">-</span>;
+                    if (!text) return <span className="text-3">-</span>;
                     if (record.hasDiff) {
                         return (
                             <RepairableValue
-                                value={<span className="bg-yellow-100 px-1 rounded">{text}</span>}
+                                value={<span className="bg-warning-weak px-1 rounded">{text}</span>}
                                 repairable={isRepairable}
                                 hint="点击修复源数据"
                                 onRepair={() => triggerRepair(instanceKey, (record as unknown as { name: string }).name)}
@@ -349,13 +350,13 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             )}
             
             {/* Selection Area - Unified UI */}
-            <Card className="shadow-sm border-slate-200" size="small">
+            <Card className="surface-container border-default" size="small">
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <DiffOutlined className="text-blue-500 text-lg" />
-                            <h2 className="text-[15px] font-bold text-slate-800 m-0">选择对比车型</h2>
-                            <Tag color="blue" className="ml-2 m-0 rounded-sm">已选 {localSelection.length} 款</Tag>
+                            <DiffOutlined className="text-brand text-lg" />
+                            <h2 className="text-[15px] font-bold text-1 m-0">选择对比车型</h2>
+                            <Tag color="processing" className="ml-2 m-0 rounded-sm">已选 {localSelection.length} 款</Tag>
                         </div>
                         <Button 
                             type="primary" 
@@ -378,13 +379,13 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             </Card>
 
             {/* Results Area */}
-            <div className="flex-1 overflow-auto bg-white rounded-lg border border-gray-200">
+            <div className="flex-1 overflow-auto surface-container rounded-lg border border-default">
                 {comparisonData.length > 0 ? (
                     <div className="p-3 flex flex-col min-h-0 flex-1" ref={reportRef}>
                         {/* 统计 + 工具栏 */}
                         <div className="mb-3 flex items-center justify-between flex-wrap gap-2 shrink-0">
                             <div className="flex items-center gap-3">
-                                <span className="text-gray-500 text-sm">共 {comparisonData.length} 项</span>
+                                <span className="text-2 text-sm">共 {comparisonData.length} 项</span>
                                 <Segmented
                                     value={diffFilter}
                                     onChange={v => setDiffFilter(v as typeof diffFilter)}
@@ -396,9 +397,10 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                     ]}
                                     size="small"
                                 />
+                                <DiffLegend />
                                 <Input
                                     placeholder="搜索参数名或值..."
-                                    prefix={<SearchOutlined className="text-gray-400" />}
+                                    prefix={<SearchOutlined className="text-3" />}
                                     value={searchText}
                                     onChange={e => setSearchText(e.target.value)}
                                     allowClear
@@ -417,7 +419,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                 {pendingSelectionCount > 0 && (
                                     <Tag color="processing">同步中: {pendingSelectionCount} 款</Tag>
                                 )}
-                                <Tag color={diffFilter === 'diff' ? 'orange' : undefined}>显示: {filteredData.length} 条</Tag>
+                                <Tag>显示: {filteredData.length} 条</Tag>
                                 <Button
                                     icon={<FilePdfOutlined />}
                                     onClick={handleExportPdf}
@@ -431,14 +433,14 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                             dataSource={filteredData}
                             columns={columns}
                             rowKey="key"
-                            rowClassName={(record: { hasDiff: boolean }) => record.hasDiff ? 'bg-yellow-50' : ''}
+                            rowClassName={(record: { hasDiff: boolean }) => record.hasDiff ? 'diff-row' : ''}
                         />
                     </div>
                 ) : pendingSelectionCount > 0 ? (
                     <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-3 text-center">
                         <Spin size="large" />
-                        <div className="text-sm text-slate-600">正在同步 {pendingSelectionCount} 款车型数据...</div>
-                        <div className="text-xs text-slate-400">资产数据加载完成后会自动显示对比结果</div>
+                        <div className="text-sm text-2">正在同步 {pendingSelectionCount} 款车型数据...</div>
+                        <div className="text-xs text-3">资产数据加载完成后会自动显示对比结果</div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-center h-full min-h-[220px]">

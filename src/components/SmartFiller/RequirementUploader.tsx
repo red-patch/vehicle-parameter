@@ -193,8 +193,8 @@ const RequirementUploader: React.FC = () => {
 
     if (requirementFile) {
         return (
-            <div className="flex flex-col items-center justify-center py-6 bg-blue-50 rounded border border-blue-200 mb-6">
-                <FileExcelOutlined className="text-4xl text-blue-600 mb-2" />
+            <div className="flex flex-col items-center justify-center py-6 bg-brand-weak rounded border border-line mb-6">
+                <FileExcelOutlined className="text-4xl text-brand mb-2" />
                 <Text strong>{requirementFile.fileName}</Text>
                 <Text type="secondary">{requirementFile.data.length} 个需求字段</Text>
                 <Button
@@ -218,10 +218,10 @@ const RequirementUploader: React.FC = () => {
             showUploadList={false}
             beforeUpload={handleUpload}
             disabled={loading}
-            className="bg-gray-50 hover:bg-gray-100 transition-colors"
+            className="bg-surface-3 hover:bg-surface-3 transition-colors"
         >
             <p className="ant-upload-drag-icon">
-                <UploadOutlined className="text-blue-500" />
+                <UploadOutlined className="text-brand" />
             </p>
             <p className="ant-upload-text">点击或拖拽招标文件到此区域</p>
             <p className="ant-upload-hint">将自动提取"参数名"列并与参数库进行模糊匹配</p>
@@ -253,7 +253,7 @@ const RequirementUploader: React.FC = () => {
             className="bg-green-50 hover:bg-green-100 transition-colors"
         >
             <p className="ant-upload-drag-icon">
-                <HistoryOutlined className="text-green-500" />
+                <HistoryOutlined className="text-success" />
             </p>
             <p className="ant-upload-text">导入历史填报文件</p>
             <p className="ant-upload-hint">上传之前导出的CSV文件，恢复编辑状态继续修改</p>
@@ -264,7 +264,7 @@ const RequirementUploader: React.FC = () => {
         <Spin spinning={loading} tip="正在解析并匹配...">
             <Card title="上传招标文件 (Requirement Upload)" className="mb-6">
                 <div className="mb-4">
-                    <p className="mb-2 text-gray-600">选择要匹配的基准车型配置 (可选):</p>
+                    <p className="mb-2 text-2">选择要匹配的基准车型配置 (可选):</p>
                     <Select
                         style={{ width: '100%' }}
                         placeholder="不选择则匹配所有车型"

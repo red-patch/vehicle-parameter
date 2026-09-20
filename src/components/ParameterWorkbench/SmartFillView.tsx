@@ -159,8 +159,8 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                         <div className="flex-[2]">
                             <div className="mb-2 font-medium flex items-center gap-3">
                                 2. 输入需求参数列表 (每行一个)
-                                <a 
-                                    className="text-xs font-normal text-blue-500" 
+                                <a
+                                    className="text-xs font-normal text-brand"
                                     onClick={() => setRequirementsText("整备质量\n最高车速\n轴距\n外形尺寸长\n外形尺寸宽\n外形尺寸高\n轮胎规格\n发动机型号")}
                                 >
                                     填入示例
@@ -196,7 +196,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                                         return false;
                                     }}
                                 >
-                                    <a className="text-xs font-normal text-blue-500"><UploadOutlined /> 从文件导入</a>
+                                    <a className="text-xs font-normal text-brand"><UploadOutlined /> 从文件导入</a>
                                 </Upload>
                             </div>
                             <TextArea 

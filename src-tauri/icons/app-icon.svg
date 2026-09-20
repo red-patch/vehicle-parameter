@@ -1,0 +1,90 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4C5CF0"/>
+      <stop offset="0.5" stop-color="#2E38CC"/>
+      <stop offset="1" stop-color="#191F85"/>
+    </linearGradient>
+    <radialGradient id="bloom" cx="0.5" cy="0.5" r="0.58">
+      <stop offset="0" stop-color="#AFC0FF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#AFC0FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vignette" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.62" stop-color="#060A38" stop-opacity="0"/>
+      <stop offset="1" stop-color="#060A38" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C9D8FF"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8FF5FF"/>
+      <stop offset="1" stop-color="#26B4F2"/>
+    </linearGradient>
+
+    <clipPath id="carClip">
+      <path d="M 296 482
+               L 368 400 Q 379 384 400 384
+               L 624 384 Q 645 384 656 400
+               L 728 482
+               L 824 482 Q 854 482 854 512
+               L 854 552
+               L 804 602
+               L 220 602
+               L 170 552
+               L 170 512 Q 170 482 200 482
+               Z"/>
+    </clipPath>
+
+    <mask id="rows" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <rect x="150" y="418" width="724" height="12" fill="#000"/>
+      <rect x="150" y="464" width="724" height="12" fill="#000"/>
+      <rect x="150" y="510" width="724" height="12" fill="#000"/>
+      <rect x="150" y="556" width="724" height="12" fill="#000"/>
+    </mask>
+
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <clipPath id="squircleClip">
+      <rect x="96" y="96" width="832" height="832" rx="186"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#squircleClip)">
+    <rect x="96" y="96" width="832" height="832" fill="url(#bg)"/>
+    <rect x="96" y="96" width="832" height="832" fill="url(#bloom)"/>
+    <rect x="96" y="96" width="832" height="832" fill="url(#vignette)"/>
+
+    <ellipse cx="512" cy="678" rx="305" ry="27" fill="#04082E" opacity="0.5" filter="url(#soft)"/>
+
+    <g mask="url(#rows)">
+      <path d="M 296 482
+               L 368 400 Q 379 384 400 384
+               L 624 384 Q 645 384 656 400
+               L 728 482
+               L 824 482 Q 854 482 854 512
+               L 854 552
+               L 804 602
+               L 220 602
+               L 170 552
+               L 170 512 Q 170 482 200 482
+               Z" fill="url(#body)"/>
+      <g clip-path="url(#carClip)">
+        <rect x="160" y="506" width="704" height="64" fill="#3ECBFF" opacity="0.6" filter="url(#glow)"/>
+        <rect x="160" y="522" width="704" height="34" fill="url(#accent)"/>
+      </g>
+    </g>
+
+    <circle cx="352" cy="602" r="54" fill="#0B1046"/>
+    <circle cx="352" cy="602" r="9" fill="#C6D3FF"/>
+    <circle cx="672" cy="602" r="54" fill="#0B1046"/>
+    <circle cx="672" cy="602" r="9" fill="#C6D3FF"/>
+  </g>
+
+  <rect x="97.5" y="97.5" width="829" height="829" rx="184.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="3"/>
+</svg>

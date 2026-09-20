@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="d66ve4CazuMya0EWMhopHE">
+<head data-page-node-id="dfceKGxU1qY7JY9UVJQgFj">
+<meta charset="UTF-8" data-page-node-id="dBuQDJQe0uS7DmfcVa27Og">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="t4WyhN1aDLVSLGMCW95Pwg">
+<title>曜蓝 Obsidian Blue · 视觉设计系统 v4.0 — DST 车型参数管理工具</title>
+<style>
+/* ============================================================
+   曜蓝 Obsidian Blue — 提案页自举样式（即新方案 token 本身）
+   ============================================================ */
+:root {
+  /* 主色 · 曜蓝 */
+  --brand-50:#EFF3FE; --brand-100:#E2E8FD; --brand-200:#C7D1FB; --brand-300:#A0AFF8;
+  --brand-400:#7386F1; --brand-500:#4D64E9; --brand-600:#2F44D8; --brand-700:#2738B4;
+  --brand-800:#23308F; --brand-900:#1F2A71; --brand-950:#131833;
+  /* 岩灰中性 */
+  --gray-50:#F7F8FA; --gray-100:#F1F3F6; --gray-200:#E4E7EC; --gray-300:#CCD1D9;
+  --gray-400:#9AA1AF; --gray-500:#6B7280; --gray-600:#4B5261; --gray-700:#3A4150;
+  --gray-800:#262B38; --gray-900:#1A1D26; --gray-950:#101218;
+  /* 语义 */
+  --green-50:#E9F7F0; --green-500:#0C9A68; --green-600:#0A7A52; --green-700:#086144;
+  --amber-50:#FEF4E2; --amber-500:#E8930C; --amber-600:#B96F07; --amber-700:#9A5806;
+  --red-50:#FDECEC; --red-500:#E5484D; --red-600:#C92A2A; --red-700:#A32222;
+  --cyan-50:#E4F4F7; --cyan-600:#0E7C8C; --cyan-700:#0B6370;
+  --purple-50:#F0EBFB; --purple-600:#7048C8;
+  /* 表面 · 岩灰三层 + 抬升层（明色：越内层越深） */
+  --surface-1:#F7F8FA; --surface-2:#FFFFFF; --surface-3:#F1F3F6; --surface-elevated:#FFFFFF;
+  --border:#E4E7EC; --border-default:#E4E7EC; --border-strong:#CCD1D9;
+  --border-control:#CCD1D9; --border-popover:#E4E7EC;
+  --text-1:#1A1D26; --text-2:#454C5C; --text-3:#8A91A0; --text-4:#C3C8D2; --text-on-brand:#FFFFFF;
+  --topbar-bg:rgba(255,255,255,.88);
+  /* 主色语义别名：文字/描边 → --brand，实色填充 → --brand-fill
+     （暗色下这两者必须拆开取值，见 .dark） */
+  --brand:#2F44D8; --brand-weak:rgba(47,68,216,.08); --brand-strong:#2738B4;
+  --brand-ring:#7386F1; --brand-fill:#2F44D8; --brand-fill-hover:#2738B4;
+  --brand-border:#C7D1FB; --brand-glow:rgba(77,100,233,.10);
+  /* 语义 · 文字层 */
+  --success-text:#0A7A52; --warning-text:#9A5806; --danger-text:#C92A2A; --info-text:#0E7C8C;
+  --success-weak:rgba(12,154,104,.10); --danger-weak:rgba(229,72,77,.08);
+  --warning-weak:rgba(232,147,12,.12); --info-weak:rgba(14,124,140,.10);
+  /* 业务 token · 差异四态 */
+  --diff-added-bg:#E9F7F0; --diff-added-chip-bg:#D4EEE2; --diff-added-bar:#0C9A68; --diff-added-text:#0A7A52;
+  --diff-removed-bg:#FDECEC; --diff-removed-chip-bg:#F9D7D8; --diff-removed-bar:#E5484D; --diff-removed-text:#A32222;
+  --diff-modified-bg:#FEF4E2; --diff-modified-chip-bg:#FAE6C4; --diff-modified-bar:#E8930C; --diff-modified-text:#9A5806;
+  /* 业务 token · 置信度 / 必填 / 来源 */
+  --conf-high:#0C9A68; --conf-mid:#E8930C; --conf-low:#E5484D;
+  --req-missing-bg:#FDECEC; --req-missing-border:#E5484D; --req-missing-text:#C92A2A;
+  --src-announcement-bg:#E4F4F7; --src-announcement-text:#0E7C8C;
+  --src-asset-bg:#F0EBFB; --src-asset-text:#7048C8;
+  --src-excel-bg:#F1F3F6; --src-excel-text:#4B5261;
+  /* 功能件 */
+  --mask:rgba(16,18,24,.45); --shadow-popover:0 4px 16px rgba(16,18,24,.10),0 1px 3px rgba(16,18,24,.06);
+  --skeleton-base:#EDEFF3; --skeleton-shine:#FFFFFF;
+  --scrollbar-thumb:#CCD1D9; --scrollbar-hover:#8A91A0; --selection-bg:rgba(47,68,216,.14);
+  --code-inline-bg:#F1F3F6; --code-inline-text:#4B5261;
+  --code-bg:#1A1D26; --code-text:#D6DBE5; --code-comment:#8A93A5; --code-keyword:#8DA1F7; --code-string:#7FD8A4;
+  --toast-bg:#1A1D26; --toast-text:#F5F7FB; --swatch-border:rgba(0,0,0,.08);
+  --table-header-bg:#F1F3F6; --table-row-hover:#F1F3F6; --table-stripe:#FAFBFC;
+  --chart-1:#2F44D8; --chart-2:#0C9A68; --chart-3:#C87A08; --chart-4:#E5484D; --chart-5:#0E7C8C; --chart-6:#7048C8;
+}
+
+/* ============================================================
+   暗色作用域 —— 与 tokens.css 的 .dark 块逐条对应。
+   两个选择器共用一份值：
+     :root.dark    整页切换（顶栏主题开关）
+     .dark-scope   局部面板（本章节内的"暗色实渲"演示区）
+   ============================================================ */
+:root.dark, .dark-scope {
+  /* 表面：与浅色方向相反 —— 越上层越亮 */
+  --surface-1:#0E1116; --surface-2:#161B23; --surface-3:#202734; --surface-elevated:#202734;
+  --border:#2C3442; --border-default:#2C3442; --border-strong:#3A4354;
+  --border-control:#5B6684; --border-popover:#333C4D;
+  --text-1:#E6E9EF; --text-2:#AAB2C0; --text-3:#8A93A5; --text-4:#5E6675; --text-on-brand:#FFFFFF;
+  --topbar-bg:rgba(22,27,35,.86);
+  /* 主色：文字抬阶 / 填充单开一名 */
+  --brand:#8DA1F7; --brand-weak:rgba(141,161,247,.14); --brand-strong:#A8B7F9;
+  --brand-ring:#A0AFF8; --brand-fill:#4D64E9; --brand-fill-hover:#5569EB;
+  --brand-border:rgba(141,161,247,.30); --brand-glow:rgba(141,161,247,.12);
+  --success-text:#5BD0A2; --warning-text:#F5BC66; --danger-text:#F58A8D; --info-text:#63BECB;
+  --success-weak:rgba(61,189,138,.14); --danger-weak:rgba(240,106,110,.12);
+  --warning-weak:rgba(240,168,60,.14); --info-weak:rgba(63,168,184,.14);
+  /* 业务 token：底部用 alpha 叠加，随所在层自动适配 */
+  --diff-added-bg:rgba(61,189,138,.12); --diff-added-chip-bg:rgba(61,189,138,.22); --diff-added-bar:#3DBD8A; --diff-added-text:#5BD0A2;
+  --diff-removed-bg:rgba(240,106,110,.12); --diff-removed-chip-bg:rgba(240,106,110,.22); --diff-removed-bar:#F06A6E; --diff-removed-text:#F58A8D;
+  --diff-modified-bg:rgba(240,168,60,.12); --diff-modified-chip-bg:rgba(240,168,60,.22); --diff-modified-bar:#F0A83C; --diff-modified-text:#F5BC66;
+  --conf-high:#3DBD8A; --conf-mid:#F0A83C; --conf-low:#F06A6E;
+  --req-missing-bg:rgba(240,106,110,.10); --req-missing-border:#F06A6E; --req-missing-text:#F58A8D;
+  --src-announcement-bg:rgba(63,168,184,.14); --src-announcement-text:#63BECB;
+  --src-asset-bg:rgba(150,120,220,.14); --src-asset-text:#B79CED;
+  --src-excel-bg:#202734; --src-excel-text:#B9C1CE;
+  --mask:rgba(0,0,0,.62); --shadow-popover:0 6px 20px rgba(0,0,0,.55);
+  --skeleton-base:#1D2530; --skeleton-shine:#39434F;
+  --scrollbar-thumb:#3F4959; --scrollbar-hover:#5B6684; --selection-bg:rgba(141,161,247,.26);
+  --code-inline-bg:#202734; --code-inline-text:#B9C1CE;
+  --code-bg:#10151C; --code-text:#D6DBE5; --code-comment:#7C8698; --code-keyword:#8DA1F7; --code-string:#7FD8A4;
+  --toast-bg:#2C3442; --toast-text:#F2F4F8; --swatch-border:rgba(255,255,255,.10);
+  --table-header-bg:#202734; --table-row-hover:#202734; --table-stripe:#191F28;
+  --chart-1:#8DA1F7; --chart-2:#3DBD8A; --chart-3:#F0A83C; --chart-4:#F06A6E; --chart-5:#63BECB; --chart-6:#B79CED;
+}
+
+/* 浅色标本作用域：把浅色 token 钉住。
+   用于"浅色语义色标本"这类区块 —— 整页切暗色时它们仍需展示浅色原值，
+   否则卡片里的色块与旁注的十六进制会对不上。 */
+.light-scope {
+  --surface-1:#F7F8FA; --surface-2:#FFFFFF; --surface-3:#F1F3F6; --surface-elevated:#FFFFFF;
+  --border:#E4E7EC; --border-default:#E4E7EC; --border-strong:#CCD1D9; --border-control:#CCD1D9;
+  --text-1:#1A1D26; --text-2:#454C5C; --text-3:#8A91A0; --text-4:#C3C8D2;
+  --code-inline-bg:#F1F3F6; --code-inline-text:#4B5261;
+}
+
+/* ---- 暗色作用域内的局部补丁 ----
+   以下几条的底色是"相对标题栏/说明面板"的绝对色，无法靠变量翻转，
+   故在暗色作用域里单独给出对应值。 */
+:root.dark .sw .l, .dark-scope .sw .l { background:var(--surface-2); }
+:root.dark .trio .cell code, .dark-scope .trio .cell code { color:var(--text-3); }
+/* 浅色 palette 色卡是"绝对色标本"，暗色下同样展示原色（不翻转） */
+:root.dark .sw .c, .dark-scope .sw .c { filter:none; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+  background:var(--surface-1); color:var(--text-1);
+  font-size:14px; line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+.num, code, .mono { font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+code { font-family:"SF Mono",Menlo,Consolas,monospace; font-size:12.5px; background:var(--code-inline-bg); padding:1px 6px; border-radius:4px; color:var(--code-inline-text); }
+.wrap { max-width:1080px; margin:0 auto; padding:0 32px; }
+
+/* ---- 顶部导航 ---- */
+.topbar { position:sticky; top:0; z-index:50; background:var(--topbar-bg); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+.topbar-inner { max-width:1080px; margin:0 auto; padding:0 32px; height:56px; display:flex; align-items:center; gap:24px; }
+.topbar .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:14px; flex-shrink:0; }
+.logo-mark { width:22px; height:22px; border-radius:6px; background:linear-gradient(135deg,var(--brand-500),var(--brand-700)); position:relative; }
+.logo-mark::after { content:""; position:absolute; inset:5px; border-radius:3px; border:1.5px solid rgba(255,255,255,.9); border-top-color:transparent; border-left-color:transparent; transform:rotate(45deg); }
+.topbar nav { display:flex; gap:2px; margin-left:auto; }
+.topbar nav a { font-size:12.5px; color:var(--text-2); text-decoration:none; padding:5px 10px; border-radius:6px; }
+.topbar nav a:hover { background:var(--surface-3); color:var(--text-1); }
+@media (max-width:1180px){
+  .topbar nav a { padding:4px 7px; font-size:12px; }
+  .topbar-inner { gap:14px; }
+}
+/* 主题开关：把整页切到暗色 —— 本页即暗色方案的第一份实渲验收单 */
+.theme-toggle { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500;
+  color:var(--text-2); background:var(--surface-2); border:1px solid var(--border-control);
+  border-radius:999px; padding:5px 12px; cursor:pointer; font-family:inherit; }
+.theme-toggle:hover { color:var(--text-1); border-color:var(--brand); }
+.theme-toggle .sw { width:11px; height:11px; border-radius:50%; background:var(--surface-2); border:1px solid var(--border-control); }
+.theme-toggle .sw::after { content:""; display:block; width:5px; height:5px; margin:2px; border-radius:50%; background:var(--text-3); }
+:root.dark .theme-toggle .sw { background:var(--brand); border-color:transparent; }
+:root.dark .theme-toggle .sw::after { background:var(--surface-1); }
+
+/* ---- Hero ---- */
+.hero { padding:88px 0 64px; position:relative; overflow:hidden; }
+.hero::before { content:""; position:absolute; top:-160px; right:-120px; width:520px; height:520px; border-radius:50%;
+  background:radial-gradient(circle, var(--brand-glow), transparent 65%); }
+.hero-tag { display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:var(--brand);
+  background:var(--brand-weak); border:1px solid var(--brand-border); padding:4px 12px; border-radius:999px; margin-bottom:20px; }
+.hero-tag i { width:6px; height:6px; border-radius:50%; background:var(--brand); }
+.hero h1 { font-size:42px; font-weight:800; letter-spacing:-.02em; line-height:1.2; margin-bottom:16px; }
+.hero h1 em { font-style:normal; color:var(--brand); }
+.hero p.sub { font-size:17px; color:var(--text-2); max-width:640px; margin-bottom:28px; }
+.hero-meta { display:flex; gap:32px; flex-wrap:wrap; }
+.hero-meta .m { font-size:12.5px; color:var(--text-3); }
+.hero-meta .m b { display:block; font-size:14px; color:var(--text-1); font-weight:600; }
+
+/* ---- 章节骨架 ---- */
+section { padding:56px 0; border-top:1px solid var(--border); }
+.sec-head { display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+.sec-num { font-size:13px; font-weight:700; color:var(--brand); font-variant-numeric:tabular-nums; }
+.sec-head h2 { font-size:24px; font-weight:700; letter-spacing:-.01em; }
+.sec-desc { color:var(--text-2); max-width:720px; margin-bottom:32px; }
+h3.block-title { font-size:14px; font-weight:700; margin:28px 0 12px; display:flex; align-items:center; gap:8px; }
+h3.block-title::before { content:""; width:3px; height:14px; border-radius:2px; background:var(--brand); }
+
+/* ---- 卡片 ---- */
+.card { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:20px 24px; }
+.grid { display:grid; gap:16px; }
+.grid-2 { grid-template-columns:1fr 1fr; }
+.grid-3 { grid-template-columns:repeat(3,1fr); }
+.grid-4 { grid-template-columns:repeat(4,1fr); }
+@media (max-width:860px){ .grid-3,.grid-4{grid-template-columns:1fr 1fr;} .grid-2{grid-template-columns:1fr;} }
+
+/* ---- 洞察卡 ---- */
+.insight .k { font-size:32px; font-weight:800; color:var(--brand); letter-spacing:-.02em; }
+.insight .t { font-weight:600; margin:2px 0 4px; }
+.insight .d { font-size:12.5px; color:var(--text-3); line-height:1.6; }
+.problem-list { list-style:none; }
+.problem-list li { display:flex; gap:12px; padding:10px 0; border-bottom:1px dashed var(--border); font-size:13px; color:var(--text-2); }
+.problem-list li:last-child { border-bottom:none; }
+.problem-list .badge { flex-shrink:0; width:20px; height:20px; border-radius:6px; background:var(--danger-weak); color:var(--danger-text); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+.goal { display:flex; gap:14px; align-items:flex-start; }
+.goal .ic { flex-shrink:0; width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; }
+.goal b { display:block; font-size:14px; }
+.goal span { font-size:12.5px; color:var(--text-3); }
+
+/* ---- 色板 ---- */
+.swatches { display:grid; grid-template-columns:repeat(11,1fr); gap:6px; }
+.sw { border-radius:8px; overflow:hidden; cursor:pointer; border:1px solid var(--border); transition:transform .12s ease; position:relative; }
+.sw:hover { transform:translateY(-2px); }
+.sw .c { height:52px; }
+.sw .l { padding:5px 7px; font-size:10px; color:var(--text-3); background:var(--surface-2); line-height:1.35; }
+.sw .l b { display:block; font-size:10.5px; color:var(--text-2); font-weight:600; }
+.sw.hero-sw .c { height:88px; }
+.swatch-note { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-3); margin-top:8px; }
+.contrast-pill { display:inline-flex; gap:6px; }
+.contrast-pill span { font-size:11px; padding:2px 8px; border-radius:999px; background:var(--success-weak); color:var(--success-text); font-weight:600; }
+.contrast-pill span.fail { background:var(--danger-weak); color:var(--danger-text); }
+.trio { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.trio .cell { border-radius:8px; padding:12px; font-size:12px; border:1px solid var(--border); }
+.trio .cell.bg-container { background:var(--surface-2); }   /* 语义色对比演示底：随主题翻转 */
+.trio .cell b { display:block; font-size:12.5px; margin-bottom:2px; }
+.trio .cell .hex { color:var(--text-3); font-size:11px; font-family:Menlo,monospace; }
+
+/* ---- 暗色表面条 ---- */
+.dark-strip { background:#0E1116; border-radius:12px; padding:20px; display:flex; gap:10px; flex-wrap:wrap; }
+.dark-strip .dc { flex:1; min-width:90px; height:64px; border-radius:8px; border:1px solid #2C3442; position:relative; }
+.dark-strip .dc span { position:absolute; bottom:6px; left:8px; font-size:10px; color:#8A93A5; font-family:Menlo,monospace; }
+
+/* ---- 业务状态演示 ---- */
+.demo-table { width:100%; border-collapse:collapse; font-size:13px; background:var(--surface-2); border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+.demo-table th { text-align:left; font-size:12px; font-weight:600; color:var(--text-3); padding:9px 14px; background:var(--surface-3); border-bottom:1px solid var(--border); }
+.demo-table td { padding:9px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.demo-table tr:last-child td { border-bottom:none; }
+.row-state { border-left:3px solid transparent; }
+.row-state.added { border-left-color:var(--diff-added-bar); background:var(--diff-added-bg); }
+.row-state.removed { border-left-color:var(--diff-removed-bar); background:var(--diff-removed-bg); }
+.row-state.modified { border-left-color:var(--diff-modified-bar); background:var(--diff-modified-bg); }
+.state-tag { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; padding:2px 8px; border-radius:5px; }
+.state-tag.added { background:var(--diff-added-chip-bg); color:var(--diff-added-text); }
+.state-tag.removed { background:var(--diff-removed-chip-bg); color:var(--diff-removed-text); }
+.state-tag.modified { background:var(--diff-modified-chip-bg); color:var(--diff-modified-text); }
+.state-tag.same { background:var(--surface-3); color:var(--text-3); }
+.old-val { text-decoration:line-through; color:var(--text-3); margin-right:6px; }
+.new-val { color:var(--diff-modified-text); font-weight:600; }
+.conf { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-variant-numeric:tabular-nums; }
+.conf i { width:8px; height:8px; border-radius:50%; }
+.conf.hi i { background:var(--conf-high); } .conf.hi { color:var(--success-text); font-weight:600; }
+.conf.mid i { background:var(--conf-mid); } .conf.mid { color:var(--warning-text); }
+.conf.lo i { background:var(--conf-low); } .conf.lo { color:var(--danger-text); font-weight:600; }
+.req-missing { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:var(--req-missing-text); border:1px dashed var(--req-missing-border); border-radius:5px; padding:1px 7px; background:var(--req-missing-bg); }
+.src-tag { display:inline-flex; align-items:center; gap:4px; font-size:11.5px; padding:2px 8px; border-radius:5px; font-weight:500; }
+.src-tag.gg { background:var(--src-announcement-bg); color:var(--src-announcement-text); }
+.src-tag.zc { background:var(--src-asset-bg); color:var(--src-asset-text); }
+.src-tag.xl { background:var(--src-excel-bg); color:var(--src-excel-text); }
+
+/* ---- 组件演示 ---- */
+.btn { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:500; border-radius:7px; padding:7px 16px; border:1px solid transparent; cursor:default; }
+.btn-primary { background:var(--brand-fill); color:var(--text-on-brand); }
+.btn-primary:hover { background:var(--brand-fill-hover); }
+.btn-secondary { background:var(--surface-2); border-color:var(--border-control); color:var(--text-1); }
+.btn-secondary:hover { border-color:var(--brand-ring); color:var(--brand); }
+.btn-danger { background:var(--surface-2); border-color:var(--border-control); color:var(--danger-text); }
+.btn-ghost { color:var(--brand); }
+.btn-ghost:hover { background:var(--brand-weak); }
+.btn-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.stat-card { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+.stat-card .label { font-size:12px; color:var(--text-3); margin-bottom:4px; }
+.stat-card .value { font-size:26px; font-weight:700; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+.stat-card .delta { font-size:12px; margin-top:2px; }
+.focus-demo { display:inline-block; padding:7px 14px; border:1px solid var(--border-control); border-radius:7px; font-size:13px; color:var(--text-3); outline:2px solid var(--brand-ring); outline-offset:2px; background:var(--surface-2); }
+.steps-demo { display:flex; align-items:center; gap:0; }
+.step-i { display:flex; align-items:center; gap:8px; font-size:12.5px; }
+.step-i .dot { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.step-i.done .dot { background:var(--brand-fill); color:var(--text-on-brand); }
+.step-i.done { color:var(--text-1); font-weight:600; }
+.step-i.now .dot { border:2px solid var(--brand); color:var(--brand); }
+.step-i.todo .dot { border:1.5px solid var(--border-control); color:var(--text-3); }
+.step-i.todo { color:var(--text-3); }
+.step-line { flex:1; height:1px; background:var(--border-strong); margin:0 10px; min-width:24px; }
+
+/* ---- 规范卡 ---- */
+.spec-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.spec { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+.spec .h { font-size:13px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.spec .h i { width:8px; height:8px; border-radius:2px; background:var(--brand); }
+.spec ul { list-style:none; font-size:12.5px; color:var(--text-2); }
+.spec li { padding:3px 0 3px 16px; position:relative; }
+.spec li::before { content:"·"; position:absolute; left:4px; color:var(--text-3); }
+.spec code { font-size:11.5px; }
+
+/* ---- 新旧对比 ---- */
+.compare { display:grid; grid-template-columns:1fr 60px 1fr; gap:0; align-items:stretch; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.compare .side { padding:16px 20px; background:var(--surface-2); }
+.compare .side.old { color:var(--text-2); }
+.compare .arrow { display:flex; align-items:center; justify-content:center; background:var(--surface-3); color:var(--brand); font-size:18px; }
+.compare .swatch-inline { display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:8px; border:1px solid var(--swatch-border); }
+.compare .row { padding:7px 0; font-size:13px; display:flex; justify-content:space-between; align-items:center; }
+.compare .row .why { font-size:11.5px; color:var(--text-3); }
+
+/* ---- 代码块 ---- */
+.codeblock { background:var(--code-bg); color:var(--code-text); border-radius:10px; padding:18px 20px; font-family:"SF Mono",Menlo,Consolas,monospace; font-size:12.5px; line-height:1.7; overflow-x:auto; }
+.codeblock .cm { color:var(--code-comment); }
+.codeblock .kw { color:var(--code-keyword); }
+.codeblock .st { color:var(--code-string); }
+
+/* ---- 字体排印 ---- */
+.mono-stack { font-family:"SF Mono",ui-monospace,Menlo,Consolas,"Liberation Mono",monospace; }
+.type-scale .trow { display:flex; align-items:baseline; gap:16px; padding:10px 0; border-bottom:1px dashed var(--border); }
+.type-scale .trow:last-child { border-bottom:none; }
+.type-scale .px { width:96px; flex-shrink:0; font-family:"SF Mono",Menlo,monospace; font-size:11px; color:var(--text-3); }
+.type-scale .use { margin-left:auto; flex-shrink:0; font-size:12px; color:var(--text-3); }
+.type-scale .sample { color:var(--text-1); white-space:nowrap; }
+
+/* ---- 落地步骤 ---- */
+.mig { counter-reset:step; }
+.mig .mig-step { display:flex; gap:16px; padding:16px 0; border-bottom:1px dashed var(--border); }
+.mig .mig-step:last-child { border-bottom:none; }
+.mig .n { counter-increment:step; flex-shrink:0; width:28px; height:28px; border-radius:8px; background:var(--brand-fill); color:var(--text-on-brand); font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.mig .n::before { content:counter(step); }
+.mig b { font-size:14px; }
+.mig p { font-size:12.5px; color:var(--text-2); margin-top:2px; }
+
+footer { padding:40px 0 56px; color:var(--text-3); font-size:12.5px; border-top:1px solid var(--border); }
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--toast-bg); color:var(--toast-text); font-size:12.5px; padding:8px 16px; border-radius:8px; opacity:0; transition:all .2s ease; pointer-events:none; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ============================================================
+   06 暗色模式章节专用件
+   ============================================================ */
+/* 暗色实渲面板：包一层即进入暗色 token 作用域 */
+.dk-panel { background:var(--surface-1); border:1px solid var(--border-default); border-radius:12px; padding:20px; color:var(--text-1); }
+.dk-panel .dk-cap { font-size:11.5px; color:var(--text-3); margin-top:10px; line-height:1.6; }
+.dk-panel h4 { font-size:12.5px; font-weight:700; color:var(--text-2); margin-bottom:10px; }
+
+/* 表面栈对照 */
+.stack { display:grid; gap:6px; }
+.stack .row { display:flex; align-items:center; gap:12px; }
+.stack .chip { width:56px; height:40px; border-radius:7px; border:1px solid var(--border-default); flex-shrink:0; }
+.stack .meta { font-size:11.5px; line-height:1.5; }
+.stack .meta b { display:block; font-size:12px; color:var(--text-1); font-weight:600; }
+.stack .meta span { color:var(--text-3); font-family:Menlo,monospace; font-size:11px; }
+
+/* 验证表 */
+.vtable { width:100%; border-collapse:collapse; font-size:12.5px; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.vtable th { text-align:left; font-size:11.5px; font-weight:600; color:var(--text-3); padding:8px 12px; background:var(--surface-3); border-bottom:1px solid var(--border); white-space:nowrap; }
+.vtable td { padding:8px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.vtable tr:last-child td { border-bottom:none; }
+.vtable .hex { font-family:Menlo,monospace; font-size:11.5px; color:var(--text-2); }
+.vtable .role { font-weight:600; color:var(--text-1); }
+.vtable .act { font-size:11.5px; color:var(--text-3); }
+.pill { display:inline-block; font-size:11px; font-weight:600; padding:1px 7px; border-radius:5px; white-space:nowrap; }
+.pill-ok { background:var(--success-weak); color:var(--success-text); }
+.pill-warn { background:var(--warning-weak); color:var(--warning-text); }
+.pill-bad { background:var(--danger-weak); color:var(--danger-text); }
+.pill-new { background:var(--brand-weak); color:var(--brand); }
+
+/* 禁忌双列 */
+.dont-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:860px){ .dont-grid{grid-template-columns:1fr;} }
+.dont-item { border:1px solid var(--border); border-radius:10px; padding:14px 16px; font-size:12.5px; background:var(--surface-2); }
+.dont-item .h { font-size:12.5px; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:7px; }
+.dont-item .h em { font-style:normal; width:18px; height:18px; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; }
+.dont-item.no .h em { background:var(--danger-weak); color:var(--danger-text); }
+.dont-item.yes .h em { background:var(--success-weak); color:var(--success-text); }
+.dont-item ul { list-style:none; }
+.dont-item li { padding:3px 0 3px 14px; position:relative; color:var(--text-2); line-height:1.6; }
+.dont-item li::before { content:"·"; position:absolute; left:4px; color:var(--text-3); }
+
+/* 骨架屏 */
+.skel { height:11px; border-radius:4px; background:var(--skeleton-base); position:relative; overflow:hidden; }
+.skel::after { content:""; position:absolute; inset:0; transform:translateX(-100%);
+  background:linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+  animation:shimmer 1.4s ease-out infinite; }
+@keyframes shimmer { to { transform:translateX(100%); } }
+@media (prefers-reduced-motion: reduce){ .skel::after{ animation:none; } }
+
+/* 弹层 + 遮罩演示 */
+.modal-demo { position:relative; border-radius:12px; overflow:hidden; padding:26px; background:var(--surface-1); border:1px solid var(--border-default); }
+.modal-demo .mock-bg { display:grid; gap:8px; }
+.modal-demo .mock-line { height:10px; border-radius:4px; background:var(--surface-3); }
+.modal-demo .mask-layer { position:absolute; inset:0; background:var(--mask); }
+.modal-demo .popover-demo { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:250px;
+  background:var(--surface-elevated); border:1px solid var(--border-popover); box-shadow:var(--shadow-popover);
+  border-radius:9px; padding:14px 16px; }
+.modal-demo .popover-demo .t { font-size:12.5px; font-weight:700; margin-bottom:4px; }
+.modal-demo .popover-demo .d { font-size:11.5px; color:var(--text-3); line-height:1.6; margin-bottom:10px; }
+
+/* 图表序列 */
+.chart-legend { display:flex; flex-wrap:wrap; gap:8px; }
+.chart-chip { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; padding:3px 9px; border-radius:6px;
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); }
+.chart-chip i { width:14px; height:3px; border-radius:2px; flex-shrink:0; }
+.chart-chip i.dash { background-image:repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); }
+</style>
+</head>
+<body data-page-node-id="Ghlk9mhdEMpsMaD6kPx60I">
+
+<div class="topbar" data-page-node-id="Ff6OBzm9mAZnCkC1raO0Fz">
+  <div class="topbar-inner" data-page-node-id="gWIgYzijuYElL7WpScYrHv">
+    <div class="logo" data-page-node-id="ty3QWexJA7NVKYObDFe56l"><span class="logo-mark" data-page-node-id="wZ4E0WbeGDnCQPvSKwvsDC"></span>曜蓝 Obsidian Blue <span style="color:var(--text-3);font-weight:400" data-page-node-id="vYARsFbLBGgqOvL2dtauhE">v4.0</span></div>
+    <nav data-page-node-id="XmHZBFqKEx5ol4Bj5Oyom2">
+      <a href="#insight" data-page-node-id="U2lVyyNxzUTuFEzobQ8rWP">设计洞察</a><a href="#brand" data-page-node-id="kfLT31AGwJJYzvZGStvhmP">主色</a><a href="#neutral" data-page-node-id="RnKrBkz3Ds1ERSHnK66xXV">中性色</a><a href="#type" data-page-node-id="0LcfANWrrPImZ7a3qF7mxU">字体</a>
+      <a href="#semantic" data-page-node-id="k4ENp8T4uuk7Xf1QScZqGc">语义色</a><a href="#dark" data-page-node-id="darkNavLink">暗色模式</a><a href="#business" data-page-node-id="fIqRfyC3QhABrVD6jOddz6">业务状态</a><a href="#components" data-page-node-id="lgraevWClv3B0Vo7rUE8Su">组件</a>
+      <a href="#interaction" data-page-node-id="EAWAdEhUvYMmi8dw6o8e0h">交互规范</a><a href="#compare" data-page-node-id="GZg3lL20Q2wg2gg2UwgB4l">新旧对比</a><a href="#migration" data-page-node-id="AJeFWA2w4WUoJKNfDejE6D">落地路径</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换明暗模式">
+      <span class="sw"></span><span id="themeToggleLabel">暗色</span>
+    </button>
+  </div>
+</div>
+
+<header class="hero" data-page-node-id="XANcABUC6rvfDqj9S03Lp0">
+  <div class="wrap" data-page-node-id="xdtyy37e5PoaBHb6MuOoNE">
+    <div class="hero-tag" data-page-node-id="GyhBEuMZfAoi8DXbLmiOQR"><i data-page-node-id="x72iF4nbbSY0jLTie8JuxT"></i>视觉设计系统提案 · 供评审</div>
+    <h1 data-page-node-id="jldCSFO1YF5IgUCez2uuKR">让数据说话，<em data-page-node-id="MuIPHNbXk9Uy55tkE65VUB">让界面安静</em>。</h1>
+    <p class="sub" data-page-node-id="BHAPsTsmbSzmEyBJ12rwHv">曜蓝 Obsidian Blue —— 为 DST 车型参数管理工具量身定制的工程级视觉语言。面向长时间、高密度、高精度的参数作业场景：降疲劳、强语义、可辨别。</p>
+    <div class="hero-meta" data-page-node-id="e9uSpkw6WE26EXSg0DwKRG">
+      <div class="m" data-page-node-id="viSFjrTyJBB0nvnCweDYLq"><b data-page-node-id="4viHxNy4bn7vRRHJdDSidm">适用产品</b>DST 车型参数管理工具（Tauri 桌面端）</div>
+      <div class="m" data-page-node-id="2tREib01Y7jH0YnHrVepnz"><b data-page-node-id="Atfwek0AC2zy1yACNKDPla">目标用户</b>车辆工程师 · 投标专员</div>
+      <div class="m" data-page-node-id="oZagVlOtCAlGoPqzAr3rtp"><b data-page-node-id="6FsVMqlL4joIDOav3dMy73">覆盖范围</b>色彩 · 字体 · 组件 · 交互 · 暗色模式</div>
+      <div class="m" data-page-node-id="F4tB85P1dOlLSGJocmJFt2"><b data-page-node-id="0ARXHWimvRNf2WhNsb62yI">落地成本</b>变量替换，组件零改动</div>
+    </div>
+  </div>
+</header>
+
+<!-- ================= 01 设计洞察 ================= -->
+<section id="insight" data-page-node-id="YP1mgkuGcTHQHFTx5R8qu8">
+  <div class="wrap" data-page-node-id="5lvCp5X7gXcssZzvWnoKGg">
+    <div class="sec-head" data-page-node-id="OKDKrxQN94owTqQ3ZlWDsB"><span class="sec-num" data-page-node-id="nOHdxOfn8Hn0HecB3oc5rC">01</span><h2 data-page-node-id="ipfIhEBfbTv78HuXCg9wmD">设计洞察：为谁而设计</h2></div>
+    <p class="sec-desc" data-page-node-id="OpnikSwKmULyoGhllzsmIl">方案的每个决策都回到同一件事——用户是谁、他们怎么工作。</p>
+
+    <div class="grid grid-4" style="margin-bottom:24px" data-page-node-id="dZjApdGLAtvP8At0NJnFbA">
+      <div class="card insight" data-page-node-id="czdGfSFCIzo3soqg8cg3sF"><div class="k num" data-page-node-id="C8AeTFH02a6PzIKFS7BaRy">1-3h</div><div class="t" data-page-node-id="LFK5agSiZO2ccuRluccU7p">单次连续作业</div><div class="d" data-page-node-id="tgQVxNrsizNyLqWGy9h1Ei">投标季连续盯屏核对参数，视觉疲劳是真实成本</div></div>
+      <div class="card insight" data-page-node-id="hcYnBSqu0Dcq88reaVthAa"><div class="k num" data-page-node-id="aBaDwlhDGgwrIulD473fdn">300+</div><div class="t" data-page-node-id="EKQn7Y90hdSBl0UUcpIYBG">单表参数行数</div><div class="d" data-page-node-id="mVjLrn8O8hHtyCI4hb2OOI">整车参数表动辄数百行，密度与扫描效率优先</div></div>
+      <div class="card insight" data-page-node-id="k7DEgpN1QEa9NO9NIOYDju"><div class="k num" data-page-node-id="pzLhvbmWzcr4lQ1Uz8jajC">0</div><div class="t" data-page-node-id="DBl6nFGnqkQXCoQig7ehaM">容错空间</div><div class="d" data-page-node-id="QCXA1riMqruKkwxYdH8Ipz">填错一个参数可能废标，状态必须一眼可辨</div></div>
+      <div class="card insight" data-page-node-id="KF0KrjNipcEmUPCElzXBLx"><div class="k num" data-page-node-id="jY1J4hHP4wNLBYAa7bhnLr">4类</div><div class="t" data-page-node-id="rX21uYhsbPV0aD26QKiFDc">并发状态语义</div><div class="d" data-page-node-id="usdYzrTJDBeWjCrEMwrOkE">差异 / 置信度 / 必填 / 来源同屏出现，需避免色彩打架</div></div>
+    </div>
+
+    <div class="grid grid-2" data-page-node-id="RjALVbEq9mr9SUtC8JD7tA">
+      <div class="card" data-page-node-id="AelvDGJkSYOCfyiIkiCHWY">
+        <h3 style="font-size:14px;margin-bottom:8px" data-page-node-id="Ok4MASL2WBOjndr1DnVDRA">现状方案的三个问题</h3>
+        <ul class="problem-list" data-page-node-id="aECBV0LWrEkVLiC9XgmRVU">
+          <li data-page-node-id="Wf3p0J23MkQoEGudHGkxEp"><span class="badge" data-page-node-id="EAycJ2gFMOIy3mrrMWxuAC">1</span><span data-page-node-id="kjJoTxSgvw4rPHidzOBnAM"><b data-page-node-id="pOtln23TJxD272cljsaSva">通用蓝，无识别度</b> —— 直接使用 Tailwind 默认 blue-600 <code data-page-node-id="v7oZmebOLXbYSEadsAbrG8">#2563EB</code>，与千万个 SaaS 后台撞色，缺乏工具软件应有的专业气质。</span></li>
+          <li data-page-node-id="FCJpHtDjQrpfl8JlCsPXJR"><span class="badge" data-page-node-id="7SVoGaG1jKa4K3iFwNhZfe">2</span><span data-page-node-id="TNoPxHqQpwrQrmCtpL2XnK"><b data-page-node-id="AUMfsxlGiEnkliuudPM32E">语义色对比度不达标</b> —— 变更色 <code data-page-node-id="NVolDdv3tsOC2YoRiCU017">#F59E0B</code> 作文字时对比度仅 2.5:1，小字号下几乎不可读；成功色 <code data-page-node-id="0bbg7QvXvfS4R3III7Iqf3">#10B981</code> 仅 3.1:1。</span></li>
+          <li data-page-node-id="7woBcMmKlKQOOp9ZuUMxY2"><span class="badge" data-page-node-id="TcUXPMtbmMIidoZtLC0yLP">3</span><span data-page-node-id="HMwZ8SHGTjmxwVr3RlDJIN"><b data-page-node-id="W96HKGm3MzlfAKlLW4HjNH">业务状态无统一 token</b> —— diff 四态、置信度、必填缺失等颜色散落在各组件中硬编码，改版和暗色适配成本高。</span></li>
+        </ul>
+      </div>
+      <div class="card" data-page-node-id="0eingB9DlpeVePqlZXGtT0">
+        <h3 style="font-size:14px;margin-bottom:14px" data-page-node-id="IhwGaymlITHJi6AoUOLsbb">四个设计目标</h3>
+        <div class="grid" style="gap:14px" data-page-node-id="9KIhEv1hiWBH1hwp2NUQFo">
+          <div class="goal" data-page-node-id="cBI1l985KG8mr8RKpqWyxM"><div class="ic" style="background:var(--brand-50)" data-page-node-id="UxtnCU3Gmz5abRjo3iQDbD">🌊</div><div data-page-node-id="8WR7qq4aaPNHOt1mLdEpQz"><b data-page-node-id="sidCVxdtB8xcNw2s6pOtXM">低疲劳</b><span data-page-node-id="rjvvX5AC2kiS3uHKwzF2OL">中性色承载 90% 界面面积，语义色降饱和、控面积</span></div></div>
+          <div class="goal" data-page-node-id="lyCNKEXpN6fwys4Y1MLdD2"><div class="ic" style="background:var(--amber-50)" data-page-node-id="SMnU5EdHellIbZjYR9xkGl">🎯</div><div data-page-node-id="v5qYoWTlDmwRKXb6Uy5Cn4"><b data-page-node-id="7H8vXeRGnx9eiJ4CWlJJwA">强语义</b><span data-page-node-id="OVhCyhDHgKWSRcwLOr4wz4">颜色只为状态与操作服务，装饰性用色全部移除</span></div></div>
+          <div class="goal" data-page-node-id="YMkDGnf08vtSJaNNkQNVep"><div class="ic" style="background:var(--green-50)" data-page-node-id="rO38TKjYZ6outtHUKDOiAD">👁</div><div data-page-node-id="OGHEBbMm6eibsSEXvfuZ0U"><b data-page-node-id="wjKTTb15O1jPDqMCzinHfd">可辨别</b><span data-page-node-id="lApAL6OmMkkdL3vwXvzUCk">色彩 + 图标双编码，红绿色盲可安全使用</span></div></div>
+          <div class="goal" data-page-node-id="6dXctr2pme0PDF5L1apYAl"><div class="ic" style="background:var(--purple-50)" data-page-node-id="ota1BL6j7aiehNC7YQ44Wp">📐</div><div data-page-node-id="yfN2ElCGsO9eeyCbPgAM4Z"><b data-page-node-id="6XXBuTATC941BHJz1VlU0v">高密度</b><span data-page-node-id="lonxFNH7oWEzMBJ1trASOf">紧凑节奏 + 等宽数字，为数百行表格扫描而优化</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 02 主色 ================= -->
+<section id="brand" data-page-node-id="d4Fi5RIcFE8N3VtGckLhez">
+  <div class="wrap" data-page-node-id="HYUAOvtZROtiwf0CPAbGUB">
+    <div class="sec-head" data-page-node-id="tFaYwgmJjf4XRwxhY6AowT"><span class="sec-num" data-page-node-id="KjfP9bR5UVNnnGnaf21UFM">02</span><h2 data-page-node-id="KudrKDAGY6CoEKnUc3IUoR">主色 · 曜蓝</h2></div>
+    <p class="sec-desc" data-page-node-id="jHfl1sEjzsjdNLhwKQ1gdi">取色自车辆仪表与工程蓝图：比通用蓝深约 15%、略带靛青，传递精密、可靠、工程感。600 阶在白色背景上对比度 7.1:1，达 WCAG AAA。</p>
+
+    <div class="swatches" data-page-node-id="NCWcxQIT7RMR8LDcNv5v9N">
+      <div class="sw hero-sw" data-hex="#EFF3FE" data-page-node-id="yp42jbDwAu7Fp18dbcF4RV"><div class="c" style="background:#EFF3FE" data-page-node-id="qBLvEGfnb4RqoOhjjhfNSX"></div><div class="l" data-page-node-id="F2bb2xa4RvB9fOqGSleeTv"><b data-page-node-id="gQpv72WnYKhl23T5Z9r3e7">50</b>#EFF3FE</div></div>
+      <div class="sw hero-sw" data-hex="#E2E8FD" data-page-node-id="C3Ds5vyvrUMY08JtHey08j"><div class="c" style="background:#E2E8FD" data-page-node-id="vhyDn8ecBmYrJGOphtVpum"></div><div class="l" data-page-node-id="kvNgBkCexJaVtHfgGpudBk"><b data-page-node-id="MyE92S7RBuTedYo6AZ2QIS">100</b>#E2E8FD</div></div>
+      <div class="sw hero-sw" data-hex="#C7D1FB" data-page-node-id="OdPYZQik4lbTYwUKydyq1i"><div class="c" style="background:#C7D1FB" data-page-node-id="dj3RV0Su7qmTFeTFNBVGSG"></div><div class="l" data-page-node-id="vCcc3bsa9kJDGdNB4mKXpZ"><b data-page-node-id="WHGMm9EjsXKaQMBLBP5GXj">200</b>#C7D1FB</div></div>
+      <div class="sw hero-sw" data-hex="#A0AFF8" data-page-node-id="vify50RafwObBSNCy4AmAE"><div class="c" style="background:#A0AFF8" data-page-node-id="sHeYhP7GaFhQM3AvUwxjyT"></div><div class="l" data-page-node-id="IOmaQpGF9vHi7nWgFBBuk5"><b data-page-node-id="Er5UHTvamUDDaanT10Awc3">300</b>#A0AFF8</div></div>
+      <div class="sw hero-sw" data-hex="#7386F1" data-page-node-id="ca001rPMAafHEelElmPYQz"><div class="c" style="background:#7386F1" data-page-node-id="pzbBWgn2ckuHBVafvptsYe"></div><div class="l" data-page-node-id="mNgDQb4HBuGQp9N1IT6S6d"><b data-page-node-id="Fh67N7kqRILjzcrusFhJcN">400</b>#7386F1</div></div>
+      <div class="sw hero-sw" data-hex="#4D64E9" data-page-node-id="xh93RRGzSKtdHbQFU8x22R"><div class="c" style="background:#4D64E9" data-page-node-id="qvftaLqd9v61JFDYR4T7nK"></div><div class="l" data-page-node-id="2y1Lr2ZxLiElU8EWCbby1U"><b data-page-node-id="tuKwofEm7T7lt6f6nENOi9">500</b>#4D64E9</div></div>
+      <div class="sw hero-sw" data-hex="#2F44D8" data-page-node-id="RDYW01a0jUSdwo6d0ggYlD"><div class="c" style="background:#2F44D8" data-page-node-id="Ltvh8nEhPndFRgBhrEfAd8"></div><div class="l" data-page-node-id="NblHKVctubvk33WiHDJG9d"><b data-page-node-id="cch6CKFxqPflvscV8633yA">600 ★</b>#2F44D8</div></div>
+      <div class="sw hero-sw" data-hex="#2738B4" data-page-node-id="pJ3Pvwc7QjoV4wMkWi0W7M"><div class="c" style="background:#2738B4" data-page-node-id="jJ3J2OwLinw9amKrfQmnzz"></div><div class="l" data-page-node-id="FuyV2pA9jWeUqlLMJEid0B"><b data-page-node-id="f1ylYyVcLgs7rtIy9FXQVK">700</b>#2738B4</div></div>
+      <div class="sw hero-sw" data-hex="#23308F" data-page-node-id="mDY1eYY3QPvwldmXcawgZe"><div class="c" style="background:#23308F" data-page-node-id="8hEizrBVe6gRfBH7qFsPnz"></div><div class="l" data-page-node-id="DN49iQHbtCuuZjvTQtTrn6"><b data-page-node-id="1FbfPhDzPKvwE1DRPBCpXJ">800</b>#23308F</div></div>
+      <div class="sw hero-sw" data-hex="#1F2A71" data-page-node-id="gzA6KWkCDNjaW4X13Grq5R"><div class="c" style="background:#1F2A71" data-page-node-id="uHG0kUvNgKJiMjZiPwbgNU"></div><div class="l" data-page-node-id="TDKSTAADvOiE3vNGk9XAdl"><b data-page-node-id="vKYm0bJcE1mWWmdPXW4zxy">900</b>#1F2A71</div></div>
+      <div class="sw hero-sw" data-hex="#131833" data-page-node-id="GGwull2TRg5iot3XzJjwQ1"><div class="c" style="background:#131833" data-page-node-id="zYScTKtl9TJdaVCoSujZeD"></div><div class="l" data-page-node-id="SyYmZapZbootHmRuQPDCX9"><b data-page-node-id="A7CLeLzDvNBSBLtY3uonK8">950</b>#131833</div></div>
+    </div>
+    <div class="swatch-note" data-page-node-id="ypS0g3YVrCpzbvKVRExBe6">
+      <span data-page-node-id="13nzczLPaNtqPGAmGlvWib">★ 品牌主色 · 点击任意色块复制 Hex</span>
+      <span class="contrast-pill" data-page-node-id="hMpTnAe2LT0w9HIcRzhiRz"><span data-page-node-id="0hc9QITMLtmk5irUiDX8Qv">600 on #FFF = 7.1 : 1 · AAA</span></span>
+    </div>
+
+    <div class="grid grid-4" style="margin-top:24px" data-page-node-id="HOHEADiTDrEy71LbxJY4cK">
+      <div class="card" data-page-node-id="JENXIs2ndIKDp6b6jOWHmg"><b style="font-size:13px" data-page-node-id="cJ6uxMNw7C7S2lf09GRRUW">600 · 主行动</b><p style="font-size:12.5px;color:var(--text-3)" data-page-node-id="XFPMn9n3s6KgdevWeWgtlq">主按钮、选中态、激活导航、链接</p></div>
+      <div class="card" data-page-node-id="bSCdHoSZG6QDouHUNNbrix"><b style="font-size:13px" data-page-node-id="8EKO7gEODg5cWxP6Z2rsne">50/100 · 选中底</b><p style="font-size:12.5px;color:var(--text-3)" data-page-node-id="UI4Ym7zKE891xxRSq8AQfu">选中行背景、激活菜单底、弱强调区</p></div>
+      <div class="card" data-page-node-id="SYKsTQjNJRil8WPKgWWwHL"><b style="font-size:13px" data-page-node-id="tseh9TBuHjB37ZHRthU833">400 · 聚焦环</b><p style="font-size:12.5px;color:var(--text-3)" data-page-node-id="Uf0mAmrBW9LoeWCDcm2cqB">键盘 :focus-visible 光环、拖拽 hover</p></div>
+      <div class="card" data-page-node-id="knLHLwbltAcLGJMUkOFwEN"><b style="font-size:13px" data-page-node-id="NoEQjMN6oSU6OEvjnAekjD">700 · 悬停加深</b><p style="font-size:12.5px;color:var(--text-3)" data-page-node-id="F4GjByvvg1aGLwawawnPYM">主按钮 hover、强调文字按下态</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 03 中性色 ================= -->
+<section id="neutral" data-page-node-id="RIKC7jaI91RsQmHEkGDzD1">
+  <div class="wrap" data-page-node-id="UgnoKbuH5gSwukcnFmTd9D">
+    <div class="sec-head" data-page-node-id="F2ei4KgA0IMXizUarJmAuJ"><span class="sec-num" data-page-node-id="QgFbzZOj81yaAPjvO57Lpu">03</span><h2 data-page-node-id="ZGfqFB4jJUhAcPJTPhSOAW">中性色 · 岩灰与三层表面</h2></div>
+    <p class="sec-desc" data-page-node-id="FbBIMzqfBuyrZkSiKsepZK">中性色承载 90% 的界面面积。岩灰在 slate 基础上去掉多余蓝紫味，更暖、更耐看；延续现有「三层表面」架构，只换值、不换结构。</p>
+
+    <div class="grid grid-2" data-page-node-id="zfh9iRdfWpRXJP9t2Tova2">
+      <div data-page-node-id="mVfphsnvlYL53wB7wFVePD">
+        <h3 class="block-title" data-page-node-id="voeKhK2y5Awt69lrwGSrGm">浅色模式 · 表面与文字</h3>
+        <div class="card" style="padding:14px 18px" data-page-node-id="Q7ruQ5izKjCFoNOPzw8gKR">
+          <div style="display:flex;gap:8px;margin-bottom:12px" data-page-node-id="fgJX5Vn0ltvB6tA7cdrrq1">
+            <div style="flex:1;height:56px;border-radius:8px;border:1px solid var(--border);background:var(--surface-1);display:flex;align-items:flex-end;padding:6px 8px;font-size:10.5px;color:var(--text-3)" data-page-node-id="OCnsE6DEVPZh6RHyIIEysZ">surface-1 布局<br data-page-node-id="Dh2vL6TcKG5dUeuhlB9tkz">浅 #F7F8FA · 暗 #0E1116</div>
+            <div style="flex:1;height:56px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);display:flex;align-items:flex-end;padding:6px 8px;font-size:10.5px;color:var(--text-3)" data-page-node-id="n5F36YsUkC00X85sfyhk14">surface-2 容器<br data-page-node-id="NqA0yLpUq2dSWHLAXkUozm">浅 #FFFFFF · 暗 #161B23</div>
+            <div style="flex:1;height:56px;border-radius:8px;border:1px solid var(--border);background:var(--surface-3);display:flex;align-items:flex-end;padding:6px 8px;font-size:10.5px;color:var(--text-3)" data-page-node-id="6j2lObmIugpowC5HguYbCb">surface-3 嵌入<br data-page-node-id="lBURwyYZlpyCUywkKuwijJ">浅 #F1F3F6 · 暗 #202734</div>
+          </div>
+          <div style="font-size:13px;display:grid;gap:4px" data-page-node-id="eYHrgeRfVx9HW2jyLTn6lw">
+            <div style="color:var(--text-1)" data-page-node-id="vbvCRhOFX3CKmDX2KuazwB">text-1 · 标题/正文 <span style="float:right;color:var(--text-3);font-size:11px" data-page-node-id="RqE3cUoUvjcLsCgFlrT5Sm">浅 #1A1D26 16.8:1 · 暗 <b style="color:#8A93A5">#E6E9EF 14.2:1</b></span></div>
+            <div style="color:var(--text-2)" data-page-node-id="wK8eRz4ihnHOeifXmUE6fz">text-2 · 次要信息 <span style="float:right;color:var(--text-3);font-size:11px" data-page-node-id="6EexdX1iue2VqhTDm4PPo5">浅 #454C5C 8.6:1 · 暗 <b style="color:#8A93A5">#AAB2C0 8.1:1</b></span></div>
+            <div style="color:var(--text-3)" data-page-node-id="8WSPq3kHTDTMLbbyLti8sW">text-3 · 辅助/占位 <span style="float:right;color:var(--text-3);font-size:11px" data-page-node-id="DO9oXBbDBqUpI13tXNCswg">浅 #8A91A0 3.2:1 ⚠ · 暗 <b style="color:#8A93A5">#8A93A5 5.6:1</b></span></div>
+            <div style="color:var(--text-4)" data-page-node-id="mqBcZ3jeWEHidQPWuo3L2C">text-4 · 禁用态 <span style="float:right;color:var(--text-3);font-size:11px" data-page-node-id="mqBcZ3jeDisab">浅 #C3C8D2 · 暗 <b style="color:#8A93A5">#5E6675</b>（豁免）</span></div>
+          </div>
+        </div>
+      </div>
+      <div data-page-node-id="A1NUIogLXXVGaPAyP8S12E">
+        <h3 class="block-title" data-page-node-id="EzCrRwFPPn6Co8uNDfB41I">暗色模式 · 非简单反色</h3>
+        <div class="dark-strip" style="flex-direction:column;gap:12px" data-page-node-id="4u8MjwIitPMuMnA4LC9419">
+          <div style="display:flex;gap:10px" data-page-node-id="jsv8HAdPYK2SkXPb6Wj8f2">
+            <div class="dc" style="background:#0E1116" data-page-node-id="Iz1ELiuchkkL5VmmXQZlH9"><span data-page-node-id="jtbmABvY6BU4pvMi55gmwG">surface-1 #0E1116</span></div>
+            <div class="dc" style="background:#161B23" data-page-node-id="lUNEAWgzx41Gsa708IRojF"><span data-page-node-id="PviKdkSzPaRkMO3A8ohi2z">surface-2 #161B23</span></div>
+            <div class="dc" style="background:#202734" data-page-node-id="UEXf7P0Qk8SP5ZexLkryeL"><span data-page-node-id="bGBrNPv4eHT7LfvBJXCfQK">surface-3 #202734</span></div>
+            <div class="dc" style="background:#8DA1F7;border:none" data-page-node-id="qgC63UEw7ZSIBWkOCanvFq"><span style="color:#131833" data-page-node-id="bZzll2NVwcPWR8KOYAWC2g">brand-dark #8DA1F7</span></div>
+          </div>
+          <div style="font-size:12px;color:var(--text-3);line-height:1.7" data-page-node-id="hsfmO0rU07Q4UaDjEwBreU">
+            暗色三原则：① 避免纯黑 <code data-page-node-id="ednotdAVzCX8wijmYMgPAu">#000</code>，底色拉蓝灰减轻光晕；② 主色从 600 抬升到 300-400 阶保证深底对比度，且<strong>实色填充另开一个 token</strong>；③ 语义色同步降纯抬明，避免霓虹感。完整暗色 token、量化规则与实渲效果见 <a href="#dark" style="color:var(--brand)" data-page-node-id="31KGstoFeDrA465fGL1djJ">06 暗色模式</a>。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 04 字体排印 ================= -->
+<section id="type" data-page-node-id="gPerZrohy2M6kSem72kj0u">
+  <div class="wrap" data-page-node-id="r3g6e02y6ctR9awVH7g7l6">
+    <div class="sec-head" data-page-node-id="zp5sOC0SyS8XHRD0HhKeef"><span class="sec-num" data-page-node-id="RcMB6wKEbmiLARsJ54eQYh">04</span><h2 data-page-node-id="MLyCuBTLmPa6vqwL46BoFN">字体排印 · 为扫读而设</h2></div>
+    <p class="sec-desc" data-page-node-id="3PshOqxNuUMETZFkEAw2iU">桌面工具选系统字体栈：Tauri 内零加载成本、与操作系统同观的原生感。效率不靠换字体，靠「等宽数字 + 字号纪律 + 等宽字体场景化」。</p>
+
+    <h3 class="block-title" data-page-node-id="Kh3eTywnT8kcm9BazBtUTH">字体族 · 两栈一增强</h3>
+    <div class="grid grid-3" data-page-node-id="7VFFOUHYVc9HrCZYgJXKH5">
+      <div class="card" data-page-node-id="uiWeo9PFXtFedpByoySGHf">
+        <b style="font-size:13px" data-page-node-id="GVpJMgbz1tpla2n6LmSW9w">UI 主字体 · 系统栈</b>
+        <p style="font-size:19px;margin:12px 0 6px" data-page-node-id="u4zNWQAWmzYfA1V77qesiN">整车参数管理系统</p>
+        <p style="font-size:12px;color:var(--text-3)" data-page-node-id="gxSXoyOC429fNddr7v7Ert">PingFang SC / 微软雅黑 / Noto Sans CJK——跟随系统，无 webfont 加载，低分屏渲染最稳。</p>
+      </div>
+      <div class="card" data-page-node-id="VD5JlAF3z3MFDX07pTAaD0">
+        <b style="font-size:13px" data-page-node-id="CHnNumif2dQxSiOLSYDB02">等宽字体 · 编码场景</b>
+        <p class="mono-stack" style="font-size:15px;margin:12px 0 6px;letter-spacing:.02em" data-page-node-id="hZB6a7ikk3kwBm5N7QlzPY">DNC5037XXYBEVP1</p>
+        <p style="font-size:12px;color:var(--text-3)" data-page-node-id="l4Dl8WRrk6FIlgelpvS35b">公告号、VIN、文件路径、版本号、导出文件名——定宽对齐，逐字符可核对。</p>
+      </div>
+      <div class="card" data-page-node-id="C1NbohS470vIAwoa5rOfjz">
+        <b style="font-size:13px" data-page-node-id="iicgpI6Jy72PlEdEwZ57Bb">可选增强 · Inter（默认不启用）</b>
+        <p style="font-size:19px;margin:12px 0 6px;letter-spacing:-.01em" data-page-node-id="gnGzoHNIErMBh32uCv1vVY">1,820 kg</p>
+        <p style="font-size:12px;color:var(--text-3)" data-page-node-id="6wOp5LKp1MB4gp4Tzy4O0f">仅西文与数字，本地子集内嵌约 +300KB；追求数字观感时开启，无网络依赖。</p>
+      </div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="7MD35GQ5Zwylbxr4u8TjJb">字号阶梯 · 基准 13px</h3>
+    <div class="card type-scale" data-page-node-id="eiK7VlIR0bA55HGAkfatYQ">
+      <div class="trow" data-page-node-id="5ydSmY9T0egRvW1XfYEqbY"><span class="px" data-page-node-id="S02BouGUR4ENFwvINa4NxQ">11px / 400</span><span class="sample" style="font-size:11px" data-page-node-id="gNpAM4lIsWIhu0ZjWXjesv">必填 · 公告标签与表格内辅助信息</span><span class="use" data-page-node-id="ZVvx8zUHsXGWKBGb9NuvBN">徽章 / 标签</span></div>
+      <div class="trow" data-page-node-id="W7mLjUGeDZATWD9gP2IhJT"><span class="px" data-page-node-id="ayEJq9V8mvrgJqRSNW58iH">12px / 500</span><span class="sample" style="font-size:12px;font-weight:500" data-page-node-id="kiZXGTNHalPFIVrRNAFFNW">参数名 · 数值 · 工作表</span><span class="use" data-page-node-id="dWd3aPtkDdRJe6jE5OtGxf">表头 / 辅助说明</span></div>
+      <div class="trow" data-page-node-id="5tL9KSoZi8JC8iKQJyLgzM"><span class="px" data-page-node-id="BBTl9TuOntXoC13PBk1zqw">13px / 400</span><span class="sample num" style="font-size:13px" data-page-node-id="9tvHAz21Ia3znbmKDHSFs1">整车整备质量 1820 kg</span><span class="use" data-page-node-id="dGURSnw1FhG7pTENLb6XTN">正文基准 / 表格数据</span></div>
+      <div class="trow" data-page-node-id="F03vWQBHPYN6h6pVQNkbWK"><span class="px" data-page-node-id="H8NlqtiPBLBWm1qIdmVK6n">14px / 600</span><span class="sample" style="font-size:14px;font-weight:600" data-page-node-id="EjCuLkn0rVr1HwwE5KupPn">匹配结果预览</span><span class="use" data-page-node-id="UzFU9uIX3dohoazJGP95uN">模块标题</span></div>
+      <div class="trow" data-page-node-id="h9M9uTJny9Pvy38IooRvr9"><span class="px" data-page-node-id="PuagmkyBUFYxNyIQWOYr59">16px / 600</span><span class="sample" style="font-size:16px;font-weight:600" data-page-node-id="BwUPr41Iq0eB7eQEi12hJx">版本对比</span><span class="use" data-page-node-id="HKZAOvCZfyr7nedegwfFDJ">分区标题</span></div>
+      <div class="trow" data-page-node-id="L6HqsONxp6ruDzWSGWnXFH"><span class="px" data-page-node-id="eFe2R4EJzCE5sypqS4n3jy">20px / 700</span><span class="sample" style="font-size:20px;font-weight:700" data-page-node-id="PgS8iJ4dbrMGsImFzm3OCc">参数工作台</span><span class="use" data-page-node-id="0ZhQ8x0G80jISbD6rEYxsy">页面标题</span></div>
+      <div class="trow" data-page-node-id="p2E4e4CUZYaY184cSkBBQ0"><span class="px" data-page-node-id="0GuHpT9BL91p9aIvERkfzg">26px / 700</span><span class="sample num" style="font-size:26px;font-weight:700" data-page-node-id="eUEBK6D2KN8viaNiKGgGxZ">93.0%</span><span class="use" data-page-node-id="puUJH9sJdpzumOodDNRTjp">统计大数（等宽数字）</span></div>
+    </div>
+    <p style="font-size:12px;color:var(--text-3);margin-top:8px" data-page-node-id="vVHn1fVeiXBkXxeurSC5WF">32px 仅用于空态 / 引导页主视觉，不进业务界面；全阶梯共 8 档，组件禁止使用阶梯外字号。</p>
+
+    <h3 class="block-title" data-page-node-id="7Bit9YBlZGxdfHlPVlCgWD">字重与行高纪律</h3>
+    <div class="grid grid-2" data-page-node-id="aW6Y1uH3tk4yd0bWGmKC2M">
+      <div class="card" data-page-node-id="MVnPuCASPKV9aosfxHHHHS">
+        <b style="font-size:13px" data-page-node-id="vKQplKNJND7vypbRVpFBiG">字重 · 四档语义化</b>
+        <ul style="list-style:none;font-size:13px;margin-top:10px;display:grid;gap:6px" data-page-node-id="IuN5Kd5ldpU24I8YcLgUjG">
+          <li data-page-node-id="coRIcmaWkDMXDeORqfHcDG"><span style="font-weight:400" data-page-node-id="v6dBSSwKNrW0m9q6bmDztE">400 · 正文与数据</span></li>
+          <li data-page-node-id="u8TsPAdjI9qMpttOH4dc3o"><span style="font-weight:500" data-page-node-id="5zpEiFHp5uOBu12LiGYpSL">500 · 表头 / 次级强调</span></li>
+          <li data-page-node-id="PZhFFWk4r0xPwQqO0x5i3v"><span style="font-weight:600" data-page-node-id="rH79YSHg6lRHfoivGAVPIy">600 · 标题 / 关键数值</span></li>
+          <li data-page-node-id="Mw1KyeCbUZJcXI3CGzaxAb"><span style="font-weight:700" data-page-node-id="BU4dGD6AS404cFigrrDNHd">700 · 页面标题 / 统计大数</span></li>
+        </ul>
+        <p style="font-size:12px;color:var(--text-3);margin-top:10px" data-page-node-id="oFciu26Jl0zLBQAz8SgzzR">禁用 300 及以下细体——中文小字号在低分屏发虚。</p>
+      </div>
+      <div class="card" data-page-node-id="FfEQLt2P9G03rgRn27UcNW">
+        <b style="font-size:13px" data-page-node-id="QfkyFa6Xa8ZF7BOpMYM9YX">行高 · 三档</b>
+        <ul style="list-style:none;font-size:13px;margin-top:10px;display:grid;gap:6px" data-page-node-id="t3VHcQcfm3FK9cVtxqdhTn">
+          <li data-page-node-id="N58IgW6BGpKyXlhXbGYV1W"><code data-page-node-id="BwGxRSAfX8gTDozvq3pHPo">1.25</code> · 标题（≥16px）</li>
+          <li data-page-node-id="56G55kFVB6bUjvefc33mwB"><code data-page-node-id="Oqy0bc5mGZv9uCEcc93alg">1.5</code> · 正文与控件（12-14px）</li>
+          <li data-page-node-id="oVZV19ofbEzV1puMzVVkan"><code data-page-node-id="OJ1W6PfU3aoyqk1ogqVeze">1.75</code> · 长文阅读（帮助 / 公告详情）</li>
+        </ul>
+        <p style="font-size:12px;color:var(--text-3);margin-top:10px" data-page-node-id="NNDA2pz9fIVaIctFCvvU3D">表格行高由固定值控制（36 / 32px），行内 line-height = 1，避免行高抖动。</p>
+      </div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="aUqU5Sv2gcX3ZESJBgjThY">数字与中西文混排细则</h3>
+    <div class="card" style="font-size:13px;display:grid;gap:8px" data-page-node-id="YBWUG7AuQaT3iRMkSThVMC">
+      <div data-page-node-id="Qe9d2nwmIIeBslO0rPPDId">① 数值列一律 <code data-page-node-id="igAoYDJBWgBIzitYtawhny">tabular-nums</code>，上下行数字位宽对齐，纵向扫读不跳动。</div>
+      <div data-page-node-id="OVIgBQp080pdRWBt0sFbcH">② 数值与单位之间 1 个半角空格：<code data-page-node-id="x05unkdfCZeLT3q8E0ybZh">2800 mm</code>、<code data-page-node-id="DzjexbpNbYnOBqavCiQGVN">0.5 h</code>。</div>
+      <div data-page-node-id="p3gsbC9uFEGACgVkOCVcp5">③ 统计大数 ≥ 10000 使用千分位：<code data-page-node-id="hMGk7W1KsrNivu6eumQiWc">12,480</code>。</div>
+      <div data-page-node-id="WWnV6GVEwXk0WvSht8oeTA">④ 中西文 / 数字相邻时加半角空格（盘古之白）：「填报率 93.0%」「共 342 项」。</div>
+      <div data-page-node-id="Y9GNih2hNRTY2Ffwb1Sm7g">⑤ 公告号、VIN、路径、版本号使用等宽字体并允许一键整体复制。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 05 语义色 ================= -->
+<section id="semantic" data-page-node-id="m1WFTBkPCwrzfa3VarVsrM">
+  <div class="wrap" data-page-node-id="d4C2S2OQOZrnSQufuZA48x">
+    <div class="sec-head" data-page-node-id="DGsQORyLQxrUI2n46NB3QA"><span class="sec-num" data-page-node-id="WHW05U3I11gwxq1WCxL282">05</span><h2 data-page-node-id="TCDtOgprakLRfyweLiscc8">语义色 · 只为状态服务</h2></div>
+    <p class="sec-desc" data-page-node-id="9r7KkBmjSrNhXA0Me31IDQ">每个语义族统一定义「文字 / 图形 / 背景」三件套：<b data-page-node-id="SAbwFL7sAMxwkhejaod3Ck">文字用 700 阶保对比度，圆点图标用 500 阶保识别，背景用 50 阶控面积</b>。橙色系为警告语义专属，全程禁止用作装饰。</p>
+    <p style="font-size:12.5px;color:var(--text-3);margin:-20px 0 20px" data-page-node-id="semLightNote">以下为<b>浅色标本</b>（固定浅色，不随页面主题翻转）；暗色下的对应取值与实测对比度见 <a href="#dark" style="color:var(--brand)" data-page-node-id="semLightNoteLink">06 暗色模式</a>。</p>
+
+    <div class="grid grid-2 light-scope" data-page-node-id="dMNi3LWyXEQWMSbUrVP6zn">
+      <div class="card" data-page-node-id="qjhDwal66VFl2JwzaP8MDG">
+        <h3 style="font-size:13.5px;margin-bottom:12px;color:var(--green-600)" data-page-node-id="IwTiReH5t5Rk1BgpUVIhNP">成功 / 新增 · 松绿</h3>
+        <div class="trio" data-page-node-id="FFfodp4JZk4kvmgnJdquJN">
+          <div class="cell bg-container" data-page-node-id="Gm9rOGnAQpX9GlXXvzG5ck"><b style="color:var(--green-600)" data-page-node-id="DK4dwtqXTWK1huwSKUoNTo">Aa 文字 600</b><span class="hex" data-page-node-id="uwP9o2o00B1yjj9KadOOiJ">#0A7A52 · 4.6:1</span></div>
+          <div class="cell" data-page-node-id="fKPLXewe3HcfjRMLo7SRxj"><b data-page-node-id="hGHJAjcRkcSQJ2vYFhfOJ3"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green-500);margin-right:6px" data-page-node-id="fCj31PgWKfjG4T5QlZuh0E"></i>图形 500</b><span class="hex" data-page-node-id="EtBs5fBRB1NjkqaH6kaCFn">#0C9A68</span></div>
+          <div class="cell" style="background:var(--green-50)" data-page-node-id="zmCFLpzWFFmI5LWXiDBHl1"><b data-page-node-id="ApGovfclEyCuD72adLiqk6">背景 50</b><span class="hex" data-page-node-id="lWlXEhkmewEaH0vZTD0lxE">#E9F7F0</span></div>
+        </div>
+      </div>
+      <div class="card" data-page-node-id="oa2vV61wApluTqIHbtZCDq">
+        <h3 style="font-size:13.5px;margin-bottom:12px;color:var(--amber-700)" data-page-node-id="tL6q0BulOHeSp015Mcrx5j">变更 / 警告 · 琥珀</h3>
+        <div class="trio" data-page-node-id="C8rNpbpfRqcYzbKIt05rfM">
+          <div class="cell bg-container" data-page-node-id="8KChBNULnJ4D5o1GouBVTP"><b style="color:var(--amber-700)" data-page-node-id="bU8pHJTY2bMHqJLGcay6CS">Aa 文字 700</b><span class="hex" data-page-node-id="Yuve4Sr9HS0pagEKndubh5">#9A5806 · 5.4:1</span></div>
+          <div class="cell" data-page-node-id="iqHofprfo5kR8NOD1OpJBd"><b data-page-node-id="pRTC4kNqSRZa2E9n78zPM7"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--amber-500);margin-right:6px" data-page-node-id="AVbpDQmiigaXPYIghwcpvJ"></i>图形 500</b><span class="hex" data-page-node-id="FDkWf6EHUanpPhowKugvCI">#E8930C</span></div>
+          <div class="cell" style="background:var(--amber-50)" data-page-node-id="QOJDCPEIqwy4McC4GEYnpf"><b data-page-node-id="bk0KlcWikDjn12WIXz1TBW">背景 50</b><span class="hex" data-page-node-id="X5zRuiVEqbxJHDd4Vk81Y8">#FEF4E2</span></div>
+        </div>
+      </div>
+      <div class="card" data-page-node-id="4tLssM78YnkzSfwGHbiiXz">
+        <h3 style="font-size:13.5px;margin-bottom:12px;color:var(--red-600)" data-page-node-id="qnzx2VrVzIZbV9DfvE2Om7">移除 / 错误 · 茜红</h3>
+        <div class="trio" data-page-node-id="H2eNMSDfc4qdQWZiomwRoX">
+          <div class="cell bg-container" data-page-node-id="YY911sz1GHKmH6Ut8E3zSw"><b style="color:var(--red-600)" data-page-node-id="l1CnxmcuvlbaS4pHjQMgMQ">Aa 文字 600</b><span class="hex" data-page-node-id="b5IyDnX3qPqvgVuPePqe7A">#C92A2A · 5.9:1</span></div>
+          <div class="cell" data-page-node-id="2Oz2hubZGuo8ISBqogWmSE"><b data-page-node-id="MWM8ohvO8FrmDoah7asffc"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red-500);margin-right:6px" data-page-node-id="DTgaPQZQWKBlCcL0v6ku85"></i>图形 500</b><span class="hex" data-page-node-id="8fp5iSQIaQNyZt6xWBEJox">#E5484D</span></div>
+          <div class="cell" style="background:var(--red-50)" data-page-node-id="FHgcXXvC2cIg6ozCBjain4"><b data-page-node-id="7JKuGwQcL58VpmYKs4piyl">背景 50</b><span class="hex" data-page-node-id="ZAw29748jPmjdnctvxODrA">#FDECEC</span></div>
+        </div>
+      </div>
+      <div class="card" data-page-node-id="AmeD2PCbty2r8eA8ATjEOG">
+        <h3 style="font-size:13.5px;margin-bottom:12px;color:var(--cyan-600)" data-page-node-id="Kt6gQeMGaBz08pLReaFCga">信息 / 来源 · 青碧</h3>
+        <div class="trio" data-page-node-id="TkpbUYdYH3w09TdtDBhK8n">
+          <div class="cell bg-container" data-page-node-id="ePCRzMLPtCDy9VECvPJBM6"><b style="color:var(--cyan-600)" data-page-node-id="FUrH6MbhSk5BNTCG70C1QY">Aa 文字 600</b><span class="hex" data-page-node-id="fEPeyTZBqBORDt3XtlZxwT">#0E7C8C · 4.9:1</span></div>
+          <div class="cell" data-page-node-id="VKfCT7uFTIjVZQBQRrKqOf"><b data-page-node-id="kZfEOdUuEh6hCKIlZ4z6nx"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--cyan-600);margin-right:6px" data-page-node-id="YwMNhk7XaiCvlBcmRj6W2s"></i>图形 600</b><span class="hex" data-page-node-id="72XSt8C4bGLHghdglhq5gc">#0E7C8C</span></div>
+          <div class="cell" style="background:var(--cyan-50)" data-page-node-id="fn3ox3slMMebvnLkOdSqq0"><b data-page-node-id="Ib1qOE1X8xlB2QvsMw81W5">背景 50</b><span class="hex" data-page-node-id="l6qfvagbcetCo1NCLMxJge">#E4F4F7</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;display:flex;gap:24px;align-items:center" data-page-node-id="r9BDEs6131xJ3rnGNU4yJ6">
+      <div style="font-size:13px;font-weight:700;flex-shrink:0" data-page-node-id="GBTLM4XPoBPOn02Ot3Xu4w">状态色面积法则</div>
+      <div style="font-size:12.5px;color:var(--text-2)" data-page-node-id="qVxFPgb8nKyV1hzN3nE595">语义色在单屏内的渲染面积 ≤ 10%。整行染色仅允许出现在「差异列表」这一核心业务场景中；其余场景语义色只落在圆点、图标、标签、3px 侧条上。背景层与文字层必须成对使用本族 token，禁止跨族混搭。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 06 暗色模式 ================= -->
+<section id="dark" data-page-node-id="v41DarkSection">
+  <div class="wrap" data-page-node-id="darkWrap">
+    <div class="sec-head" data-page-node-id="darkSecHead"><span class="sec-num" data-page-node-id="darkSecNum">06</span><h2 data-page-node-id="darkSecTitle">暗色模式 · 另一套光照条件</h2></div>
+    <p class="sec-desc" data-page-node-id="darkSecDesc">暗色不是把浅色反相，而是换一套光照假设重新取色。<b>顶栏右侧的主题开关可把整个提案页切到暗色</b>——本章节所有色值都是真实 token 实时渲染，不是截图；下方深色面板则是在浅色页里就地预览暗色组件。全部数值经 WCAG 2.x 相对亮度公式实测，四舍五入到一位小数。</p>
+
+    <h3 class="block-title" data-page-node-id="darkRuleTitle">三条铁律 · 量化到数值</h3>
+    <div class="grid grid-3" data-page-node-id="darkRuleGrid">
+      <div class="card" data-page-node-id="darkRule1">
+        <b style="font-size:13px" data-page-node-id="darkRule1h">① 底不用纯黑，且明暗方向相反</b>
+        <p style="font-size:12.5px;color:var(--text-2);margin:8px 0 6px;line-height:1.65" data-page-node-id="darkRule1p">用 <code>#0E1116</code> 而不是 <code>#000</code>：纯黑与容器层的亮度差在 OLED 屏上会出现"灰块漂移"，暗色残像也更重。</p>
+        <p style="font-size:12.5px;color:var(--text-2);margin:0;line-height:1.65" data-page-node-id="darkRule1q">更关键的是方向：浅色靠"越内层越深"表达凹陷，暗色必须反过来——<b style="color:var(--text-1)">越上层越亮</b>。表头、hover、弹层都靠提亮成立。</p>
+      </div>
+      <div class="card" data-page-node-id="darkRule2">
+        <b style="font-size:13px" data-page-node-id="darkRule2h">② 主色抬阶，并且一色两名</b>
+        <p style="font-size:12.5px;color:var(--text-2);margin:8px 0 6px;line-height:1.65" data-page-node-id="darkRule2p">文字/链接/描边用 300-400 阶 <code>#8DA1F7</code>（对容器底 7.1:1）；<b style="color:var(--text-1)">实色填充必须另开一个 token</b> <code>#4D64E9</code>（白字 4.9:1）。</p>
+        <p style="font-size:12.5px;color:var(--text-2);margin:0;line-height:1.65" data-page-node-id="darkRule2q">这是暗色最容易踩的坑：同一个"品牌蓝"既要当文字又要当按钮底，暗色下这两个角色需要的明度是相反的。故拆为 <code>--brand</code> 与 <code>--brand-fill</code>。</p>
+      </div>
+      <div class="card" data-page-node-id="darkRule3">
+        <b style="font-size:13px" data-page-node-id="darkRule3h">③ 语义色降纯抬明</b>
+        <p style="font-size:12.5px;color:var(--text-2);margin:8px 0 6px;line-height:1.65" data-page-node-id="darkRule3p">图形层明度 ΔL <b>+9 ~ +18</b>、饱和 ΔS <b>-4 ~ -35</b>（红是唯一例外：需微增饱和才不发灰）；文字层一律落 L 68-77 区间。</p>
+        <p style="font-size:12.5px;color:var(--text-2);margin:0;line-height:1.65" data-page-node-id="darkRule3q">禁止直接把 500 阶语义色搬到深底——那是"霓虹感"的来源。具体迁移量见下表。</p>
+      </div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="darkSurfTitle">表面栈 · 明暗方向对照</h3>
+    <div class="grid grid-2" data-page-node-id="darkSurfGrid">
+      <div class="card" data-page-node-id="darkSurfLight">
+        <h4 style="font-size:12.5px;font-weight:700;margin-bottom:12px;color:var(--text-2)" data-page-node-id="darkSurfLightH">浅色 · 越内层越深</h4>
+        <div class="stack" data-page-node-id="darkSurfLightStack">
+          <div class="row" data-page-node-id="dsLight1"><span class="chip" style="background:#F7F8FA" data-page-node-id="dsLight1c"></span><span class="meta" data-page-node-id="dsLight1m"><b>surface-1 · 布局底</b><span>#F7F8FA　承载 90% 面积</span></span></div>
+          <div class="row" data-page-node-id="dsLight2"><span class="chip" style="background:#FFFFFF" data-page-node-id="dsLight2c"></span><span class="meta" data-page-node-id="dsLight2m"><b>surface-2 · 容器</b><span>#FFFFFF　卡片 / 表格</span></span></div>
+          <div class="row" data-page-node-id="dsLight3"><span class="chip" style="background:#F1F3F6" data-page-node-id="dsLight3c"></span><span class="meta" data-page-node-id="dsLight3m"><b>surface-3 · 嵌入</b><span>#F1F3F6　表头 / hover</span></span></div>
+          <div class="row" data-page-node-id="dsLight4"><span class="chip" style="background:#FFFFFF;box-shadow:0 4px 16px rgba(16,18,24,.10)" data-page-node-id="dsLight4c"></span><span class="meta" data-page-node-id="dsLight4m"><b>elevated · 弹层</b><span>#FFFFFF + 投影承担抬升</span></span></div>
+        </div>
+      </div>
+      <div class="card dark-scope" data-page-node-id="darkSurfDark">
+        <h4 style="font-size:12.5px;font-weight:700;margin-bottom:12px;color:var(--text-2)" data-page-node-id="darkSurfDarkH">暗色 · 越上层越亮</h4>
+        <div class="stack" data-page-node-id="darkSurfDarkStack">
+          <div class="row" data-page-node-id="dsDark1"><span class="chip" style="background:#0E1116;border-color:#2C3442" data-page-node-id="dsDark1c"></span><span class="meta" data-page-node-id="dsDark1m"><b>surface-1 · 布局底</b><span style="color:#8A93A5">#0E1116　不用 #000</span></span></div>
+          <div class="row" data-page-node-id="dsDark2"><span class="chip" style="background:#161B23;border-color:#2C3442" data-page-node-id="dsDark2c"></span><span class="meta" data-page-node-id="dsDark2m"><b>surface-2 · 容器</b><span style="color:#8A93A5">#161B23　与底差 1.2:1，够认出层</span></span></div>
+          <div class="row" data-page-node-id="dsDark3"><span class="chip" style="background:#202734;border-color:#2C3442" data-page-node-id="dsDark3c"></span><span class="meta" data-page-node-id="dsDark3m"><b>surface-3 · 嵌入/表头/hover</b><span style="color:#8A93A5">#202734　比容器更亮 = 抬升</span></span></div>
+          <div class="row" data-page-node-id="dsDark4"><span class="chip" style="background:#202734;border-color:#333C4D;box-shadow:0 6px 20px rgba(0,0,0,.55)" data-page-node-id="dsDark4c"></span><span class="meta" data-page-node-id="dsDark4m"><b>elevated · 弹层</b><span style="color:#8A93A5">#202734 + 描边 #333C4D（阴影几乎不可见）</span></span></div>
+        </div>
+        <p class="dk-cap" data-page-node-id="darkSurfCap">暗色下阴影在深底上"吃掉"自己：投影式抬升失效，抬升感改由 <b style="color:#E6E9EF">+1 层表面亮度</b> 与 <b style="color:#E6E9EF">1px 提亮描边</b> 共同承担。</p>
+      </div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="darkVerifyTitle">对比度验证 · 明暗成对</h3>
+    <p style="font-size:12.5px;color:var(--text-3);margin:-4px 0 12px" data-page-node-id="darkVerifyNote">"暗色实测"一列全部是相对 <code>surface-2 #161B23</code> 的实测值（行底类 token 则相对其合成后的底色）。正文文字线为 4.5:1，非文本（图形/描边/聚焦环）线为 3:1。</p>
+    <table class="vtable" data-page-node-id="darkVerifyTable">
+      <thead data-page-node-id="darkVerifyThead"><tr data-page-node-id="darkVerifyTr">
+        <th style="width:150px" data-page-node-id="dvTh1">角色</th><th style="width:230px" data-page-node-id="dvTh2">浅色值 / 实测</th>
+        <th style="width:210px" data-page-node-id="dvTh3">暗色值 / 实测</th><th data-page-node-id="dvTh4">判定</th>
+      </tr></thead>
+      <tbody data-page-node-id="darkVerifyTbody">
+        <tr data-page-node-id="dvR1"><td class="role" data-page-node-id="dvR1a">text-1 标题正文</td><td class="hex" data-page-node-id="dvR1b">#1A1D26 · 16.8:1</td><td class="hex" data-page-node-id="dvR1c">#E6E9EF · <b>14.2:1</b></td><td data-page-node-id="dvR1d"><span class="pill pill-ok" data-page-node-id="dvR1e">AAA</span></td></tr>
+        <tr data-page-node-id="dvR2"><td class="role" data-page-node-id="dvR2a">text-2 次要文字</td><td class="hex" data-page-node-id="dvR2b">#454C5C · 8.6:1</td><td class="hex" data-page-node-id="dvR2c">#AAB2C0 · <b>8.1:1</b></td><td data-page-node-id="dvR2d"><span class="pill pill-ok" data-page-node-id="dvR2e">AAA</span></td></tr>
+        <tr data-page-node-id="dvR3"><td class="role" data-page-node-id="dvR3a">text-3 表头/辅助 12px</td><td class="hex" data-page-node-id="dvR3b">#8A91A0 · <b style="color:var(--danger-text)">3.2:1</b></td><td class="hex" data-page-node-id="dvR3c">#8A93A5 · <b>5.6:1</b></td><td data-page-node-id="dvR3d"><span class="pill pill-warn" data-page-node-id="dvR3e">暗色通过</span> 浅色见 D-01</td></tr>
+        <tr data-page-node-id="dvR4"><td class="role" data-page-node-id="dvR4a">text-4 禁用 / 占位</td><td class="hex" data-page-node-id="dvR4b">#C3C8D2 · 1.7:1</td><td class="hex" data-page-node-id="dvR4c">#5E6675 · <b>3.0:1</b></td><td data-page-node-id="dvR4d"><span class="pill pill-ok" data-page-node-id="dvR4e">豁免</span> <span class="act" data-page-node-id="dvR4f">WCAG 不要求</span></td></tr>
+        <tr data-page-node-id="dvR5"><td class="role" data-page-node-id="dvR5a">brand 文字 / 链接</td><td class="hex" data-page-node-id="dvR5b">#2F44D8 · 7.1:1</td><td class="hex" data-page-node-id="dvR5c">#8DA1F7 · <b>7.1:1</b></td><td data-page-node-id="dvR5d"><span class="pill pill-ok" data-page-node-id="dvR5e">AAA</span></td></tr>
+        <tr data-page-node-id="dvR6"><td class="role" data-page-node-id="dvR6a">主按钮填充 + 白字</td><td class="hex" data-page-node-id="dvR6b">#2F44D8 · 7.1:1</td><td class="hex" data-page-node-id="dvR6c">#4D64E9 · <b>4.9:1</b></td><td data-page-node-id="dvR6d"><span class="pill pill-ok" data-page-node-id="dvR6e">AA</span> <span class="act" data-page-node-id="dvR6f">一色两名</span></td></tr>
+        <tr data-page-node-id="dvR7"><td class="role" data-page-node-id="dvR7a">brand-ring 聚焦环</td><td class="hex" data-page-node-id="dvR7b">#7386F1 · 3.0:1</td><td class="hex" data-page-node-id="dvR7c">#A0AFF8 · <b>8.2:1</b></td><td data-page-node-id="dvR7d"><span class="pill pill-ok" data-page-node-id="dvR7e">非文本 ≥3:1</span></td></tr>
+        <tr data-page-node-id="dvR8"><td class="role" data-page-node-id="dvR8a">border-control 控件描边</td><td class="hex" data-page-node-id="dvR8b">#CCD1D9 · 1.5:1</td><td class="hex" data-page-node-id="dvR8c">#5B6684 · <b>3.0:1</b></td><td data-page-node-id="dvR8d"><span class="pill pill-new" data-page-node-id="dvR8e">新增</span> 见 D-02</td></tr>
+        <tr data-page-node-id="dvR9"><td class="role" data-page-node-id="dvR9a">语义文字 · 成功</td><td class="hex" data-page-node-id="dvR9b">#0A7A52 · 5.4:1</td><td class="hex" data-page-node-id="dvR9c">#5BD0A2 · <b>9.0:1</b></td><td data-page-node-id="dvR9d"><span class="pill pill-ok" data-page-node-id="dvR9e">AA</span></td></tr>
+        <tr data-page-node-id="dvR10"><td class="role" data-page-node-id="dvR10a">语义文字 · 警告</td><td class="hex" data-page-node-id="dvR10b">#9A5806 · 5.6:1</td><td class="hex" data-page-node-id="dvR10c">#F5BC66 · <b>10.1:1</b></td><td data-page-node-id="dvR10d"><span class="pill pill-ok" data-page-node-id="dvR10e">AAA</span></td></tr>
+        <tr data-page-node-id="dvR11"><td class="role" data-page-node-id="dvR11a">语义文字 · 错误</td><td class="hex" data-page-node-id="dvR11b">#C92A2A · 5.5:1</td><td class="hex" data-page-node-id="dvR11c">#F58A8D · <b>7.3:1</b></td><td data-page-node-id="dvR11d"><span class="pill pill-ok" data-page-node-id="dvR11e">AAA</span></td></tr>
+        <tr data-page-node-id="dvR12"><td class="role" data-page-node-id="dvR12a">语义文字 · 信息</td><td class="hex" data-page-node-id="dvR12b">#0E7C8C · 4.9:1</td><td class="hex" data-page-node-id="dvR12c">#63BECB · <b>8.0:1</b></td><td data-page-node-id="dvR12d"><span class="pill pill-ok" data-page-node-id="dvR12e">AA</span></td></tr>
+        <tr data-page-node-id="dvR13"><td class="role" data-page-node-id="dvR13a">差异行内文字 · 新增</td><td class="hex" data-page-node-id="dvR13b">#0A7A52 on #E9F7F0 · 4.9:1</td><td class="hex" data-page-node-id="dvR13c">#5BD0A2 on 合成底 #1B2E2F · <b>7.4:1</b></td><td data-page-node-id="dvR13d"><span class="pill pill-ok" data-page-node-id="dvR13e">AA</span></td></tr>
+        <tr data-page-node-id="dvR14"><td class="role" data-page-node-id="dvR14a">状态标签底 · 变更</td><td class="hex" data-page-node-id="dvR14b">#9A5806 on #FAE6C4 · 4.6:1</td><td class="hex" data-page-node-id="dvR14c">#F5BC66 on #463A28 · <b>6.5:1</b></td><td data-page-node-id="dvR14d"><span class="pill pill-ok" data-page-node-id="dvR14e">AA</span></td></tr>
+        <tr data-page-node-id="dvR15"><td class="role" data-page-node-id="dvR15a">代码块正文</td><td class="hex" data-page-node-id="dvR15b">#D6DBE5 on #1A1D26 · 12.1:1</td><td class="hex" data-page-node-id="dvR15c">#D6DBE5 on #10151C · <b>12.9:1</b></td><td data-page-node-id="dvR15d"><span class="pill pill-ok" data-page-node-id="dvR15e">AAA</span></td></tr>
+        <tr data-page-node-id="dvR16"><td class="role" data-page-node-id="dvR16a">代码块注释</td><td class="hex" data-page-node-id="dvR16b">#8A93A5 on #1A1D26 · 5.4:1</td><td class="hex" data-page-node-id="dvR16c">#7C8698 on #10151C · <b>4.9:1</b></td><td data-page-node-id="dvR16d"><span class="pill pill-ok" data-page-node-id="dvR16e">AA</span> <span class="act" data-page-node-id="dvR16f">浅色原 #6B7280 仅 3.5:1</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="block-title" data-page-node-id="darkTrioTitle">语义色 · 暗色三件套（实时渲染）</h3>
+    <p style="font-size:12.5px;color:var(--text-3);margin:-4px 0 12px" data-page-node-id="darkTrioNote">与 05 节同结构，只换值：文字档、图形档、背景档各自抬到"深底等效观感"。注意暗色下背景档统一用低 alpha 叠加，贴在 surface-2 或 surface-3 上会自动适配。</p>
+    <div class="card dark-scope" data-page-node-id="darkTrioPanel">
+      <div class="grid grid-2" style="gap:16px" data-page-node-id="darkTrioGrid">
+        <div class="card" style="border-color:var(--border-control)" data-page-node-id="darkTrio1">
+          <h4 style="font-size:13px;color:var(--success-text)" data-page-node-id="darkTrio1h">成功 / 新增 · 松绿</h4>
+          <div class="trio" data-page-node-id="darkTrio1g">
+            <div class="cell bg-container" data-page-node-id="darkTrio1a"><b style="color:var(--success-text)" data-page-node-id="darkTrio1a1">Aa 文字 400</b><span class="hex" data-page-node-id="darkTrio1a2">#5BD0A2 · 9.0:1</span></div>
+            <div class="cell" data-page-node-id="darkTrio1b"><b data-page-node-id="darkTrio1b1"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--success);margin-right:6px" data-page-node-id="darkTrio1b2"></i>图形 500</b><span class="hex" data-page-node-id="darkTrio1b3">#3DBD8A · ΔS -35</span></div>
+            <div class="cell" style="background:var(--success-weak)" data-page-node-id="darkTrio1c"><b data-page-node-id="darkTrio1c1">背景 14%</b><span class="hex" data-page-node-id="darkTrio1c2">rgba(61,189,138,.14)</span></div>
+          </div>
+        </div>
+        <div class="card" style="border-color:var(--border-control)" data-page-node-id="darkTrio2">
+          <h4 style="font-size:13px;color:var(--warning-text)" data-page-node-id="darkTrio2h">变更 / 警告 · 琥珀</h4>
+          <div class="trio" data-page-node-id="darkTrio2g">
+            <div class="cell bg-container" data-page-node-id="darkTrio2a"><b style="color:var(--warning-text)" data-page-node-id="darkTrio2a1">Aa 文字 400</b><span class="hex" data-page-node-id="darkTrio2a2">#F5BC66 · 10.1:1</span></div>
+            <div class="cell" data-page-node-id="darkTrio2b"><b data-page-node-id="darkTrio2b1"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--warning);margin-right:6px" data-page-node-id="darkTrio2b2"></i>图形 500</b><span class="hex" data-page-node-id="darkTrio2b3">#F0A83C · ΔL +11</span></div>
+            <div class="cell" style="background:var(--warning-weak)" data-page-node-id="darkTrio2c"><b data-page-node-id="darkTrio2c1">背景 14%</b><span class="hex" data-page-node-id="darkTrio2c2">rgba(240,168,60,.14)</span></div>
+          </div>
+        </div>
+        <div class="card" style="border-color:var(--border-control)" data-page-node-id="darkTrio3">
+          <h4 style="font-size:13px;color:var(--danger-text)" data-page-node-id="darkTrio3h">移除 / 错误 · 茜红</h4>
+          <div class="trio" data-page-node-id="darkTrio3g">
+            <div class="cell bg-container" data-page-node-id="darkTrio3a"><b style="color:var(--danger-text)" data-page-node-id="darkTrio3a1">Aa 文字 400</b><span class="hex" data-page-node-id="darkTrio3a2">#F58A8D · 7.3:1</span></div>
+            <div class="cell" data-page-node-id="darkTrio3b"><b data-page-node-id="darkTrio3b1"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);margin-right:6px" data-page-node-id="darkTrio3b2"></i>图形 500</b><span class="hex" data-page-node-id="darkTrio3b3">#F06A6E · ΔS +7</span></div>
+            <div class="cell" style="background:var(--danger-weak)" data-page-node-id="darkTrio3c"><b data-page-node-id="darkTrio3c1">背景 12%</b><span class="hex" data-page-node-id="darkTrio3c2">rgba(240,106,110,.12)</span></div>
+          </div>
+        </div>
+        <div class="card" style="border-color:var(--border-control)" data-page-node-id="darkTrio4">
+          <h4 style="font-size:13px;color:var(--info-text)" data-page-node-id="darkTrio4h">信息 / 来源 · 青碧</h4>
+          <div class="trio" data-page-node-id="darkTrio4g">
+            <div class="cell bg-container" data-page-node-id="darkTrio4a"><b style="color:var(--info-text)" data-page-node-id="darkTrio4a1">Aa 文字 400</b><span class="hex" data-page-node-id="darkTrio4a2">#63BECB · 8.0:1</span></div>
+            <div class="cell" data-page-node-id="darkTrio4b"><b data-page-node-id="darkTrio4b1"><i style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--info);margin-right:6px" data-page-node-id="darkTrio4b2"></i>图形 500</b><span class="hex" data-page-node-id="darkTrio4b3">#3FA8B8 · ΔL +18</span></div>
+            <div class="cell" style="background:var(--info-weak)" data-page-node-id="darkTrio4c"><b data-page-node-id="darkTrio4c1">背景 14%</b><span class="hex" data-page-node-id="darkTrio4c2">rgba(63,168,184,.14)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="darkShiftTitle">取色迁移表 · 从浅色到暗色改了什么</h3>
+    <table class="vtable" data-page-node-id="darkShiftTable">
+      <thead data-page-node-id="darkShiftThead"><tr data-page-node-id="darkShiftTr">
+        <th style="width:120px" data-page-node-id="dsTh1">语义族</th><th style="width:110px" data-page-node-id="dsTh2">浅色图形</th>
+        <th style="width:110px" data-page-node-id="dsTh3">暗色图形</th><th style="width:190px" data-page-node-id="dsTh4">HSL 迁移（ΔH / ΔS / ΔL）</th><th data-page-node-id="dsTh5">迁移意图</th>
+      </tr></thead>
+      <tbody data-page-node-id="darkShiftTbody">
+        <tr data-page-node-id="dsR1"><td class="role" data-page-node-id="dsR1a">松绿 · 成功</td><td class="hex" data-page-node-id="dsR1b">#0C9A68</td><td class="hex" data-page-node-id="dsR1c">#3DBD8A</td><td class="hex" data-page-node-id="dsR1d">−3 / <b>−35</b> / +16</td><td class="act" data-page-node-id="dsR1e">大幅降饱和，深底上"绿"会更刺眼</td></tr>
+        <tr data-page-node-id="dsR2"><td class="role" data-page-node-id="dsR2a">琥珀 · 警告</td><td class="hex" data-page-node-id="dsR2b">#E8930C</td><td class="hex" data-page-node-id="dsR2c">#F0A83C</td><td class="hex" data-page-node-id="dsR2d">−1 / −4 / +11</td><td class="act" data-page-node-id="dsR2e">几乎只抬明度，橙色系本就低饱和</td></tr>
+        <tr data-page-node-id="dsR3"><td class="role" data-page-node-id="dsR3a">茜红 · 错误</td><td class="hex" data-page-node-id="dsR3b">#E5484D</td><td class="hex" data-page-node-id="dsR3c">#F06A6E</td><td class="hex" data-page-node-id="dsR3d">0 / <b>+7</b> / +9</td><td class="act" data-page-node-id="dsR3e">唯一"增纯"的族：红降纯会发灰变脏</td></tr>
+        <tr data-page-node-id="dsR4"><td class="role" data-page-node-id="dsR4a">青碧 · 信息</td><td class="hex" data-page-node-id="dsR4b">#0E7C8C</td><td class="hex" data-page-node-id="dsR4c">#3FA8B8</td><td class="hex" data-page-node-id="dsR4d">0 / <b>−33</b> / +18</td><td class="act" data-page-node-id="dsR4e">抬明最多，青色在深底易发荧光</td></tr>
+        <tr data-page-node-id="dsR5"><td class="role" data-page-node-id="dsR5a">曜蓝 · 品牌</td><td class="hex" data-page-node-id="dsR5b">#2F44D8</td><td class="hex" data-page-node-id="dsR5c">#8DA1F7</td><td class="hex" data-page-node-id="dsR5d">+2 / −21 / +26</td><td class="act" data-page-node-id="dsR5e">文字档抬 300-400 阶；填充档另取 #4D64E9</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text-3);margin-top:8px" data-page-node-id="darkShiftNote">HSL 为近似值（sRGB 空间），仅用于说明迁移方向与量级；落地仍以表格里的十六进制值为准。</p>
+
+    <h3 class="block-title" data-page-node-id="darkBizTitle">业务状态 · 暗色实渲</h3>
+    <div class="dk-panel dark-scope" data-page-node-id="darkBizPanel">
+      <h4 data-page-node-id="darkBizPanelH">版本对比 · 差异四态（暗色）</h4>
+      <table class="demo-table" data-page-node-id="darkBizTable">
+        <thead data-page-node-id="dbThead"><tr data-page-node-id="dbTr0"><th style="width:110px" data-page-node-id="dbTh1">状态</th><th style="width:160px" data-page-node-id="dbTh2">参数名</th><th data-page-node-id="dbTh3">参数值</th><th style="width:96px" data-page-node-id="dbTh4">来源</th></tr></thead>
+        <tbody data-page-node-id="dbTbody">
+          <tr class="row-state added" data-page-node-id="dbR1"><td data-page-node-id="dbR1a"><span class="state-tag added" data-page-node-id="dbR1a1">＋ 新增</span></td><td data-page-node-id="dbR1b">快充时间</td><td class="num" data-page-node-id="dbR1c">0.5 h（30%-80%）</td><td data-page-node-id="dbR1d"><span class="src-tag xl" data-page-node-id="dbR1d1">📄 Excel</span></td></tr>
+          <tr class="row-state modified" data-page-node-id="dbR2"><td data-page-node-id="dbR2a"><span class="state-tag modified" data-page-node-id="dbR2a1">≠ 变更</span></td><td data-page-node-id="dbR2b">整车整备质量</td><td class="num" data-page-node-id="dbR2c"><span class="old-val" data-page-node-id="dbR2c1">1850 kg</span><span class="new-val" data-page-node-id="dbR2c2">1820 kg</span></td><td data-page-node-id="dbR2d"><span class="src-tag xl" data-page-node-id="dbR2d1">📄 Excel</span></td></tr>
+          <tr class="row-state removed" data-page-node-id="dbR3"><td data-page-node-id="dbR3a"><span class="state-tag removed" data-page-node-id="dbR3a1">− 移除</span></td><td data-page-node-id="dbR3b"><span class="old-val" style="margin:0" data-page-node-id="dbR3b1">随车充电线长度</span></td><td class="num" data-page-node-id="dbR3c"><span class="old-val" style="margin:0" data-page-node-id="dbR3c1">5 m</span></td><td data-page-node-id="dbR3d"><span class="src-tag xl" data-page-node-id="dbR3d1">📄 Excel</span></td></tr>
+          <tr class="row-state" data-page-node-id="dbR4"><td data-page-node-id="dbR4a"><span class="state-tag same" data-page-node-id="dbR4a1">＝ 一致</span></td><td data-page-node-id="dbR4b">轴距</td><td class="num" data-page-node-id="dbR4c">2800 mm</td><td data-page-node-id="dbR4d"><span class="src-tag gg" data-page-node-id="dbR4d1">🏛 公告</span></td></tr>
+        </tbody>
+      </table>
+      <p class="dk-cap" data-page-node-id="darkBizCap">行底改用 <b style="color:#E6E9EF">12% alpha 叠加</b> 而非固定色：贴在 surface-2 上合成 ≈ #1B2E2F / #30242C / #302C26，贴在 surface-3（hover 行）上会自动跟着变，不需要两套值。3px 侧条与标签底对齐时仍保持 ≥5:1。</p>
+    </div>
+
+    <div class="dk-panel dark-scope" style="margin-top:16px" data-page-node-id="darkConfPanel">
+      <h4 data-page-node-id="darkConfPanelH">智能填报 · 置信度与必填缺失（暗色）</h4>
+      <table class="demo-table" data-page-node-id="darkConfTable">
+        <thead data-page-node-id="dcThead"><tr data-page-node-id="dcTr0"><th data-page-node-id="dcTh1">需求参数名</th><th data-page-node-id="dcTh2">匹配库参数</th><th style="width:110px" data-page-node-id="dcTh3">置信度</th><th style="width:150px" data-page-node-id="dcTh4">校验</th></tr></thead>
+        <tbody data-page-node-id="dcTbody">
+          <tr data-page-node-id="dcR1"><td data-page-node-id="dcR1a">车身长度</td><td data-page-node-id="dcR1b">整车长</td><td data-page-node-id="dcR1c"><span class="conf hi" data-page-node-id="dcR1c1"><i data-page-node-id="dcR1c2"></i>98%</span></td><td style="color:var(--text-3);font-size:12px" data-page-node-id="dcR1d">—</td></tr>
+          <tr data-page-node-id="dcR2"><td data-page-node-id="dcR2a">最大爬坡度</td><td data-page-node-id="dcR2b">爬坡度（满载）</td><td data-page-node-id="dcR2c"><span class="conf mid" data-page-node-id="dcR2c1"><i data-page-node-id="dcR2c2"></i>76%</span></td><td style="font-size:12px;color:var(--warning-text)" data-page-node-id="dcR2d">⚠ 建议人工复核</td></tr>
+          <tr data-page-node-id="dcR3"><td data-page-node-id="dcR3a">电池冷却方式</td><td style="color:var(--text-3)" data-page-node-id="dcR3b">未匹配 · 需手动录入</td><td data-page-node-id="dcR3c"><span class="conf lo" data-page-node-id="dcR3c1"><i data-page-node-id="dcR3c2"></i>32%</span></td><td data-page-node-id="dcR3d"><span class="req-missing" data-page-node-id="dcR3d1">✕ 必填缺失</span></td></tr>
+        </tbody>
+      </table>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px" data-page-node-id="darkSrcRow">
+        <span class="src-tag gg" data-page-node-id="darkSrc1">🏛 公告数据</span>
+        <span class="src-tag zc" data-page-node-id="darkSrc2">🗂 资产库</span>
+        <span class="src-tag xl" data-page-node-id="darkSrc3">📄 Excel 导入</span>
+        <span style="font-size:12px;color:var(--text-3)" data-page-node-id="darkSrcNote">来源标识的"去语义化"规则在暗色下同样成立：青碧 6.5:1 / 紫 6.2:1 / 中性 8.3:1，都不与绿红橙抢眼。</span>
+      </div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="darkCompTitle">组件 · 暗色实渲</h3>
+    <div class="dk-panel dark-scope" data-page-node-id="darkCompPanel">
+      <h4 data-page-node-id="darkCompH1">按钮体系</h4>
+      <div class="btn-row" data-page-node-id="darkBtnRow">
+        <span class="btn btn-primary" data-page-node-id="darkBtn1">开始比对</span>
+        <span class="btn btn-primary" style="background:var(--brand-fill-hover)" data-page-node-id="darkBtn1h">hover 态</span>
+        <span class="btn btn-secondary" data-page-node-id="darkBtn2">导出 PDF</span>
+        <span class="btn btn-danger" data-page-node-id="darkBtn3">清空数据</span>
+        <span class="btn btn-ghost" data-page-node-id="darkBtn4">查看详情 →</span>
+      </div>
+      <p class="dk-cap" data-page-node-id="darkBtnCap">暗色主按钮 hover 只能提亮约 7%（#4D64E9 → #5569EB），再亮就跌破白字 4.5:1；因此暗色下 hover 反馈由「填充微亮 + 高光描边」两个线索共同承担，而不是把填充调亮一大截。</p>
+
+      <h4 style="margin-top:22px" data-page-node-id="darkCompH2">概览统计卡</h4>
+      <div class="grid grid-4" data-page-node-id="darkStatGrid">
+        <div class="stat-card" data-page-node-id="darkStat1"><div class="label" data-page-node-id="darkStat1a">参数总数</div><div class="value num" data-page-node-id="darkStat1b">342</div><div class="delta" style="color:var(--text-3)" data-page-node-id="darkStat1c">12 个分组</div></div>
+        <div class="stat-card" data-page-node-id="darkStat2"><div class="label" data-page-node-id="darkStat2a">已填写</div><div class="value num" data-page-node-id="darkStat2b">318</div><div class="delta" style="color:var(--success-text)" data-page-node-id="darkStat2c">填报率 93.0%</div></div>
+        <div class="stat-card" data-page-node-id="darkStat3"><div class="label" data-page-node-id="darkStat3a">未填写</div><div class="value num" style="color:var(--warning-text)" data-page-node-id="darkStat3b">24</div><div class="delta" style="color:var(--text-3)" data-page-node-id="darkStat3c">含必填 3 项</div></div>
+        <div class="stat-card" data-page-node-id="darkStat4"><div class="label" data-page-node-id="darkStat4a">必填缺失</div><div class="value num" style="color:var(--danger-text)" data-page-node-id="darkStat4b">3</div><div class="delta" style="color:var(--danger-text)" data-page-node-id="darkStat4c">⚠ 导出前必须补齐</div></div>
+      </div>
+
+      <h4 style="margin-top:22px" data-page-node-id="darkCompH3">流程引导 · 聚焦态 · 骨架屏</h4>
+      <div style="display:grid;gap:18px" data-page-node-id="darkCompStack">
+        <div class="steps-demo" data-page-node-id="darkSteps">
+          <div class="step-i done" data-page-node-id="darkStep1"><span class="dot" data-page-node-id="darkStep1d">✓</span>上传基准版</div><div class="step-line" data-page-node-id="darkStep1L"></div>
+          <div class="step-i now" data-page-node-id="darkStep2"><span class="dot" data-page-node-id="darkStep2d">2</span>上传对比版</div><div class="step-line" data-page-node-id="darkStep2L"></div>
+          <div class="step-i todo" data-page-node-id="darkStep3"><span class="dot" data-page-node-id="darkStep3d">3</span>查看差异</div><div class="step-line" data-page-node-id="darkStep3L"></div>
+          <div class="step-i todo" data-page-node-id="darkStep4"><span class="dot" data-page-node-id="darkStep4d">4</span>导出报告</div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap" data-page-node-id="darkFocusRow">
+          <span class="focus-demo" data-page-node-id="darkFocus">键盘聚焦态（暗色环 #A0AFF8）</span>
+          <span style="font-size:12px;color:var(--text-3)" data-page-node-id="darkFocusNote">暗色环对容器底 8.2:1，远比浅色的 #7386F1（3.0:1）更"跳"——深底上必须把环抬亮，否则键盘用户找不到焦点。</span>
+        </div>
+        <div style="display:grid;gap:7px;max-width:380px" data-page-node-id="darkSkel">
+          <div class="skel" style="width:62%" data-page-node-id="darkSkel1"></div>
+          <div class="skel" style="width:88%" data-page-node-id="darkSkel2"></div>
+          <div class="skel" style="width:74%" data-page-node-id="darkSkel3"></div>
+          <span style="font-size:11.5px;color:var(--text-3)" data-page-node-id="darkSkelNote">骨架屏两值差 1.54 倍（#1D2530 → #39434F）。低于 1.5 时暗色下扫光基本看不见，这是暗色最常被漏掉的一处。</span>
+        </div>
+      </div>
+
+      <h4 style="margin-top:22px" data-page-node-id="darkCompH4">弹层与遮罩</h4>
+      <div class="modal-demo" data-page-node-id="darkModal">
+        <div class="mock-bg" data-page-node-id="darkModalBg">
+          <div class="mock-line" style="width:40%" data-page-node-id="darkModalL1"></div>
+          <div class="mock-line" style="width:78%" data-page-node-id="darkModalL2"></div>
+          <div class="mock-line" style="width:66%" data-page-node-id="darkModalL3"></div>
+          <div class="mock-line" style="width:84%" data-page-node-id="darkModalL4"></div>
+        </div>
+        <div class="mask-layer" data-page-node-id="darkModalMask"></div>
+        <div class="popover-demo" data-page-node-id="darkPopover">
+          <div class="t" data-page-node-id="darkPopoverT">覆盖已有的 24 项填写？</div>
+          <div class="d" data-page-node-id="darkPopoverD">遮罩 62% 黑，容器退到背景但轮廓仍可辨；弹层靠 #202734 + 1px #333C4D 描边抬升。</div>
+          <div class="btn-row" data-page-node-id="darkPopoverBtns">
+            <span class="btn btn-primary" style="padding:5px 12px" data-page-node-id="darkPopoverOk">覆盖</span>
+            <span class="btn btn-secondary" style="padding:5px 12px" data-page-node-id="darkPopoverCancel">取消</span>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="margin-top:22px" data-page-node-id="darkCompH5">图表序列</h4>
+      <div class="chart-legend" data-page-node-id="darkChartLegend">
+        <span class="chart-chip" data-page-node-id="darkChart1"><i style="background:var(--chart-1)" data-page-node-id="darkChart1i"></i>整车尺寸</span>
+        <span class="chart-chip" data-page-node-id="darkChart2"><i class="dash" style="color:var(--chart-2)" data-page-node-id="darkChart2i"></i>动力性能</span>
+        <span class="chart-chip" data-page-node-id="darkChart3"><i style="background:var(--chart-3)" data-page-node-id="darkChart3i"></i>续航补能</span>
+        <span class="chart-chip" data-page-node-id="darkChart4"><i style="background:var(--chart-4)" data-page-node-id="darkChart4i"></i>质量载重</span>
+        <span class="chart-chip" data-page-node-id="darkChart5"><i class="dash" style="color:var(--chart-5)" data-page-node-id="darkChart5i"></i>安全配置</span>
+        <span class="chart-chip" data-page-node-id="darkChart6"><i style="background:var(--chart-6)" data-page-node-id="darkChart6i"></i>其他</span>
+      </div>
+      <p class="dk-cap" data-page-node-id="darkChartCap">6 条序列对容器底分别 7.1 / 7.3 / 8.5 / 5.8 / 8.0 / 7.4 : 1，全部达标；但"可辨"不能只看对比度——相邻序列明度接近（如蓝 7.1 与绿 7.3），必须叠加 <b style="color:#E6E9EF">线型 / 纹理</b> 双编码，见 09 节可辨别规范。图表色走 JS 常量（见 <code>tailwind.tokens.js</code> 的 <code>chart.seriesDark</code>），因为 ECharts 读不到 CSS 变量。</p>
+
+      <h4 style="margin-top:22px" data-page-node-id="darkCompH6">代码块与行内代码</h4>
+      <div class="codeblock" data-page-node-id="darkCode"><span class="cm" data-page-node-id="darkCodeCm">// 暗色下代码块比布局底更"沉"，块感来自更暗而非更亮</span><br data-page-node-id="darkCodeBr1">
+<span class="kw" data-page-node-id="darkCodeKw">const</span> surface = {<br data-page-node-id="darkCodeBr2">
+&nbsp;&nbsp;codeBg: <span class="st" data-page-node-id="darkCodeSt">'#10151C'</span>,  <span class="cm" data-page-node-id="darkCodeCm2">// 正文 #D6DBE5 = 12.9:1</span><br data-page-node-id="darkCodeBr3">
+&nbsp;&nbsp;comment: <span class="st" data-page-node-id="darkCodeSt2">'#7C8698'</span>, <span class="cm" data-page-node-id="darkCodeCm3">// 注释 4.9:1，原 3.7:1 不达标</span><br data-page-node-id="darkCodeBr4">
+}</div>
+      <p class="dk-cap" data-page-node-id="darkCodeCap">行内代码底改用 <b style="color:#E6E9EF">surface-3</b> 而不是半透明叠加——它常出现在表头与已选中行里，叠色会与行底撞成第三种颜色。</p>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="darkDontTitle">暗色六禁</h3>
+    <div class="dont-grid" data-page-node-id="darkDontGrid">
+      <div class="dont-item no" data-page-node-id="dont1">
+        <div class="h" data-page-node-id="dont1h"><em data-page-node-id="dont1he">✕</em>纯黑底 + 纯白字</div>
+        <ul data-page-node-id="dont1ul">
+          <li data-page-node-id="dont1l1">#000 底 + #FFF 字 = 21:1，过亮会加剧眩光与暗色残像，且与容器层失去层次</li>
+          <li style="color:var(--success-text)" data-page-node-id="dont1l2">✓ 底 #0E1116、正文 #E6E9EF（14.2:1），留出"还能更亮"的余量</li>
+        </ul>
+      </div>
+      <div class="dont-item no" data-page-node-id="dont2">
+        <div class="h" data-page-node-id="dont2h"><em data-page-node-id="dont2he">✕</em>把 500 阶语义色直接搬过来</div>
+        <ul data-page-node-id="dont2ul">
+          <li data-page-node-id="dont2l1">浅色 <code>#0C9A68</code> 在深底上既不够亮又过饱和，成片出现即"霓虹感"</li>
+          <li style="color:var(--success-text)" data-page-node-id="dont2l2">✓ 图形层降钝抬明（#3DBD8A），文字层再抬一档（#5BD0A2）</li>
+        </ul>
+      </div>
+      <div class="dont-item no" data-page-node-id="dont3">
+        <div class="h" data-page-node-id="dont3h"><em data-page-node-id="dont3he">✕</em>一个品牌色同时当文字和按钮底</div>
+        <ul data-page-node-id="dont3ul">
+          <li data-page-node-id="dont3l1">文字要"亮"（深底可读）、填充要"暗"（白字可读），暗色下这对需求是相反的</li>
+          <li style="color:var(--success-text)" data-page-node-id="dont3l2">✓ 拆名：<code>--brand</code> #8DA1F7 走文字，<code>--brand-fill</code> #4D64E9 走填充</li>
+        </ul>
+      </div>
+      <div class="dont-item no" data-page-node-id="dont4">
+        <div class="h" data-page-node-id="dont4h"><em data-page-node-id="dont4he">✕</em>用投影表达层级</div>
+        <ul data-page-node-id="dont4ul">
+          <li data-page-node-id="dont4l1">深底上阴影几乎不可见，弹层会"糊"在背景里；加大阴影只会做出脏边</li>
+          <li style="color:var(--success-text)" data-page-node-id="dont4l2">✓ 抬升改由「+1 层表面亮度 + 1px 提亮描边」承担，阴影仅作补充</li>
+        </ul>
+      </div>
+      <div class="dont-item no" data-page-node-id="dont5">
+        <div class="h" data-page-node-id="dont5h"><em data-page-node-id="dont5he">✕</em>用 1px 深色线区分可编辑区</div>
+        <ul data-page-node-id="dont5ul">
+          <li data-page-node-id="dont5l1">暗色没有"白底填充差"可用，沿用浅色的 #3A4354 描边（1.7:1）等于没画</li>
+          <li style="color:var(--success-text)" data-page-node-id="dont5l2">✓ 控件描边单列 token 并提到 3:1（#5B6684），装饰性分隔线才允许低对比</li>
+        </ul>
+      </div>
+      <div class="dont-item no" data-page-node-id="dont6">
+        <div class="h" data-page-node-id="dont6h"><em data-page-node-id="dont6he">✕</em>暗色里给每个组件单独"打补丁"</div>
+        <ul data-page-node-id="dont6ul">
+          <li data-page-node-id="dont6l1">组件内写 <code>dark:bg-[#1a1a1a]</code> 之类的一次性值，改色时必然漏改、两套模式失同步</li>
+          <li style="color:var(--success-text)" data-page-node-id="dont6l2">✓ 暗色只允许在 <code>.dark</code> 下翻转变量；组件里出现的颜色必须能追溯到一个 token</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="darkGapTitle">本次补充的缺口清单</h3>
+    <p style="font-size:12.5px;color:var(--text-3);margin:-4px 0 12px" data-page-node-id="darkGapNote">按严重度排序：P0 = 影响可读性/可达性必须改；P1 = 规范缺陷，不改会在落地时踩坑；P2 = 覆盖不全。</p>
+    <table class="vtable" data-page-node-id="darkGapTable">
+      <thead data-page-node-id="darkGapThead"><tr data-page-node-id="darkGapTr">
+        <th style="width:56px" data-page-node-id="dgTh1">编号</th><th style="width:56px" data-page-node-id="dgTh2">级别</th>
+        <th style="width:260px" data-page-node-id="dgTh3">缺口</th><th data-page-node-id="dgTh4">影响</th><th style="width:220px" data-page-node-id="dgTh5">处理</th>
+      </tr></thead>
+      <tbody data-page-node-id="darkGapTbody">
+        <tr data-page-node-id="dgR1"><td class="hex" data-page-node-id="dgR1a">D-01</td><td data-page-node-id="dgR1b"><span class="pill pill-bad" data-page-node-id="dgR1c">P1</span></td><td data-page-node-id="dgR1d">浅色 <code>text-3</code> #8A91A0 仅 3.2:1，却用在 12px 表头</td><td class="act" data-page-node-id="dgR1e">浅色下 300+ 行表格的表头文字长期处于不合格对比度</td><td class="act" data-page-node-id="dgR1f">建议改 <code>#6F7787</code>（4.5:1）；或硬约束 text-3 仅用于 ≥18px。<b>浅色端待决策</b></td></tr>
+        <tr data-page-node-id="dgR2"><td class="hex" data-page-node-id="dgR2a">D-02</td><td data-page-node-id="dgR2b"><span class="pill pill-bad" data-page-node-id="dgR2c">P1</span></td><td data-page-node-id="dgR2d">暗色无控件描边 token，沿用 <code>border-strong</code> #3A4354 = 1.7:1</td><td class="act" data-page-node-id="dgR2e">输入框/下拉/复选框边界不可辨，WCAG 2.2 非文本对比不达标</td><td class="act" data-page-node-id="dgR2f">新增 <code>--border-control: #5B6684</code>（3.0:1）</td></tr>
+        <tr data-page-node-id="dgR3"><td class="hex" data-page-node-id="dgR3a">D-03</td><td data-page-node-id="dgR3b"><span class="pill pill-ok" data-page-node-id="dgR3c">已修</span></td><td data-page-node-id="dgR3d">暗色 <code>text-3</code> #6B7280 仅 3.6:1</td><td class="act" data-page-node-id="dgR3e">表头与辅助说明在暗色下不可读</td><td class="act" data-page-node-id="dgR3f">改 <code>#8A93A5</code> → 5.6:1</td></tr>
+        <tr data-page-node-id="dgR4"><td class="hex" data-page-node-id="dgR4a">D-04</td><td data-page-node-id="dgR4b"><span class="pill pill-ok" data-page-node-id="dgR4c">已修</span></td><td data-page-node-id="dgR4d">暗色 <code>text-4</code> #4A5160 仅 2.2:1</td><td class="act" data-page-node-id="dgR4e">占位符与禁用态几乎不可见</td><td class="act" data-page-node-id="dgR4f">改 <code>#5E6675</code> → 3.0:1</td></tr>
+        <tr data-page-node-id="dgR5"><td class="hex" data-page-node-id="dgR5a">D-05</td><td data-page-node-id="dgR5b"><span class="pill pill-bad" data-page-node-id="dgR5c">P1</span></td><td data-page-node-id="dgR5d">品牌色只有一档，暗色下文字与填充需求相反</td><td class="act" data-page-node-id="dgR5e">直接复用必然导致"按钮白字"或"链接文字"其中之一跌破 AA</td><td class="act" data-page-node-id="dgR5f">拆 <code>--brand</code> / <code>--brand-fill</code>（+ hover 档）</td></tr>
+        <tr data-page-node-id="dgR6"><td class="hex" data-page-node-id="dgR6a">D-06</td><td data-page-node-id="dgR6b"><span class="pill pill-new" data-page-node-id="dgR6c">新增</span></td><td data-page-node-id="dgR6d">缺遮罩 / 骨架屏 / 滚动条 / 选中 / 代码块 / 轻提示 六组</td><td class="act" data-page-node-id="dgR6e">这些件在暗色下要么继承浅色值（直接错），要么在各组件里硬编码</td><td class="act" data-page-node-id="dgR6f">本次补齐，明暗成对共 24 个 token</td></tr>
+        <tr data-page-node-id="dgR7"><td class="hex" data-page-node-id="dgR7a">D-07</td><td data-page-node-id="dgR7b"><span class="pill pill-warn" data-page-node-id="dgR7c">P2</span></td><td data-page-node-id="dgR7d">图表无明暗序列色</td><td class="act" data-page-node-id="dgR7e">ECharts 读不到 CSS 变量，切暗色后图表仍画浅色线（一条线都看不见）</td><td class="act" data-page-node-id="dgR7f">新增 <code>chart.seriesLight / seriesDark</code> + 线型双编码</td></tr>
+        <tr data-page-node-id="dgR8"><td class="hex" data-page-node-id="dgR8a">D-08</td><td data-page-node-id="dgR8b"><span class="pill pill-warn" data-page-node-id="dgR8c">P2</span></td><td data-page-node-id="dgR8d">浅色代码块注释 #6B7280 = 3.5:1</td><td class="act" data-page-node-id="dgR8e">帮助文档与配置示例里的注释不可读</td><td class="act" data-page-node-id="dgR8f">改 <code>#8A93A5</code> → 5.4:1（暗色 4.9:1）</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="block-title" data-page-node-id="darkAntdTitle">AntD 暗色 token 映射</h3>
+    <div class="grid grid-2" data-page-node-id="darkAntdGrid">
+      <div class="codeblock" data-page-node-id="darkAntdCode"><span class="cm" data-page-node-id="darkAntdCm">// src/theme/themeConfig.ts → DARK 分支（按本次补充校正）</span><br data-page-node-id="darkAntdBr1">
+<span class="kw" data-page-node-id="darkAntdKw">const</span> DARK = {<br data-page-node-id="darkAntdBr2">
+&nbsp;&nbsp;primary: <span class="st" data-page-node-id="darkAntdSt1">'#8DA1F7'</span>,  <span class="cm" data-page-node-id="darkAntdCm2">// = --brand（文字/描边）</span><br data-page-node-id="darkAntdBr3">
+&nbsp;&nbsp;info:    <span class="st" data-page-node-id="darkAntdSt2">'#3FA8B8'</span>,<br data-page-node-id="darkAntdBr4">
+&nbsp;&nbsp;success: <span class="st" data-page-node-id="darkAntdSt3">'#3DBD8A'</span>,  <span class="cm" data-page-node-id="darkAntdCm3">// 图形层</span><br data-page-node-id="darkAntdBr5">
+&nbsp;&nbsp;warning: <span class="st" data-page-node-id="darkAntdSt4">'#F0A83C'</span>,<br data-page-node-id="darkAntdBr6">
+&nbsp;&nbsp;error:   <span class="st" data-page-node-id="darkAntdSt5">'#F06A6E'</span>,<br data-page-node-id="darkAntdBr7">
+&nbsp;&nbsp;text:    <span class="st" data-page-node-id="darkAntdSt6">'#E6E9EF'</span>, text2: <span class="st" data-page-node-id="darkAntdSt7">'#AAB2C0'</span>,<br data-page-node-id="darkAntdBr8">
+&nbsp;&nbsp;text3:   <span class="st" data-page-node-id="darkAntdSt8">'#8A93A5'</span>, <span class="cm" data-page-node-id="darkAntdCm4">// ← 原 #6B7280 不达标</span><br data-page-node-id="darkAntdBr9">
+&nbsp;&nbsp;text4:   <span class="st" data-page-node-id="darkAntdSt9">'#5E6675'</span>, <span class="cm" data-page-node-id="darkAntdCm5">// ← 原 #4A5160 不达标</span><br data-page-node-id="darkAntdBr10">
+&nbsp;&nbsp;bgLayout:    <span class="st" data-page-node-id="darkAntdSt10">'#0E1116'</span>,<br data-page-node-id="darkAntdBr11">
+&nbsp;&nbsp;bgContainer: <span class="st" data-page-node-id="darkAntdSt11">'#161B23'</span>,<br data-page-node-id="darkAntdBr12">
+&nbsp;&nbsp;bgElevated:  <span class="st" data-page-node-id="darkAntdSt12">'#202734'</span>, <span class="cm" data-page-node-id="darkAntdCm6">// 弹层靠它抬升</span><br data-page-node-id="darkAntdBr13">
+&nbsp;&nbsp;border: <span class="st" data-page-node-id="darkAntdSt13">'#2C3442'</span>, <span class="cm" data-page-node-id="darkAntdCm7">// 装饰性分隔</span><br data-page-node-id="darkAntdBr14">
+}</div>
+      <div class="card" data-page-node-id="darkAntdNote">
+        <b style="font-size:13px" data-page-node-id="darkAntdNoteH">接入时必须知道的四件事</b>
+        <ul style="list-style:none;font-size:12.5px;color:var(--text-2);margin-top:10px" data-page-node-id="darkAntdNoteUl">
+          <li style="padding:4px 0 4px 14px;position:relative" data-page-node-id="darkAntdNoteLi1">① AntD 的 <code>colorPrimary</code> 同时管"文字强调"和"实色填充"。暗色下 <code>#8DA1F7</code> 作填充时白字只有 1.9:1 —— 主按钮必须用 <code>Button</code> 的 <code>classNames</code> 覆盖为 <code>--brand-fill</code>，不能只配一个 token 了事。</li>
+          <li style="padding:4px 0 4px 14px;position:relative" data-page-node-id="darkAntdNoteLi2">② <code>colorBorder</code> 只承担"装饰性分隔"，控件描边要靠组件级 <code>colorBorder</code> 之外的单点覆盖（Input / Select / Checkbox 各一处），值用 <code>#5B6684</code>。</li>
+          <li style="padding:4px 0 4px 14px;position:relative" data-page-node-id="darkAntdNoteLi3">③ 表格 <code>headerBg</code> 暗色用 <code>#202734</code>（比容器亮），这与浅色 <code>#F1F3F6</code>（比容器暗）方向相反，是刻意为之。</li>
+          <li style="padding:4px 0 4px 14px;position:relative" data-page-node-id="darkAntdNoteLi4">④ 暗色不要开 <code>darkAlgorithm</code> 让它自己推导——它会把已显式指定的值再次加工，出现难排查的偏色。显式给全两套值。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;font-size:12.5px;color:var(--text-2)" data-page-node-id="darkFooterNote">
+      <b style="color:var(--text-1)" data-page-node-id="darkFooterNoteH">落地顺序建议：</b>① 先把 <code>tokens.css</code> 的 <code>:root</code> / <code>.dark</code> 两段整体替换进 <code>src/index.css</code>（新增 token 不改变任何现有渲染）；② 再单独评审 D-01、D-02、D-05 三项会改变观感的修正；③ 最后按 D-07 给图表配置接上 <code>chart.seriesDark</code>，并把 <code>themeConfig.ts</code> 的 DARK 分支按上表校正。验收方式：顶栏主题开关切一遍本页，再跑 版本对比 / 智能填报 / 数据体检 三个页面的明暗两色。
+    </div>
+  </div>
+</section>
+
+<!-- ================= 07 业务状态 ================= -->
+<section id="business" data-page-node-id="XxhQWexMHEAEH7FsOBRD0T">
+  <div class="wrap" data-page-node-id="NTF8UYeqPv1TRyFvD4Uuxo">
+    <div class="sec-head" data-page-node-id="3qgodUH0Dzq4B79kQXSBbA"><span class="sec-num" data-page-node-id="KeNVXlzTL3ndKE1yoasa7y">06</span><h2 data-page-node-id="vJ9eZR927M3GGhSibmfN7E">业务状态映射（本方案核心）</h2></div>
+    <p class="sec-desc" data-page-node-id="Feb8stKuyVAn9IeaDvrmCj">为产品四大高频状态建立专属 token 层。所有状态「色彩 + 形状/图标」双编码——即使完全无法分辨红绿，信息也不丢失。</p>
+
+    <h3 class="block-title" data-page-node-id="oElWmCAQ6zdrOxp8Htueeo">版本对比 · 差异四态</h3>
+    <table class="demo-table" data-page-node-id="CeVKDmjWqwyF5K0tD4uTde">
+      <thead data-page-node-id="WHH2qqgmSKG2mewrbeHujC"><tr data-page-node-id="VwEpQECFlVgLoiExAYN0rK"><th style="width:120px" data-page-node-id="pn5fB8WjKTgMjSTF4x6XaP">状态</th><th style="width:180px" data-page-node-id="hSOD7gZraxtgArO9cOH68H">参数名</th><th data-page-node-id="v9mCY9IP7pgsu3TqOBjZdo">参数值</th><th style="width:100px" data-page-node-id="K8937D7hiXgeUfZ76cEHaP">来源</th></tr></thead>
+      <tbody data-page-node-id="4QwuacEEImXBAkmOzWihWO">
+        <tr class="row-state added" data-page-node-id="fEqwHioluwcF9u1NVapPUv"><td data-page-node-id="mHKoGjwX7hw4Kbiq1kU7Uy"><span class="state-tag added" data-page-node-id="bNDvjUGfawC3eQm6uvhP8E">＋ 新增</span></td><td data-page-node-id="eZnF46RHbwb1aZSSXkhane">快充时间</td><td class="num" data-page-node-id="wCzzoM7llMhPIFhMWrX6XC">0.5 h（30%-80%）</td><td data-page-node-id="KxHvpvA5VQyk15ipTfY2Px"><span class="src-tag xl" data-page-node-id="AUUVFfCeE2IX9rg55A7gil">📄 Excel</span></td></tr>
+        <tr class="row-state modified" data-page-node-id="KbOAKACiirJiOKOqK1pYJD"><td data-page-node-id="RmadStctcXjJLubWQaYoky"><span class="state-tag modified" data-page-node-id="3eHItlAWUpn1tfQW1NdcbK">≠ 变更</span></td><td data-page-node-id="llGkBjG2mcGvBW58yuTxWQ">整车整备质量</td><td class="num" data-page-node-id="TRT9D0iAOmL1TVlNdAbEfF"><span class="old-val" data-page-node-id="ucHf54w2TlkSVBFUcz93C1">1850 kg</span><span class="new-val" data-page-node-id="l7OfmC3T86mYZ4R9BByLnD">1820 kg</span></td><td data-page-node-id="WF4wZzs90z1YJpDVcTMXRq"><span class="src-tag xl" data-page-node-id="r4MENrUA5wWFMLcgEDNhhf">📄 Excel</span></td></tr>
+        <tr class="row-state removed" data-page-node-id="tc7ldKxdO9tCIsq8ztvkFu"><td data-page-node-id="tEIf21tw2kt42f7mq97zZj"><span class="state-tag removed" data-page-node-id="UxjV6MX4BzjEWxiJbaa9LJ">− 移除</span></td><td data-page-node-id="l6uMZAOph1PsJsIlLsTZLR"><span class="old-val" style="margin:0" data-page-node-id="AWAK1lCTYVzfi6mIPim7FW">随车充电线长度</span></td><td class="num" data-page-node-id="eLaxCkKJjOD33QpSDGdULG"><span class="old-val" style="margin:0" data-page-node-id="LuYL3nQF44V82Vc6Na4yG8">5 m</span></td><td data-page-node-id="jQAxLJboRsE3Rm32ujo7ex"><span class="src-tag xl" data-page-node-id="L9SDo8Jl0g92rps05SBK4z">📄 Excel</span></td></tr>
+        <tr class="row-state" data-page-node-id="zqmpcGlZ0IVAuOo4p6V9G0"><td data-page-node-id="DWkSTiCGfu7ESZBK80Jy93"><span class="state-tag same" data-page-node-id="aHQlitsUgChkVePmxS8rwt">＝ 一致</span></td><td data-page-node-id="SlclpmEwGFkwCHSssl10yt">轴距</td><td class="num" data-page-node-id="6LYZtaWy9tzs8fpECqombw">2800 mm</td><td data-page-node-id="UpaXZQATCrurSNHyrHRNSr"><span class="src-tag gg" data-page-node-id="pgBdIsQML8IiCepwoeZVwe">🏛 公告</span></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text-3);margin-top:8px" data-page-node-id="MHlYTC4m7aBLFpG3xBIHLe">规则：状态行 = 50 阶底色 + 3px 左侧色条 + 图标标签；变更行的旧值删除线置灰、新值琥珀加粗。「一致」态无任何着色——默认即安静。</p>
+
+    <h3 class="block-title" data-page-node-id="bTzBANRhBecZDrwXEuaKAp">智能填报 · 匹配置信度</h3>
+    <table class="demo-table" data-page-node-id="rAKyYZ5lBRqFEGnQc6CW5V">
+      <thead data-page-node-id="7DMjNAMvxOrAppMVsblDaN"><tr data-page-node-id="6yeeYjLSVpyftbaSORHa1h"><th data-page-node-id="PFYizLiGNTNoFkgTUBCQrH">需求参数名</th><th data-page-node-id="WSMvw6VEt9OO0AxCZZ3nqT">匹配库参数</th><th style="width:120px" data-page-node-id="vpcRaXjMxyTWJpUMP0ikEH">置信度</th><th style="width:140px" data-page-node-id="0WUqYYscKukTosCGUnjKtg">校验</th></tr></thead>
+      <tbody data-page-node-id="Gv5tmkutZrMxbKgRSouFB3">
+        <tr data-page-node-id="vpGH8ZZK9PpzaBIv7Vh5Xf"><td data-page-node-id="ZeB7iRUh8tIBC63q30N2UK">车身长度</td><td data-page-node-id="a2TrBN7tcFYiRchLkflH1E">整车长</td><td data-page-node-id="qziO9UngKX3JIROq6NftE5"><span class="conf hi" data-page-node-id="MEBTGuCggxnXGhz6LiWpUh"><i data-page-node-id="m79o08EypCZIrnfxJzvR5c"></i>98%</span></td><td style="color:var(--text-3);font-size:12px" data-page-node-id="pucCq5TI1NeaZ3no4t6U7B">—</td></tr>
+        <tr data-page-node-id="8EiuAL8Ofm2cn1xLMBoau8"><td data-page-node-id="SE3IRqrTkZLX1EftlCaACO">最大爬坡度</td><td data-page-node-id="9HFGFFMAKJTiRKXHZgVznr">爬坡度（满载）</td><td data-page-node-id="XqfN0CW2sT5xIqRm3jCHkz"><span class="conf mid" data-page-node-id="p85u6GfDV0iSo8Jr2w6kaG"><i data-page-node-id="WaP5H7rJTKCGGlAlLe6brX"></i>76%</span></td><td style="font-size:12px;color:var(--amber-700)" data-page-node-id="1YP88JhwYkxF5ZIjByGsNS">⚠ 建议人工复核</td></tr>
+        <tr data-page-node-id="H1P4m0TJyGA89lMUGgbidm"><td data-page-node-id="YkYL2vp9m021hICe6XN7Jg">电池冷却方式</td><td style="color:var(--text-3)" data-page-node-id="92lVC3D0o1EZlbJroZ4emM">未匹配 · 需手动录入</td><td data-page-node-id="W4MxShQGsGck4ICdnpnTcO"><span class="conf lo" data-page-node-id="2AhjvzUF6ahdbY95ZoJco1"><i data-page-node-id="QQMGrg0E1lDJSuKH2KmbR9"></i>32%</span></td><td data-page-node-id="QNpGv9Wg0afJ25NEGKUTEQ"><span class="req-missing" data-page-node-id="dJPndIVkk9tDDiJfseyR2f">✕ 必填缺失</span></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text-3);margin-top:8px" data-page-node-id="0xwHXvmBB6Ci3MXazUwHkp">规则：置信度 = 彩色圆点 + 数值双编码，高≥90 绿 / 中 60-89 琥珀 / 低&lt;60 红；「必填缺失」用虚线描边标签与 diff 红区分——一个表义"错误"，一个表义"待办"。</p>
+
+    <h3 class="block-title" data-page-node-id="sh2PpDTXC6YC3YzHLbwkQP">数据来源标识（去语义化）</h3>
+    <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap" data-page-node-id="mtjbtHctCgBwTXWErcaQpU">
+      <span class="src-tag gg" data-page-node-id="pqqAQgocW3cUQxNKFxQNEc">🏛 公告数据</span>
+      <span class="src-tag zc" data-page-node-id="CQb0KNbd2n1ZcBoLrsxCJ9">🗂 资产库</span>
+      <span class="src-tag xl" data-page-node-id="34gQgGARFOu6eD7LxV9hwY">📄 Excel 导入</span>
+      <span style="font-size:12.5px;color:var(--text-2);margin-left:8px" data-page-node-id="KL0JDSwiP2IfQqPMS8ZJY2">来源标识只使用中性偏色 + 图标，<b data-page-node-id="7DfDFaeouOlkNFUnHDPg1W">绝不占用</b> 绿/红/橙语义色，避免与状态色同屏打架。</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 08 组件 ================= -->
+<section id="components" data-page-node-id="EWkPZ7iYSkVCrwY8lU970e">
+  <div class="wrap" data-page-node-id="u0TdNhEIoRsLx9SipHulpZ">
+    <div class="sec-head" data-page-node-id="htiWNtpx95bLJZx2uXfINo"><span class="sec-num" data-page-node-id="UlQD111phE7KVnUvi2oxT3">07</span><h2 data-page-node-id="wkkeEDgZfezzTmxDUHqCi8">组件渲染效果</h2></div>
+    <p class="sec-desc" data-page-node-id="osJem6s0GTEVyVgNcK02J7">以上 token 落到 Ant Design v6 组件后的实际观感（本页即实时渲染，非图片）。</p>
+
+    <h3 class="block-title" data-page-node-id="kaIwW8HJvKGKciOqno3oYE">按钮体系</h3>
+    <div class="card btn-row" data-page-node-id="yS2aBw5rmGTEVugxEpb92l">
+      <span class="btn btn-primary" data-page-node-id="AdPaHkhuVdcfEFV6m8e0lu">开始比对</span>
+      <span class="btn btn-secondary" data-page-node-id="iGxvIpWiKWBU70aNYit7Xq">导出 PDF</span>
+      <span class="btn btn-danger" data-page-node-id="6Tt9nAcMZgMGMSwMJ1kdv2">清空数据</span>
+      <span class="btn btn-ghost" data-page-node-id="r8zSFCaumroVj5EPmpwUjP">查看详情 →</span>
+      <span style="font-size:12px;color:var(--text-3);margin-left:auto" data-page-node-id="yiimaOk4wEPcS6Hm7J03Er">主按钮每屏 ≤ 1 个 · hover 加深至 700 阶 · 无投影</span>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="nkD0zY7FJ4ZmsxL4SMSHty">概览统计卡（参数工作台）</h3>
+    <div class="grid grid-4" data-page-node-id="cPhZd18BN0di0VDKvksLdf">
+      <div class="stat-card" data-page-node-id="UhJ2LAIFKhalYQfT3tP9X6"><div class="label" data-page-node-id="HsJr9yIjG1znDbad1aRxEf">参数总数</div><div class="value num" data-page-node-id="RzwjgjKtAHQrnVymKXeP8t">342</div><div class="delta" style="color:var(--text-3)" data-page-node-id="VpQCWhGXqin4H4pBbN8UuZ">12 个分组</div></div>
+      <div class="stat-card" data-page-node-id="GUb1eSmpxiWo3gbkMgpIfg"><div class="label" data-page-node-id="D2Ncf0AFz1RYiaH64gv0TK">已填写</div><div class="value num" data-page-node-id="KWdhiaEq6BiFkqB0WQWPnr">318</div><div class="delta" style="color:var(--green-600)" data-page-node-id="2WPOcMaDTFue3HyqI2Yaa3">填报率 93.0%</div></div>
+      <div class="stat-card" data-page-node-id="MWjcHwWzVNCATQXmu5D9wF"><div class="label" data-page-node-id="2h7oN52Il1KSRKQPmIqmQo">未填写</div><div class="value num" style="color:var(--amber-700)" data-page-node-id="igSoOrW9q1hueau3Zdv27X">24</div><div class="delta" style="color:var(--text-3)" data-page-node-id="uoReMgYcXTGoom5DDZptQz">含必填 3 项</div></div>
+      <div class="stat-card" data-page-node-id="NDbger5anP0IpBG166IaHD"><div class="label" data-page-node-id="GdGXPrq7vENayESRelHqGE">必填缺失</div><div class="value num" style="color:var(--red-600)" data-page-node-id="Lc27MqXv48jlCzwvx6CpF6">3</div><div class="delta" style="color:var(--red-600)" data-page-node-id="FLKwn9Ta2wO7CkCalkXLLB">⚠ 导出前必须补齐</div></div>
+    </div>
+
+    <h3 class="block-title" data-page-node-id="XK1RoxMP7FjUldEfsKN39u">流程引导与聚焦态</h3>
+    <div class="card" style="display:flex;flex-direction:column;gap:18px" data-page-node-id="FECjZKhwar40RmjnFnYMbC">
+      <div class="steps-demo" data-page-node-id="sUwqeHPsQ91mLZkh1BcHdI">
+        <div class="step-i done" data-page-node-id="s1TdA826ERDNhDSxs0xQ49"><span class="dot" data-page-node-id="nAIp8vSA9IYqGQCLfcQ3Hu">✓</span>上传基准版</div><div class="step-line" data-page-node-id="bG9gqD2fIiqn3UtBxlz4Pa"></div>
+        <div class="step-i now" data-page-node-id="XbIdv5W6Mm7ZhqR2RQEkSN"><span class="dot" data-page-node-id="YZpdiAjgv2ASsoALJqzl0I">2</span>上传对比版</div><div class="step-line" data-page-node-id="zBDS0LKCPFcCA32ej2Zz6e"></div>
+        <div class="step-i todo" data-page-node-id="wJjeLPBjVGIkKz0YMvP1LF"><span class="dot" data-page-node-id="3AUklzdKCL6H6A5PbIAvjs">3</span>查看差异</div><div class="step-line" data-page-node-id="BywGGn356xagUkW3BV3bGz"></div>
+        <div class="step-i todo" data-page-node-id="vhBORJxyO27TChZiuDxkFx"><span class="dot" data-page-node-id="3VRCUr2djaX4urRhrsmKke">4</span>导出报告</div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center" data-page-node-id="JZTtExHaQaAdGy6HgCzsQW">
+        <span class="focus-demo" data-page-node-id="pEhcGHiZUGwBxrbMFzabZ9">键盘聚焦态（:focus-visible 2px 曜蓝 400 环）</span>
+        <span style="font-size:12px;color:var(--text-3)" data-page-node-id="66Uymjqlj8PK8lp5O3XK41">仅键盘导航时出现，鼠标点击不触发</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 08 交互规范 ================= -->
+<section id="interaction" data-page-node-id="lxh5cXfWNKgXCqIRI6PfNy">
+  <div class="wrap" data-page-node-id="ufOamZlRwcVsB6HwupTrKp">
+    <div class="sec-head" data-page-node-id="GbVpGaWwXzesdNTOeGR36V"><span class="sec-num" data-page-node-id="tB9f29eatxh09SDa0lDyYA">08</span><h2 data-page-node-id="e1P3YuQnysmwRA8IDiSHrJ">交互规范</h2></div>
+    <p class="sec-desc" data-page-node-id="l8PY3dDtgO54cXvV6Uiojt">桌面工具软件，不是营销网站——动效克制、反馈即时、键盘可达。</p>
+
+    <div class="spec-row" data-page-node-id="k6yEalISTy8nA5i1KdqlSm">
+      <div class="spec" data-page-node-id="8Mt7wNEPTGDdt1wMu42pmb"><div class="h" data-page-node-id="uVV7FsskU5MryBHiaEd2bL"><i data-page-node-id="dXLWDR5JlEIyyhvgFfCDxJ"></i>动效 · 三档克制</div>
+        <ul data-page-node-id="qrewiOWUbHfE6Fcu8sU8Jj">
+          <li data-page-node-id="DaSaj4Dd94v7MJo6nFq9x1">微反馈 <code data-page-node-id="Zbdap5Pq9IZk1SlvDvCMAU">120ms</code>：hover、勾选</li>
+          <li data-page-node-id="zwUirfGB2HGWharkKZmLE0">状态切换 <code data-page-node-id="STQerUrkPbZTal1UvQeOQN">180ms</code>：展开、Tab</li>
+          <li data-page-node-id="4sKjUIibZEKOARI7DMODBn">结构变化 <code data-page-node-id="BHmtGlBbZbhZtDS2Bi0iq3">240ms</code>：弹层、行增删</li>
+          <li data-page-node-id="TSpc1nhKx2FA9NAMvNIwL9">统一 <code data-page-node-id="tQh0UlCXFNlikG2eEh12yC">ease-out</code>，禁用弹簧/回弹</li>
+          <li data-page-node-id="Og8W5Cuo3wF3t6mqNGrQRW">尊重 <code data-page-node-id="acCNurU3QYszfHVL68dPeI">prefers-reduced-motion</code></li>
+        </ul>
+      </div>
+      <div class="spec" data-page-node-id="TKdsrHASDbRKTHmBHSotlS"><div class="h" data-page-node-id="4af2yMA028pWLGKyd0k9Du"><i data-page-node-id="cRG3tIvnpdA4yTYsVq4krD"></i>状态 · 三态规则</div>
+        <ul data-page-node-id="SUsAA38MGLlx6j7VAFxUFM">
+          <li data-page-node-id="9zSGNATzj3c4I39ArvLwjJ"><b data-page-node-id="y5SzbeUhxdHzWSjI70tzBl">Hover</b>：surface-3 底色，120ms</li>
+          <li data-page-node-id="1176vTHDEXCn9trAQv3r5i"><b data-page-node-id="VfJA169BBOrOiH8MMjeIQw">选中</b>：brand-50 底 + 2px 左指示条</li>
+          <li data-page-node-id="UUiXJlYHLywPVb48ZGFG6Z"><b data-page-node-id="BBl0oy4RtD7Fdf7FGBBrXL">聚焦</b>：2px brand-400 环，仅键盘触发</li>
+          <li data-page-node-id="7V2mz8QTGKiIjcAL6kBguD"><b data-page-node-id="dnwW2tbFaZEvkIB6iAZghV">禁用</b>：text-4 + 透明度 60%，不删元素</li>
+          <li data-page-node-id="3O4coAJQkDGfxHviC6QIQd"><b data-page-node-id="AZuLzmENkOxnSfToQjGFAA">加载</b>：骨架屏，禁整页 Spin</li>
+        </ul>
+      </div>
+      <div class="spec" data-page-node-id="54zmcsOVzGn3WeLU12HHHr"><div class="h" data-page-node-id="6PRjBegaQaLWeZLvddfupd"><i data-page-node-id="A2OGstjXUFlGOpMsz82UBB"></i>密度 · 数据优先</div>
+        <ul data-page-node-id="dqaGpfYNL6OFVY87HNlNKd">
+          <li data-page-node-id="e40VNSCeZ3tHQHFIQoRTWu">表格行高 <code data-page-node-id="eZwDhWmZHVPAXEy7eTIgMb">36px</code>（标准）/ <code data-page-node-id="FJ7uiis2FUTDc8bpPYHPFn">32px</code>（紧凑）</li>
+          <li data-page-node-id="Y94sZNxwB2e89d1qlSWyL2">单元格水平 padding <code data-page-node-id="ipTPabwYgqK1I06FgYfxuv">14px</code></li>
+          <li data-page-node-id="7B9zOKIJrJTiw0g17FfjhV">数值列一律 <code data-page-node-id="dhkRNHfp8moNux3PJHtUjk">tabular-nums</code> 防抖动</li>
+          <li data-page-node-id="TYksKdnlEHrz6D4utG1rnm">表头 12px / 正文 13px / 统计大数 26px</li>
+          <li data-page-node-id="Ld5KUOAkW2HHuEiDcBpN3k">间距基于 4px 网格</li>
+        </ul>
+      </div>
+      <div class="spec" data-page-node-id="YJgV2wIOn68lCAQhxDdIBX"><div class="h" data-page-node-id="4l4UQ6xBwO6674pPDnPdUh"><i data-page-node-id="zugD3OcifzLeXtwAGZaO0p"></i>键盘 · 高效可达</div>
+        <ul data-page-node-id="9U22zGZyTN0sv7jVffRrzd">
+          <li data-page-node-id="EVxjBrV3h6TEiHsNf2EeDb"><code data-page-node-id="NIpcZx48EcwXkzWD6nHHLn">/</code> 全局聚焦搜索</li>
+          <li data-page-node-id="W0lYqYJ8FGZHSLGw3jVG8V"><code data-page-node-id="2drFiHeSlBWAiD1UuvUiqE">↑ ↓</code> 表格行间导航</li>
+          <li data-page-node-id="naE4xofF01fsVYUuQ6iH7r"><code data-page-node-id="idzz9hmsZzu7kFoM3s3KsN">Esc</code> 清除筛选 / 关闭弹层</li>
+          <li data-page-node-id="WLbPRWGNIA109jJ1mwqe9r"><code data-page-node-id="EjlRiPLpcln1zqG6hMqi4x">⌘+Enter</code> 提交当前编辑</li>
+          <li data-page-node-id="KKlF03egMMixffwIOm4reD">焦点顺序 = 视觉阅读顺序</li>
+        </ul>
+      </div>
+      <div class="spec" data-page-node-id="BMuBC2bErZvckBhbeb8Ioq"><div class="h" data-page-node-id="WDd6zeAkC5BzQAKO0fq2co"><i data-page-node-id="gjg846BYWBMftnCcJEC9y1"></i>可辨别 · 双编码</div>
+        <ul data-page-node-id="GLdAn1W8SPOs2HB8ndLuuK">
+          <li data-page-node-id="VLaAqFc3l2v62fUiBSM4hi">差异：＋ − ≠ ＝ 图标 + 色彩</li>
+          <li data-page-node-id="DFGru3bR9rHuRYGBTT2qng">置信度：圆点 + 百分比数值</li>
+          <li data-page-node-id="HKgrrhuAewNE8kJoSIzyo1">必填缺失：虚线描边 + ✕ 图标</li>
+          <li data-page-node-id="1ybSwtdp34ZDQv9GxyaePu">图表序列：色彩 + 纹理/线型</li>
+          <li data-page-node-id="A3dIBE7sIkeS3zilOqZw72">通过 deuteranopia 模拟验证</li>
+        </ul>
+      </div>
+      <div class="spec" data-page-node-id="EIAEBRMm7YBCKPPFjRjgTX"><div class="h" data-page-node-id="JohgO9cwNKGYyObj0DFMuX"><i data-page-node-id="cwFsH25xUnMWpW5pAAQ0Vf"></i>文案与反馈</div>
+        <ul data-page-node-id="ibvsmQpxqhEe7FAPGai1G8">
+          <li data-page-node-id="osSvQTbxlJj7mj8Hv8V6CM">操作结果 2s 内轻提示，错误必须给原因</li>
+          <li data-page-node-id="MpKDihhDn1DrWzdnOk5Lho">危险操作二次确认 + 可撤销说明</li>
+          <li data-page-node-id="R8FlATnl89CtvJGW9Mab2P">导出类按钮反馈含文件名与路径</li>
+          <li data-page-node-id="l8j9V4JaiO8Vg6Jv2KB66A">空状态给下一步动作，不只说"暂无数据"</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 09 新旧对比 ================= -->
+<section id="compare" data-page-node-id="Hxet8HHFjStECkdugviJVw">
+  <div class="wrap" data-page-node-id="rCeVEJmmlHOkF4DMmJQiHL">
+    <div class="sec-head" data-page-node-id="df3GexacjCX7FnNodLvwI4"><span class="sec-num" data-page-node-id="8YVkkS5SBAWuIgw30nqz2m">09</span><h2 data-page-node-id="Boi4LxPLcQ7YlOsDHeshYa">新旧方案对比</h2></div>
+    <p class="sec-desc" data-page-node-id="SpvjbvXFcrD4MnbE5hwwbo">不改架构、不改变量名，只替换色值与补齐业务 token。</p>
+
+    <div class="compare" data-page-node-id="RHmffRE2uyHROrXHhTRO4Y">
+      <div class="side old" data-page-node-id="2WAvxKBxyhLsRjgN8kVTD7">
+        <b style="font-size:13px" data-page-node-id="NXJ55XYxYHogCqxJpykHSd">现状 · 通用 Tailwind 默认</b>
+        <div class="row" data-page-node-id="G79ssaFns3XeEyr4YS0ZYb"><span data-page-node-id="rXP0GtVqfX4XvOpaMkLsc7"><span class="swatch-inline" style="background:#2563EB" data-page-node-id="1oC8yv0aj7hzCeY6VDcC47"></span>品牌蓝 #2563EB</span><span class="why" data-page-node-id="YGmAjmNpi46ZF62SwB9VnE">撞脸所有 SaaS</span></div>
+        <div class="row" data-page-node-id="20MuB0HrwYvVIj0vf0z9EB"><span data-page-node-id="5ce5U8AxEf1jWz3Xxi6Vuv"><span class="swatch-inline" style="background:#F59E0B" data-page-node-id="a0Fi57BjxJ8OqtN8Ee5yDW"></span>警告文字 #F59E0B</span><span class="why" data-page-node-id="1z1JMY8A0nAHtMttDiFEwC">2.5:1 不达标</span></div>
+        <div class="row" data-page-node-id="U5DJYfso3E5LEI9sS36out"><span data-page-node-id="MzUj3C4xHCR2MdlEDVdR7E"><span class="swatch-inline" style="background:#10B981" data-page-node-id="Ps3ZRMy7FsPWfR50FdfDD0"></span>成功文字 #10B981</span><span class="why" data-page-node-id="EYypt4mRIq5sC5PaBs0iWi">2.5:1 不达标</span></div>
+        <div class="row" data-page-node-id="DDmM0vHxVPkTZrRnEyEFUe"><span data-page-node-id="xhQAojMAE13E4uqQXcqFZZ"><span class="swatch-inline" style="background:#F8FAFC" data-page-node-id="Z11cs5CEW4SiUbHBcbqyx3"></span>中性色 slate 系</span><span class="why" data-page-node-id="6PWDW6zfpH8hrLpVCK8w7n">偏冷紫</span></div>
+        <div class="row" data-page-node-id="1yVBbhamCL4kdesrD3D6Bf"><span data-page-node-id="G5Hf1D8W8WMBRoilCUba5S">diff/置信度颜色</span><span class="why" data-page-node-id="AdDSZrsJ8u0hAoc4UvtRGA">组件内散写硬编码</span></div>
+      </div>
+      <div class="arrow" data-page-node-id="2NSAnAj1wbqUVz9WgPPObX">→</div>
+      <div class="side" data-page-node-id="rE8o8zVyiaEglaBQw89ayv">
+        <b style="font-size:13px" data-page-node-id="C4cA5mlGtw8j7fHifLP4Ei">曜蓝 v4.0</b>
+        <div class="row" data-page-node-id="WcGkaSCaBEEpVJ35tknaGd"><span data-page-node-id="Wabk8dPkmgn4ke45phqahW"><span class="swatch-inline" style="background:#2F44D8" data-page-node-id="nJ3BGq61Mj1FSsCjSOXPro"></span>曜蓝 #2F44D8</span><span class="why" data-page-node-id="4QDePapyrhZYyfW2hliDmu">7.1:1 AAA · 有识别度</span></div>
+        <div class="row" data-page-node-id="nFdwPEb8Yd2o5yVAGUHHxl"><span data-page-node-id="fl9UKdlUSHtzdBh9X3kqWQ"><span class="swatch-inline" style="background:#9A5806" data-page-node-id="AtPQ1jMnI7bs4FTxKWu5BV"></span>警告文字 #9A5806</span><span class="why" data-page-node-id="IfouAyFe7CaQxNDnTaFDCI">5.4:1 AA+</span></div>
+        <div class="row" data-page-node-id="a4jVpB1Wt0NCcM7bTfYDMb"><span data-page-node-id="DDyYW9WqNmt276JxR3R0iq"><span class="swatch-inline" style="background:#0A7A52" data-page-node-id="KeqDi1t1mZ4GHt7NWRlJHe"></span>成功文字 #0A7A52</span><span class="why" data-page-node-id="XW6aC3X07dLn5uyJd94D5J">4.6:1 AA</span></div>
+        <div class="row" data-page-node-id="lKSqj8kNm5bSZBlI6aEvQ7"><span data-page-node-id="B191p17AYqm7CaiEafPy1a"><span class="swatch-inline" style="background:#F7F8FA" data-page-node-id="3GsT0Y3bMBBOLJ4GCzvACM"></span>岩灰系</span><span class="why" data-page-node-id="H2Tgtzj5J5oo4bBFacPD0Z">去紫更耐看</span></div>
+        <div class="row" data-page-node-id="zjo8m16eJnnlLTL7C5bfQE"><span data-page-node-id="hmBl9n1BJrlrOf75Xqc92L">业务 token 层</span><span class="why" data-page-node-id="pEK49UbwEU5Cy5kdDPGIc8">diff/conf/req 统一命名</span></div>
+        <div class="row" data-page-node-id="zjo8m16eDark"><span data-page-node-id="hmBl9n1BJrlrOfDark">暗色模式</span><span class="why" data-page-node-id="pEK49UbwEU5Cy5kdDark">显式成套 token，补齐 24 项</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 10 落地路径 ================= -->
+<section id="migration" data-page-node-id="d9tu4OUJCfHJxtb8cUTlE9">
+  <div class="wrap" data-page-node-id="OQ6OPQhlnxDGP3puy8YFuC">
+    <div class="sec-head" data-page-node-id="uNPoZGrTqTyDXhOE5eFND4"><span class="sec-num" data-page-node-id="FTMpjl3fYPqnGUesYDBQwh">11</span><h2 data-page-node-id="MBeqzvzDOVaGOJtqdXok0q">落地路径 · 三步接入</h2></div>
+    <p class="sec-desc" data-page-node-id="zRMfW3xEpaBr2n1z56Ilow">现有 <code data-page-node-id="46eXMwO8Pa1wXyJxp3yaKZ">index.css</code> 的变量架构不动，组件代码零改动。配套文件已随本提案产出：<code data-page-node-id="t9tK0JGsCMT6E1AcD4IVe0">tokens.css</code> 与 <code data-page-node-id="JcQQYmGQQlq5oAru8etYIm">tailwind.tokens.js</code>。</p>
+
+    <div class="grid grid-2" data-page-node-id="vJCF7b4TYzHG3Nrj0wLSsP">
+      <div class="card mig" data-page-node-id="h8nC7jqRlelGNOmqpBSx5a">
+        <div class="mig-step" data-page-node-id="gMgCJnm1LYabdesatQjXHk"><span class="n" data-page-node-id="86CqUmuOfC7M5D1YIzldLB"></span><div data-page-node-id="SMw3v00wpRp524YD959qLU"><b data-page-node-id="kKb8y9CKSAG1xuIIvHQTuF">替换 tokens.css 变量值</b><p data-page-node-id="ElSxUEpBHa4YoCffU5t9ch">用随附 <code data-page-node-id="1LsOG7eEKrlvEvgnwUV5po">tokens.css</code> 整体替换 <code data-page-node-id="U3d30JNhZGEitN0CxFDMrA">:root</code> 与 <code data-page-node-id="mgage2a1VzCfaFgPsALPnR">.dark</code> 的变量定义。v4.1 起暗色不再"顺手补几个值"：明暗两侧各 60+ 个 token <b>逐条成对</b>，含本次新增的遮罩 / 骨架屏 / 弹层描边 / 控件描边 / 代码块 / 图表序列 24 项；文件末尾 §迁移增量 已列出需改动的确切清单。</p></div></div>
+        <div class="mig-step" data-page-node-id="mz2yuN0AbHpaqQ8gXYsCT6"><span class="n" data-page-node-id="229kLMuJCjAfzL2ar9Ez4E"></span><div data-page-node-id="omnSgsPkQmg8DR4OGhcl8I"><b data-page-node-id="yCICS5YNQTBqrydeSEYBv8">Tailwind 接入色阶与字体</b><p data-page-node-id="vA7vG2dOpXMgqZxJCMvsIh"><code data-page-node-id="FmR7cmfzTDrSfwtpqnXaBL">tailwind.config.js</code> 引入 <code data-page-node-id="hzeH892BMYl20NiEkRGRFI">tailwind.tokens.js</code>，曜蓝 11 阶、语义阶、字号阶梯进入 utility 体系。</p></div></div>
+        <div class="mig-step" data-page-node-id="FIC2T6sBKCskRC6GK8iNau"><span class="n" data-page-node-id="8rz9IlPSAQEIycRy1aUsAy"></span><div data-page-node-id="grFCh2tDkC1BTBVWRffMsG"><b data-page-node-id="DFyPvE1tAJm2AK8MSUYaqo">AntD ConfigProvider 同步</b><p data-page-node-id="jtqR9vdl0HFGucYa0YMzEp">更新 <code data-page-node-id="X24Dsf0Xn1JFP9E2g9dbeE">token.colorPrimary / colorSuccess / colorWarning / colorError / fontSize</code> 与文字色，暗色继续走算法 + 变量翻转。</p></div></div>
+      </div>
+      <div class="codeblock" data-page-node-id="jEOLnOmhioBoPV4MBMBeYu"><span class="cm" data-page-node-id="xVnewoX6wUAR9hAizBPfxR">// AntD v6 token 映射（节选）</span><br data-page-node-id="h9amVZQC2J1jDQ0eosbUjd">
+<span class="kw" data-page-node-id="UUBaFziVWfTspWZnxU8D54">token</span>: {<br data-page-node-id="ygxf6HRHJCFGP9xUpRkp7X">
+&nbsp;&nbsp;colorPrimary: <span class="st" data-page-node-id="P6drGmEg01r8LLbu0cGuNV">'#2F44D8'</span>,   <span class="cm" data-page-node-id="u0IhXepZEvBXWs0XiAglAd">// 曜蓝 600</span><br data-page-node-id="zax9gQSr5vpXn5YXkyRVIm">
+&nbsp;&nbsp;colorInfo: <span class="st" data-page-node-id="foHD1Ai8u7xom4ylHtryer">'#2F44D8'</span>,<br data-page-node-id="OgkkZOjZYkwXi8ztFe2JRf">
+&nbsp;&nbsp;colorSuccess: <span class="st" data-page-node-id="AfZs241emyXhB8TvdHfkCq">'#0C9A68'</span>, <span class="cm" data-page-node-id="M5DpfjD9xmFz1qHzZFrjKu">// 松绿 500</span><br data-page-node-id="rIuOUMNRQ1987ieDBsnDVz">
+&nbsp;&nbsp;colorWarning: <span class="st" data-page-node-id="3xdVRHtCklKRuAjuFgA03h">'#E8930C'</span>, <span class="cm" data-page-node-id="veleaBt7P6iHERS1zONeuu">// 琥珀 500</span><br data-page-node-id="ZEeqEMBvrzipc4BKos5ofQ">
+&nbsp;&nbsp;colorError: <span class="st" data-page-node-id="xzq7lHK36Bt4j7znhSPkca">'#E5484D'</span>,   <span class="cm" data-page-node-id="bXFEX8CSARK2LvaQfeQB3m">// 茜红 500</span><br data-page-node-id="NsSbMQ9RwkLCSWPBn8W9gH">
+&nbsp;&nbsp;colorTextBase: <span class="st" data-page-node-id="YGDTQpj5SDSu3hjhE1sNEX">'#1A1D26'</span>,<br data-page-node-id="OBVBcRckJZD67SvOzFN09G">
+&nbsp;&nbsp;colorBgLayout: <span class="st" data-page-node-id="i0I3zwQBiF1C5yLdRlSsOk">'#F7F8FA'</span>,<br data-page-node-id="sTsqa933tYg6xBwSsdjHGw">
+&nbsp;&nbsp;borderRadius: <span class="st" data-page-node-id="bO9PB9BT0gLElDHWQm3db4">7</span>,<br data-page-node-id="uZKpX8vynB85nBzOmupXaJ">
+&nbsp;&nbsp;fontSize: <span class="st" data-page-node-id="ZDPeHlyT0K162hkiKmVtMF">13</span>,              <span class="cm" data-page-node-id="1k1OUmVFyW7BTYh8r9ZQkv">// 字号基准 · 密度基调</span><br data-page-node-id="zcIrJD2qJ8bImadHiKOOIw">
+}</div>
+    </div>
+
+    <div class="card" style="margin-top:16px;font-size:12.5px;color:var(--text-2)" data-page-node-id="kdRNIyEQxB6B4kBNwMnGJh">
+      <b style="color:var(--text-1)" data-page-node-id="qLUwE7x14mudHuS85zTc0a">验证清单：</b>改完后跑 <code data-page-node-id="332tZv16oynSjeX6zmpyTZ">npm run lint</code> + <code data-page-node-id="r47PoRbgO9K3bbqHtIHu3z">npm run build</code>；人工过一遍 版本对比 / 智能填报 / 数据体检 三个页面的明暗两色表现；用对比度检查器抽查语义文字色。
+    </div>
+  </div>
+</section>
+
+<footer data-page-node-id="Nw90rhsffvMaCcqyZts4rT">
+  <div class="wrap" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px" data-page-node-id="8FuFy5SImvIoylCmBfJRwj">
+    <span data-page-node-id="0eMqNenYsDsybCtNyo57iP">曜蓝 Obsidian Blue v4.1 · 视觉设计系统提案（含暗色模式补充）</span>
+    <span data-page-node-id="cpL02Dr6oEmj7DYBQlOwnI">配套文件：tokens.css · tailwind.tokens.js · 本提案页（右上角可切暗色）</span>
+  </div>
+</footer>
+
+<div class="toast" id="toast" data-page-node-id="OhAGcyccawRQ69xyVtAjbR">已复制</div>
+<script>
+/* ---- 色卡点击复制 ---- */
+document.querySelectorAll('.sw[data-hex]').forEach(function(el){
+  el.addEventListener('click', function(){
+    var hex = el.getAttribute('data-hex');
+    if (navigator.clipboard) navigator.clipboard.writeText(hex);
+    var t = document.getElementById('toast');
+    t.textContent = '已复制 ' + hex;
+    t.classList.add('show');
+    clearTimeout(window.__tt);
+    window.__tt = setTimeout(function(){ t.classList.remove('show'); }, 1400);
+  });
+});
+
+/* ---- 主题开关 ----
+   本页即暗色方案的第一份验收单：切换后全站 token 一起翻转，
+   任何"只变一半"的地方就是漏了 token 的组件。 */
+(function(){
+  var root = document.documentElement;
+  var btn  = document.getElementById('themeToggle');
+  var label= document.getElementById('themeToggleLabel');
+  if(!btn) return;
+
+  function apply(dark, persist){
+    root.classList.toggle('dark', dark);
+    label.textContent = dark ? '浅色' : '暗色';
+    btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+    if(persist){ try{ localStorage.setItem('obsidian-theme', dark ? 'dark' : 'light'); }catch(e){} }
+  }
+
+  /* 本页是"提案文档"，默认浅色，避免打开时因系统是深色而误判；
+     应用本体应当跟随系统，见下方注释。 */
+  var saved = null;
+  try{ saved = localStorage.getItem('obsidian-theme'); }catch(e){}
+  apply(saved === 'dark', false);
+
+  btn.addEventListener('click', function(){
+    apply(!root.classList.contains('dark'), true);
+  });
+
+  /* ⌘/Ctrl + J 快速切换，方便对照检查。
+     应用本体（Tauri）建议改为：默认跟随 prefers-color-scheme，
+     用户在设置里显式选过则以用户的为准。 */
+  document.addEventListener('keydown', function(e){
+    if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j'){
+      e.preventDefault(); apply(!root.classList.contains('dark'), true);
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -239,7 +239,7 @@ const DiffResultView: React.FC = () => {
             dataIndex: ['oldParam', 'productName'],
             key: 'productName',
             width: 150,
-            render: (text: string) => <Tag color="cyan">{text || '通用'}</Tag>
+            render: (text: string) => <Tag color="default">{text || '通用'}</Tag>
         },
         {
             title: '分组',
@@ -271,7 +271,7 @@ const DiffResultView: React.FC = () => {
             width: 80,
             render: (_: unknown, record: { oldParam: { name: string }, newParam: { name: string } }) => {
                 const required = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
-                return required ? <Tag color="orange">必填</Tag> : <Tag color="default">选填</Tag>;
+                return required ? <Tag color="warning">必填</Tag> : <Tag color="default">选填</Tag>;
             },
             filters: [
                 { text: '必填', value: true },
@@ -359,7 +359,7 @@ const DiffResultView: React.FC = () => {
             width: 80,
             render: (_: unknown, record: { targetName: string; baseName: string }) => {
                 const required = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
-                return required ? <Tag color="orange">必填</Tag> : <Tag color="default">选填</Tag>;
+                return required ? <Tag color="warning">必填</Tag> : <Tag color="default">选填</Tag>;
             },
             filters: [
                 { text: '必填', value: true },
@@ -381,7 +381,7 @@ const DiffResultView: React.FC = () => {
                     {/* Modified List */}
                     {modified.length > 0 && (
                         <div>
-                            <h4 className="text-orange-600 mb-2 font-bold flex items-center gap-2">
+                            <h4 className="text-warning mb-2 font-bold flex items-center gap-2">
                                 <Badge status="warning" /> 变更 ({modified.length})
                             </h4>
                             <div className="mb-4">
@@ -398,7 +398,7 @@ const DiffResultView: React.FC = () => {
                                 columns={modifiedColumns}
                                 rowKey="id"
                                 pagination={{ pageSize: 10 }}
-                                size="small"
+                                size="middle"
                                 bordered
                             />
                         </div>
@@ -407,7 +407,7 @@ const DiffResultView: React.FC = () => {
                     {/* Added Table (Pivot View) */}
                     {added.length > 0 && (
                         <div>
-                            <h4 className="text-green-600 mb-2 font-bold flex items-center gap-2">
+                            <h4 className="text-success mb-2 font-bold flex items-center gap-2">
                                 <Badge status="success" /> {compareMode === 'miit' ? '缺失' : '新增'} ({added.length})
                             </h4>
                             <ParametersTable data={added} />
@@ -417,7 +417,7 @@ const DiffResultView: React.FC = () => {
                     {/* Removed Table (Pivot View) */}
                     {removed.length > 0 && (
                         <div>
-                            <h4 className="text-red-600 mb-2 font-bold flex items-center gap-2">
+                            <h4 className="text-danger mb-2 font-bold flex items-center gap-2">
                                 <Badge status="error" /> 移除 ({removed.length})
                             </h4>
                             <ParametersTable data={removed} />
@@ -445,7 +445,7 @@ const DiffResultView: React.FC = () => {
                         columns={modifiedColumns}
                         rowKey="id"
                         pagination={{ pageSize: 20 }}
-                        size="small"
+                        size="middle"
                         bordered
                         rowClassName={(record) => {
                              const isRequired = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
@@ -480,24 +480,24 @@ const DiffResultView: React.FC = () => {
                 />
             </div>
             <div className="mb-4 flex items-center gap-4">
-                <Tag color="green">一致: {miitComparisonData.filter(r => r.status === 'matched').length}</Tag>
-                <Tag color="orange">差异: {miitComparisonData.filter(r => r.status === 'modified').length}</Tag>
-                <Tag color="volcano">缺失: {miitComparisonData.filter(r => r.status === 'missing').length}</Tag>
+                <Tag color="success">一致: {miitComparisonData.filter(r => r.status === 'matched').length}</Tag>
+                <Tag color="warning">差异: {miitComparisonData.filter(r => r.status === 'modified').length}</Tag>
+                <Tag color="error">缺失: {miitComparisonData.filter(r => r.status === 'missing').length}</Tag>
             </div>
             <Table
                 dataSource={filteredMiitData}
                 columns={miitColumns}
                 rowKey="key"
                 pagination={{ pageSize: 20 }}
-                size="small"
+                size="middle"
                 bordered
                 rowClassName={(record) => {
                     const isRequired = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
                     
                     let className = '';
-                    if (record.status === 'matched') className += 'bg-green-50 ';
-                    if (record.status === 'modified') className += 'bg-orange-50 ';
-                    if (record.status === 'missing') className += 'bg-red-50 ';
+                    if (record.status === 'matched') className += 'bg-success-weak ';
+                    if (record.status === 'modified') className += 'bg-warning-weak ';
+                    if (record.status === 'missing') className += 'bg-danger-weak ';
                     
                     if (isRequired) {
                         className += 'required-row ';
@@ -510,16 +510,16 @@ const DiffResultView: React.FC = () => {
     );
 
     return (
-        <div className="bg-white p-4 rounded shadow-sm border border-gray-100">
-            <div className="mb-6 p-4 bg-blue-50 rounded">
+        <div className="surface-container p-4 rounded border border-default">
+            <div className="mb-6 p-4 bg-brand-weak rounded">
                 <Descriptions title="比对统计" column={4}>
                     {stats.map(s => (
                         <Descriptions.Item key={s.label} label={s.label}>
-                            <Tag color={s.color} className="text-lg px-2 rounded">{s.value}</Tag>
+                            <Tag color={s.color} className="text-lg px-2 rounded tabular-nums">{s.value}</Tag>
                         </Descriptions.Item>
                     ))}
                 </Descriptions>
-                <div className="mt-2 text-sm text-gray-500">
+                <div className="mt-2 text-sm text-2">
                     对比文件:
                     <span className="font-mono mx-2">{baseFile?.fileName}</span>
                     vs
@@ -605,25 +605,25 @@ const DiffResultView: React.FC = () => {
                     {/* File Info */}
                     <div className="bg-gray-50 p-6 rounded mb-8 grid grid-cols-2 gap-8 border border-gray-100">
                         <div>
-                            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">基准文件 (Base)</div>
+                            <div className="text-xs text-gray-400 mb-2">基准文件</div>
                             <div className="font-bold text-gray-800 text-lg break-all leading-relaxed" style={{ minHeight: '3rem' }}>{baseFile?.fileName}</div>
                         </div>
                         <div>
-                            <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">对比文件 (Target)</div>
+                            <div className="text-xs text-gray-400 mb-2">对比文件</div>
                             <div className="font-bold text-gray-800 text-lg break-all leading-relaxed" style={{ minHeight: '3rem' }}>{targetFile?.fileName}</div>
                         </div>
                     </div>
 
                     {/* Summary Cards */}
                     <div className="mb-8">
-                        <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-blue-500 pl-3">统计概览</h3>
+                        <h3 className="text-lg font-bold text-gray-700 mb-4 pl-3">统计概览</h3>
                         <div className="grid grid-cols-4 gap-4">
                             {stats.map(s => (
                                 <div key={s.label} className="bg-white border rounded p-4 shadow-sm flex flex-col items-center justify-center">
-                                    <div className="text-3xl font-bold mb-1" style={{ color: 
-                                        s.color === 'green' ? '#52c41a' : 
-                                        s.color === 'red' ? '#ff4d4f' : 
-                                        s.color === 'orange' ? '#faad14' : '#666' 
+                                    <div className="text-3xl font-bold mb-1" style={{ color:
+                                        s.color === 'green' ? '#10b981' :
+                                        s.color === 'red' ? '#ff4d4f' :
+                                        s.color === 'orange' ? '#faad14' : '#666'
                                     }}>
                                         {s.value}
                                     </div>
@@ -636,7 +636,7 @@ const DiffResultView: React.FC = () => {
                     {/* Modified Parameters */}
                     {diffResult.modified.length > 0 && (
                         <div className="mb-8">
-                            <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-orange-500 pl-3">
+                            <h3 className="text-lg font-bold text-gray-700 mb-4 pl-3">
                                 变更参数 ({diffResult.modified.length})
                             </h3>
                             <table className="w-full text-sm border-collapse border border-gray-200">
@@ -665,7 +665,7 @@ const DiffResultView: React.FC = () => {
                     {/* Added Parameters */}
                     {diffResult.added.length > 0 && (
                         <div className="mb-8">
-                            <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-green-500 pl-3">
+                            <h3 className="text-lg font-bold text-gray-700 mb-4 pl-3">
                                 新增参数 ({diffResult.added.length})
                             </h3>
                             <table className="w-full text-sm border-collapse border border-gray-200">
@@ -692,7 +692,7 @@ const DiffResultView: React.FC = () => {
                     {/* Removed Parameters */}
                     {diffResult.removed.length > 0 && (
                         <div className="mb-8">
-                            <h3 className="text-lg font-bold text-gray-700 mb-4 border-l-4 border-red-500 pl-3">
+                            <h3 className="text-lg font-bold text-gray-700 mb-4 pl-3">
                                 移除参数 ({diffResult.removed.length})
                             </h3>
                             <table className="w-full text-sm border-collapse border border-gray-200">
@@ -718,7 +718,7 @@ const DiffResultView: React.FC = () => {
                     
                     {/* Footer */}
                     <div className="mt-12 pt-6 border-t border-gray-200 text-center text-gray-400 text-xs">
-                        <p>Powered by Smart Vehicle Parameter Tool</p>
+                        <p>DST车型参数管理工具</p>
                     </div>
                 </div>
             )}

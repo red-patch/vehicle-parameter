@@ -115,7 +115,7 @@ const AttributeDedup: React.FC = () => {
             ],
             onFilter: (value: boolean | React.Key, record: AttributeRow) => record.required === value,
             render: (text: string) => (
-                <span style={{ color: text === '是' ? '#52c41a' : '#999' }}>
+                <span style={{ color: text === '是' ? 'var(--success)' : 'var(--text-3)' }}>
                     {text || '-'}
                 </span>
             ),
@@ -127,7 +127,7 @@ const AttributeDedup: React.FC = () => {
             {/* 页面标题 */}
             <div>
                 <h2 className="text-xl font-bold mb-2">商品属性数据去重</h2>
-                <p className="text-gray-500">
+                <p className="text-3">
                     上传属性池Excel文件，按「属性名称」去重后导出「属性名称、是否必填」两列CSV
                 </p>
             </div>
@@ -146,7 +146,7 @@ const AttributeDedup: React.FC = () => {
                     </Upload>
 
                     {fileName && (
-                        <span className="text-gray-500">
+                        <span className="text-3">
                             当前文件：<strong>{fileName}</strong>
                         </span>
                     )}
@@ -193,7 +193,7 @@ const AttributeDedup: React.FC = () => {
                                 title="去重后条数" 
                                 value={dedupedData.length} 
                                 suffix="条"
-                                valueStyle={{ color: '#3f8600' }}
+                                valueStyle={{ color: 'var(--success)' }}
                             />
                         </Card>
                     </Col>
@@ -203,7 +203,7 @@ const AttributeDedup: React.FC = () => {
                                 title="去除重复" 
                                 value={rawData.length - dedupedData.length} 
                                 suffix="条"
-                                valueStyle={{ color: '#cf1322' }}
+                                valueStyle={{ color: 'var(--danger)' }}
                             />
                         </Card>
                     </Col>

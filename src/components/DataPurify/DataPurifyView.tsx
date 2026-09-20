@@ -361,11 +361,11 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="text-xs text-slate-400">无匹配的推荐字段名</div>
+                                        <div className="text-xs text-3">无匹配的推荐字段名</div>
                                     )
                                 }
                             >
-                                <WarningOutlined className="text-amber-500 cursor-pointer hover:text-amber-600 text-[15px]" />
+                                <WarningOutlined className="text-warning hover:text-[color:var(--warning)] text-[15px]" />
                             </Popover>
                         )}
                     </div>
@@ -404,13 +404,13 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                             )}
                             {record.isEnumMismatch && (
                                 <Tooltip title={'"' + record.value + '" 不在标准字典内'}>
-                                    <WarningOutlined className="text-red-500" />
+                                    <WarningOutlined className="text-danger" />
                                 </Tooltip>
                             )}
                             {record.hasEnums && (
                                 <Tooltip title={isManual ? '切换为标准选择' : '手动输入'}>
                                     <span
-                                        style={{ fontSize: 11, color: '#1890ff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                        style={{ fontSize: 12, color: 'var(--brand)', cursor: 'pointer', whiteSpace: 'nowrap' }}
                                         onClick={() => {
                                             const next = new Set(manualValueRows);
                                             if (isManual) next.delete(record.id); else next.add(record.id);
@@ -423,7 +423,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                             )}
                         </div>
                         {record.updatedAt && (
-                            <div className="text-[10px] text-gray-400 mt-1 cursor-default">
+                            <div className="text-[12px] text-3 mt-1 cursor-default">
                                 已于 {record.updatedAt} 手动更新
                             </div>
                         )}
@@ -554,7 +554,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                         onChange={e => setParamSearch(e.target.value)}
                         placeholder="搜索参数名、分组或参数值..."
                         allowClear
-                        prefix={<SearchOutlined className="text-gray-400" />}
+                        prefix={<SearchOutlined className="text-3" />}
                     />
                 </FilterItem>
 
@@ -580,13 +580,13 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                 </FilterItem>
             </FilterBar>
 
-            <div className="flex-1 overflow-auto border border-gray-200 rounded">
-                <DataTable 
+            <div className="flex-1 overflow-auto border border-default rounded">
+                <DataTable
                     columns={columns}
                     dataSource={displayedParams}
                     rowKey="id"
                     scrollY="calc(100vh - 320px)"
-                    rowClassName={(record: { name: string }) => targetFieldName && record.name === targetFieldName ? 'bg-blue-50' : ''}
+                    rowClassName={(record: { name: string }) => targetFieldName && record.name === targetFieldName ? 'bg-brand-weak' : ''}
                 />
             </div>
 
