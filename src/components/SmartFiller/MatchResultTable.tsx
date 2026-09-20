@@ -223,10 +223,22 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
     };
 
     const toggleManualMode = (id: string) => {
+        const turningOn = !manualInputMode[id];
         setManualInputMode(prev => ({
             ...prev,
-            [id]: !prev[id]
+            [id]: turningOn
         }));
+
+        const record = matchResults.find(m => m.id === id);
+        // bugfix: 切到手动模式且尚无手动值时，固化为「显式空值」(manualValue='')，
+        // 导出保持空值，不再回退到自动匹配值（如 N/A）
+        if (turningOn && record && record.manualValue === undefined) {
+            updateManualValue(id, '', { explicitEmpty: true });
+        }
+        // 切回枚举/自动模式：撤销显式空值，恢复自动匹配值
+        if (!turningOn && record && record.manualValue === '') {
+            updateManualValue(id, '');
+        }
     };
 
     const columns = [
@@ -235,7 +247,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
             dataIndex: 'requirementName',
             key: 'requirementName',
             width: 250,
-            render: (text: string) => <b className="text-gray-800">{text}</b>
+            render: (text: string) => <b className="text-1">{text}</b>
         },
         {
             title: '匹配度',
@@ -245,9 +257,9 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
             render: (score: number, record: MatchItem) => {
                 return (
                     <div className="flex items-center gap-2">
-                        <Progress percent={Math.round(score * 100)} size="small" steps={5} strokeColor={score > 0.8 ? '#52c41a' : score > 0.5 ? '#faad14' : '#ff4d4f'} showInfo={false} />
-                        <span className="text-xs text-gray-500">{Math.round(score * 100)}%</span>
-                        {record.isManual && <Tag color="blue" className="ml-1">人工</Tag>}
+                        <Progress percent={Math.round(score * 100)} size="small" steps={5} strokeColor={score > 0.8 ? 'var(--success)' : score > 0.5 ? 'var(--warning)' : 'var(--danger)'} showInfo={false} />
+                        <span className="text-xs text-2 tabular-nums">{Math.round(score * 100)}%</span>
+                        {record.isManual && <Tag color="default" className="ml-1">人工</Tag>}
                     </div>
                 );
             }
@@ -261,18 +273,18 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                 if (!record.matchedParam) {
                     return assetSourceFile ? (
                         <RepairableValue
-                            value={<span className="text-red-400">未匹配</span>}
+                            value={<span className="text-danger">未匹配</span>}
                             repairable={true}
                             hint="点击修复源数据"
                             onRepair={() => triggerRepair(record.requirementName, 'unmatched')}
                         />
-                    ) : <span className="text-gray-400">未匹配</span>;
+                    ) : <span className="text-3">未匹配</span>;
                 }
                 return (
                     <Tooltip title={`${record.matchedParam.group} / ${record.matchedParam.name}`}>
-                        <span className="text-gray-700">
+                        <span className="text-1">
                             {record.matchedParam.name}
-                            <span className="text-gray-400 ml-1">({record.matchedParam.value})</span>
+                            <span className="text-3 ml-1">({record.matchedParam.value})</span>
                         </span>
                     </Tooltip>
                 );
@@ -303,12 +315,12 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                             // 手动输入模式
                             <Input
                                 defaultValue={currentValue}
-                                onBlur={(e) => updateManualValue(record.id, e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { updateManualValue(record.id, (e.target as HTMLInputElement).value); (e.target as HTMLInputElement).blur(); } }}
+                                onBlur={(e) => updateManualValue(record.id, e.target.value, { explicitEmpty: true })}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { updateManualValue(record.id, (e.target as HTMLInputElement).value, { explicitEmpty: true }); (e.target as HTMLInputElement).blur(); } }}
                                 placeholder="手动输入..."
                                 style={{ flex: 1, minWidth: 0 }}
                                 className={isModified ? 'border-blue-400' : ''}
-                                suffix={isModified ? <Tag color="blue" className="mr-0">已修改</Tag> : null}
+                                suffix={isModified ? <Tag color="processing" className="mr-0">已修改</Tag> : null}
                             />
                         ) : hasEnums ? (
                             // 枚举选择模式
@@ -321,21 +333,21 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 value={currentValue || undefined}
                                 onChange={(value) => updateManualValue(record.id, String(value))}
                                 options={enumValues.map(v => ({ value: v, label: v }))}
-                                suffixIcon={<DatabaseOutlined style={{ color: '#1890ff' }} />}
+                                suffixIcon={<DatabaseOutlined style={{ color: 'var(--brand)' }} />}
                                 status={currentValue && !enumValues.includes(currentValue) ? 'error' : (!currentValue ? 'warning' : undefined)}
                             />
                             {currentValue && !enumValues.includes(currentValue) && (
                                 <Tooltip title={`“${currentValue}”不在枚举列表中，需更新字典`}>
-                                    <WarningOutlined style={{ color: '#faad14', fontSize: 16 }} />
+                                    <WarningOutlined style={{ color: 'var(--warning)', fontSize: 16 }} />
                                 </Tooltip>
                             )}
                             </>
                         ) : (
-                            // 无枚举时默认输入框
+                            // 无枚举时默认输入框；有自动匹配值时清空=显式空值，避免导出回退 N/A
                             <Input
                                 defaultValue={currentValue}
-                                onBlur={(e) => updateManualValue(record.id, e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') updateManualValue(record.id, (e.target as HTMLInputElement).value); }}
+                                onBlur={(e) => updateManualValue(record.id, e.target.value, record.matchedParam ? { explicitEmpty: true } : undefined)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') updateManualValue(record.id, (e.target as HTMLInputElement).value, record.matchedParam ? { explicitEmpty: true } : undefined); }}
                                 placeholder="输入填报值"
                                 style={{ flex: 1, minWidth: 0 }}
                                 className={`font-mono ${isModified ? 'border-blue-400' : ''}`}
@@ -358,13 +370,13 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                         {/* 快捷推荐修正 (Quick Fix) */}
                         {fixes && fixes.length > 0 && !isManualMode && (
                             <div className="flex items-center flex-wrap gap-1 mt-1">
-                                <span className="text-xs text-gray-400 mr-1">推荐:</span>
+                                <span className="text-xs text-3 mr-1">推荐:</span>
                                 {fixes.map((f, i) => (
                                     <Tooltip key={i} title={`提取自字段: ${f.title}`}>
-                                        <Tag 
-                                            className="cursor-pointer hover:border-blue-400 text-xs m-0"
+                                        <Tag
+                                            className="hover:border-brand text-xs m-0"
                                             color="default"
-                                            onClick={() => updateManualValue(record.id, f.value)}
+                                            onClick={() => updateManualValue(record.id, f.value, { explicitEmpty: true })}
                                         >
                                             {f.value ? (f.value.length > 15 ? f.value.substring(0, 15) + '...' : f.value) : '(空)'}
                                         </Tag>
@@ -374,7 +386,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                         )}
                         {assetSourceFile && hasEnums && currentValue && !enumValues.includes(currentValue) && (
                             <RepairableValue
-                                value={<span className="text-amber-600 font-medium">{currentValue}</span>}
+                                value={<span className="text-warning font-medium">{currentValue}</span>}
                                 repairable={true}
                                 hint="点击修复源数据"
                                 className="self-start"
@@ -403,10 +415,10 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
     if (!matchResults.length) return null;
 
     return (
-        <div className="mt-8 bg-white p-4 rounded shadow">
+        <div className="mt-8 surface-container p-4 rounded border border-default">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold flex items-center gap-2">
-                    <CheckCircleOutlined className="text-green-600" />
+                    <CheckCircleOutlined className="text-success" />
                     匹配结果预览
                     <Tag>{filteredResults.length}/{matchResults.length}</Tag>
                 </h3>

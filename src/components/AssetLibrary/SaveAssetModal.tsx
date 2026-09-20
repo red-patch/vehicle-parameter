@@ -115,14 +115,14 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
             width={480}
         >
             <div className="py-4 space-y-5">
-                <p className="text-gray-500 text-sm m-0">
+                <p className="text-3 text-sm m-0">
                     系统会自动将其以 JSON 格式极速归档至您指定的本地资产库目录。
                     再次加载时，将秒开无需任何解析与转化等待。
                 </p>
 
                 {/* 文件名 */}
                 <div className="flex flex-col gap-1.5">
-                    <label className="font-medium text-gray-700 text-sm">资产文件名</label>
+                    <label className="font-medium text-2 text-sm">资产文件名</label>
                     <Input 
                         ref={inputRef}
                         value={fileName} 
@@ -135,7 +135,7 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
 
                 {/* 标签选择 */}
                 <div className="flex flex-col gap-1.5">
-                    <label className="font-medium text-gray-700 text-sm">资产标签 <span className="text-gray-400 font-normal">(可选)</span></label>
+                    <label className="font-medium text-2 text-sm">资产标签 <span className="text-3 font-normal">(可选)</span></label>
                     <TagSelector
                         selected={selectedTags}
                         availableTags={allAvailableTags}

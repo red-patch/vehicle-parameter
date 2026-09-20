@@ -68,7 +68,7 @@ const SheetPickerModal: React.FC<Props> = ({ open, sheets, onConfirm, onSkip, on
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '8px 4px',
-              borderBottom: '1px solid #f0f0f0',
+              borderBottom: '1px solid var(--border-default)',
             }}
           >
             <Checkbox
@@ -77,7 +77,7 @@ const SheetPickerModal: React.FC<Props> = ({ open, sheets, onConfirm, onSkip, on
             >
               {sheet.name}
             </Checkbox>
-            <span style={{ fontSize: 12, color: '#999' }}>共 {sheet.totalRows} 行（含表头）</span>
+            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>共 {sheet.totalRows} 行（含表头）</span>
           </div>
         ))}
       </div>

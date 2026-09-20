@@ -147,18 +147,18 @@ const ProductSelector: React.FC = () => {
         const isConfirmed = confirmedProducts.includes(product.key);
         
         if (isConfirmed) {
-            return <Tag color="green" icon={<CheckCircleOutlined />} className="text-xs">已确认</Tag>;
+            return <Tag color="success" icon={<CheckCircleOutlined />} className="text-xs">已确认</Tag>;
         }
         
         switch (product.level) {
             case 'high':
                 return null; // 高置信度不显示标签
             case 'medium':
-                return <Tag color="orange" className="text-xs">待确认</Tag>;
+                return <Tag color="warning" className="text-xs">待确认</Tag>;
             case 'low':
                 return (
                     <Tooltip title={product.reason || '可能不是有效车型'}>
-                        <Tag color="red" icon={<WarningOutlined />} className="text-xs">低置信</Tag>
+                        <Tag color="error" icon={<WarningOutlined />} className="text-xs">低置信</Tag>
                     </Tooltip>
                 );
         }
@@ -195,9 +195,9 @@ const ProductSelector: React.FC = () => {
 
     if (uploadedFiles.length === 0) {
         return (
-            <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200">
-                <div className="p-3 border-b border-gray-100">
-                    <span className="text-sm font-medium text-gray-700">车型选择</span>
+            <div className="h-full flex flex-col surface-container rounded-lg border border-default">
+                <div className="p-3 border-b border-default">
+                    <span className="text-sm font-medium text-1">车型选择</span>
                 </div>
                 <div className="flex-1 flex items-center justify-center">
                     <Empty description="请先添加参数文件" image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -209,35 +209,35 @@ const ProductSelector: React.FC = () => {
     const selectedCount = selectedProductNames.filter(n => visibleProducts.some(p => p.key === n)).length;
 
     return (
-        <div className="h-full flex flex-col bg-white rounded-lg border border-gray-200">
-            <div className="p-3 border-b border-gray-100 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">
-                    车型选择 <span className="text-gray-400">({selectedCount}/{visibleProducts.length})</span>
+        <div className="h-full flex flex-col surface-container rounded-lg border border-default">
+            <div className="p-3 border-b border-default flex justify-between items-center">
+                <span className="text-sm font-medium text-1">
+                    车型选择 <span className="text-3">({selectedCount}/{visibleProducts.length})</span>
                 </span>
-                <Checkbox 
+                <Checkbox
                     checked={visibleProducts.length > 0 && selectedCount === visibleProducts.length}
                     indeterminate={selectedCount > 0 && selectedCount < visibleProducts.length}
                     onChange={(e) => handleSelectAll(e.target.checked)}
                 >
-                    <span className="text-xs text-gray-500">全选</span>
+                    <span className="text-xs text-2">全选</span>
                 </Checkbox>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto">
                 {visibleProducts.map((item) => (
                     <div
                         key={item.key}
-                        className={`flex items-center gap-2 px-3 py-2 border-l-2 transition-colors ${
-                            selectedProductNames.includes(item.key) 
-                                ? 'bg-blue-50 border-blue-500' 
-                                : 'border-transparent hover:bg-gray-50'
+                        className={`flex items-center gap-2 px-3 py-2 rounded transition-colors ${
+                            selectedProductNames.includes(item.key)
+                                ? 'bg-brand-weak'
+                                : 'hover:bg-brand-weak'
                         }`}
                     >
-                        <Checkbox 
+                        <Checkbox
                             checked={selectedProductNames.includes(item.key)}
                             onChange={(e) => handleToggle(item.key, e.target.checked)}
                         />
-                        <CarOutlined className={selectedProductNames.includes(item.key) ? 'text-blue-500' : 'text-gray-400'} />
+                        <CarOutlined className={selectedProductNames.includes(item.key) ? 'text-brand' : 'text-3'} />
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                                 {editingName === item.key ? (
@@ -258,7 +258,7 @@ const ProductSelector: React.FC = () => {
                                     />
                                 ) : (
                                     <span
-                                        className="text-sm text-gray-800 truncate"
+                                        className="text-sm text-1 truncate"
                                         title={productDisplayLabels.get(item.key)?.fullLabel || item.name}
                                     >
                                         {productDisplayLabels.get(item.key)?.shortLabel || item.name}
@@ -267,24 +267,24 @@ const ProductSelector: React.FC = () => {
                                 {getConfidenceTag(item)}
                             </div>
                             <div
-                                className="text-xs text-gray-400"
+                                className="text-xs text-3"
                                 title={productDisplayLabels.get(item.key)?.fullLabel || item.fileName}
                             >
                                 @{item.fileName} · {item.paramCount} 参数
                             </div>
                         </div>
                         <Dropdown menu={{ items: getDropdownMenu(item) }} trigger={['click']}>
-                            <MoreOutlined className="text-gray-400 hover:text-gray-600 cursor-pointer" />
+                            <MoreOutlined className="text-3 hover:text-1" />
                         </Dropdown>
                     </div>
                 ))}
-                
+
                 {/* 显示已排除的产品数量 */}
                 {excludedProducts.length > 0 && (
-                    <div className="px-3 py-2 text-xs text-gray-400 border-t border-gray-100">
-                        已排除 {excludedProducts.length} 项 
-                        <span 
-                            className="text-blue-500 ml-1 cursor-pointer hover:underline"
+                    <div className="px-3 py-2 text-xs text-3 border-t border-default">
+                        已排除 {excludedProducts.length} 项
+                        <span
+                            className="text-brand ml-1 cursor-pointer hover:underline"
                             onClick={() => excludedProducts.forEach(name => resetProductStatus(name))}
                         >
                             恢复全部

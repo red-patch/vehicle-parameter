@@ -135,8 +135,8 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
     return (
         <Drawer
             title={
-                <div className="flex items-center gap-2 text-gray-800">
-                    <FolderOpenOutlined className="text-blue-500" />
+                <div className="flex items-center gap-2 text-1">
+                    <FolderOpenOutlined className="text-brand" />
                     <span>我的资产中心</span>
                 </div>
             }
@@ -147,14 +147,14 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
             bodyStyle={{ padding: '16px 12px' }}
         >
             {!assetLibraryPath ? (
-                <div className="text-center mt-10 text-gray-400">
+                <div className="text-center mt-10 text-3">
                     请先在应用右上角("设置")配置您的资产库路径
                 </div>
             ) : (
                 <div className="flex flex-col h-full">
                     <Input
                         placeholder="搜索车型资产..."
-                        prefix={<SearchOutlined className="text-gray-400" />}
+                        prefix={<SearchOutlined className="text-3" />}
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
                         className="mb-4"
@@ -171,7 +171,7 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                 
                                 return (
                                     <List.Item
-                                        className={`hover:bg-blue-50 transition-colors group px-3 py-2 rounded mb-1 border ${isEditing ? 'border-blue-300 bg-blue-50' : 'border-transparent hover:border-blue-100'} ${!isEditing && 'cursor-pointer'}`}
+                                        className={`hover:bg-brand-weak transition-colors group px-3 py-2 rounded mb-1 border ${isEditing ? 'border-brand bg-brand-weak' : 'border-transparent hover:border-blue-100'} ${!isEditing && ''}`}
                                         onClick={() => {
                                             if (!isEditing) handleLoadAsset(item);
                                         }}
@@ -191,13 +191,13 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                                         <Button 
                                                             type="text" 
                                                             size="small" 
-                                                            icon={<CheckOutlined className="text-green-600" />} 
+                                                            icon={<CheckOutlined className="text-success" />} 
                                                             onClick={(e) => handleConfirmRename(e, item)}
                                                         />
                                                         <Button 
                                                             type="text" 
                                                             size="small" 
-                                                            icon={<CloseOutlined className="text-gray-400" />} 
+                                                            icon={<CloseOutlined className="text-3" />} 
                                                             onClick={handleCancelRename}
                                                         />
                                                     </div>
@@ -205,17 +205,17 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                             ) : (
                                                 <>
                                                     <div className="flex flex-col overflow-hidden">
-                                                        <span className="text-sm font-medium text-gray-700 truncate" title={item}>
+                                                        <span className="text-sm font-medium text-2 truncate" title={item}>
                                                             {item.replace('.json', '')}
                                                         </span>
-                                                        <span className="text-[10px] text-gray-400 mt-0.5">.json 孪生档案</span>
+                                                        <span className="text-[10px] text-3 mt-0.5">.json 孪生档案</span>
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                                         <Tooltip title="重命名">
                                                             <Button 
                                                                 type="text" 
                                                                 size="small" 
-                                                                icon={<EditOutlined className="text-gray-400 hover:text-blue-500" />} 
+                                                                icon={<EditOutlined className="text-3 hover:text-brand" />} 
                                                                 onClick={(e) => handleStartRename(e, item)}
                                                             />
                                                         </Tooltip>
@@ -223,7 +223,7 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                                             <Button 
                                                                 type="text" 
                                                                 size="small" 
-                                                                icon={<CloudDownloadOutlined className="text-blue-500" />} 
+                                                                icon={<CloudDownloadOutlined className="text-brand" />} 
                                                             />
                                                         </Tooltip>
                                                         <Tooltip title="删除档案">

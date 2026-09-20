@@ -1,0 +1,356 @@
+/* ====================================================================
+   曜蓝 Obsidian Blue · 设计系统 v4.1 — 色板 tokens（明 + 暗 完整版）
+   --------------------------------------------------------------------
+   用法：整体替换 src/index.css 中 :root 与 .dark 的变量定义即可。
+   变量名与现有体系完全兼容，组件代码零改动；
+   业务 token（--diff-* / --conf-* / --req-* / --src-*）供
+   版本对比、智能填报、来源标识逐步收敛引用。
+
+   v4.1 变更（本次「补充暗色」）：
+     1. 补齐暗色缺口：遮罩 / 弹层抬高 / 骨架屏 / 滚动条 / 选中 /
+        代码块 / 提示条 / 控件描边 / 图表序列 / diff 标签底。
+     2. 修正 4 处对比度注释错误（浅色）+ 3 处暗色不达标值。
+     3. 暗色「同色两名」拆分：文字品牌色 --brand 与填充色
+        --brand-fill 分离（暗色下二者必须不同值）。
+   逐条 diff 与迁移说明见文件末尾 §迁移增量，落地说明见同目录
+   design-proposal.html §06 / §11。
+   ==================================================================== */
+
+/* ---- 浅色模式 ---- */
+:root {
+  /* 表面 · 岩灰三层（明色：越往内层越深，表达"凹陷/嵌入"） */
+  --surface-1: #F7F8FA;      /* layout */
+  --surface-2: #FFFFFF;      /* container / 卡片 */
+  --surface-3: #F1F3F6;      /* inset / 表头 / hover */
+  --surface-elevated: #FFFFFF; /* popover / dropdown / tooltip 抬高层 */
+  --border-default: #E4E7EC; /* 层间分隔（装饰性，不承担控件可辨性） */
+  --border-strong: #CCD1D9;  /* 浅色下兼作控件描边（见 --border-control 注） */
+  --border-control: #CCD1D9; /* 输入框/下拉/复选 描边。浅色靠"白底填充差"
+                                表达可编辑区，描边 1.5:1 即可；暗色无填充
+                                差可用，故暗色必须提到 3:1（见 .dark） */
+  --border-popover: #E4E7EC;
+
+  /* 文字四级（#1A1D26 on #FFF = 16.8:1） */
+  --text-1: #1A1D26;         /* 16.8:1 */
+  --text-2: #454C5C;         /*  8.6:1 */
+  --text-3: #8A91A0;         /*  3.2:1 仅限 ≥18px 或非关键辅助文字 */
+  --text-4: #C3C8D2;         /*  禁用态（WCAG 对此豁免） */
+  --text-on-brand: #FFFFFF;  /* 品牌实色填充上的文字 */
+
+  /* ===== 字体排印 token（与主题无关，暗色不重复定义） ===== */
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+               "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 字号阶梯（基准 13px · 数据密度优先，禁止阶梯外字号） */
+  --fs-caption: 11px;  /* 徽章 / 标签 */
+  --fs-aux: 12px;      /* 表头 / 辅助说明 */
+  --fs-body: 13px;     /* 正文基准 / 表格数据 */
+  --fs-title: 14px;    /* 模块标题（600） */
+  --fs-section: 16px;  /* 分区标题（600） */
+  --fs-page: 20px;     /* 页面标题（700） */
+  --fs-stat: 26px;     /* 统计大数（700 + tabular-nums） */
+  --fs-hero: 32px;     /* 空态 / 引导页主视觉（700，不进业务界面） */
+
+  /* 行高三档 */
+  --lh-tight: 1.25;    /* ≥16px 标题 */
+  --lh-normal: 1.5;    /* 12-14px 正文与控件 */
+  --lh-loose: 1.75;    /* 长文阅读（帮助 / 公告详情） */
+
+  /* 主色 · 曜蓝（600 on #FFF = 7.1:1 AAA） */
+  --brand: #2F44D8;          /* 文字 / 链接 / 描边 / 强调 */
+  --brand-weak: rgba(47, 68, 216, 0.08);   /* 选中底 / 弱强调区 */
+  --brand-strong: #2738B4;   /* 文字按下态 / 悬停加深 */
+  --brand-ring: #7386F1;     /* :focus-visible 聚焦环 */
+  --brand-fill: #2F44D8;     /* 主按钮实色填充（浅色下 = --brand） */
+  --brand-fill-hover: #2738B4;
+  --brand-border: #C7D1FB;   /* 品牌弱底容器的描边（如筛选标签） */
+  --brand-glow: rgba(77, 100, 233, 0.10);  /* 大面积柔和光晕（仅 Hero/空态） */
+
+  /* 语义 · 图形/填充层 */
+  --success: #0C9A68;
+  --success-weak: rgba(12, 154, 104, 0.10);
+  --warning: #E8930C;
+  --warning-weak: rgba(232, 147, 12, 0.12);
+  --danger: #E5484D;
+  --danger-weak: rgba(229, 72, 77, 0.08);
+  --info: #0E7C8C;
+  --info-weak: rgba(14, 124, 140, 0.10);
+
+  /* 语义 · 文字层（AA 以上；图形层色直接当文字用不达标） */
+  --success-text: #0A7A52;   /* 5.4:1 */
+  --warning-text: #9A5806;   /* 5.6:1 */
+  --danger-text: #C92A2A;    /* 5.5:1 */
+  --info-text: #0E7C8C;      /* 4.9:1 */
+
+  /* ===== 业务状态 token ===== */
+  /* 版本对比 · 差异四态
+     行底（row-bg）：整行染色，唯一允许的大面积语义填充
+     标签底（chip-bg）：状态标签的小色块 */
+  --diff-added-bg: #E9F7F0;
+  --diff-added-chip-bg: #D4EEE2;
+  --diff-added-bar: #0C9A68;
+  --diff-added-text: #0A7A52;
+  --diff-removed-bg: #FDECEC;
+  --diff-removed-chip-bg: #F9D7D8;
+  --diff-removed-bar: #E5484D;
+  --diff-removed-text: #A32222;
+  --diff-modified-bg: #FEF4E2;
+  --diff-modified-chip-bg: #FAE6C4;
+  --diff-modified-bar: #E8930C;
+  --diff-modified-text: #9A5806;
+  /* diff-unchanged 不设 token：一致态就是默认无着色（明暗同规则） */
+
+  /* 智能填报 · 匹配置信度 */
+  --conf-high: #0C9A68;      /* >=90% */
+  --conf-mid: #E8930C;       /* 60-89% */
+  --conf-low: #E5484D;       /* <60% */
+
+  /* 必填缺失（与错误红区分：虚线描边 + 浅底，表"待办"而非"错误"） */
+  --req-missing-bg: #FDECEC;
+  --req-missing-border: #E5484D;
+  --req-missing-text: #C92A2A;
+
+  /* 数据来源标识（中性偏色，不占语义色） */
+  --src-announcement-bg: #E4F4F7;  /* 公告 🏛 */
+  --src-announcement-text: #0E7C8C;
+  --src-asset-bg: #F0EBFB;         /* 资产库 🗂 */
+  --src-asset-text: #7048C8;
+  --src-excel-bg: #F1F3F6;         /* Excel 📄 */
+  --src-excel-text: #4B5261;
+
+  /* ===== 功能件（v4.1 新增：明暗成对） ===== */
+  /* 表格 */
+  --table-header-bg: #F1F3F6;      /* = surface-3 */
+  --table-row-hover: #F1F3F6;      /* = surface-3 */
+  --table-stripe: #FAFBFC;         /* 斑马纹（可不用；用则必须比 container 亮/暗≤1.05 差） */
+
+  /* 遮罩与阴影（暗色下阴影几乎不可见，必须靠描边 + 更亮表面替代） */
+  --mask: rgba(16, 18, 24, 0.45);
+  --shadow-popover: 0 4px 16px rgba(16, 18, 24, 0.10), 0 1px 3px rgba(16, 18, 24, 0.06);
+
+  /* 骨架屏（两值差 ≥1.5 才看得出扫光） */
+  --skeleton-base: #EDEFF3;
+  --skeleton-shine: #FFFFFF;
+
+  /* 滚动条 */
+  --scrollbar-thumb: #CCD1D9;
+  --scrollbar-hover: #8A91A0;
+
+  /* 文本选中 */
+  --selection-bg: rgba(47, 68, 216, 0.14);
+
+  /* 代码（行内 + 块） */
+  --code-inline-bg: #F1F3F6;
+  --code-inline-text: #4B5261;
+  --code-bg: #1A1D26;
+  --code-text: #D6DBE5;
+  --code-comment: #8A93A5;
+  --code-keyword: #8DA1F7;
+  --code-string: #7FD8A4;
+
+  /* 轻提示 / 气泡 */
+  --toast-bg: #1A1D26;
+  --toast-text: #F5F7FB;
+
+  /* 对比色块描边（色卡、色块内联预览用） */
+  --swatch-border: rgba(0, 0, 0, 0.08);
+
+  /* 图表序列 6 色（明）：按顺序分配，必须配 纹理/线型 双编码。
+     注：图表属"图形对象"，需对底色 ≥3:1 —— 琥珀在图表场景下沉一阶
+     用 #C87A08（3.4:1）而非语义图形色 #E8930C（2.4:1）。 */
+  --chart-1: #2F44D8;  /* 曜蓝 7.1:1 */
+  --chart-2: #0C9A68;  /* 松绿 3.6:1 */
+  --chart-3: #C87A08;  /* 琥珀 3.4:1（比语义色深一阶） */
+  --chart-4: #E5484D;  /* 茜红 3.9:1 */
+  --chart-5: #0E7C8C;  /* 青碧 4.9:1 */
+  --chart-6: #7048C8;  /* 紫   6.1:1 */
+
+  /* 业务状态 · 资产已激活（常驻弱信号：线 + 点，无填充） */
+  --asset-active-bar: var(--success);
+  --asset-active-dot: var(--success);
+}
+
+/* ====================================================================
+   暗色模式 —— 非简单反色
+   --------------------------------------------------------------------
+   ① 底不用纯黑：#0E1116 起，且三层表面改为「越上层越亮」
+      #0E1116 → #161B23 → #202734 → #202734(抬升)，与浅色方向相反；
+   ② 主色抬阶并拆名：文字/描边 --brand 300-400 阶，
+      实色填充 --brand-fill 单独取值（白字需 ≥4.5:1）；
+   ③ 语义色降纯抬明：图形层 ΔL +9~+18、ΔS -4~-35；
+      文字层统一落 L 75-85，禁用霓虹色。
+   以下每个 token 与 :root 一一对应，不允许只定义一半。
+   ==================================================================== */
+.dark {
+  --surface-1: #0E1116;
+  --surface-2: #161B23;
+  --surface-3: #202734;
+  --surface-elevated: #202734;
+  --border-default: #2C3442;   /* 装饰性分隔：1.4:1，刻意低对比 */
+  --border-strong: #3A4354;    /* 装饰性强调：1.7:1 */
+  --border-control: #5B6684;   /* 控件描边：3.0:1（v4.1 修正，见缺口 D-02） */
+  --border-popover: #333C4D;   /* 弹层描边：暗色下替代阴影承担抬升感 */
+
+  --text-1: #E6E9EF;           /* 14.2:1 */
+  --text-2: #AAB2C0;           /*  8.1:1 */
+  --text-3: #8A93A5;           /*  5.6:1（v4.1 修正，原 #6B7280 仅 3.6:1） */
+  --text-4: #5E6675;           /*  3.0:1 禁用态（原 #4A5160 仅 2.2:1） */
+  --text-on-brand: #FFFFFF;
+
+  --brand: #8DA1F7;            /* 文字/链接/描边：7.1:1 on #161B23 */
+  --brand-weak: rgba(141, 161, 247, 0.14);
+  --brand-strong: #A8B7F9;     /* 8.9:1 */
+  --brand-ring: #A0AFF8;       /* 聚焦环：8.2:1（原 #7386F1 在深底仅 4.0:1，
+                                  非文本对比需 ≥3:1，抬亮后环更"跳"） */
+  --brand-fill: #4D64E9;       /* 实色填充：白字 4.9:1 */
+  --brand-fill-hover: #5569EB; /* 提亮约 7%，白字仍 4.6:1 —— 暗色 hover
+                                  不能只在填充上做文章，需再叠 1px 高光描边 */
+  --brand-border: rgba(141, 161, 247, 0.30);
+  --brand-glow: rgba(141, 161, 247, 0.12);
+
+  --success: #3DBD8A;
+  --success-weak: rgba(61, 189, 138, 0.14);
+  --warning: #F0A83C;
+  --warning-weak: rgba(240, 168, 60, 0.14);
+  --danger: #F06A6E;
+  --danger-weak: rgba(240, 106, 110, 0.12);
+  --info: #3FA8B8;
+  --info-weak: rgba(63, 168, 184, 0.14);
+
+  --success-text: #5BD0A2;     /*  9.0:1 */
+  --warning-text: #F5BC66;     /* 10.1:1 */
+  --danger-text: #F58A8D;      /*  7.3:1 */
+  --info-text: #63BECB;        /*  8.0:1 */
+
+  /* 业务 token · 暗色（底色用低 alpha 叠加，随所在层自动适配；
+     文字提亮到"浅色浅底"的等效观感） */
+  --diff-added-bg: rgba(61, 189, 138, 0.12);     /* 合成底 ≈ #1B2E2F */
+  --diff-added-chip-bg: rgba(61, 189, 138, 0.22);/* 合成底 ≈ #1F3F3A */
+  --diff-added-bar: #3DBD8A;
+  --diff-added-text: #5BD0A2;   /* on 行底 7.4:1 / on 标签底 6.0:1 */
+  --diff-removed-bg: rgba(240, 106, 110, 0.12);
+  --diff-removed-chip-bg: rgba(240, 106, 110, 0.22);
+  --diff-removed-bar: #F06A6E;
+  --diff-removed-text: #F58A8D; /* 6.3:1 / 5.3:1 */
+  --diff-modified-bg: rgba(240, 168, 60, 0.12);
+  --diff-modified-chip-bg: rgba(240, 168, 60, 0.22);
+  --diff-modified-bar: #F0A83C;
+  --diff-modified-text: #F5BC66;/* 8.1:1 / 6.5:1 */
+
+  --conf-high: #3DBD8A;
+  --conf-mid: #F0A83C;
+  --conf-low: #F06A6E;
+
+  --req-missing-bg: rgba(240, 106, 110, 0.10);
+  --req-missing-border: #F06A6E;
+  --req-missing-text: #F58A8D;
+
+  --src-announcement-bg: rgba(63, 168, 184, 0.14);  /* 合成 ≈ #1C2F38 */
+  --src-announcement-text: #63BECB;                 /* 6.5:1 */
+  --src-asset-bg: rgba(150, 120, 220, 0.14);        /* 合成 ≈ #28283D */
+  --src-asset-text: #B79CED;                        /* 6.2:1 */
+  --src-excel-bg: #202734;                          /* = surface-3 */
+  --src-excel-text: #B9C1CE;                        /* 8.3:1 */
+  /* 注：--src-excel-bg 用 surface-3 而非 alpha 叠加 —— 它与表头同底，
+     叠色会与"已选中行"撞色。 */
+
+  --table-header-bg: #202734;
+  --table-row-hover: #202734;
+  --table-stripe: #191F28;
+
+  --mask: rgba(0, 0, 0, 0.62);   /* 遮罩后容器仍可辨，只是退到背景 */
+  --shadow-popover: 0 6px 20px rgba(0, 0, 0, 0.55);
+  /* 暗色下阴影在深底上几乎不可见 —— 弹层的"抬升"由
+     --surface-elevated(#202734) + --border-popover 共同承担，阴影只是补充 */
+
+  --skeleton-base: #1D2530;
+  --skeleton-shine: #39434F;     /* 与 base 差 1.54 倍，扫光可见 */
+
+  --scrollbar-thumb: #3F4959;
+  --scrollbar-hover: #5B6684;
+
+  --selection-bg: rgba(141, 161, 247, 0.26);
+
+  --code-inline-bg: #202734;
+  --code-inline-text: #B9C1CE;
+  --code-bg: #10151C;            /* 比 surface-1 更暗，块感来自"更沉" */
+  --code-text: #D6DBE5;          /* 12.9:1 */
+  --code-comment: #7C8698;       /* 4.9:1（原 #6B7280 仅 3.7:1） */
+  --code-keyword: #8DA1F7;
+  --code-string: #7FD8A4;
+
+  --toast-bg: #2C3442;
+  --toast-text: #F2F4F8;
+
+  --swatch-border: rgba(255, 255, 255, 0.10);
+
+  /* 图表序列 6 色（暗）：与浅色同色相、抬明降纯。
+     全部对 #161B23 ≥5.7:1，且比背景亮 → 深色底上"线是亮的" */
+  --chart-1: #8DA1F7;  /* 7.1:1 */
+  --chart-2: #3DBD8A;  /* 7.3:1 */
+  --chart-3: #F0A83C;  /* 8.5:1 —— 暗色下语义琥珀本身已达标，无需下沉 */
+  --chart-4: #F06A6E;  /* 5.8:1 */
+  --chart-5: #63BECB;  /* 8.0:1 */
+  --chart-6: #B79CED;  /* 7.4:1 */
+
+  --asset-active-bar: var(--success);
+  --asset-active-dot: var(--success);
+}
+
+/* ====================================================================
+   全局件（明暗共用写法：一律走上面的变量）
+   --------------------------------------------------------------------
+   这三条是纯样式，建议与变量一起进 index.css：
+   - 滚动条、选中高亮、遮罩
+   ==================================================================== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+::selection { background: var(--selection-bg); }
+.overlay-mask { background: var(--mask); }
+.popover-surface {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-popover);
+  box-shadow: var(--shadow-popover);
+}
+/* 骨架屏扫光：两值差须 ≥1.5，否则暗色下看不见 */
+.skeleton {
+  background: var(--skeleton-base);
+  background-image: linear-gradient(
+    90deg, var(--skeleton-base) 0%, var(--skeleton-shine) 50%, var(--skeleton-base) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.4s ease-out infinite;
+}
+@keyframes skeleton-sweep {
+  from { background-position: 200% 0; }
+  to   { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background-image: none; }
+}
+
+/* ====================================================================
+   §迁移增量 —— 若采纳 v4.1，src/index.css 需要补的 3 类改动
+   --------------------------------------------------------------------
+   [A] :root / .dark 内新增 token（可直接从本文件整段复制）
+       明暗各 24 个：--surface-elevated --border-control --border-popover
+       --text-on-brand --brand-fill-hover --brand-border --brand-glow
+       --diff-*-chip-bg(3) --table-* (3) --mask --shadow-popover
+       --skeleton-* (2) --scrollbar-* (2) --selection-bg
+       --code-* (6) --toast-* (2) --swatch-border --chart-* (6)
+
+   [B] .dark 内修正 4 个值（这会改变现有观感，需评审确认）
+       --text-3         #6B7280 → #8A93A5   （3.6:1 → 5.6:1，表头 12px 达 AA）
+       --text-4         #4A5160 → #5E6675   （2.2:1 → 3.0:1，占位符可读）
+       --brand-ring     #7386F1 → #A0AFF8   （聚焦环抬亮，键盘可达性）
+       新增 --border-control: #5B6684       （控件描边达 WCAG 2.2 的 3:1）
+
+   [C] src/theme/themeConfig.ts 的 DARK 分支同步 3 处
+       primary:   '#8DA1F7'  保持（= --brand）
+       另需补 colorPrimary 的填充场景不可用同一值 → Button 组件
+       用 classNames 覆盖为 --brand-fill，或改用 CSS 变量注入
+       text3:     '#6B7280' → '#8A93A5'
+       colorBorder:'#2C3442' → 控件类走 '#5B6684'（colorBorder 保持 #2C3442）
+   ==================================================================== */

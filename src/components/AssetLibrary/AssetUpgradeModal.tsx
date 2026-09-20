@@ -327,7 +327,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
 
         Modal.confirm({
             title: '确认覆盖原资产？',
-            icon: <ExclamationCircleOutlined className="text-red-500" />,
+            icon: <ExclamationCircleOutlined className="text-danger" />,
             content: '覆盖后将直接更新原资产文件。建议仅在所有冲突都确认完成后执行。',
             okText: '确认覆盖',
             cancelText: '取消',
@@ -499,10 +499,10 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                             />
 
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div className="rounded-xl border border-default bg-surface-3 p-4">
                                     <div className="flex items-center gap-2 mb-3">
-                                        <HistoryOutlined className="text-slate-500" />
-                                        <span className="font-semibold text-slate-800">基线资产摘要</span>
+                                        <HistoryOutlined className="text-3" />
+                                        <span className="font-semibold text-1">基线资产摘要</span>
                                     </div>
                                     <Descriptions column={1} size="small" items={[
                                         { key: 'file', label: '资产文件', children: assetInfo.fileName },
@@ -519,11 +519,11 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                     ]} />
                                 </div>
 
-                                <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
+                                <div className="rounded-xl border border-line bg-brand-weak/60 p-4">
                                     <div className="flex items-center justify-between gap-3 mb-3">
                                         <div className="flex items-center gap-2">
-                                            <CloudUploadOutlined className="text-blue-500" />
-                                            <span className="font-semibold text-slate-800">新版文件导入</span>
+                                            <CloudUploadOutlined className="text-brand" />
+                                            <span className="font-semibold text-1">新版文件导入</span>
                                         </div>
                                         <Upload beforeUpload={handleUpload} showUploadList={false} accept=".xlsx,.xls">
                                             <Button type="primary" loading={uploading} icon={<CloudUploadOutlined />}>
@@ -560,7 +560,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                         <Statistic title="一致" value={assetUpgradeDraft.summary.same} />
                                         <Statistic title="新增字段" value={assetUpgradeDraft.summary.newField} />
                                         <Statistic title="空值补全" value={assetUpgradeDraft.summary.fillEmpty} />
-                                        <Statistic title="冲突字段" value={assetUpgradeDraft.summary.conflict} valueStyle={{ color: pendingConflictCount > 0 ? '#cf1322' : undefined }} />
+                                        <Statistic title="冲突字段" value={assetUpgradeDraft.summary.conflict} valueStyle={{ color: pendingConflictCount > 0 ? 'var(--danger)' : undefined }} />
                                         <Statistic title="仅旧资产存在" value={assetUpgradeDraft.summary.oldOnly} />
                                     </div>
 
@@ -579,14 +579,14 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                         />
                                     )}
 
-                                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                    <div className="rounded-xl border border-default bg-surface-2 p-4">
                                         <div className="flex flex-wrap items-center gap-2 mb-3">
-                                            <span className="font-semibold text-slate-800">升级差异清单</span>
+                                            <span className="font-semibold text-1">升级差异清单</span>
                                             {(['all', 'conflict', 'new_field', 'fill_empty', 'old_only', 'same'] as ReviewFilter[]).map((filter) => (
                                                 <Tag
                                                     key={filter}
                                                     color={reviewFilter === filter ? 'blue' : undefined}
-                                                    className="cursor-pointer select-none"
+                                                    className="select-none"
                                                     onClick={() => setReviewFilter(filter)}
                                                 >
                                                     {filter === 'all' ? '全部' : CATEGORY_META[filter].label}
@@ -608,24 +608,24 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                         <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 space-y-4">
                                             <div className="flex items-center justify-between gap-3 flex-wrap">
                                                 <div>
-                                                    <div className="font-semibold text-slate-800">最终覆盖预览</div>
-                                                    <div className="text-sm text-slate-500 mt-1">
+                                                    <div className="font-semibold text-1">最终覆盖预览</div>
+                                                    <div className="text-sm text-3 mt-1">
                                                         先看摘要，再按需展开明细。这里展示的是当前决策下最终会形成的结果。
                                                     </div>
                                                 </div>
                                                 {preview.summary.pendingCount > 0 ? (
-                                                    <Tag color="orange">仍有 {preview.summary.pendingCount} 项未决策</Tag>
+                                                    <Tag color="warning">仍有 {preview.summary.pendingCount} 项未决策</Tag>
                                                 ) : (
-                                                    <Tag color="green">已形成可保存的最终结果</Tag>
+                                                    <Tag color="success">已形成可保存的最终结果</Tag>
                                                 )}
                                             </div>
 
                                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                                 <Statistic title="使用新版" value={preview.summary.useNewCount} />
                                                 <Statistic title="保留旧值" value={preview.summary.keepOldCount} />
-                                                <Statistic title="实际变更" value={preview.summary.changedCount} valueStyle={{ color: preview.summary.changedCount > 0 ? '#7c3aed' : undefined }} />
+                                                <Statistic title="实际变更" value={preview.summary.changedCount} valueStyle={{ color: preview.summary.changedCount > 0 ? 'var(--brand)' : undefined }} />
                                                 <Statistic title="已解决冲突" value={preview.summary.conflictResolvedCount} />
-                                                <Statistic title="待决策" value={preview.summary.pendingCount} valueStyle={{ color: preview.summary.pendingCount > 0 ? '#d97706' : undefined }} />
+                                                <Statistic title="待决策" value={preview.summary.pendingCount} valueStyle={{ color: preview.summary.pendingCount > 0 ? 'var(--warning)' : undefined }} />
                                             </div>
 
                                             <Collapse
@@ -652,8 +652,8 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                     <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
                                         <div className="flex items-center justify-between gap-3 flex-wrap">
                                             <div>
-                                                <div className="font-semibold text-slate-800">保存策略</div>
-                                                <div className="text-sm text-slate-500 mt-1">
+                                                <div className="font-semibold text-1">保存策略</div>
+                                                <div className="text-sm text-3 mt-1">
                                                     默认推荐另存为新版本；覆盖原资产需要二次确认。
                                                 </div>
                                                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -692,7 +692,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                     </div>
                                 </>
                             ) : (
-                                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
+                                <div className="rounded-xl border border-dashed border-default bg-surface-3 p-8 text-center text-3">
                                     导入新版文件后，这里会生成“升级清单”，并按风险分类展示字段差异。
                                 </div>
                             )}

@@ -28,7 +28,7 @@ const formatDiagnostics = (diagnostics: ParseDiagnostics): React.ReactNode => {
             {diagnostics.sheetsSkipped.length > 0 && (
                 <div>
                     <Text type="warning">⚠ 已跳过：</Text>
-                    <ul className="mt-1 ml-4 text-sm text-gray-600">
+                    <ul className="mt-1 ml-4 text-sm text-2">
                         {diagnostics.sheetsSkipped.map((s, i) => (
                             <li key={i}>「{s.name}」- {s.reason}</li>
                         ))}
@@ -36,9 +36,9 @@ const formatDiagnostics = (diagnostics: ParseDiagnostics): React.ReactNode => {
                 </div>
             )}
             
-            <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
-                <Text strong className="text-blue-700">💡 建议：</Text>
-                <Text className="text-blue-600">{diagnostics.suggestion}</Text>
+            <div className="mt-4 p-3 bg-brand-weak rounded border border-brand/20">
+                <Text strong className="text-brand">建议：</Text>
+                <Text className="text-brand">{diagnostics.suggestion}</Text>
             </div>
         </div>
     );
@@ -92,8 +92,8 @@ const ExcelUploader: React.FC = () => {
     const renderUploader = (type: 'base' | 'target', title: string, currentFile: SheetData | null) => (
         <Card className="w-full" title={title} bordered={false}>
             {currentFile ? (
-                <div className="flex flex-col items-center justify-center py-6 bg-green-50 rounded border border-green-200">
-                    <FileExcelOutlined className="text-4xl text-green-600 mb-2" />
+                <div className="flex flex-col items-center justify-center py-6 bg-success-weak rounded border border-success/25">
+                    <FileExcelOutlined className="text-4xl text-success mb-2" />
                     <Text strong>{currentFile.fileName}</Text>
                     <Text type="secondary">{getUniqueCount(currentFile.data)} 个参数</Text>
                     <Button
@@ -111,10 +111,10 @@ const ExcelUploader: React.FC = () => {
                     showUploadList={false}
                     beforeUpload={(file) => handleUpload(file, type)}
                     disabled={loading}
-                    className="bg-gray-50 hover:bg-gray-100 transition-colors"
+                    className="surface-inset hover:surface-container transition-colors"
                 >
                     <p className="ant-upload-drag-icon">
-                        <UploadOutlined className="text-blue-500" />
+                        <UploadOutlined className="text-brand" />
                     </p>
                     <p className="ant-upload-text">点击或拖拽文件到此区域</p>
                     <p className="ant-upload-hint">支持 .xlsx, .xls</p>

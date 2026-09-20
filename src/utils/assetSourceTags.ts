@@ -7,26 +7,33 @@ export const ASSET_SOURCE_TAGS = {
 
 export type AssetSourceFilter = 'all' | 'announcement' | 'purify' | 'workspace' | 'manual';
 
+/** 来源标签色调（对应 index.css 的 --src-* 中性偏色 token，绝不占用语义色） */
+export type AssetSourceTone = 'announcement' | 'asset' | 'excel';
+
 export const ASSET_SOURCE_META = {
     announcement: {
         filter: 'announcement' as const,
         label: ASSET_SOURCE_TAGS.announcement,
-        color: 'blue' as const,
+        tone: 'announcement' as AssetSourceTone,
+        icon: '🏛',
     },
     purify: {
         filter: 'purify' as const,
         label: ASSET_SOURCE_TAGS.purify,
-        color: 'green' as const,
+        tone: 'asset' as AssetSourceTone,
+        icon: '🩺',
     },
     workspace: {
         filter: 'workspace' as const,
         label: ASSET_SOURCE_TAGS.workspace,
-        color: 'cyan' as const,
+        tone: 'excel' as AssetSourceTone,
+        icon: '📄',
     },
     manual: {
         filter: 'manual' as const,
         label: ASSET_SOURCE_TAGS.manual,
-        color: 'purple' as const,
+        tone: 'excel' as AssetSourceTone,
+        icon: '✏️',
     },
 } as const;
 

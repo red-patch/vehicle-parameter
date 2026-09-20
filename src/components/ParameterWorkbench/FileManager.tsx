@@ -160,7 +160,7 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
             </Button>,
           ]}
         >
-          <div style={{ marginBottom: 12, fontSize: 13, color: '#666' }}>
+          <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--text-2)' }}>
             解析发现 {pendingProducts.length} 个车型，请选择需要保存到资产库的车型：
           </div>
 
@@ -194,7 +194,7 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
             <div key={idx}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px',
-                borderBottom: prod.tags && prod.tags.length > 0 ? 'none' : '1px solid #f0f0f0'
+                borderBottom: prod.tags && prod.tags.length > 0 ? 'none' : '1px solid var(--border-default)'
               }}>
                 <Checkbox
                   checked={prod.checked !== false}
@@ -205,7 +205,7 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
                   }}
                 />
                 <span style={{ flex: 1, fontSize: 13 }}>{prod.name}</span>
-                <span style={{ fontSize: 12, color: '#999' }}>{prod.count} 个参数</span>
+                <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{prod.count} 个参数</span>
                 <Input
                   size="small"
                   defaultValue={prod.name}
@@ -236,18 +236,18 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
                 />
               </div>
               {(prod.tags || []).length > 0 && (
-                <div style={{ display: 'flex', gap: 4, padding: '2px 30px 6px', borderBottom: '1px solid #f0f0f0', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 4, padding: '2px 30px 6px', borderBottom: '1px solid var(--border-default)', flexWrap: 'wrap' }}>
                   {prod.tags!.map(tag => (
                     <span key={tag} style={{
                       fontSize: 11, padding: '1px 6px', borderRadius: 3,
-                      background: '#e8f4fd', color: '#1677ff',
+                      background: 'var(--brand-weak)', color: 'var(--brand)',
                     }}>{tag}</span>
                   ))}
                 </div>
               )}
             </div>
           ))}
-          <div style={{ marginTop: 12, fontSize: 12, color: '#999' }}>
+          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-3)' }}>
             保存后车型将自动加入待分析工作区
           </div>
         </Modal>
@@ -290,8 +290,8 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
   return (
     <div style={{
       marginBottom: 8, padding: '8px 10px',
-      background: '#f8f9fa', borderRadius: 8,
-      border: '1px solid #e8e8e8',
+      background: 'var(--surface-3)', borderRadius: 8,
+      border: '1px solid var(--border-default)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'default' }}>
@@ -307,7 +307,7 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* 批量加标签 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap', width: 60 }}>批量标签</span>
+            <span style={{ fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap', width: 60 }}>批量标签</span>
             <Input
               size="small"
               value={batchTagInput}
@@ -335,20 +335,20 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
               <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto" style={{ marginTop: 4 }}>
                 {grouped.map(g => (
                   <div key={g.id} className="flex items-start gap-1" style={{ marginBottom: 2 }}>
-                    <span style={{ fontSize: 10, color: '#999', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>{g.name}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>{g.name}</span>
                     <div className="flex flex-wrap gap-1">
                       {g.tags.map(t => (
-                        <Tag key={t} className="cursor-pointer" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                        <Tag key={t} className="" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
                       ))}
                     </div>
                   </div>
                 ))}
                 {ungrouped.length > 0 && (
                   <div className="flex items-start gap-1">
-                    <span style={{ fontSize: 10, color: '#999', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>未分组</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>未分组</span>
                     <div className="flex flex-wrap gap-1">
                       {ungrouped.map(t => (
-                        <Tag key={t} className="cursor-pointer" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                        <Tag key={t} className="" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
                       ))}
                     </div>
                   </div>
@@ -360,7 +360,7 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
 
           {/* 批量命名 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap', width: 60 }}>批量命名</span>
+            <span style={{ fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap', width: 60 }}>批量命名</span>
             <Input
               size="small"
               value={prefixInput}
@@ -368,7 +368,7 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
               placeholder="前缀"
               style={{ width: 100 }}
             />
-            <span style={{ fontSize: 11, color: '#999' }}>文件名</span>
+            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>文件名</span>
             <Input
               size="small"
               value={suffixInput}
@@ -376,7 +376,7 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
               placeholder="后缀"
               style={{ width: 100 }}
             />
-            <span style={{ fontSize: 11, color: '#999' }}>.json</span>
+            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>.json</span>
             <Button size="small" type="primary" onClick={handleApplyRename}
               disabled={!prefixInput && !suffixInput}>
               应用到已选

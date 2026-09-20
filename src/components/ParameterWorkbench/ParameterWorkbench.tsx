@@ -62,13 +62,13 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 资产管理</span>,
             children: (
                 <div className="flex gap-3 h-full">
-                    <div className="flex-1 min-w-0 bg-slate-200/50 border border-slate-200/60 rounded-2xl shadow-sm backdrop-blur-sm">
+                    <div className="flex-1 min-w-0 surface-container border border-default rounded-xl">
                         <DataSourcePanel
                             focusedFile={focusedFile}
                             onFocusFile={handleFocusFile}
                         />
                     </div>
-                    <div className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm">
+                    <div className="flex-1 min-w-0 surface-container border border-default rounded-xl">
                         <VehicleListPanel
                             focusedProduct={focusedProduct}
                             onFocusProduct={setFocusedProduct}
@@ -124,12 +124,12 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
     }, [activeTab]);
 
     return (
-        <div className="h-full bg-slate-50/50 p-4">
+        <div className="h-full surface-layout p-4">
             <AssetDataSynchronizer />
             {showTabs ? (
                 <>
                     <div className="mb-3">
-                        <h1 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight">参数工作台</h1>
+                        <h1 className="text-[28px] font-bold text-1 m-0">参数工作台</h1>
                     </div>
                     <Tabs
                         activeKey={activeTab}

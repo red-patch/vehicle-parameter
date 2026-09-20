@@ -60,7 +60,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 dataIndex: 'group',
                 key: 'group',
                 width: 100,
-                render: (text: string) => <Tag color="blue">{text}</Tag>,
+                render: (text: string) => <Tag color="default">{text}</Tag>,
                 sorter: (a, b) => a.group.localeCompare(b.group),
             },
             {
@@ -77,7 +77,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 width: 60,
                 render: (_: unknown, record: { name: string }) => {
                     const required = isFieldRequired(record.name);
-                    return required ? <Tag color="orange">是</Tag> : <span className="text-gray-400">-</span>;
+                    return required ? <Tag color="warning">是</Tag> : <span className="text-3">-</span>;
                 },
                 filters: [
                     { text: '必填', value: true },
@@ -97,6 +97,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 dataIndex: 'value',
                 key: 'value',
                 ellipsis: true,
+                className: 'tabular-nums',
             });
         } else {
             products.forEach(prod => {
@@ -106,6 +107,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     key: prod,
                     width: 180,
                     ellipsis: true,
+                    className: 'tabular-nums',
                 });
             });
         }
@@ -137,8 +139,8 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
 
     // Column visibility dropdown content
     const columnSelectorContent = (
-        <div className="p-3 bg-white rounded shadow-lg border max-h-64 overflow-auto">
-            <div className="mb-2 text-gray-500 text-sm">选择显示的列：</div>
+        <div className="p-3 surface-container rounded border border-default shadow-lg max-h-64 overflow-auto">
+            <div className="mb-2 text-2 text-sm">选择显示的列：</div>
             <Checkbox.Group
                 value={visibleColumns}
                 onChange={(checked) => setVisibleColumns(checked as string[])}
@@ -262,7 +264,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
 
             {/* 搜索结果提示 */}
             {searchText && (
-                <div className="mb-2 text-gray-500 text-sm">
+                <div className="mb-2 text-2 text-sm">
                     搜索结果：{filteredData.length} / {tableData.length} 条
                 </div>
             )}
@@ -278,7 +280,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     showTotal: (total) => `共 ${total} 条`,
                     onShowSizeChange: (_current, size) => setPageSize(size),
                 }}
-                size="small"
+                size="middle"
                 scroll={{ x: 'max-content' }}
                 bordered
                 rowClassName={(record) => {

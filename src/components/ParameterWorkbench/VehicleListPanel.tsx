@@ -221,16 +221,15 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
     };
 
     return (
-        <div className="flex flex-col h-full bg-white">
-            <div className="flex-none p-4 border-b border-slate-200/60 bg-white/70 backdrop-blur-sm">
+        <div className="flex flex-col h-full surface-container">
+            <div className="flex-none p-4 border-b border-default surface-inset">
                 <div className="flex items-center justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
-                            <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
-                            <h3 className="text-[15px] font-bold text-slate-800 m-0 tracking-tight">待分析车型</h3>
+                            <h3 className="text-[16px] font-bold text-1 m-0">待分析车型</h3>
                         </div>
-                        <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider m-0">
-                            Gathered {activeVehicles.length} effective datasets
+                        <p className="text-[12px] text-3 font-medium m-0">
+                            已收集 {activeVehicles.length} 个有效数据集
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -240,14 +239,14 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                             </Button>
                         )}
                         <div className="text-right">
-                            <div className="text-[24px] leading-none font-black text-slate-800">{activeVehicles.length}</div>
-                            <div className="text-[10px] uppercase tracking-widest text-slate-400">Active</div>
+                            <div className="text-stat text-1 tabular-nums">{activeVehicles.length}</div>
+                            <div className="text-[12px] text-3">已激活</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 p-3 overflow-y-auto custom-scrollbar flex flex-col bg-slate-50/20">
+            <div className="flex-1 p-3 overflow-y-auto custom-scrollbar flex flex-col surface-layout">
                 {loading ? (
                     <div className="py-12 flex justify-center">
                         <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
@@ -258,61 +257,61 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                             const isFocused = focusedProduct === vehicle.key;
                             const isSelected = selectedProductNames.includes(vehicle.key);
                             const fillTone = vehicle.requiredMissing.length > 0
-                                ? 'text-red-500'
+                                ? 'text-danger-text'
                                 : vehicle.fillRate >= 95
-                                    ? 'text-emerald-500'
-                                    : 'text-amber-500';
+                                    ? 'text-success-text'
+                                    : 'text-warning-text';
 
                             return (
                                 <div
                                     key={vehicle.key}
                                     onClick={() => openDetail(vehicle.key)}
-                                    className={`group rounded-xl border cursor-pointer transition-all duration-200 px-4 py-3 ${
+                                    className={`rounded-lg border px-4 py-3 cursor-pointer active:scale-[0.995] transition-transform ${
                                         isFocused
-                                            ? 'bg-blue-50 border-blue-300 shadow-sm'
-                                            : 'bg-white border-slate-200/80 hover:border-blue-300 hover:shadow-sm'
+                                            ? 'surface-container border-brand ring-1 ring-brand'
+                                            : 'surface-container border-default hover:border-line-strong'
                                     }`}
                                 >
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <div
-                                                    className={`font-bold text-[16px] truncate ${isFocused ? 'text-blue-700' : 'text-slate-800'}`}
+                                                    className="font-semibold text-sm truncate text-1"
                                                     title={vehicleDisplayLabels.get(vehicle.key)?.fullLabel || vehicle.name}
                                                 >
                                                     {vehicleDisplayLabels.get(vehicle.key)?.shortLabel || vehicle.name}
                                                 </div>
-                                                <Tag color={vehicle.source === 'asset' ? 'green' : 'blue'} className="m-0 text-[10px] leading-4">
-                                                    {vehicle.source === 'asset' ? 'ASSET' : 'LOCAL'}
+                                                <Tag className={`m-0 text-[12px] leading-4 border-0 ${vehicle.source === 'asset' ? 'src-asset' : 'src-excel'}`}>
+                                                    {vehicle.source === 'asset' ? '资产库' : '本地'}
                                                 </Tag>
                                                 {vehicle.requiredMissing.length > 0 && (
-                                                    <Tag color="error" className="m-0 text-[10px] leading-4">缺必填 {vehicle.requiredMissing.length}</Tag>
+                                                    <Tag color="error" className="m-0 text-[12px] leading-4">缺必填 {vehicle.requiredMissing.length}</Tag>
                                                 )}
                                             </div>
-                                            <div className="mt-1 text-[11px] text-slate-400 truncate" title={vehicle.originalFile}>
+                                            <div className="mt-1 text-[12px] text-3 truncate" title={vehicle.originalFile}>
                                                 @{vehicle.originalFile}
                                             </div>
                                         </div>
 
-                                        <div className="hidden xl:flex items-center gap-2 text-[11px] text-slate-500">
-                                            <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5 min-w-[76px] text-center">
-                                                <div className="text-[10px] uppercase tracking-widest text-slate-400">完成率</div>
-                                                <div className={`text-[18px] font-black ${fillTone}`}>{vehicle.fillRate}%</div>
+                                        <div className="hidden xl:flex items-center gap-2 text-[12px] text-2">
+                                            <div className="rounded-lg surface-inset border border-default px-2.5 py-1.5 min-w-[76px] text-center">
+                                                <div className="text-[12px] text-3">完成率</div>
+                                                <div className={`text-[18px] font-bold tabular-nums ${fillTone}`}>{vehicle.fillRate}%</div>
                                             </div>
-                                            <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5 min-w-[68px] text-center">
-                                                <div className="text-[10px] uppercase tracking-widest text-slate-400">参数</div>
-                                                <div className="text-[18px] font-black text-slate-800">{vehicle.totalParams}</div>
+                                            <div className="rounded-lg surface-inset border border-default px-2.5 py-1.5 min-w-[68px] text-center">
+                                                <div className="text-[12px] text-3">参数</div>
+                                                <div className="text-[18px] font-bold text-1 tabular-nums">{vehicle.totalParams}</div>
                                             </div>
-                                            <div className="rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-1.5 min-w-[68px] text-center">
-                                                <div className="text-[10px] uppercase tracking-widest text-slate-400">空值</div>
-                                                <div className="text-[18px] font-black text-slate-500">{vehicle.emptyParams}</div>
+                                            <div className="rounded-lg surface-inset border border-default px-2.5 py-1.5 min-w-[68px] text-center">
+                                                <div className="text-[12px] text-3">空值</div>
+                                                <div className="text-[18px] font-bold text-2 tabular-nums">{vehicle.emptyParams}</div>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                             <Button
                                                 size="small"
-                                                type={isFocused ? 'primary' : 'default'}
+                                                type="primary"
                                                 icon={<ArrowRightOutlined />}
                                                 onClick={(event) => {
                                                     event.stopPropagation();
@@ -325,18 +324,18 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                                 <Button
                                                     type="text"
                                                     size="small"
-                                                    icon={isSelected ? <MinusOutlined className="text-slate-500" /> : <PlusOutlined className="text-blue-500" />}
+                                                    icon={isSelected ? <MinusOutlined className="text-2" /> : <PlusOutlined className="text-brand" />}
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         handleToggle(vehicle.key, !isSelected);
                                                     }}
-                                                    className="w-8 h-8 p-0 min-w-0 flex items-center justify-center rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50"
+                                                    className="w-8 h-8 p-0 min-w-0 flex items-center justify-center rounded-lg border border-default hover:border-brand"
                                                 />
                                             </Tooltip>
                                         </div>
                                     </div>
 
-                                    <div className="mt-2 flex xl:hidden items-center gap-2 flex-wrap text-[11px] text-slate-500">
+                                    <div className="mt-2 flex xl:hidden items-center gap-2 flex-wrap text-[12px] text-2">
                                         <Tag className="m-0">完成率 {vehicle.fillRate}%</Tag>
                                         <Tag className="m-0">参数 {vehicle.totalParams}</Tag>
                                         <Tag className="m-0">空值 {vehicle.emptyParams}</Tag>
@@ -346,14 +345,15 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                         })}
                     </div>
                 ) : (
-                    <div className="py-10 text-center border-2 border-dashed border-slate-100 rounded-2xl m-2 bg-slate-50/50 flex-1 flex flex-col items-center justify-center min-h-[220px]">
-                        <InboxOutlined className="text-3xl text-slate-300 mb-3" />
-                        <span className="text-slate-400 text-[13px]">当前没有激活的车型工作集</span>
+                    <div className="py-10 text-center border-2 border-dashed border-default rounded-xl m-2 surface-inset flex-1 flex flex-col items-center justify-center min-h-[220px]">
+                        <InboxOutlined className="text-3xl text-4 mb-3" />
+                        <span className="text-2 text-[13px]">当前没有激活的车型工作集</span>
+                        <span className="text-3 text-xs mt-1.5">在左侧资产卡上点 ＋，把车型加入工作集</span>
                     </div>
                 )}
 
                 {inactiveVehicles.length > 0 && (
-                    <div className="mt-auto pt-4 border-t border-slate-100">
+                    <div className="mt-auto pt-4 border-t border-default">
                         <Collapse
                             ghost
                             expandIconPosition="end"
@@ -362,7 +362,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                 {
                                     key: '1',
                                     label: (
-                                        <div className="flex items-center gap-2 text-slate-400 font-medium text-[12px]">
+                                        <div className="flex items-center gap-2 text-2 font-medium text-[12px]">
                                             <DatabaseOutlined /> 备选/已过滤车型 ({inactiveVehicles.length})
                                         </div>
                                     ),
@@ -372,20 +372,20 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                                 <div
                                                     key={vehicle.key}
                                                     onClick={() => handleToggle(vehicle.key, true)}
-                                                    className="flex items-center justify-between py-2 px-3 rounded-lg border border-dashed border-slate-200 bg-white/50 hover:bg-white hover:border-blue-200 cursor-pointer group/item transition-all"
+                                                    className="flex items-center justify-between py-2 px-3 rounded-lg border border-dashed border-default surface-layout hover:border-brand group/item"
                                                 >
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className={`text-[12px] truncate ${ignoredProductNames.includes(vehicle.key) ? 'text-slate-300 line-through' : 'text-slate-500 font-medium'}`}>
+                                                        <span className={`text-[12px] truncate ${ignoredProductNames.includes(vehicle.key) ? 'text-4 line-through' : 'text-2 font-medium'}`}>
                                                             {vehicleDisplayLabels.get(vehicle.key)?.shortLabel || vehicle.name}
                                                         </span>
-                                                        <span className="text-[9px] text-slate-400">@{vehicle.originalFile}</span>
+                                                        <span className="text-[12px] text-3">@{vehicle.originalFile}</span>
                                                     </div>
                                                     <Tooltip title="恢复至工作进行分析">
                                                         <Button
                                                             type="text"
                                                             size="small"
-                                                            icon={<PlusOutlined className="text-blue-400 group-hover/item:text-blue-600" />}
-                                                            className="w-6 h-6 p-0 flex items-center justify-center rounded-md bg-white border border-slate-100 shadow-sm"
+                                                            icon={<PlusOutlined className="text-brand" />}
+                                                            className="w-6 h-6 p-0 flex items-center justify-center rounded-md surface-container border border-default"
                                                         />
                                                     </Tooltip>
                                                 </div>
@@ -410,7 +410,7 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                     <div className="space-y-6">
                         <div>
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                <Tag color={focusedDetail.source === 'asset' ? 'green' : 'blue'} className="m-0">
+                                <Tag className={`m-0 border-0 ${focusedDetail.source === 'asset' ? 'src-asset' : 'src-excel'}`}>
                                     {focusedDetail.source === 'asset' ? '资产库' : '工作区 Excel'}
                                 </Tag>
                                 <Tag color={focusedDetail.requiredMissing.length > 0 ? 'error' : 'success'} className="m-0">
@@ -418,49 +418,49 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                                 </Tag>
                             </div>
                             <div
-                                className="text-[28px] font-extrabold text-slate-900 leading-tight"
+                                className="text-page text-1 leading-tight"
                                 title={vehicleDisplayLabels.get(focusedDetail.key)?.fullLabel || focusedDetail.name}
                             >
                                 {vehicleDisplayLabels.get(focusedDetail.key)?.shortLabel || focusedDetail.name}
                             </div>
-                            <div className="mt-2 text-[12px] text-slate-400">来源文件：@{focusedDetail.originalFile}</div>
+                            <div className="mt-2 text-[12px] text-3">来源文件：@{focusedDetail.originalFile}</div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
-                                <div className="text-[11px] uppercase tracking-widest text-slate-400 mb-2">完成率</div>
-                                <div className="text-[30px] font-black text-blue-600">{focusedDetail.fillRate}%</div>
+                            <div className="rounded-xl border border-default surface-inset px-4 py-4">
+                                <div className="text-[12px] text-3 mb-2">完成率</div>
+                                <div className="text-stat text-brand tabular-nums">{focusedDetail.fillRate}%</div>
                             </div>
-                            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
-                                <div className="text-[11px] uppercase tracking-widest text-slate-400 mb-2">参数总数</div>
-                                <div className="text-[30px] font-black text-slate-900">{focusedDetail.totalParams}</div>
+                            <div className="rounded-xl border border-default surface-inset px-4 py-4">
+                                <div className="text-[12px] text-3 mb-2">参数总数</div>
+                                <div className="text-stat text-1 tabular-nums">{focusedDetail.totalParams}</div>
                             </div>
-                            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
-                                <div className="text-[11px] uppercase tracking-widest text-slate-400 mb-2">有效值</div>
-                                <div className="text-[30px] font-black text-emerald-600">{focusedDetail.filledParams}</div>
+                            <div className="rounded-xl border border-default surface-inset px-4 py-4">
+                                <div className="text-[12px] text-3 mb-2">有效值</div>
+                                <div className="text-stat text-success-text tabular-nums">{focusedDetail.filledParams}</div>
                             </div>
-                            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
-                                <div className="text-[11px] uppercase tracking-widest text-slate-400 mb-2">空值</div>
-                                <div className="text-[30px] font-black text-slate-500">{focusedDetail.emptyParams}</div>
+                            <div className="rounded-xl border border-default surface-inset px-4 py-4">
+                                <div className="text-[12px] text-3 mb-2">空值</div>
+                                <div className="text-stat text-2 tabular-nums">{focusedDetail.emptyParams}</div>
                             </div>
                         </div>
 
                         <div>
-                            <div className="flex items-center gap-2 mb-3 text-[14px] font-bold text-slate-800">
-                                <CheckCircleOutlined className="text-blue-500" /> 分组完成度
+                            <div className="flex items-center gap-2 mb-3 text-title text-1">
+                                <CheckCircleOutlined className="text-brand" /> 分组完成度
                             </div>
                             {focusedDetail.groups.length > 0 ? (
                                 <div className="space-y-3">
                                     {focusedDetail.groups.slice(0, 8).map(group => (
-                                        <div key={group.name} className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm">
+                                        <div key={group.name} className="rounded-xl border border-default surface-container px-4 py-4">
                                             <div className="flex items-center justify-between gap-3 mb-2">
-                                                <div className="min-w-0 text-[13px] font-semibold text-slate-700 truncate" title={group.name}>{group.name}</div>
-                                                <div className="text-[12px] font-black text-slate-500 whitespace-nowrap">
+                                                <div className="min-w-0 text-[13px] font-semibold text-2 truncate" title={group.name}>{group.name}</div>
+                                                <div className="text-[12px] font-bold text-2 whitespace-nowrap tabular-nums">
                                                     {group.pct}%
-                                                    <span className="ml-1 font-medium text-slate-300">{group.filled}/{group.total}</span>
+                                                    <span className="ml-1 font-medium text-3">{group.filled}/{group.total}</span>
                                                 </div>
                                             </div>
-                                            <Progress percent={group.pct} showInfo={false} strokeColor={group.pct >= 95 ? '#10b981' : group.pct >= 70 ? '#3b82f6' : '#f59e0b'} />
+                                            <Progress percent={group.pct} showInfo={false} strokeColor={group.pct >= 95 ? 'var(--success)' : group.pct >= 70 ? 'var(--brand)' : 'var(--warning)'} />
                                         </div>
                                     ))}
                                 </div>
@@ -470,8 +470,8 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
                         </div>
 
                         <div>
-                            <div className="flex items-center gap-2 mb-3 text-[14px] font-bold text-slate-800">
-                                <WarningOutlined className="text-red-500" /> 必填缺失
+                            <div className="flex items-center gap-2 mb-3 text-title text-1">
+                                <WarningOutlined className="text-danger" /> 必填缺失
                             </div>
                             {focusedDetail.requiredMissing.length > 0 ? (
                                 <div className="flex gap-2 flex-wrap">

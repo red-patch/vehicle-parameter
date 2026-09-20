@@ -114,10 +114,10 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
 
     if (!focusedProduct) {
         return (
-            <div className="h-full flex items-center justify-center bg-slate-50/30">
+            <div className="h-full flex items-center justify-center surface-layout">
                 <div className="text-center">
-                    <FileTextOutlined className="text-4xl text-slate-300 mb-3 block" />
-                    <p className="text-[13px] text-slate-400">请选择一个焦点车型以展示详细大纲</p>
+                    <FileTextOutlined className="text-4xl text-3 mb-3 block" />
+                    <p className="text-[13px] text-2">请选择一个焦点车型以展示详细大纲</p>
                 </div>
             </div>
         );
@@ -133,8 +133,8 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
 
     if (!stats || stats.total === 0) {
         return (
-            <div className="h-full flex items-center justify-center bg-slate-50/30">
-                <div className="text-center text-slate-400 text-[13px] p-6 border-2 border-dashed border-slate-200 rounded-xl bg-white">
+            <div className="h-full flex items-center justify-center surface-layout">
+                <div className="text-center text-2 text-[13px] p-6 border-2 border-dashed border-default rounded-xl surface-container">
                     该车型的参数记录为空，或暂不支持预览
                 </div>
             </div>
@@ -150,132 +150,120 @@ const DataPreview: React.FC<DataPreviewProps> = ({ focusedProduct, onGoCompare }
     };
 
     return (
-        <div className="h-full flex flex-col p-8 overflow-auto bg-white custom-scrollbar">
-            {/* 标题 - Dashboard Style */}
-            <div className="flex items-start justify-between mb-8 pb-6 border-b border-slate-100/60 relative">
-                <div className="absolute -bottom-px left-0 w-24 h-1 bg-blue-600 rounded-full"></div>
+        <div className="h-full flex flex-col p-8 overflow-auto custom-scrollbar surface-container">
+            {/* 标题 */}
+            <div className="flex items-start justify-between mb-8 pb-6 border-b border-default">
                 <div className="min-w-0 pr-4">
                     <div className="flex items-center gap-2 mb-2">
-                        <Tag color="blue" className="m-0 border-0 bg-blue-50 text-blue-600 font-bold uppercase text-[10px] tracking-widest px-2">Data Insight</Tag>
-                        <span className="text-[12px] text-slate-400 font-medium">#{displaySource}</span>
+                        <Tag color="default" className="m-0 text-[12px] px-2">参数洞察</Tag>
+                        <span className="text-[12px] text-3 font-medium">#{displaySource}</span>
                     </div>
-                    <h2 className="text-[28px] font-extrabold text-slate-900 m-0 tracking-tight leading-tight truncate" title={focusedProduct!}>
+                    <h2 className="text-page text-1 m-0 truncate" title={focusedProduct!}>
                         {getVehicleProductName(focusedProduct)}
                     </h2>
                 </div>
                 {onGoCompare && (
-                    <Button 
-                        type="primary" 
-                        size="large"
-                        icon={<ArrowRightOutlined />} 
+                    <Button
+                        type="primary"
+                        icon={<ArrowRightOutlined />}
                         onClick={handleQuickCompare}
-                        className="shadow-xl shadow-blue-500/30 rounded-xl bg-blue-600 hover:bg-blue-500 hover:-translate-y-0.5 transition-all border-0 h-12 px-6 font-bold"
                     >
                         送去对比
                     </Button>
                 )}
             </div>
 
-            {/* 统计卡片 (Modern Mesh Stats) */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-                <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:bg-white hover:shadow-md group">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <DatabaseOutlined className="text-blue-500" /> Total Items
+            {/* 统计卡片 */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+                <div className="surface-inset rounded-xl p-4 border border-default">
+                    <div className="text-[12px] text-3 mb-2 flex items-center gap-2">
+                        <DatabaseOutlined className="text-brand" /> 参数总数
                     </div>
                     <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black text-slate-900">{stats.total}</span>
-                        <span className="text-xs text-slate-400 font-medium font-mono">pcs</span>
+                        <span className="text-stat text-1 tabular-nums">{stats.total}</span>
+                        <span className="text-[12px] text-3 font-medium">项</span>
                     </div>
                 </div>
 
-                <div className="bg-emerald-50/40 rounded-2xl p-5 border border-emerald-100/60 shadow-sm transition-all hover:bg-white hover:shadow-md group">
-                    <div className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <CheckOutlined className="text-emerald-500" /> Completed
+                <div className="surface-inset rounded-xl p-4 border border-default">
+                    <div className="text-[12px] text-3 mb-2 flex items-center gap-2">
+                        <CheckOutlined className="text-success" /> 有效值
                     </div>
                     <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black text-emerald-600">{stats.withValue}</span>
-                        <span className="text-xs text-emerald-400 font-medium font-mono">valid</span>
+                        <span className="text-stat text-success-text tabular-nums">{stats.withValue}</span>
+                        <span className="text-[12px] text-3 font-medium">项</span>
                     </div>
                 </div>
 
-                <div className="bg-slate-50/50 rounded-2xl p-5 border border-slate-100 shadow-sm transition-all hover:bg-white hover:shadow-md group">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <FileTextOutlined className="text-slate-400" /> Empty Fields
+                <div className="surface-inset rounded-xl p-4 border border-default">
+                    <div className="text-[12px] text-3 mb-2 flex items-center gap-2">
+                        <FileTextOutlined className="text-3" /> 空值
                     </div>
                     <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black text-slate-400">{stats.empty}</span>
-                        <span className="text-xs text-slate-300 font-medium font-mono">null</span>
+                        <span className="text-stat text-2 tabular-nums">{stats.empty}</span>
+                        <span className="text-[12px] text-3 font-medium">项</span>
                     </div>
                 </div>
 
-                <div className={`rounded-2xl p-5 border shadow-xl shadow-opacity-10 transition-all hover:-translate-y-1 ${
-                    stats.fillRate >= 80 ? 'bg-blue-600 border-blue-600 text-white shadow-blue-500/20' : 
-                    stats.fillRate >= 50 ? 'bg-amber-50/50 border-amber-200 text-amber-600 shadow-amber-500/10' : 
-                    'bg-red-50 border-red-200 text-red-600 shadow-red-500/10'
-                }`}>
-                    <div className={`text-[11px] font-bold uppercase tracking-widest mb-2 opacity-80`}>
-                        Confidence
-                    </div>
+                <div className="surface-inset rounded-xl p-4 border border-default">
+                    <div className="text-[12px] text-3 mb-2">完成率</div>
                     <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-black">{stats.fillRate}</span>
-                        <span className="text-lg font-bold">%</span>
+                        <span className="text-stat text-brand tabular-nums">{stats.fillRate}</span>
+                        <span className="text-[12px] font-bold text-2">%</span>
                     </div>
                 </div>
             </div>
 
             {/* 必填缺失警告 */}
             {stats.requiredMissing.length > 0 && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl shadow-sm">
+                <div className="mb-6 p-4 rounded-xl border border-[color:var(--req-missing-border)] surface-inset">
                     <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2 text-red-600 text-[14px] font-bold">
+                        <div className="flex items-center gap-2 text-danger text-[14px] font-bold">
                             <WarningOutlined />
                             高危：必填项数据缺失 ({stats.requiredMissing.length})
                         </div>
                     </div>
                     <div className="flex gap-2 flex-wrap">
                         {stats.requiredMissing.slice(0, 12).map(p => (
-                            <Tag key={p.name} color="error" className="m-0 border-red-200 text-red-600 bg-white">
-                                {p.name}
-                            </Tag>
+                            <Tag key={p.name} color="error" className="m-0">{p.name}</Tag>
                         ))}
                         {stats.requiredMissing.length > 12 && (
-                            <Tag className="m-0 bg-red-100/50 text-red-500 border-none">+{stats.requiredMissing.length - 12} 项</Tag>
+                            <Tag className="m-0 surface-inset border-default text-2">+{stats.requiredMissing.length - 12} 项</Tag>
                         )}
                     </div>
                 </div>
             )}
 
-            {/* 分组分布条状图 - Detail View */}
+            {/* 分组分布条状图 */}
             <div className="flex-1">
                 <div className="flex items-center justify-between mb-5">
-                    <div className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
-                        <BarChartOutlined className="text-blue-600" />
+                    <div className="flex items-center gap-2 text-[16px] font-bold text-1">
+                        <BarChartOutlined className="text-brand" />
                         各子分组完成度详情
                     </div>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{groupEntries.length} Sections</span>
+                    <span className="text-[12px] text-3 font-medium">{groupEntries.length} 个分组</span>
                 </div>
-                
-                <div className="grid gap-3 bg-slate-50/40 rounded-2xl p-6 border border-slate-100/60 shadow-inner">
+
+                <div className="grid gap-3 surface-inset rounded-xl p-6 border border-default">
                     {groupEntries.map(([group, data]) => {
                         const pct = Math.round((data.filled / data.total) * 100);
                         return (
-                            <div key={group} className="flex flex-col gap-2 bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-blue-200">
+                            <div key={group} className="flex flex-col gap-2 surface-container p-4 rounded-xl border border-default">
                                 <div className="flex justify-between items-center mb-1">
-                                    <div className="font-bold text-slate-700 text-[13px] tracking-tight truncate max-w-[200px]" title={group}>
+                                    <div className="font-bold text-2 text-[13px] truncate max-w-[200px]" title={group}>
                                         {group}
                                     </div>
-                                    <div className="text-right text-[12px] font-black font-mono">
-                                        <span className={pct >= 80 ? 'text-emerald-500' : pct >= 50 ? 'text-amber-500' : 'text-red-500'}>{pct}%</span>
-                                        <span className="text-slate-300 font-medium ml-1.5">{data.filled} / {data.total}</span>
+                                    <div className="text-right text-[13px] font-bold tabular-nums">
+                                        <span className={pct >= 80 ? 'text-success' : pct >= 50 ? 'text-[color:var(--warning-text)]' : 'text-danger'}>{pct}%</span>
+                                        <span className="text-3 font-medium ml-1.5">{data.filled} / {data.total}</span>
                                     </div>
                                 </div>
-                                <div className="w-full bg-slate-100 overflow-hidden rounded-full h-2.5">
+                                <div className="w-full surface-inset overflow-hidden rounded-full h-2.5 border border-default">
                                     <div
-                                        className="h-full rounded-full transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                                        className="h-full rounded-full"
                                         style={{
                                             width: `${pct}%`,
-                                            backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444',
-                                            boxShadow: pct >= 50 ? `0 0 10px ${pct >= 80 ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}` : 'none'
+                                            backgroundColor: pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)',
                                         }}
                                     />
                                 </div>

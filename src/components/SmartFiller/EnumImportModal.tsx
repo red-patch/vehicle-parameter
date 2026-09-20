@@ -337,7 +337,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
             key: 'values',
             width: 300,
             render: (values: string[]) => {
-                if (!values || values.length === 0) return <span className="text-slate-300">-</span>;
+                if (!values || values.length === 0) return <span className="text-4">-</span>;
                 const showCount = 8;
                 const preview = values.slice(0, showCount);
                 const hasMore = values.length > showCount;
@@ -348,7 +348,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                                 <Tag key={i} className="text-xs max-w-[140px] overflow-hidden text-ellipsis">{v}</Tag>
                             ))}
                             {hasMore && (
-                                <span className="text-xs text-blue-400 cursor-pointer"
+                                <span className="text-xs text-brand cursor-pointer"
                                     onClick={e => { e.stopPropagation(); /* expand via row expansion */ }}
                                 >+{values.length - showCount}</span>
                             )}
@@ -368,7 +368,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
             ? record.values.filter(v => v.toLowerCase().includes(valSearch.toLowerCase()))
             : record.values;
         return (
-            <div className="p-3 bg-gray-50 rounded max-h-[300px] overflow-y-auto">
+            <div className="p-3 bg-surface-3 rounded max-h-[300px] overflow-y-auto">
                 <Input
                     size="small"
                     placeholder="搜索枚举值..."
@@ -379,7 +379,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                 />
                 <div className="flex flex-wrap gap-1">
                     {filtered.map((v, i) => <Tag key={i} className="text-xs">{v}</Tag>)}
-                    {filtered.length === 0 && <span className="text-xs text-slate-400">无匹配</span>}
+                    {filtered.length === 0 && <span className="text-xs text-3">无匹配</span>}
                 </div>
             </div>
         );
@@ -389,7 +389,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
         <Modal
             title={
                 <div className="flex items-center gap-2">
-                    <FileExcelOutlined className="text-green-500" />
+                    <FileExcelOutlined className="text-success" />
                     <span>从属性池 Excel 导入枚举数据</span>
                 </div>
             }
@@ -407,7 +407,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                     </Button>
                     {filePath && (
                         <>
-                            <span className="text-sm text-slate-500 truncate flex-1">{filePath}</span>
+                            <span className="text-sm text-3 truncate flex-1">{filePath}</span>
                             <Button type="text" size="small" icon={<ReloadOutlined />} onClick={handleReset}>重新选择</Button>
                         </>
                     )}
@@ -421,7 +421,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
 
                         {/* Column Mapping */}
                         <div>
-                            <div className="text-sm font-medium mb-2 text-slate-600">列映射配置</div>
+                            <div className="text-sm font-medium mb-2 text-2">列映射配置</div>
                             <div className="grid grid-cols-3 gap-x-4 gap-y-2">
                                 {([
                                     ['fieldNameCol', '字段名称列*', true],
@@ -432,7 +432,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                                     ['categoryPathCol', '所属类目列', false],
                                 ] as const).map(([key, label, required]) => (
                                     <div key={key} className="flex items-center gap-2">
-                                        <span className="text-sm text-slate-500 w-24 shrink-0">{label}</span>
+                                        <span className="text-sm text-3 w-24 shrink-0">{label}</span>
                                         <Select
                                             value={mapping[key]}
                                             onChange={v => updateMapping(key, v)}
@@ -450,16 +450,16 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                         {/* Statistics */}
                         {stats && (
                             <div>
-                                <div className="text-sm font-medium mb-2 text-slate-600">数据概览</div>
+                                <div className="text-sm font-medium mb-2 text-2">数据概览</div>
                                 <div className="flex flex-wrap gap-6 mb-3">
                                     <Statistic title="字段数" value={stats.fieldCount} prefix={<FileExcelOutlined />} valueStyle={{ fontSize: 18 }} />
                                     <Statistic title="枚举值数" value={stats.enumCount} valueStyle={{ fontSize: 18 }} />
                                     <Statistic title="总行数" value={stats.totalRows} valueStyle={{ fontSize: 18 }} />
-                                    <Statistic title="必填字段" value={stats.requiredCount} valueStyle={{ fontSize: 18, color: stats.requiredCount > 0 ? '#cf1322' : undefined }} />
+                                    <Statistic title="必填字段" value={stats.requiredCount} valueStyle={{ fontSize: 18, color: stats.requiredCount > 0 ? 'var(--danger)' : undefined }} />
                                 </div>
                                 {Object.keys(stats.categoryDist).length > 0 && (
                                     <div className="flex flex-wrap gap-2">
-                                        <span className="text-sm text-slate-500">类别分布:</span>
+                                        <span className="text-sm text-3">类别分布:</span>
                                         {Object.entries(stats.categoryDist).map(([k, v]) => (
                                             <Tag key={k} color="blue">{k}: {v}</Tag>
                                         ))}
@@ -473,7 +473,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                         {/* Field table with search */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-slate-600">字段列表（按字段分组，点击展开查看全部枚举值）</span>
+                                <span className="text-sm font-medium text-2">字段列表（按字段分组，点击展开查看全部枚举值）</span>
                                 <Input
                                     placeholder="搜索字段..."
                                     prefix={<SearchOutlined />}
@@ -519,7 +519,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                 )}
 
                 {!rawData.length && !loading && (
-                    <div className="text-center py-8 text-slate-400">
+                    <div className="text-center py-8 text-3">
                         <WarningOutlined className="text-2xl mb-2" />
                         <div>请先选择一个 Excel 文件</div>
                     </div>

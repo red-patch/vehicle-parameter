@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Spin, Tooltip, Input, Button, Modal, message, Tag } from 'antd';
 import FileManager from './FileManager';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -14,10 +14,6 @@ import { getAssetTagGroupsSync, ensureTagsInDefaultGroup } from '../../utils/ass
 import TagSelector from '../common/TagSelector';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { useContextMenu } from '../../hooks/useContextMenu';
-
-// 标签颜色池，根据标签内容确定性地分配颜色
-const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime', 'volcano'];
-const getTagColor = (tag: string) => TAG_COLORS[Math.abs([...tag].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % TAG_COLORS.length];
 
 
 // 简易格式化函数，替代 date-fns 避免依赖问题
@@ -216,7 +212,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const handleDelete = (fileName: string, productName: string) => {
         Modal.confirm({
             title: '确认删除该资产？',
-            icon: <ExclamationCircleOutlined className="text-red-500" />,
+            icon: <ExclamationCircleOutlined className="text-danger" />,
             content: `删除记录 "${fileName}" 后将无法找回，相关对比与填报配置也将失效。`,
             okText: '确认删除',
             okType: 'danger',
@@ -422,13 +418,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     }, [assets, searchKeyword, assetTags, selectedGroupTag, selectedOtherFilterTags, announceNoMatchResult, assetTagGroupsVersion]);
 
     return (
-        <div ref={panelRef} className="flex flex-col h-full bg-slate-50/40 backdrop-blur-sm">
+        <div ref={panelRef} className="flex flex-col h-full surface-layout">
             {/* Asset Library */}
             <div className="flex-1 p-3 overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-2 px-1">
                     <div className="flex items-center gap-2">
-                        <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
-                        <span className="text-[15px] font-bold text-slate-800 tracking-tight">车型资产库</span>
+                        <span className="text-[16px] font-bold text-1">车型资产库</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <FileManager
@@ -440,7 +435,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             type="text"
                             size="small"
                             onClick={() => {}}
-                            className="text-[11px] text-slate-400 hover:!text-blue-500"
+                            className="text-[12px] text-3 hover:text-brand"
                         >
                             恢复布局
                         </Button>
@@ -449,19 +444,19 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             <Button
                                 type="text"
                                 size="small"
-                                icon={<ReloadOutlined className={`!text-[14px] text-slate-400 hover:text-blue-500 ${loading ? 'animate-spin' : ''}`} />}
+                                icon={<ReloadOutlined className={`!text-[14px] text-3 hover:text-brand ${loading ? 'animate-spin' : ''}`} />}
                                 onClick={fetchAssets}
                                 disabled={loading}
-                                className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg hover:bg-blue-50"
+                                className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg"
                             />
                         </Tooltip>
                         <Tooltip title={assetLibraryPath ? '更换资产库目录' : '设置资产库目录'}>
                             <Button
                                 type="text"
                                 size="small"
-                                icon={<FolderOpenOutlined className={`!text-[14px] ${assetLibraryPath ? 'text-slate-400 hover:text-amber-500' : 'text-red-400 animate-pulse'}`} />}
+                                icon={<FolderOpenOutlined className={`!text-[14px] ${assetLibraryPath ? 'text-3 hover:text-[color:var(--warning)]' : 'text-danger animate-pulse'}`} />}
                                 onClick={handleSetAssetLibrary}
-                                className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg hover:bg-amber-50"
+                                className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg"
                             />
                         </Tooltip>
                     </div>
@@ -470,10 +465,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 {/* 命名规范提醒 */}
                 {namingCompliance.nonCompliant.length > 0 && (
                     <div className="mb-2 px-1">
-                        <div className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+                        <div className="text-[12px] text-[color:var(--warning-text)] surface-inset border border-[color:var(--warning)] rounded-lg px-2.5 py-1.5 flex items-center gap-2">
                             <ExclamationCircleOutlined className="text-[13px] flex-shrink-0" />
                             <span>
-                                <b>{namingCompliance.nonCompliant.length}</b>/{namingCompliance.total} 个资产命名未包含公告号，点击 <CheckOutlined className="text-[11px] text-amber-500" /> 一键修复
+                                <b>{namingCompliance.nonCompliant.length}</b>/{namingCompliance.total} 个资产命名未包含公告号，点击 <CheckOutlined className="text-[12px] text-[color:var(--warning-text)]" /> 一键修复
                             </span>
                         </div>
                     </div>
@@ -485,11 +480,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         <Input
                             size="small"
                             placeholder="搜索资产、标签..."
-                            prefix={<SearchOutlined className="text-slate-300" />}
+                            prefix={<SearchOutlined className="text-3" />}
                             allowClear
                             value={searchKeyword}
                             onChange={e => setSearchKeyword(e.target.value)}
-                            className="rounded-lg border-slate-200 hover:border-blue-300 focus:border-blue-400"
+                            className="rounded-lg border-default"
                         />
                         <div className="flex items-center gap-2 flex-wrap">
                         </div>
@@ -500,33 +495,33 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 {availableAnnounceNos.length > 0 && (
                     <div className="mb-2 px-1 space-y-1.5">
                         <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-slate-400 font-medium flex-shrink-0">公告号</span>
+                            <span className="text-[12px] text-2 font-medium flex-shrink-0">公告号</span>
                             <Input.TextArea
                                 size="small"
                                 rows={2}
                                 placeholder="粘贴公告号，支持逗号、换行、空格分隔..."
                                 value={announceNoInput}
                                 onChange={e => setAnnounceNoInput(e.target.value)}
-                                className="text-[12px] rounded-lg"
+                                className="text-[13px] rounded-lg"
                                 style={{ resize: 'none' }}
                             />
                         </div>
                         {announceNoInput.trim() && (
-                            <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                            <div className="flex items-center gap-2 text-[12px] flex-wrap">
                                 {announceNoMatchResult.matched.length > 0 && (
-                                    <span className="text-emerald-600">
+                                    <span className="text-success">
                                         公告号匹配 <b>{announceNoMatchResult.matched.length}</b> 个，筛选出 <b>{filteredAssets.length}</b> 个资产
                                     </span>
                                 )}
                                 {announceNoMatchResult.unmatched.length > 0 && (
                                     <Tooltip title={announceNoMatchResult.unmatched.join('、')}>
-                                        <span className="text-amber-500 cursor-help">
+                                        <span className="text-[color:var(--warning-text)] cursor-help">
                                             未匹配 <b>{announceNoMatchResult.unmatched.length}</b> 个
                                         </span>
                                     </Tooltip>
                                 )}
                                 <span
-                                    className="text-blue-500 cursor-pointer hover:underline"
+                                    className="text-brand cursor-pointer hover:underline"
                                     onClick={() => setAnnounceNoInput('')}
                                 >
                                     清除
@@ -547,8 +542,8 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 const isOther = gid === '_other';
                                 return (
                                     <div key={gid} className="flex flex-wrap gap-1.5 items-center">
-                                        <TagOutlined className="text-[11px] text-slate-300 mr-0.5" />
-                                        <span className="text-[11px] text-slate-400 font-medium">{groupName}</span>
+                                        <TagOutlined className="text-[12px] text-3 mr-0.5" />
+                                        <span className="text-[12px] text-2 font-medium">{groupName}</span>
                                         {tags.map(tag => {
                                             const isSelected = isOther
                                                 ? selectedOtherFilterTags.includes(tag)
@@ -556,7 +551,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                             return (
                                                 <Tag
                                                     key={tag}
-                                                    color={isSelected ? getTagColor(tag) : undefined}
                                                     onClick={() => {
                                                         if (isOther) {
                                                             toggleFilterTag(tag);
@@ -567,10 +561,10 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                             }));
                                                         }
                                                     }}
-                                                    className={`cursor-pointer text-[11px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border transition-all select-none ${
+                                                    className={`text-[12px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border cursor-pointer ${
                                                         isSelected
-                                                            ? 'font-bold shadow-sm'
-                                                            : 'bg-slate-50 border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-500'
+                                                            ? 'tag-checked font-medium'
+                                                            : 'surface-inset border-default text-2 hover:border-brand'
                                                     }`}
                                                 >
                                                     {tag}
@@ -585,7 +579,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         {(Object.values(selectedGroupTag).some(Boolean) || selectedOtherFilterTags.length > 0) && (
                             <div className="flex flex-wrap gap-2 items-center">
                                 <span
-                                    className="text-[10px] text-blue-500 cursor-pointer hover:underline"
+                                    className="text-[12px] text-brand cursor-pointer hover:underline"
                                     onClick={() => {
                                         setSelectedGroupTag({});
                                         setSelectedOtherFilterTags([]);
@@ -605,13 +599,13 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                     return (
                         <div className="flex items-center gap-2 mb-2">
                             <span
-                                className="text-[11px] text-emerald-600 cursor-pointer hover:underline font-medium"
+                                className="text-[12px] text-brand cursor-pointer hover:underline font-medium"
                                 onClick={() => {
                                     toActivate.forEach(a => addActiveAsset(a.fileName, a.productName));
                                     message.success(`已将 ${toActivate.length} 个资产新增到待分析工作区`);
                                 }}
                             >
-                                ⚡ 将筛选结果新增到工作区 ({toActivate.length})
+                                <ThunderboltOutlined /> 将筛选结果新增到工作区 ({toActivate.length})
                             </span>
                         </div>
                     );
@@ -638,14 +632,14 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                     { key: 'divider2', divider: true, onClick: () => {} },
                                     { key: 'delete', label: '删除资产', danger: true, onClick: () => handleDelete(info.fileName, info.productName) },
                                 ])}
-                                className={`flex flex-col justify-center py-2.5 px-3.5 rounded-xl border transition-all duration-200 group relative ${
+                                className={`flex flex-col justify-center py-2.5 px-3.5 rounded-lg border group relative ${
                                     isEditing
-                                        ? 'border-blue-400 bg-white shadow-md ring-1 ring-blue-100'
-                                        : isFocused 
-                                            ? 'bg-white border-blue-500 shadow-[0_4px_12px_rgba(59,130,246,0.08)] -translate-y-0.5' 
+                                        ? 'border-brand surface-container'
+                                        : isFocused
+                                            ? 'surface-container border-brand ring-1 ring-brand'
                                             : isActive
-                                                ? 'bg-emerald-50/30 border-emerald-200/60'
-                                                : 'bg-white/60 border-slate-200/60 hover:border-slate-300 hover:bg-white hover:shadow-sm hover:-translate-y-0.5'
+                                                ? 'surface-container border-default edge-success'
+                                                : 'surface-container border-default hover:border-line-strong'
                                 }`}
                             >
                                 {false ? null : (
@@ -653,23 +647,26 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                         <div className="flex items-center justify-between min-w-0">
                                             <div className="flex items-center gap-2.5 min-w-0">
                                                 <Tooltip title={isActive ? "点击快速停用该资产" : "点击快速激活该资产"}>
-                                                    <div 
+                                                    <div
                                                         onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, isActive); }}
-                                                        className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95 ${
-                                                            isFocused ? 'bg-blue-500 text-white shadow-lg shadow-blue-200' : isActive ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                                        className={`relative w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                            isFocused ? 'surface-brand text-white' : 'surface-inset text-3'
                                                         }`}
                                                     >
                                                         <DatabaseOutlined className="text-[15px]" />
+                                                        {isActive && (
+                                                            <span className="dot-ring absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full surface-success" />
+                                                        )}
                                                     </div>
                                                 </Tooltip>
                                                 <div className="min-w-0 flex items-center gap-2">
                                                     {sourceMeta && (
-                                                        <Tag color={sourceMeta.color} className="m-0 text-[11px] leading-[18px] px-2.5 rounded-lg border-0">
-                                                            {sourceMeta.label}
+                                                        <Tag className={`src-${sourceMeta.tone} m-0 text-[12px] leading-[18px] px-2.5 rounded-lg border-0`}>
+                                                            {sourceMeta.icon} {sourceMeta.label}
                                                         </Tag>
                                                     )}
                                                     <Tooltip title={getAssetDisplayName(info.fileName, info.productName)}>
-                                                        <span className={`text-[15px] truncate tracking-tight ${isFocused ? 'font-bold text-slate-900' : isActive ? 'font-semibold text-emerald-800' : 'text-slate-700'}`}>
+                                                        <span className={`text-sm truncate text-1 ${isFocused ? 'font-semibold' : 'font-medium'}`}>
                                                             {getAssetDisplayName(info.fileName, info.productName)}
                                                         </span>
                                                     </Tooltip>
@@ -683,8 +680,8 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                                     title={allMsgs.map((m, i) => <div key={i}>• {m}</div>)}
                                                                     overlayStyle={{ maxWidth: 360 }}
                                                                 >
-                                                                    <Tag color="orange" className="m-0 text-[10px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0">
-                                                                        命名不规范
+                                                                    <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0 text-warning-text border-warning">
+                                                                        ⚠ 命名不规范
                                                                     </Tag>
                                                                 </Tooltip>
                                                             );
@@ -695,7 +692,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                                     title={v.suggestions.map((s, i) => <div key={i}>💡 {s}</div>)}
                                                                     overlayStyle={{ maxWidth: 360 }}
                                                                 >
-                                                                    <Tag color="blue" className="m-0 text-[10px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0">
+                                                                    <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0 text-3">
                                                                         命名建议
                                                                     </Tag>
                                                                 </Tooltip>
@@ -713,37 +710,37 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                                 <Button
                                                                     type="text"
                                                                     size="small"
-                                                                    icon={<CheckOutlined className="!text-[12px] text-amber-500 hover:text-green-600" />}
+                                                                    icon={<CheckOutlined className="!text-[12px] text-warning-text hover:text-success" />}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         handleQuickFix(info, fixName);
                                                                     }}
-                                                                    className="w-5 h-5 p-0 min-w-0 flex items-center justify-center rounded hover:bg-amber-50 flex-shrink-0"
+                                                                    className="w-5 h-5 p-0 min-w-0 flex items-center justify-center rounded flex-shrink-0"
                                                                 />
                                                             </Tooltip>
                                                         );
                                                     })()}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-1 group-hover:translate-x-0 ml-2">
+                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 ml-2">
                                                 {!isActive ? (
                                                     <Tooltip title="添加至车型列">
-                                                        <Button 
-                                                            type="text" 
+                                                        <Button
+                                                            type="text"
                                                             size="small"
-                                                            icon={<PlusSquareOutlined className="!text-[14px] text-slate-400 hover:text-blue-600" />}
+                                                            icon={<PlusSquareOutlined className="!text-[14px] text-2 hover:text-brand" />}
                                                             onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, false); onFocusFile(null); }}
-                                                            className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
+                                                            className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                         />
                                                     </Tooltip>
                                                 ) : (
                                                     <Tooltip title="移出车型列">
-                                                        <Button 
-                                                            type="text" 
+                                                        <Button
+                                                            type="text"
                                                             size="small"
-                                                            icon={<MinusSquareOutlined className="!text-[14px] text-emerald-500 hover:text-red-500" />}
+                                                            icon={<MinusSquareOutlined className="!text-[14px] text-2 hover:text-danger" />}
                                                             onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, true); }}
-                                                            className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
+                                                            className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                         />
                                                     </Tooltip>
                                                 )}
@@ -751,7 +748,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                     <Button
                                                         type="text"
                                                         size="small"
-                                                        icon={<CopyOutlined className="!text-[14px] text-slate-400 hover:text-blue-500" />}
+                                                        icon={<CopyOutlined className="!text-[14px] text-2 hover:text-brand" />}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             const effNos = effectiveAnnounceNos.get(info.fileName) || [];
@@ -780,67 +777,67 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                                 finally { document.body.removeChild(ta); }
                                                             }
                                                         }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="导出 CSV">
                                                     <Button
                                                         type="text"
                                                         size="small"
-                                                        icon={<DownloadOutlined className="!text-[14px] text-slate-400 hover:text-emerald-500" />}
+                                                        icon={<DownloadOutlined className="!text-[14px] text-2 hover:text-success" />}
                                                         onClick={(e) => { e.stopPropagation(); handleExportCsv(info); }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-emerald-50"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="在 Finder 中显示">
                                                     <Button
                                                         type="text"
                                                         size="small"
-                                                        icon={<FolderOpenOutlined className="!text-[14px] text-slate-400 hover:text-cyan-500" />}
+                                                        icon={<FolderOpenOutlined className="!text-[14px] text-2 hover:text-brand" />}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleRevealInFinder(info);
                                                         }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-cyan-50"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="打开文件">
                                                     <Button
                                                         type="text"
                                                         size="small"
-                                                        icon={<FileTextOutlined className="!text-[14px] text-slate-400 hover:text-amber-500" />}
+                                                        icon={<FileTextOutlined className="!text-[14px] text-2 hover:text-[color:var(--warning)]" />}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleOpenInEditor(info);
                                                         }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-amber-50"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="重命名">
-                                                    <Button 
-                                                        type="text" 
+                                                    <Button
+                                                        type="text"
                                                         size="small"
-                                                        icon={<EditOutlined className="!text-[14px] text-slate-400 hover:text-blue-500" />}
+                                                        icon={<EditOutlined className="!text-[14px] text-2 hover:text-brand" />}
                                                         onClick={(e) => { e.stopPropagation(); handleStartFileRename(info); }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-blue-50"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="升级导入">
                                                     <Button
                                                         type="text"
                                                         size="small"
-                                                        icon={<CloudUploadOutlined className="!text-[14px] text-slate-400 hover:text-violet-600" />}
+                                                        icon={<CloudUploadOutlined className="!text-[14px] text-2 hover:text-brand" />}
                                                         onClick={(e) => { e.stopPropagation(); handleOpenUpgradeModal(info); }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-violet-50"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
                                                 </Tooltip>
                                                 <Tooltip title="删除资产">
-                                                    <Button 
-                                                        type="text" 
+                                                    <Button
+                                                        type="text"
                                                         size="small"
-                                                        icon={<DeleteOutlined className="!text-[14px] text-slate-400 hover:text-red-500" />}
+                                                        icon={<DeleteOutlined className="!text-[14px] text-2 hover:text-danger" />}
                                                         onClick={(e) => { e.stopPropagation(); handleDelete(info.fileName, info.productName); }}
-                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md hover:bg-red-50"
+                                                        className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
                                                 </Tooltip>
                                             </div>
@@ -850,10 +847,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                             {(assetTags[info.fileName] || []).map(tag => (
                                                 <Tag
                                                     key={tag}
-                                                    color={getTagColor(tag)}
                                                     closable
                                                     onClose={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveTag(info.fileName, tag); }}
-                                                    className="text-[11px] m-0 px-2.5 py-0.5 leading-[20px] rounded-lg"
+                                                    className="text-[12px] m-0 px-2.5 py-0.5 leading-[20px] rounded-lg surface-inset border-default text-2"
                                                 >
                                                     {tag}
                                                 </Tag>
@@ -864,8 +860,8 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 onChange={tags => handleSetTags(info.fileName, tags)}
                                             />
                                             {info.updatedAt && (
-                                                <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1 opacity-80 ml-auto">
-                                                    <EditOutlined className="text-[11px]"/> {formatDate(info.updatedAt)}
+                                                <span className="text-[12px] text-3 flex items-center gap-1 ml-auto tabular-nums">
+                                                    <EditOutlined className="text-[12px] opacity-0 group-hover:opacity-100 transition-opacity"/> {formatDate(info.updatedAt)}
                                                 </span>
                                             )}
                                         </div>
@@ -875,7 +871,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         );
                     })}
                     {!loading && filteredAssets.length === 0 && (
-                        <div className="text-xs text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-lg">
+                        <div className="text-[13px] text-3 text-center py-4 border border-dashed border-default rounded-lg">
                             {searchKeyword.trim() ? '没有匹配的资产' : '资产库空空如也'}
                         </div>
                     )}
@@ -893,7 +889,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 destroyOnClose
             >
                 <div className="py-3">
-                    <div className="text-sm text-slate-500 mb-2">输入新的资产名称</div>
+                    <div className="text-[13px] text-2 mb-2">输入新的资产名称</div>
                     <Input
                         value={editName}
                         onChange={e => setEditName(e.target.value)}

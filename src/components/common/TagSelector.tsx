@@ -7,17 +7,18 @@ interface TagSelectorProps {
     onChange: (tags: string[]) => void;
     /** 可选可用标签列表，为空时从系统标签分组自动获取 */
     availableTags?: string[];
-    color?: string;
     trigger?: 'click' | 'hover';
 }
 
-const TAG_COLORS = ['blue', 'green', 'orange', 'purple', 'cyan', 'magenta', 'geekblue', 'gold', 'lime'];
-
+/**
+ * 分组标签选择器。
+ * 标签全中性（分类靠文字区分，不靠颜色，见视觉方案 §3.4）；
+ * 唯一着色是"已选"控制态（brand-weak 弱底 + 蓝字）。
+ */
 const TagSelector: React.FC<TagSelectorProps> = ({
     selected,
     onChange,
     availableTags,
-    color,
     trigger = 'click',
 }) => {
     const [open, setOpen] = useState(false);
@@ -69,8 +70,6 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         setNewTag('');
     };
 
-    const getColor = (idx: number) => TAG_COLORS[idx % TAG_COLORS.length];
-
     return (
         <Popover
             open={open}
@@ -79,16 +78,15 @@ const TagSelector: React.FC<TagSelectorProps> = ({
             placement="bottomRight"
             content={
                 <div className="max-h-[300px] overflow-y-auto" style={{ width: 260 }}>
-                    <div className="text-xs text-slate-500 mb-1.5">选择或新建标签</div>
-                    {groupedTags.map((g, gi) => (
+                    <div className="text-xs text-3 mb-1.5">选择或新建标签</div>
+                    {groupedTags.map((g) => (
                         <div key={g.id} className="mb-1.5">
-                            <div className="text-[11px] text-slate-400 mb-0.5">{g.name}</div>
+                            <div className="text-[11px] text-3 mb-0.5">{g.name}</div>
                             <div className="flex flex-wrap gap-1">
                                 {g.tags.map((tag) => (
                                     <Tag
                                         key={tag}
-                                        color={selected.includes(tag) ? (color || getColor(gi)) : undefined}
-                                        className="cursor-pointer !m-0"
+                                        className={`!m-0 cursor-pointer ${selected.includes(tag) ? 'tag-checked' : ''}`}
                                         style={{ fontSize: 11 }}
                                         onClick={() => toggleTag(tag)}
                                     >
@@ -99,9 +97,9 @@ const TagSelector: React.FC<TagSelectorProps> = ({
                         </div>
                     ))}
                     {groupedTags.length === 0 && (
-                        <div className="text-xs text-slate-300 mb-2">暂无标签分组，请在系统配置中创建</div>
+                        <div className="text-xs text-4 mb-2">暂无标签分组，请在系统配置中创建</div>
                     )}
-                    <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100">
+                    <div className="flex items-center gap-1 pt-1.5 border-t border-default">
                         <Input
                             size="small"
                             value={newTag}
@@ -115,11 +113,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
                 </div>
             }
         >
-            <Tag
-                color={selected.length > 0 ? (color || 'blue') : undefined}
-                className="cursor-pointer shrink-0"
-                onClick={e => e.stopPropagation()}
-            >
+            <Tag className="shrink-0 cursor-pointer" onClick={e => e.stopPropagation()}>
                 {selected.length > 0 ? `${selected.length} 标签` : '+标签'}
             </Tag>
         </Popover>

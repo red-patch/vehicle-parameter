@@ -24,7 +24,7 @@ interface VehicleStore {
     setMatchResults: (results: MatchItem[]) => void;
     setSelectedProduct: (product: string | null) => void;
     updateMatchResult: (id: string, param: VehicleParameter | null) => void;
-    updateManualValue: (id: string, value: string) => void;
+    updateManualValue: (id: string, value: string, opts?: { explicitEmpty?: boolean }) => void;
 
     // MIIT Data Import
     miitData: SheetData | null;
@@ -131,12 +131,16 @@ export const useVehicleStore = create<VehicleStore>()(
             m.id === id ? { ...m, matchedParam: param, isManual: true, confidence: 1, manualValue: undefined } : m
         )
     })),
-    updateManualValue: (id, value) => set((state) => ({
+    updateManualValue: (id, value, opts) => set((state) => ({
         matchResults: state.matchResults.map(m => {
             if (m.id !== id) return m;
             
             // 空值或纯空格 = 没填任何内容，恢复为自动匹配状态
             if (!value || !value.trim()) {
+                // 手动输入模式下：空值 = 用户明确填报「空」，导出保持空值，不回退到自动匹配值
+                if (opts?.explicitEmpty) {
+                    return { ...m, manualValue: '', isManual: true };
+                }
                 return { ...m, manualValue: undefined, isManual: false };
             }
             
