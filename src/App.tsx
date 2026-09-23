@@ -13,7 +13,6 @@ import { useShallow } from 'zustand/react/shallow';
 const ExcelUploader = React.lazy(() => import('./components/FileUpload/ExcelUploader'));
 const ParametersTable = React.lazy(() => import('./components/DiffViewer/ParametersTable'));
 const DiffResultView = React.lazy(() => import('./components/DiffViewer/DiffResultView'));
-const SmartLayout = React.lazy(() => import('./components/SmartFiller/SmartLayout'));
 const ParameterWorkbench = React.lazy(() => import('./components/ParameterWorkbench/ParameterWorkbench'));
 const AnnouncementQuery = React.lazy(() => import('./components/AnnouncementQuery/AnnouncementQuery'));
 const ConfigManagerView = React.lazy(() => import('./components/SmartFiller/ConfigManagerView'));
@@ -82,8 +81,8 @@ const App: React.FC = () => {
           
           {/* 所有模块保持挂载，用 display:none 切换，避免顶层菜单切换的 mount/unmount 开销 */}
           <React.Suspense fallback={<Skeleton active />}>
-            <div style={{ display: ['pool', 'compare', 'fill', 'multi', 'purify'].includes(activeTab) ? undefined : 'none' }}>
-              <ParameterWorkbench activeTab={activeTab as 'pool' | 'compare' | 'fill' | 'multi' | 'purify'} onTabChange={setActiveTab} showTabs={false} />
+            <div style={{ display: ['pool', 'compare', 'fill', 'purify'].includes(activeTab) ? undefined : 'none' }}>
+              <ParameterWorkbench activeTab={activeTab as 'pool' | 'compare' | 'fill' | 'purify'} onTabChange={setActiveTab} showTabs={false} />
             </div>
           </React.Suspense>
 
@@ -153,12 +152,6 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </>
-            </div>
-          </React.Suspense>
-
-          <React.Suspense fallback={<Skeleton active />}>
-            <div style={{ display: activeTab === 'search' ? undefined : 'none' }}>
-              <SmartLayout />
             </div>
           </React.Suspense>
 

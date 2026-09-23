@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Button, Input, message, Space, Alert, Upload, Select } from 'antd';
+import { Card, Button, Input, message, Segmented, Space, Alert, Upload, Select } from 'antd';
 import { ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import * as XLSX from 'xlsx';
@@ -8,6 +8,8 @@ import { useShallow } from 'zustand/react/shallow';
 import ProductSourceSelector from './ProductSourceSelector';
 import { findMatches } from '../../utils/matcher';
 import MatchResultTable from '../SmartFiller/MatchResultTable';
+import BidPullView from './BidPullView';
+import MultiVehicleView from './MultiVehicleView';
 import { getVehicleSelectionState } from '../../utils/vehicleSelectionState';
 
 
@@ -29,7 +31,9 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         setReferenceProduct,
         assetFiles,
         activeAssets,
-        fieldGroupsVersion
+        fieldGroupsVersion,
+        smartFillMode,
+        setSmartFillMode
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         setMatchResults: state.setMatchResults,
@@ -42,6 +46,8 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
         assetFiles: state.assetFiles,
         activeAssets: state.activeAssets,
         fieldGroupsVersion: state.fieldGroupsVersion,
+        smartFillMode: state.smartFillMode,
+        setSmartFillMode: state.setSmartFillMode,
     })));
     // 自动清理：已在主工作区中移除的车型，同步清除本模块参考车型
     useEffect(() => {
@@ -126,6 +132,29 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
 
     return (
         <div className="flex flex-col gap-3 h-full">
+            <div className="flex justify-between items-center gap-3 flex-shrink-0">
+                <Segmented
+                    value={smartFillMode}
+                    onChange={(value) => setSmartFillMode(value as 'single' | 'bidPull' | 'freeMulti')}
+                    options={[
+                        { label: '单车填报', value: 'single' },
+                        { label: '多车取数（字段关联）', value: 'bidPull' },
+                        { label: '自由多车整理', value: 'freeMulti' },
+                    ]}
+                />
+                {smartFillMode === 'single' && (
+                    <span className="text-xs text-3">多车取数：先在方案里把投标字段关联到系统字段，再一键拉取多车型参数</span>
+                )}
+                {smartFillMode === 'freeMulti' && (
+                    <span className="text-xs text-3">粘贴目标字段即可横向整理多车型参数，无需预先配置方案</span>
+                )}
+            </div>
+            {smartFillMode === 'bidPull' ? (
+                <BidPullView onGoRepair={onGoRepair} />
+            ) : smartFillMode === 'freeMulti' ? (
+                <MultiVehicleView onGoRepair={onGoRepair} />
+            ) : (
+            <>
             {/* 提示信息 */}
             {selectedProductNames.length === 0 && (
                 <Alert
@@ -218,6 +247,8 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
             <div className="flex-1 overflow-auto">
                 {matchResults.length > 0 && <MatchResultTable productName={referenceProduct} onGoRepair={onGoRepair} />}
             </div>
+            </>
+            )}
         </div>
     );
 };

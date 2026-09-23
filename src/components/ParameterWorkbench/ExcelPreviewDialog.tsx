@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { Modal, Tabs, InputNumber, Select, Button, Tag, Tooltip, message } from 'antd';
 import { CheckOutlined, ReloadOutlined, InfoCircleOutlined, StopOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import type { SheetPreview, SheetParseConfig, ColumnRole } from '../../types';
+import { detectHorizontalSheet } from '../../utils/excelParserHorizontal';
 
 interface Props {
     open: boolean;
@@ -38,6 +39,13 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
     }>>(new Map());
 
     const currentPreview = previews[activeSheet];
+
+    // 横向格式 sheet（参数为列、车型为行）：解析端自动识别，列角色配置不适用
+    const horizontalSheets = useMemo(
+        () => new Set(previews.filter(p => detectHorizontalSheet(p.rows)).map(p => p.sheetName)),
+        [previews]
+    );
+    const isCurrentHorizontal = !!currentPreview && horizontalSheets.has(currentPreview.sheetName);
     
     // 获取/初始化当前 sheet 的配置
     const getConfig = useCallback((preview: SheetPreview) => {
@@ -211,10 +219,11 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         });
     };
 
-    // 验证当前 sheet 配置是否完整
+    // 验证当前 sheet 配置是否完整（横向格式由解析端处理，无需列角色）
     const validation = useMemo(() => {
         if (!config) return { valid: false, message: '未选择 Sheet' };
         if (!config.enabled) return { valid: true, message: '' };
+        if (currentPreview && horizontalSheets.has(currentPreview.sheetName)) return { valid: true, message: '' };
         let hasName = false;
         let hasProduct = false;
         config.columns.forEach(col => {
@@ -224,13 +233,28 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         if (!hasName) return { valid: false, message: '需要指定至少一个「参数名」列' };
         if (!hasProduct) return { valid: false, message: '需要指定至少一个「产品值」列' };
         return { valid: true, message: '' };
-    }, [config]);
+    }, [config, currentPreview, horizontalSheets]);
 
     const parsedConfigsPreview = useMemo(() => {
         const configs: SheetParseConfig[] = [];
 
         sheetConfigs.forEach((cfg, sheetName) => {
             if (!cfg.enabled) return;
+
+            // 横向格式：携带最小载体配置即可，解析端会按横向自动处理
+            if (horizontalSheets.has(sheetName)) {
+                const headerRows: number[] = [];
+                for (let rowIndex = cfg.headerStart; rowIndex <= cfg.headerEnd; rowIndex++) headerRows.push(rowIndex);
+                configs.push({
+                    sheetName,
+                    headerRows,
+                    dataStartRow: cfg.dataStart,
+                    nameColIndex: 0,
+                    groupColIndex: -1,
+                    productColumns: [{ index: 1, name: '车型' }]
+                });
+                return;
+            }
 
             let nameColIndex = -1;
             let groupColIndex = -1;
@@ -260,7 +284,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         });
 
         return configs;
-    }, [sheetConfigs]);
+    }, [sheetConfigs, horizontalSheets]);
 
     const enabledSheetCount = useMemo(
         () => Array.from(sheetConfigs.values()).filter(cfg => cfg.enabled).length,
@@ -462,8 +486,15 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                         </Tooltip>
                     </div>
 
+                    {/* 横向格式提示：参数为列、车型为行，解析端自动处理 */}
+                    {isCurrentHorizontal && config.enabled && (
+                        <div style={{ marginBottom: 8 }}>
+                            <Tag color="geekblue">横向格式（参数为列、车型为行）— 确认后将自动按横向解析，无需配置列角色</Tag>
+                        </div>
+                    )}
+
                     {/* 统计摘要 */}
-                    {currentSheetStats && (
+                    {currentSheetStats && !isCurrentHorizontal && (
                         <div style={{ marginBottom: 8, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-2)' }}>
                             <Tag color="default">表头 {currentSheetStats.headerRows} 行</Tag>
                             <Tag color="default">数据 {currentSheetStats.dataRows} 行</Tag>

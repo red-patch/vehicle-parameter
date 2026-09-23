@@ -2,6 +2,7 @@ import { writeTextFile, readTextFile, exists, readDir, remove } from '@tauri-app
 import { join } from '@tauri-apps/api/path';
 import type { SheetData, VehicleParameter } from '../types';
 import { getAssetBaseName, toAssetFileName } from './assetNaming';
+import { buildBatchTagUpdates } from './assetTagBatch';
 
 /**
  * 结构化的资产文件格式
@@ -405,4 +406,25 @@ export const setAssetFileTags = async (libraryPath: string, fileName: string, fi
         tags[fileName] = fileTags;
     }
     await saveAssetTags(libraryPath, tags);
+};
+
+/**
+ * 批量为多个资产追加标签。普通标签合并去重；互斥组标签替换组内已有标签
+ * （exclusiveGroupTags 由调用方从标签分组配置解析，见 assetTagGroups.getExclusiveGroupTagSets）。
+ * 一次读盘、一次写盘，避免逐个 setAssetFileTags 造成的 N 次整文件读写。
+ * @returns 更新后的完整标签映射（以盘上最新数据为准，供调用方回写 UI）
+ */
+export const batchAddAssetTags = async (
+    libraryPath: string,
+    fileNames: string[],
+    tagsToAdd: string[],
+    exclusiveGroupTags?: string[][]
+): Promise<Record<string, string[]>> => {
+    const tags = await loadAssetTags(libraryPath);
+    const updates = buildBatchTagUpdates(tags, fileNames, tagsToAdd, { exclusiveGroupTags });
+    if (Object.keys(updates).length > 0) {
+        await saveAssetTags(libraryPath, { ...tags, ...updates });
+        return { ...tags, ...updates };
+    }
+    return tags;
 };
