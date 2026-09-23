@@ -14,6 +14,8 @@ describe('AssetStatsBadge', () => {
     const box = container.querySelector('.surface-inset');
     expect(box).not.toBeNull();
     expect(box?.childElementCount).toBe(3);
+    // 三段文字标签都带容器查询降级类（窄面板收起，为车型名让空间）
+    expect(container.querySelectorAll('[class*="@[420px]:inline"]')).toHaveLength(3);
   });
 
   it('完成率四舍五入取整', () => {

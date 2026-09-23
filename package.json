@@ -1,7 +1,7 @@
 {
   "name": "shining-lagoon",
   "private": true,
-  "version": "4.7.0",
+  "version": "4.8.0",
   "type": "module",
   "scripts": {
     "stats": "node scripts/stats.js",
@@ -36,7 +36,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@tailwindcss/container-queries": "^0.1.1",
     "@tauri-apps/cli": "^2.9.6",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/lodash": "^4.17.21",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.5",
@@ -47,15 +51,12 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "jsdom": "^25.0.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
-    "jsdom": "^25.0.1",
     "vitest": "^2.1.9"
   }
 }

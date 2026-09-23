@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor">
+  <!-- B · 校准仪表 Calibration Gauge:底部开口表盘 + 刻度 + 设定指针 -->
+  <path d="M 25.5 74.6 A 32 32 0 1 1 74.5 74.6" stroke-width="5" stroke-linecap="round"/>
+  <g stroke-width="3.5" stroke-linecap="round">
+    <path d="M 27 54 L 21.5 54"/>
+    <path d="M 32.4 39.2 L 28.2 35.7"/>
+    <path d="M 46 31.3 L 45 25.9"/>
+    <path d="M 61.5 34.1 L 64.3 29.3"/>
+    <path d="M 71.6 46.1 L 76.8 44.3"/>
+  </g>
+  <path d="M 54.9 49 L 62 42" stroke-width="5.5" stroke-linecap="round"/>
+  <circle cx="50" cy="54" r="5" fill="currentColor" stroke="none"/>
+</svg>

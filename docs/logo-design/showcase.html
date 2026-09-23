@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>车辆参数配置工具 · Logo 设计提案</title>
+<style>
+  :root {
+    /* 曜蓝 Obsidian Blue · v4.1 tokens */
+    --brand-50: #EFF3FE;  --brand-200: #C7D1FB; --brand-400: #7386F1;
+    --brand-500: #4D64E9; --brand-600: #2F44D8; --brand-700: #2738B4;
+    --brand-950: #131833;
+    --g-900: #1A1D26; --g-500: #6B7280;
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+            "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  }
+  [data-theme="dark"] {
+    --page-bg: #0C0F1D;
+    --card-bg: #141830;
+    --card-border: rgba(199, 209, 251, 0.10);
+    --text-1: #F1F3FA; --text-2: #A7AEC4; --text-3: #6E7590;
+    --chip-bg: rgba(199, 209, 251, 0.08);
+    --accent: #A0AFF8;
+  }
+  [data-theme="light"] {
+    --page-bg: #F4F5F9;
+    --card-bg: #FFFFFF;
+    --card-border: #E4E7EC;
+    --text-1: #1A1D26; --text-2: #454C5C; --text-3: #8A91A0;
+    --chip-bg: #F1F3F6;
+    --accent: #2F44D8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: var(--font);
+    background: var(--page-bg);
+    color: var(--text-1);
+    transition: background .35s ease, color .35s ease;
+    min-height: 100vh;
+    padding: 56px 32px 80px;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+
+  /* ---------- header ---------- */
+  header.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 14px; flex-wrap: wrap; }
+  .eyebrow { font-size: 12px; letter-spacing: .22em; color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+  h1 { font-size: 30px; font-weight: 700; letter-spacing: .01em; }
+  h1 em { font-style: normal; color: var(--text-3); font-weight: 500; font-size: 18px; margin-left: 10px; }
+  .top-actions { display: flex; align-items: center; gap: 10px; }
+  .btn {
+    font-family: var(--font); font-size: 12.5px; font-weight: 600;
+    padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--card-border); background: var(--card-bg); color: var(--text-1);
+    transition: transform .15s ease, border-color .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+  .lede { color: var(--text-2); font-size: 14px; line-height: 1.75; max-width: 760px; margin: 18px 0 44px; }
+  .lede strong { color: var(--text-1); }
+
+  /* ---------- hero ---------- */
+  .hero {
+    display: grid; grid-template-columns: 300px 1fr; gap: 40px; align-items: center;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 24px; padding: 36px; margin-bottom: 52px;
+  }
+  .hero-tile {
+    width: 300px; height: 300px; border-radius: 68px; position: relative; overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgba(175,192,255,.20), transparent 55%),
+      linear-gradient(168deg, #4D64E9 0%, #2F44D8 42%, #1B2285 100%);
+    box-shadow: 0 24px 60px -18px rgba(47,68,216,.55);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hero-tile svg { width: 62%; height: 62%; color: #EFF3FE; filter: drop-shadow(0 6px 22px rgba(4,8,46,.35)); }
+  .hero-info .tagline { font-size: 12px; letter-spacing: .2em; color: var(--accent); font-weight: 600; margin-bottom: 12px; }
+  .hero-info h2 { font-size: 24px; font-weight: 700; margin-bottom: 14px; }
+  .hero-info p { color: var(--text-2); font-size: 13.5px; line-height: 1.8; margin-bottom: 12px; }
+  .hero-info .why { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .chip { font-size: 11.5px; font-weight: 600; color: var(--text-2); background: var(--chip-bg); border-radius: 999px; padding: 5px 12px; }
+
+  /* ---------- grid ---------- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 26px; }
+  .card {
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: 20px; overflow: hidden; display: flex; flex-direction: column;
+    transition: border-color .2s ease;
+  }
+  .card:hover { border-color: rgba(115,134,241,.45); }
+  .stage { position: relative; height: 300px; display: flex; align-items: center; justify-content: center; transition: background .3s ease; }
+  .stage svg.mark { width: 150px; height: 150px; transition: color .3s ease; }
+  .stage[data-bg="gradient"] {
+    background:
+      radial-gradient(120% 90% at 50% 0%, rgba(175,192,255,.20), transparent 55%),
+      linear-gradient(168deg, #4D64E9 0%, #2F44D8 42%, #1B2285 100%);
+  }
+  .stage[data-bg="gradient"] svg.mark { color: #EFF3FE; }
+  .stage[data-bg="void"] {
+    background: radial-gradient(90% 80% at 50% 32%, #1A2148 0%, #0B0E1E 62%, #070912 100%);
+  }
+  .stage[data-bg="void"] svg.mark { color: #A0AFF8; }
+  .stage[data-bg="paper"] {
+    background: #F7F8FA;
+    background-image: linear-gradient(#E9EBF1 1px, transparent 1px), linear-gradient(90deg, #E9EBF1 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .stage[data-bg="paper"] svg.mark { color: #2F44D8; }
+  .stage[data-bg="swiss"] { background: #2F44D8; }
+  .stage[data-bg="swiss"] svg.mark { color: #EFF3FE; }
+  .bg-switch { position: absolute; right: 14px; bottom: 14px; display: flex; gap: 7px; background: rgba(10,12,26,.36); padding: 6px 8px; border-radius: 999px; backdrop-filter: blur(6px); }
+  .stage[data-bg="paper"] .bg-switch { background: rgba(255,255,255,.55); }
+  .bg-switch button { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); cursor: pointer; padding: 0; transition: transform .15s ease; }
+  .stage[data-bg="paper"] .bg-switch button { border-color: rgba(26,29,38,.55); }
+  .bg-switch button:hover { transform: scale(1.15); }
+  .bg-switch button.b-gradient { background: linear-gradient(160deg, #4D64E9, #1B2285); }
+  .bg-switch button.b-void { background: #10142B; }
+  .bg-switch button.b-paper { background: #F7F8FA; }
+  .bg-switch button.b-swiss { background: #2F44D8; }
+
+  .card-body { padding: 22px 24px 24px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .card-head { display: flex; align-items: center; gap: 12px; }
+  .idx {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: #EFF3FE;
+    background: linear-gradient(160deg, #4D64E9, #2738B4);
+  }
+  .card-head h3 { font-size: 16.5px; font-weight: 700; }
+  .card-head h3 em { font-style: normal; font-weight: 500; font-size: 12.5px; color: var(--text-3); margin-left: 8px; letter-spacing: .04em; }
+  .tag-rec { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 3px 10px; }
+  .concept { font-size: 12.5px; color: var(--accent); font-weight: 600; }
+  .rationale { font-size: 13px; color: var(--text-2); line-height: 1.78; }
+  .context { display: flex; align-items: center; gap: 20px; padding: 14px 16px; background: var(--chip-bg); border-radius: 14px; }
+  .appicon {
+    width: 56px; height: 56px; border-radius: 14px; flex: none;
+    background: linear-gradient(168deg, #4D64E9 0%, #2F44D8 45%, #1B2285 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px -8px rgba(47,68,216,.6);
+  }
+  .appicon svg { width: 66%; height: 66%; color: #EFF3FE; }
+  .sizes { display: flex; align-items: flex-end; gap: 14px; }
+  .sizes .sq { border-radius: 24%; background: linear-gradient(168deg, #4D64E9, #1F2A71); display: flex; align-items: center; justify-content: center; flex: none; }
+  .sizes .sq svg { color: #EFF3FE; }
+  .sizes .sq.s128 { width: 52px; height: 52px; } .sizes .sq.s128 svg { width: 66%; height: 66%; }
+  .sizes .sq.s64  { width: 34px; height: 34px; }  .sizes .sq.s64  svg { width: 68%; height: 68%; }
+  .sizes .sq.s32  { width: 22px; height: 22px; }  .sizes .sq.s32  svg { width: 74%; height: 74%; }
+  .sizes .sq.s16  { width: 14px; height: 14px; }  .sizes .sq.s16  svg { width: 82%; height: 82%; }
+  .sizes .lbl { font-size: 11px; color: var(--text-3); margin-top: 6px; text-align: center; }
+  .sizes .col { display: flex; flex-direction: column; align-items: center; }
+  .card-actions { display: flex; align-items: center; gap: 12px; margin-top: auto; }
+  .use { font-size: 12px; color: var(--text-3); }
+  .copy-btn {
+    margin-left: auto; font-family: var(--font); font-size: 12px; font-weight: 600;
+    padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--card-border); background: transparent; color: var(--text-1);
+    transition: all .15s ease;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.ok { color: #0C9A68; border-color: #0C9A68; }
+
+  /* ---------- principles ---------- */
+  .principles { margin-top: 56px; }
+  .principles h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+  .p-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .p-item { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px; }
+  .p-item b { display: block; font-size: 13.5px; margin-bottom: 7px; color: var(--text-1); }
+  .p-item span { font-size: 12.5px; color: var(--text-2); line-height: 1.7; }
+
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--card-border); color: var(--text-3); font-size: 12.5px; line-height: 1.8; }
+  footer b { color: var(--text-2); }
+
+  @media (max-width: 1020px) {
+    .hero { grid-template-columns: 1fr; justify-items: center; text-align: left; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">LOGO DESIGN PROPOSAL · PHASE 2</div>
+      <h1>车辆参数配置工具<em>Logo 设计提案 · 六方案</em></h1>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="themeBtn">切换明暗</button>
+    </div>
+  </header>
+
+  <p class="lede">
+    依据 <strong>曜蓝 Obsidian Blue v4.1</strong> 设计系统生成的六个标识方案。每个方案均以
+    <strong>100×100 网格手工绘制矢量路径</strong>、以 <strong>currentColor</strong> 承色,
+    明暗主题零改动适配。设计语言覆盖:条形系统 / 线性仪表 / 字母笔画 / 点阵 / 几何分割 / 工业量具。
+    点击每张卡片右下角的圆点可切换展示背景;选中方案后进入第三轮迭代。
+  </p>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero">
+    <div class="hero-tile">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+        <rect x="42" y="23" width="22" height="9" rx="4.5"/>
+        <rect x="30" y="40" width="40" height="9" rx="4.5"/>
+        <rect x="18" y="57" width="58" height="9" rx="4.5"/>
+        <circle cx="32" cy="71" r="7"/>
+        <circle cx="62" cy="71" r="7"/>
+      </svg>
+    </div>
+    <div class="hero-info">
+      <div class="tagline">RECOMMENDED · 主推方案</div>
+      <h2>A · 参数行进 Paramotive</h2>
+      <p>直接继承现有图标「数据流汽车」的品牌资产并做彻底极简:三条阶梯数据条勾勒车身,双轮收底。
+        参数表本身就是车——不需要再画一辆车。左右边缘同步外扩成梯形,天然读作侧视车形;条与条的间距 8 单位,
+        16px 小尺寸下依然轮廓清晰。</p>
+      <p>曜蓝渐变底(#4D64E9 → #1B2285)取自 v4.1 品牌色阶,与现有 App 图标一脉相承,老用户无认知断层。</p>
+      <div class="why">
+        <span class="chip">继承现有图标 DNA</span>
+        <span class="chip">2 类元素</span>
+        <span class="chip">16px 可辨</span>
+        <span class="chip">currentColor 主题适配</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== GRID ========== -->
+  <div class="grid" id="grid"></div>
+
+  <!-- ========== PRINCIPLES ========== -->
+  <section class="principles">
+    <h2>设计原则</h2>
+    <div class="p-grid">
+      <div class="p-item"><b>极致简单</b><span>每方案不超过两类核心元素,删除一切不承担语义的笔画。</span></div>
+      <div class="p-item"><b>留白充分</b><span>画面 40–50% 以上为负空间,高级感来自克制而非装饰。</span></div>
+      <div class="p-item"><b>比例精确</b><span>100 网格上全部整数/半整数坐标,线宽 3.5–11 单位分级明确。</span></div>
+      <div class="p-item"><b>有意图的不对称</b><span>车头朝右、分割偏置、左实右虚——张力来自不对称,而非随机。</span></div>
+      <div class="p-item"><b>单一焦点</b><span>一眼锁定一个图形语义,缩到 favicon 也不混淆。</span></div>
+    </div>
+  </section>
+
+  <footer>
+    <b>下一步(Phase 3 · 迭代):</b> 从六方案中挑出 1–2 个意向,可继续微调元素比例、间距、旋转,
+    或将两个方案的元素组合(如 A 的车身 + E 的双态分割)。<br/>
+    <b>落地:</b> 选定后以 1024×1024 导出 PNG,经 <b>tauri icon</b> 生成全套
+    icns / ico / 各尺寸图标替换 <b>src-tauri/icons/</b>;注意改图标后 tauri dev 需 touch tauri.conf.json 强制重链。
+    矢量源文件位于 <b>docs/logo-design/svgs/</b>。
+  </footer>
+</div>
+
+<script type="text/plain" id="src-A">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="currentColor">
+  <rect x="42" y="23" width="22" height="9" rx="4.5"/>
+  <rect x="30" y="40" width="40" height="9" rx="4.5"/>
+  <rect x="18" y="57" width="58" height="9" rx="4.5"/>
+  <circle cx="32" cy="71" r="7"/>
+  <circle cx="62" cy="71" r="7"/>
+</svg>
+</script>
+<script type="text/plain" id="src-B">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+  <path d="M 25.5 74.6 A 32 32 0 1 1 74.5 74.6" stroke-width="5" stroke-linecap="round"/>
+  <g stroke-width="3.5" stroke-linecap="round">
+    <path d="M 27 54 L 21.5 54"/>
+    <path d="M 32.4 39.2 L 28.2 35.7"/>
+    <path d="M 46 31.3 L 45 25.9"/>
+    <path d="M 61.5 34.1 L 64.3 29.3"/>
+    <path d="M 71.6 46.1 L 76.8 44.3"/>
+  </g>
+  <path d="M 54.9 49 L 62 42" stroke-width="5.5" stroke-linecap="round"/>
+  <circle cx="50" cy="54" r="5" fill="currentColor" stroke="none"/>
+</svg>
+</script>
+<script type="text/plain" id="src-C">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+  <path d="M 22 22 L 46 80" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 78 22 L 66.5 49.8" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 58.3 69.6 L 54 80" stroke-width="11" stroke-linecap="round"/>
+</svg>
+</script>
+<script type="text/plain" id="src-D">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="currentColor">
+  <g>
+    <circle cx="46.2" cy="24" r="3.2"/><circle cx="53.8" cy="24" r="3.2"/><circle cx="61.4" cy="24" r="3.2"/>
+    <circle cx="38.6" cy="34.4" r="3.2"/><circle cx="69" cy="34.4" r="3.2"/>
+    <circle cx="31" cy="44.8" r="3.2"/><circle cx="76.6" cy="44.8" r="3.2"/>
+    <circle cx="8.2" cy="55.2" r="3.2"/><circle cx="15.8" cy="55.2" r="3.2"/><circle cx="23.4" cy="55.2" r="3.2"/><circle cx="31" cy="55.2" r="3.2"/><circle cx="38.6" cy="55.2" r="3.2"/><circle cx="46.2" cy="55.2" r="3.2"/><circle cx="53.8" cy="55.2" r="3.2"/><circle cx="61.4" cy="55.2" r="3.2"/><circle cx="69" cy="55.2" r="3.2"/><circle cx="76.6" cy="55.2" r="3.2"/><circle cx="84.2" cy="55.2" r="3.2"/><circle cx="91.8" cy="55.2" r="3.2"/>
+    <circle cx="8.2" cy="65.6" r="3.2"/><circle cx="91.8" cy="65.6" r="3.2"/>
+    <circle cx="15.8" cy="76" r="4.4"/><circle cx="23.4" cy="76" r="4.4"/><circle cx="69" cy="76" r="4.4"/><circle cx="76.6" cy="76" r="4.4"/>
+  </g>
+</svg>
+</script>
+<script type="text/plain" id="src-E">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+  <path d="M 56 21 A 32 32 0 1 0 56 83" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 56 21 A 32 32 0 0 1 56 83 Z" fill="currentColor" stroke="none"/>
+  <path d="M 56 12 L 56 90" stroke-width="5.5" stroke-linecap="round"/>
+</svg>
+</script>
+<script type="text/plain" id="src-F">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+  <path d="M 22 42 L 22 34 Q 22 28 28 28 L 72 28 Q 78 28 78 34 L 78 42" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 50 28 L 50 41" stroke-width="5.5" stroke-linecap="round"/>
+  <rect x="24" y="55" width="52" height="10" rx="5" fill="currentColor" stroke="none"/>
+</svg>
+</script>
+
+<script>
+  const VARIANTS = [
+    {
+      id: 'A', name: '参数行进', en: 'Paramotive', rec: true,
+      concept: '三条阶梯数据条勾勒车身,双轮收底',
+      rationale: '参数表(横条)本身就是车身,无需再画一辆车。左右边缘同步外扩形成梯形,天然读作侧视车形;左缘斜率陡(前风挡)、右缘缓(尾箱),方向感朝右前进。仅「条 + 轮」两类元素,16px 下仍可辨。',
+      use: '主 Logo / App 图标'
+    },
+    {
+      id: 'B', name: '校准仪表', en: 'Calibration Gauge',
+      concept: '底部开口的表盘 + 五刻度 + 设定指针',
+      rationale: '「参数标定」的仪器隐喻。开口朝下赋予呼吸感与方向性;五根刻度沿弧均布,指针落在设定角(-45°),圆点轴心。线宽 3.5 / 5 / 5.5 三级,冷峻精密,是六个方案中工具感最强的一个。',
+      use: '启动页 / 关于页 / 空态插画'
+    },
+    {
+      id: 'C', name: '双态 V', en: 'Dual-State V',
+      concept: '左笔实线、右笔分段的粗体 V',
+      rationale: 'V 同时读作 Vehicle 与 Validated。左实右虚 =「原始数据 → 已配置」,正是智能填报模块的故事;右笔在底部收拢为实线,寓意补全闭环。笔画 11 单位,远看仍是清晰的 V,近看有细节。',
+      use: '字标组合 / 品牌辅助图形'
+    },
+    {
+      id: 'D', name: '点阵车', en: 'Dot-Matrix Car',
+      concept: '轮廓点阵浮现于一整行参数之上',
+      rationale: '一整行点 = 参数数据行;车影以扫描点阵浮现其上,呼应「从数据表中识别车辆」的核心流程。车轮以加重点收底,保持离散语言的统一。适合做加载动画——点阵可逐点点亮。',
+      use: '加载动画 / 数据界面装饰'
+    },
+    {
+      id: 'E', name: '版本双态', en: 'Diff Halves',
+      concept: '不对称分割圆,左描边、右实心',
+      rationale: '版本对比是本工具的杀手级功能。分割线上下出头 8 单位制造张力;左描边 = 旧版、右实心 = 新版,刻意的不对称分割避开「阴阳图」俗套。可直接降级为 Diff 模块的功能图标。',
+      use: 'Diff 模块图标 / 系统辅助图形'
+    },
+    {
+      id: 'F', name: '标定龙门', en: 'Caliper Gantry',
+      concept: '龙门架 + 测针 + 悬浮的被测参数条',
+      rationale: '高度规 / 卡尺的意象——「每一项参数都被精确测量」。测针与胶囊条之间刻意留出间隙,负空间克制;工业量具气质带来极强的差异化,在工具类软件中几乎不会撞形。',
+      use: '备选主 Logo / 引导页'
+    }
+  ];
+
+  function markSvg(raw, cls) {
+    // 线稿方案的 fill="none" stroke="currentColor" 在根节点上,注入时必须保留,
+    // 否则路径按默认 fill:black 渲染成实心色块
+    const rootOpen = raw.match(/<svg([^>]*)>/)[1] || '';
+    const kept = (rootOpen.match(/(?:fill|stroke(?:-width|-linecap|-linejoin)?)="[^"]*"/g) || []).join(' ');
+    const inner = raw.replace(/<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').trim();
+    return `<svg${cls ? ` class="${cls}"` : ''} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"${kept ? ' ' + kept : ''}>${inner}</svg>`;
+  }
+
+  const grid = document.getElementById('grid');
+  for (const v of VARIANTS) {
+    const raw = document.getElementById('src-' + v.id).textContent.trim();
+    const mark = markSvg(raw);
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="stage" data-bg="gradient">
+        ${markSvg(raw, 'mark')}
+        <div class="bg-switch">
+          <button class="b-gradient" title="曜蓝渐变" data-bg="gradient"></button>
+          <button class="b-void" title="深空" data-bg="void"></button>
+          <button class="b-paper" title="纸面" data-bg="paper"></button>
+          <button class="b-swiss" title="瑞士平涂" data-bg="swiss"></button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-head">
+          <span class="idx">${v.id}</span>
+          <h3>${v.name}<em>${v.en}</em></h3>
+          ${v.rec ? '<span class="tag-rec">主推</span>' : ''}
+        </div>
+        <div class="concept">${v.concept}</div>
+        <p class="rationale">${v.rationale}</p>
+        <div class="context">
+          <div class="appicon">${mark}</div>
+          <div class="sizes">
+            <div class="col"><div class="sq s128">${mark}</div><span class="lbl">128</span></div>
+            <div class="col"><div class="sq s64">${mark}</div><span class="lbl">64</span></div>
+            <div class="col"><div class="sq s32">${mark}</div><span class="lbl">32</span></div>
+            <div class="col"><div class="sq s16">${mark}</div><span class="lbl">16</span></div>
+          </div>
+        </div>
+        <div class="card-actions">
+          <span class="use">适用:${v.use}</span>
+          <button class="copy-btn" data-id="${v.id}">复制 SVG</button>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  }
+
+  // bg switch
+  document.querySelectorAll('.bg-switch button').forEach(btn => {
+    btn.addEventListener('click', () => btn.closest('.stage').dataset.bg = btn.dataset.bg);
+  });
+  // theme
+  document.getElementById('themeBtn').addEventListener('click', () => {
+    const h = document.documentElement;
+    h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark';
+  });
+  // copy
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = document.getElementById('src-' + btn.dataset.id).textContent.trim();
+      try { await navigator.clipboard.writeText(text); }
+      catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      const old = btn.textContent;
+      btn.textContent = '已复制 ✓'; btn.classList.add('ok');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('ok'); }, 1400);
+    });
+  });
+</script>
+</body>
+</html>

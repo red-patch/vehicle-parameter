@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor">
+  <!-- C · 双态 V Dual-State V:左笔实线=已配置,右笔分段=待填报 -->
+  <path d="M 22 22 L 46 80" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 78 22 L 66.5 49.8" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 58.3 69.6 L 54 80" stroke-width="11" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+  <!-- A · 参数行进 Paramotive:阶梯数据条构成车身 + 双轮 -->
+  <rect x="42" y="23" width="22" height="9" rx="4.5"/>
+  <rect x="30" y="40" width="40" height="9" rx="4.5"/>
+  <rect x="18" y="57" width="58" height="9" rx="4.5"/>
+  <circle cx="32" cy="71" r="7"/>
+  <circle cx="62" cy="71" r="7"/>
+</svg>

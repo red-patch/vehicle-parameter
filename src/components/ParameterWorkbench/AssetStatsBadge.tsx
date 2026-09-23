@@ -16,6 +16,7 @@ const fillRateTone = (rate: number) =>
  * 口径与待分析列表（VehicleListPanel）一致：分母为该资产自身的参数行数，
  * 用于同一车型多条资产时快速对比哪份参数更全，无需先加入待分析。
  * 置于卡片头右侧，与用户标签行视觉分离，且各卡片间数值垂直对齐。
+ * 依赖卡片根节点的 @container：窄面板（<420px）时收起文字标签只留数字，为车型名让出空间。
  */
 const AssetStatsBadge: React.FC<AssetStatsBadgeProps> = ({ totalParams, filledParams }) => {
     const emptyParams = totalParams - filledParams;
@@ -25,13 +26,16 @@ const AssetStatsBadge: React.FC<AssetStatsBadgeProps> = ({ totalParams, filledPa
         <Tooltip title="完成率 = 非空值参数 ÷ 参数总数（与待分析列表口径一致）">
             <div className="flex items-stretch rounded-lg surface-inset border border-default flex-shrink-0 cursor-help tabular-nums">
                 <span className="px-2.5 py-1 text-[12px] leading-[16px] text-3 whitespace-nowrap">
-                    参数 <span className="font-semibold text-1">{totalParams}</span>
+                    <span className="hidden @[420px]:inline mr-1">参数</span>
+                    <span className="font-semibold text-1">{totalParams}</span>
                 </span>
                 <span className="px-2.5 py-1 text-[12px] leading-[16px] text-3 whitespace-nowrap border-l border-default">
-                    完成率 <span className={`font-semibold ${fillRateTone(fillRate)}`}>{fillRate}%</span>
+                    <span className="hidden @[420px]:inline mr-1">完成率</span>
+                    <span className={`font-semibold ${fillRateTone(fillRate)}`}>{fillRate}%</span>
                 </span>
                 <span className="px-2.5 py-1 text-[12px] leading-[16px] text-3 whitespace-nowrap border-l border-default">
-                    空值 <span className="font-semibold text-2">{emptyParams}</span>
+                    <span className="hidden @[420px]:inline mr-1">空值</span>
+                    <span className="font-semibold text-2">{emptyParams}</span>
                 </span>
             </div>
         </Tooltip>

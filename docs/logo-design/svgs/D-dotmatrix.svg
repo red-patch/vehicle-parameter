@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+  <!-- D · 点阵车 Dot-Matrix Car:轮廓点阵浮现于参数行之上,车轮为加重点 -->
+  <g>
+    <circle cx="46.2" cy="24" r="3.2"/><circle cx="53.8" cy="24" r="3.2"/><circle cx="61.4" cy="24" r="3.2"/>
+    <circle cx="38.6" cy="34.4" r="3.2"/><circle cx="69" cy="34.4" r="3.2"/>
+    <circle cx="31" cy="44.8" r="3.2"/><circle cx="76.6" cy="44.8" r="3.2"/>
+    <circle cx="8.2" cy="55.2" r="3.2"/><circle cx="15.8" cy="55.2" r="3.2"/><circle cx="23.4" cy="55.2" r="3.2"/><circle cx="31" cy="55.2" r="3.2"/><circle cx="38.6" cy="55.2" r="3.2"/><circle cx="46.2" cy="55.2" r="3.2"/><circle cx="53.8" cy="55.2" r="3.2"/><circle cx="61.4" cy="55.2" r="3.2"/><circle cx="69" cy="55.2" r="3.2"/><circle cx="76.6" cy="55.2" r="3.2"/><circle cx="84.2" cy="55.2" r="3.2"/><circle cx="91.8" cy="55.2" r="3.2"/>
+    <circle cx="8.2" cy="65.6" r="3.2"/><circle cx="91.8" cy="65.6" r="3.2"/>
+    <circle cx="15.8" cy="76" r="4.4"/><circle cx="23.4" cy="76" r="4.4"/><circle cx="69" cy="76" r="4.4"/><circle cx="76.6" cy="76" r="4.4"/>
+  </g>
+</svg>
