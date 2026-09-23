@@ -5,6 +5,7 @@
  * 两套并存、各司其职——见 tokens 文件头注释。
  */
 import obsidianBlue from './docs/design-v4-obsidian-blue/tailwind.tokens.js';
+import containerQueries from '@tailwindcss/container-queries';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -65,5 +66,6 @@ export default {
       }
     },
   },
-  plugins: [],
+  // 该包导出的是 { handler, config } 插件对象，直接传数组（不要调用）
+  plugins: [containerQueries],
 }

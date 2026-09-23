@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor">
+  <!-- F · 标定龙门 Caliper Gantry:龙门架 + 测针 + 被测参数条 -->
+  <path d="M 22 42 L 22 34 Q 22 28 28 28 L 72 28 Q 78 28 78 34 L 78 42" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 50 28 L 50 41" stroke-width="5.5" stroke-linecap="round"/>
+  <rect x="24" y="55" width="52" height="10" rx="5" fill="currentColor" stroke="none"/>
+</svg>

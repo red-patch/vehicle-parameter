@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor">
+  <!-- E · 版本双态 Diff Halves:不对称分割圆,左描边右实心,分割线出圆张力 -->
+  <path d="M 56 21 A 32 32 0 1 0 56 83" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 56 21 A 32 32 0 0 1 56 83 Z" fill="currentColor" stroke="none"/>
+  <path d="M 56 12 L 56 90" stroke-width="5.5" stroke-linecap="round"/>
+</svg>

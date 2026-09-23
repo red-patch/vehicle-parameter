@@ -382,6 +382,34 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         }));
     }, [assets, assetTags]);
 
+    // 复制资产的有效公告号（优先 Clipboard API，回退 execCommand）
+    const handleCopyAnnounceNo = (info: AssetFileInfo) => {
+        const effNos = effectiveAnnounceNos.get(info.fileName) || [];
+        if (effNos.length === 0) {
+            message.info('未找到公告号');
+            return;
+        }
+        const announceNo = effNos[0];
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(announceNo).then(() => {
+                message.success(`已复制公告号：${announceNo}`);
+            }).catch(() => {
+                message.error('复制失败，请手动复制');
+            });
+        } else {
+            // fallback
+            const ta = document.createElement('textarea');
+            ta.value = announceNo;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); message.success(`已复制公告号：${announceNo}`); }
+            catch { message.error('复制失败，请手动复制'); }
+            finally { document.body.removeChild(ta); }
+        }
+    };
+
     // 从所有资产中提取可用的公告号列表
     const availableAnnounceNos = useMemo(() => {
         const nos = new Set<string>();
@@ -758,12 +786,16 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                     { key: 'batch', label: '批量选择', onClick: () => enterBatchMode(info.fileName) },
                                     { key: 'rename', label: '重命名', onClick: () => handleStartFileRename(info) },
                                     { key: 'divider1', divider: true, onClick: () => {} },
+                                    { key: 'copy', label: '复制公告号', onClick: () => handleCopyAnnounceNo(info) },
+                                    { key: 'csv', label: '导出 CSV', onClick: () => handleExportCsv(info) },
+                                    { key: 'upgrade', label: '升级导入', onClick: () => handleOpenUpgradeModal(info) },
+                                    { key: 'divider2', divider: true, onClick: () => {} },
                                     { key: 'finder', label: '在 Finder 中显示', onClick: () => handleRevealInFinder(info) },
                                     { key: 'open', label: '打开文件', onClick: () => handleOpenInEditor(info) },
-                                    { key: 'divider2', divider: true, onClick: () => {} },
+                                    { key: 'divider3', divider: true, onClick: () => {} },
                                     { key: 'delete', label: '删除资产', danger: true, onClick: () => handleDelete(info.fileName, info.productName) },
                                 ])}
-                                className={`flex flex-col justify-center py-2.5 px-3.5 rounded-lg border group relative ${
+                                className={`@container flex flex-col justify-center py-2.5 px-3.5 rounded-lg border group relative ${
                                     isEditing
                                         ? 'border-brand surface-container'
                                         : isBatchChecked
@@ -864,7 +896,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                 </div>
                                             </div>
                                             <AssetStatsBadge totalParams={info.totalParams} filledParams={info.filledParams} />
-                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 ml-2 flex-shrink-0">
+                                            <div className="hidden @[600px]:flex items-center gap-1.5 opacity-0 group-hover:opacity-100 ml-2">
                                                 {!isActive ? (
                                                     <Tooltip title="添加至车型列">
                                                         <Button
@@ -893,31 +925,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                         icon={<CopyOutlined className="!text-[14px] text-2 hover:text-brand" />}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            const effNos = effectiveAnnounceNos.get(info.fileName) || [];
-                                                            if (effNos.length === 0) {
-                                                                message.info('未找到公告号');
-                                                                return;
-                                                            }
-                                                            const announceNo = effNos[0];
-                                                            // 优先 Clipboard API，回退 execCommand
-                                                            if (navigator.clipboard?.writeText) {
-                                                                navigator.clipboard.writeText(announceNo).then(() => {
-                                                                    message.success(`已复制公告号：${announceNo}`);
-                                                                }).catch(() => {
-                                                                    message.error('复制失败，请手动复制');
-                                                                });
-                                                            } else {
-                                                                // fallback
-                                                                const ta = document.createElement('textarea');
-                                                                ta.value = announceNo;
-                                                                ta.style.position = 'fixed';
-                                                                ta.style.opacity = '0';
-                                                                document.body.appendChild(ta);
-                                                                ta.select();
-                                                                try { document.execCommand('copy'); message.success(`已复制公告号：${announceNo}`); }
-                                                                catch { message.error('复制失败，请手动复制'); }
-                                                                finally { document.body.removeChild(ta); }
-                                                            }
+                                                            handleCopyAnnounceNo(info);
                                                         }}
                                                         className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md active:scale-95 transition-transform"
                                                     />
