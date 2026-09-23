@@ -10,7 +10,7 @@ import { preloadEnumData } from '../../utils/attributeEnums';
 import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import { Modal } from 'antd';
 
-const { Header, Content } = AntLayout;
+const { Header, Content, Footer } = AntLayout;
 
 interface MainLayoutProps {
     children: ReactNode;
@@ -189,6 +189,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
             <Content className="p-4">
                 {children}
             </Content>
+            <Footer className="text-center text-xs py-2.5 border-t border-default text-3 bg-transparent">
+                © {new Date().getFullYear()} 计皓琛
+            </Footer>
         </AntLayout>
     );
 };
