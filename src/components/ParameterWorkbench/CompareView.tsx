@@ -58,35 +58,37 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     );
 
     // Build comparison matrix (supports 1+ products)
+    // 合并 key 为「分组+参数名」：同名参数在不同总成下（如各传感器的"型号"）
+    // 不能互相覆盖，否则每车只留最后一行的值，跨车对比会拿错总成的值来比
     const comparisonData = useMemo(() => {
         if (localSelection.length < 1) return [];
 
-        const allParams = new Map<string, { groups: Set<string>; name: string; values: Map<string, string> }>();
+        const allParams = new Map<string, { group: string; name: string; values: Map<string, string> }>();
 
         localSelection.forEach(instanceKey => {
             const data = selectionStates.get(instanceKey)?.data || [];
             data.forEach(p => {
-                const key = p.name;
+                const group = p.group || '未分组';
+                const key = `${group}::${p.name}`;
                 if (!allParams.has(key)) {
-                    allParams.set(key, {
-                        groups: new Set(),
-                        name: p.name,
-                        values: new Map()
-                    });
+                    allParams.set(key, { group, name: p.name, values: new Map() });
                 }
                 const entry = allParams.get(key)!;
-                if (p.group) entry.groups.add(p.group);
-                entry.values.set(instanceKey, String(p.value ?? ''));
+                // 同分组同名的重复行：空值不覆盖已填值，避免对比表里被"-"吞掉
+                const value = String(p.value ?? '');
+                if (value !== '' || !entry.values.has(instanceKey) || entry.values.get(instanceKey) === '') {
+                    entry.values.set(instanceKey, value);
+                }
             });
         });
 
         return Array.from(allParams.entries()).map(([key, param]) => {
             const values = Array.from(param.values.values());
             const allSame = values.every(v => v === values[0]);
-            
+
             return {
                 key,
-                group: Array.from(param.groups).join(', ') || '未分组',
+                group: param.group,
                 name: param.name,
                 hasDiff: localSelection.length > 1 ? !allSame : false,
                 ...Object.fromEntries(param.values)

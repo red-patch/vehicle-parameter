@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { Spin, Tooltip, Input, Button, Modal, message, Tag } from 'antd';
+import { Spin, Tooltip, Input, Button, Modal, message, Tag, Checkbox } from 'antd';
 import FileManager from './FileManager';
+import AssetBatchTagBar from './AssetBatchTagBar';
+import AssetStatsBadge from './AssetStatsBadge';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getAssetFilesWithInfo, renameAssetIdentity, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
+import { getAssetFilesWithInfo, renameAssetIdentity, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, batchAddAssetTags, type AssetFileInfo } from '../../utils/assetManager';
+import { useLongPress } from '../../hooks/useLongPress';
 import { getAssetSourceMeta } from '../../utils/assetSourceTags';
 import { downloadCsv } from '../../utils/downloadCsv';
 import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { getAssetDisplayName, validateAssetName, fixAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
-import { getAssetTagGroupsSync, ensureTagsInDefaultGroup } from '../../utils/assetTagGroups';
+import { getAssetTagGroupsSync, ensureTagsInDefaultGroup, getExclusiveGroupTagSets } from '../../utils/assetTagGroups';
 import TagSelector from '../common/TagSelector';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { useContextMenu } from '../../hooks/useContextMenu';
@@ -80,6 +83,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [upgradeAsset, setUpgradeAsset] = useState<AssetFileInfo | null>(null);
     const [announceNoInput, setAnnounceNoInput] = useState('');
 
+    // 批量打标签（长按卡片或右键菜单「批量选择」进入）
+    const [batchMode, setBatchMode] = useState(false);
+    const [selectedFileNames, setSelectedFileNames] = useState<Set<string>>(new Set());
+    const longPressTargetRef = useRef<string | null>(null);
+
 
     const fetchAssets = useCallback(async () => {
         if (!assetLibraryPath) return;
@@ -107,6 +115,29 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     useEffect(() => {
         fetchAssets();
     }, [assetLibraryPath, uploadedFiles, assetVersion]); // Re-fetch if files uploaded or asset version bumped
+
+    // 资产列表变化（删除/重命名/刷新）后，剔除选择集中已不存在的文件
+    useEffect(() => {
+        setSelectedFileNames(prev => {
+            if (prev.size === 0) return prev;
+            const alive = new Set(assets.map(a => a.fileName));
+            const next = new Set([...prev].filter(f => alive.has(f)));
+            return next.size === prev.size ? prev : next;
+        });
+    }, [assets]);
+
+    // Esc 退出批量模式
+    useEffect(() => {
+        if (!batchMode) return;
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setBatchMode(false);
+                setSelectedFileNames(new Set());
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [batchMode]);
 
     // 更换资产库目录
     const handleSetAssetLibrary = async () => {
@@ -326,6 +357,18 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         [allTags, assetTagGroupsVersion]
     );
 
+    // 分组行（筛选栏与批量打标签栏共用）：groupId → { id, name, tags, exclusive }
+    const tagGroupRows = useMemo(() => {
+        const groups = getAssetTagGroupsSync();
+        const nameMap = new Map(groups.groups.map(g => [g.id, g.name]));
+        return Object.entries(groupedTags).map(([gid, tags]) => ({
+            id: gid,
+            name: gid === '_other' ? '未分组' : (nameMap.get(gid) || gid),
+            tags,
+            exclusive: gid !== '_other' && groups.exclusiveGroups.includes(gid),
+        }));
+    }, [groupedTags]);
+
     
     // 按来源计算每个资产的有效公告号
     // 公告数据源 → 仅用车辆型号；其他源 → 用参数中的公告字段
@@ -416,6 +459,76 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
         return result;
     }, [assets, searchKeyword, assetTags, selectedGroupTag, selectedOtherFilterTags, announceNoMatchResult, assetTagGroupsVersion]);
+
+    // ===== 批量打标签 =====
+    const enterBatchMode = (fileName: string) => {
+        setBatchMode(true);
+        setSelectedFileNames(prev => new Set(prev).add(fileName));
+    };
+
+    const exitBatchMode = () => {
+        setBatchMode(false);
+        setSelectedFileNames(new Set());
+    };
+
+    const toggleBatchSelected = (fileName: string, checked: boolean) => {
+        setSelectedFileNames(prev => {
+            const next = new Set(prev);
+            if (checked) next.add(fileName);
+            else next.delete(fileName);
+            return next;
+        });
+    };
+
+    // 全选 = 把当前筛选结果并入选择集（可先筛选再全选，之后逐个反勾选）
+    const handleBatchSelectAll = (checked: boolean) => {
+        if (!checked) {
+            setSelectedFileNames(new Set());
+            return;
+        }
+        setSelectedFileNames(prev => {
+            const next = new Set(prev);
+            filteredAssets.forEach(a => next.add(a.fileName));
+            return next;
+        });
+    };
+
+    const handleBatchAddTags = async (tags: string[]) => {
+        if (!assetLibraryPath || tags.length === 0) return;
+        if (selectedFileNames.size === 0) {
+            message.warning('请先勾选要打标签的资产');
+            return;
+        }
+        const count = selectedFileNames.size;
+        const exclusiveSets = getExclusiveGroupTagSets();
+        const touchesExclusive = tags.some(t => exclusiveSets.some(set => set.includes(t)));
+        try {
+            const updated = await batchAddAssetTags(assetLibraryPath, [...selectedFileNames], tags, exclusiveSets);
+            const groupsUpdated = await ensureTagsInDefaultGroup(assetLibraryPath, tags);
+            if (groupsUpdated) bumpAssetTagGroupsVersion();
+            setAssetTags(updated);
+            const suffix = touchesExclusive ? '（互斥组标签已替换组内原有标签）' : '';
+            message.success(`已为 ${count} 个资产添加标签：${tags.join('、')}${suffix}`);
+        } catch (err) {
+            console.error('Batch add tags failed', err);
+            message.error('批量添加标签失败');
+        }
+    };
+
+    // 全选态按「当前筛选结果」计算（选择集可包含被筛走的资产，一并生效）
+    const batchSelectionStats = useMemo(() => {
+        const inFiltered = filteredAssets.filter(a => selectedFileNames.has(a.fileName)).length;
+        return {
+            allSelected: filteredAssets.length > 0 && inFiltered === filteredAssets.length,
+            indeterminate: inFiltered > 0 && inFiltered < filteredAssets.length,
+        };
+    }, [filteredAssets, selectedFileNames]);
+
+    // 长按进入批量模式（目标卡片通过 ref 传入，避免在 map 里调 hook）
+    const cardLongPress = useLongPress(() => {
+        const fileName = longPressTargetRef.current;
+        if (fileName) enterBatchMode(fileName);
+    });
 
     return (
         <div ref={panelRef} className="flex flex-col h-full surface-layout">
@@ -534,47 +647,42 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 {/* 标签过滤栏 — 动态按标签分组展示 */}
                 {allTags.length > 0 && (
                     <div className="mb-2 px-1 space-y-2">
-                        {(() => {
-                            const groups = getAssetTagGroupsSync();
-                            const nameMap = new Map(groups.groups.map(g => [g.id, g.name]));
-                            return Object.entries(groupedTags).map(([gid, tags]) => {
-                                const groupName = gid === '_other' ? '未分组' : (nameMap.get(gid) || gid);
-                                const isOther = gid === '_other';
-                                return (
-                                    <div key={gid} className="flex flex-wrap gap-1.5 items-center">
-                                        <TagOutlined className="text-[12px] text-3 mr-0.5" />
-                                        <span className="text-[12px] text-2 font-medium">{groupName}</span>
-                                        {tags.map(tag => {
-                                            const isSelected = isOther
-                                                ? selectedOtherFilterTags.includes(tag)
-                                                : selectedGroupTag[gid] === tag;
-                                            return (
-                                                <Tag
-                                                    key={tag}
-                                                    onClick={() => {
-                                                        if (isOther) {
-                                                            toggleFilterTag(tag);
-                                                        } else {
-                                                            setSelectedGroupTag(prev => ({
-                                                                ...prev,
-                                                                [gid]: prev[gid] === tag ? null : tag,
-                                                            }));
-                                                        }
-                                                    }}
-                                                    className={`text-[12px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border cursor-pointer ${
-                                                        isSelected
-                                                            ? 'tag-checked font-medium'
-                                                            : 'surface-inset border-default text-2 hover:border-brand'
-                                                    }`}
-                                                >
-                                                    {tag}
-                                                </Tag>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            });
-                        })()}
+                        {tagGroupRows.map(row => {
+                            const isOther = row.id === '_other';
+                            return (
+                                <div key={row.id} className="flex flex-wrap gap-1.5 items-center">
+                                    <TagOutlined className="text-[12px] text-3 mr-0.5" />
+                                    <span className="text-[12px] text-2 font-medium">{row.name}</span>
+                                    {row.tags.map(tag => {
+                                        const isSelected = isOther
+                                            ? selectedOtherFilterTags.includes(tag)
+                                            : selectedGroupTag[row.id] === tag;
+                                        return (
+                                            <Tag
+                                                key={tag}
+                                                onClick={() => {
+                                                    if (isOther) {
+                                                        toggleFilterTag(tag);
+                                                    } else {
+                                                        setSelectedGroupTag(prev => ({
+                                                            ...prev,
+                                                            [row.id]: prev[row.id] === tag ? null : tag,
+                                                        }));
+                                                    }
+                                                }}
+                                                className={`text-[12px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border cursor-pointer ${
+                                                    isSelected
+                                                        ? 'tag-checked font-medium'
+                                                        : 'surface-inset border-default text-2 hover:border-brand'
+                                                }`}
+                                            >
+                                                {tag}
+                                            </Tag>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
 
                         {(Object.values(selectedGroupTag).some(Boolean) || selectedOtherFilterTags.length > 0) && (
                             <div className="flex flex-wrap gap-2 items-center">
@@ -611,6 +719,21 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                     );
                 })()}
 
+                {/* 批量打标签操作栏（批量模式下常驻列表顶部） */}
+                {batchMode && (
+                    <AssetBatchTagBar
+                        selectedCount={selectedFileNames.size}
+                        filteredCount={filteredAssets.length}
+                        allSelected={batchSelectionStats.allSelected}
+                        indeterminate={batchSelectionStats.indeterminate}
+                        onSelectAll={handleBatchSelectAll}
+                        onClearSelection={() => setSelectedFileNames(new Set())}
+                        onExit={exitBatchMode}
+                        groups={tagGroupRows}
+                        onApplyTags={handleBatchAddTags}
+                    />
+                )}
+
                 <div className="space-y-2">
                     {filteredAssets.map(info => {
                         const isFocused = focusedFile === info.fileName;
@@ -618,13 +741,21 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                         // 智能感知：如果该资产下的车型已在工作集中，则视为激活
                         const isActive = selectedProductNames.includes(buildVehicleInstanceKey('asset', info.fileName, info.productName));
                         const sourceMeta = getAssetSourceMeta(assetTags[info.fileName] || []);
+                        const isBatchChecked = batchMode && selectedFileNames.has(info.fileName);
 
                         return (
-                            <div 
+                            <div
                                 key={info.fileName}
                                 onClick={() => onFocusFile(info.fileName)}
+                                onPointerDown={e => { longPressTargetRef.current = info.fileName; cardLongPress.onPointerDown(e); }}
+                                onPointerMove={cardLongPress.onPointerMove}
+                                onPointerUp={cardLongPress.onPointerUp}
+                                onPointerLeave={cardLongPress.onPointerLeave}
+                                onPointerCancel={cardLongPress.onPointerCancel}
+                                onClickCapture={cardLongPress.onClickCapture}
                                 onContextMenu={onContextMenu([
                                     { key: 'focus', label: '聚焦查看', onClick: () => onFocusFile(info.fileName) },
+                                    { key: 'batch', label: '批量选择', onClick: () => enterBatchMode(info.fileName) },
                                     { key: 'rename', label: '重命名', onClick: () => handleStartFileRename(info) },
                                     { key: 'divider1', divider: true, onClick: () => {} },
                                     { key: 'finder', label: '在 Finder 中显示', onClick: () => handleRevealInFinder(info) },
@@ -635,17 +766,27 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 className={`flex flex-col justify-center py-2.5 px-3.5 rounded-lg border group relative ${
                                     isEditing
                                         ? 'border-brand surface-container'
-                                        : isFocused
-                                            ? 'surface-container border-brand ring-1 ring-brand'
-                                            : isActive
-                                                ? 'surface-container border-default edge-success'
-                                                : 'surface-container border-default hover:border-line-strong'
+                                        : isBatchChecked
+                                            ? 'surface-container border-brand bg-brand-weak'
+                                            : isFocused
+                                                ? 'surface-container border-brand ring-1 ring-brand'
+                                                : isActive
+                                                    ? 'surface-container border-default edge-success'
+                                                    : 'surface-container border-default hover:border-line-strong'
                                 }`}
                             >
                                 {false ? null : (
                                     <>
-                                        <div className="flex items-center justify-between min-w-0">
-                                            <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="flex items-center min-w-0">
+                                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                {batchMode && (
+                                                    <Checkbox
+                                                        checked={selectedFileNames.has(info.fileName)}
+                                                        onChange={e => toggleBatchSelected(info.fileName, e.target.checked)}
+                                                        onClick={e => e.stopPropagation()}
+                                                        className="flex-shrink-0"
+                                                    />
+                                                )}
                                                 <Tooltip title={isActive ? "点击快速停用该资产" : "点击快速激活该资产"}>
                                                     <div
                                                         onClick={(e) => { e.stopPropagation(); handleToggleAsset(info, isActive); }}
@@ -722,7 +863,8 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                     })()}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 ml-2">
+                                            <AssetStatsBadge totalParams={info.totalParams} filledParams={info.filledParams} />
+                                            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 ml-2 flex-shrink-0">
                                                 {!isActive ? (
                                                     <Tooltip title="添加至车型列">
                                                         <Button
@@ -843,7 +985,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                             </div>
                                         </div>
                                         {/* 标签行 */}
-                                        <div className="pl-[46px] mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                        <div className={`${batchMode ? 'pl-[78px]' : 'pl-[46px]'} mt-1.5 flex items-center gap-1.5 flex-wrap`}>
                                             {(assetTags[info.fileName] || []).map(tag => (
                                                 <Tag
                                                     key={tag}

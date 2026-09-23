@@ -1,5 +1,10 @@
 import * as XLSX from 'xlsx';
 import type { VehicleParameter, SheetData, SheetPreview, SheetParseConfig } from '../types';
+import {
+    detectHorizontalSheet,
+    parseHorizontalSheet,
+    type WorkbookOrientation
+} from './excelParserHorizontal';
 
 /**
  * Excel 参数解析器
@@ -212,10 +217,15 @@ const detectMultiRowHeader = (
     return false;
 };
 
+/** 判断 Sheet 名称是否属于应排除的辅助页（版本记录等） */
+const isExcludedSheet = (sheetName: string): boolean => {
+    const lower = sheetName.toLowerCase();
+    return EXCLUDED_SHEET_KEYWORDS.some(kw => lower.includes(kw));
+};
+
 /** 判断 Sheet 是否为参数表（通过表头关键词） */
 const isParameterSheet = (headers: string[], sheetName: string): boolean => {
-    const lower = sheetName.toLowerCase();
-    if (EXCLUDED_SHEET_KEYWORDS.some(kw => lower.includes(kw))) return false;
+    if (isExcludedSheet(sheetName)) return false;
 
     return headers.some(h => {
         if (!h || typeof h !== 'string') return false;
@@ -351,6 +361,7 @@ const parseKeyValueSheet = (jsonData: unknown[][], sheetName: string, fileName: 
 export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetData => {
     const allParameters: VehicleParameter[] = [];
     let headers: string[] = [];
+    const horizontalSheetNames = new Set<string>();
 
     const diagnostics: ParseDiagnostics = {
         totalSheets: workbook.SheetNames.length,
@@ -367,7 +378,25 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
             return;
         }
 
-        // 优先检测键值对格式
+        // 优先检测横向格式（参数为列、车型为行，如"产品准入导出"）
+        if (!isExcludedSheet(sheetName)) {
+            const horizontalInfo = detectHorizontalSheet(jsonData);
+            if (horizontalInfo) {
+                const params = parseHorizontalSheet(jsonData, horizontalInfo, {
+                    sheetName, convertValue: convertPercentValue
+                });
+                if (params.length > 0) {
+                    allParameters.push(...params);
+                    horizontalSheetNames.add(sheetName);
+                    diagnostics.headerFound = true;
+                    diagnostics.productColumnsFound += new Set(params.map(p => p.productName)).size;
+                    diagnostics.sheetsProcessed.push(sheetName);
+                    return;
+                }
+            }
+        }
+
+        // 检测键值对格式
         if (isKeyValueFormat(jsonData)) {
             allParameters.push(...parseKeyValueSheet(jsonData, sheetName, fileName));
             diagnostics.sheetsProcessed.push(sheetName);
@@ -487,7 +516,7 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
 
     if (allParameters.length === 0) {
         if (!diagnostics.headerFound) {
-            diagnostics.suggestion = '请确保文件中包含"参数项名称"或"名称"列作为表头';
+            diagnostics.suggestion = '请确保文件中包含"参数项名称"或"名称"列作为表头，或表头为"参数作列、车型作行"的横向格式（如产品准入导出）';
         } else if (diagnostics.productColumnsFound === 0) {
             diagnostics.suggestion = '请确保表头行右侧有产品名称列，或在下一行填写产品名称';
         } else {
@@ -496,10 +525,13 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
         throw new ParseError('无法解析文件，未找到有效的参数数据', diagnostics);
     }
 
-    // 跨 sheet 合并：同一文件多个 sheet 各产出单产品时，统一产品名
+    // 跨 sheet 合并：同一文件多个 sheet 各产出单产品时，统一产品名。
+    // 横向 sheet（如 _part0/_part1 分片导出）每行即一个车型，不参与此合并，
+    // 否则各分片只有一个车型时会被错误并成一个产品。
     const productsBySheet = new Map<string, Set<string>>();
     for (const p of allParameters) {
         const sheet = p.originSheet || '';
+        if (horizontalSheetNames.has(sheet)) continue;
         if (!productsBySheet.has(sheet)) productsBySheet.set(sheet, new Set());
         productsBySheet.get(sheet)!.add(p.productName || '');
     }
@@ -551,44 +583,6 @@ export const readFileAsWorkbook = (file: File): Promise<XLSX.WorkBook> => {
     });
 };
 
-// ===================== 需求文件解析（独立模块） =====================
-
-export const parseRequirementWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetData => {
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const jsonData = sheetToRows(sheet, { header: 1 });
-    if (jsonData.length === 0) throw new Error("File is empty");
-
-    const headers = jsonData[0] as string[];
-    const nameIdx = headers.findIndex(h => h && typeof h === 'string' &&
-        (h.includes('参数名') || h.includes('名称') || h.includes('Name') || h.includes('公告')));
-    const effectiveNameIdx = nameIdx !== -1 ? nameIdx : 0;
-
-    const allParameters: VehicleParameter[] = [];
-    for (let i = 1; i < jsonData.length; i++) {
-        const row = jsonData[i] as string[];
-        if (!row) continue;
-        const name = row[effectiveNameIdx] ? String(row[effectiveNameIdx]).trim() : '';
-        if (!name) continue;
-        allParameters.push({ id: `REQ_${i}`, group: 'Requirement', name, value: '', originSheet: sheetName });
-    }
-    return { fileName, data: allParameters, rawHeaders: headers };
-};
-
-export const parseRequirementExcel = async (file: File): Promise<SheetData> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
-                resolve(parseRequirementWorkbook(XLSX.read(data, { type: 'array' }), file.name));
-            } catch (error) { reject(error); }
-        };
-        reader.onerror = (error) => reject(error);
-        reader.readAsArrayBuffer(file);
-    });
-};
-
 // ===================== 预览 + 配置化解析 =====================
 
 export const previewWorkbook = (workbook: XLSX.WorkBook): SheetPreview[] => {
@@ -612,6 +606,35 @@ export const previewWorkbook = (workbook: XLSX.WorkBook): SheetPreview[] => {
     });
 };
 
+/**
+ * 判定工作簿方向：所有非空 sheet 均为横向 → 'horizontal'；部分横向 → 'mixed'；
+ * 均非横向 → 'vertical'；无有效内容 → 'empty'。
+ */
+export const detectWorkbookOrientation = (workbook: XLSX.WorkBook): WorkbookOrientation => {
+    let sawHorizontal = false;
+    let sawOther = false;
+
+    for (const sheetName of workbook.SheetNames) {
+        if (isExcludedSheet(sheetName)) continue;
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = sheetToRows(sheet, { header: 1 });
+        const hasContent = jsonData.some(row => (row || []).some(c =>
+            c !== undefined && c !== null && String(c).trim() !== ''
+        ));
+        if (!hasContent) continue;
+
+        if (detectHorizontalSheet(jsonData)) {
+            sawHorizontal = true;
+        } else {
+            sawOther = true;
+        }
+    }
+
+    if (!sawHorizontal && !sawOther) return 'empty';
+    if (sawHorizontal && sawOther) return 'mixed';
+    return sawHorizontal ? 'horizontal' : 'vertical';
+};
+
 export const parseWorkbookWithConfig = (
     workbook: XLSX.WorkBook, fileName: string, configs: SheetParseConfig[]
 ): SheetData => {
@@ -623,6 +646,18 @@ export const parseWorkbookWithConfig = (
         if (!sheet) continue;
         const jsonData = sheetToRows(sheet, { header: 1, defval: '' });
         if (jsonData.length === 0) continue;
+
+        // 横向格式由解析端自动识别，列角色配置不适用（列配置无法表达"行=车型"）
+        const horizontalInfo = detectHorizontalSheet(jsonData);
+        if (horizontalInfo) {
+            allParameters.push(...parseHorizontalSheet(jsonData, horizontalInfo, {
+                sheetName: config.sheetName, convertValue: convertPercentValue
+            }));
+            if (headers.length === 0) {
+                headers = (jsonData[horizontalInfo.headerRowIndex] as string[]).map(h => String(h || ''));
+            }
+            continue;
+        }
 
         const productColumns = config.productColumns.map(pc => {
             let name = pc.name || buildHeaderName(jsonData, config.headerRows, pc.index);

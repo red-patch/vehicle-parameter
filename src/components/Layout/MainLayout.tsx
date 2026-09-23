@@ -1,10 +1,11 @@
 import React, { type ReactNode } from 'react';
 import { version } from '../../../package.json';
 import { Layout as AntLayout, Menu, Tooltip, Button } from 'antd';
-import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined, GlobalOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { reloadCustomFields } from '../../utils/fieldLists';
+import { reloadBidMappings } from '../../utils/bidFieldMapping';
 import { preloadEnumData } from '../../utils/attributeEnums';
 import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import { Modal } from 'antd';
@@ -34,11 +35,6 @@ const items = [
         label: '智能填报',
     },
     {
-        key: 'multi',
-        icon: <AppstoreOutlined />,
-        label: '多车型管理',
-    },
-    {
         key: 'purify',
         icon: <SafetyCertificateOutlined />,
         label: '数据体检与修复',
@@ -65,6 +61,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
             void reloadCustomFields(assetLibraryPath);
             void preloadEnumData(assetLibraryPath);
             void reloadCustomAssetTagGroups(assetLibraryPath);
+            void reloadBidMappings(assetLibraryPath);
         } else {
             void reloadCustomAssetTagGroups('');
         }

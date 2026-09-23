@@ -6,7 +6,7 @@
  * 自动 fallback 到主线程同步解析，保证功能不中断。
  */
 import type { SheetData, SheetParseConfig } from '../types';
-import { parseWorkbook, parseRequirementWorkbook, parseWorkbookWithConfig } from './excelParser';
+import { parseWorkbook, parseWorkbookWithConfig } from './excelParser';
 import * as XLSX from 'xlsx';
 
 let _worker: Worker | null = null;
@@ -69,11 +69,6 @@ const parseWithConfigSync = (buffer: ArrayBuffer, fileName: string, configs: She
   return parseWorkbookWithConfig(workbook, fileName, configs);
 };
 
-const parseRequirementSync = (buffer: ArrayBuffer, fileName: string): SheetData => {
-  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
-  return parseRequirementWorkbook(workbook, fileName);
-};
-
 /**
  * 通过 Worker 发送任务（自动 fallback）
  */
@@ -95,7 +90,7 @@ const postTask = <T extends { type: string }>(msg: T, buffer: ArrayBuffer, _file
     _pending.set(id, { resolve, reject });
     try {
       worker.postMessage({ id, ...msg, buffer }, [buffer]);
-    } catch (err) {
+    } catch {
       _pending.delete(id);
       // postMessage 失败（如 buffer 已 detach），回退主线程
       try {
@@ -135,19 +130,5 @@ export const parseWithConfigAsync = async (
     buffer,
     file.name,
     () => parseWithConfigSync(buffer, file.name, configs)
-  );
-};
-
-/**
- * 异步解析需求文件
- * 替代同步版 parseRequirementExcel
- */
-export const parseRequirementAsync = async (file: File): Promise<SheetData> => {
-  const buffer = await file.arrayBuffer();
-  return postTask(
-    { type: 'parseRequirement' as const, buffer, fileName: file.name },
-    buffer,
-    file.name,
-    () => parseRequirementSync(buffer, file.name)
   );
 };

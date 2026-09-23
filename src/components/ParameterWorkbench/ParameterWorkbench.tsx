@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Tabs, Skeleton } from 'antd';
-import { DatabaseOutlined, DiffOutlined, FormOutlined, AppstoreOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import DataSourcePanel from './DataSourcePanel';
 import VehicleListPanel from './VehicleListPanel';
 import AssetDataSynchronizer from './AssetDataSynchronizer';
@@ -8,15 +8,14 @@ import type { RepairSourceModule } from '../../types';
 
 const CompareView = React.lazy(() => import('./CompareView'));
 const SmartFillView = React.lazy(() => import('./SmartFillView'));
-const MultiVehicleView = React.lazy(() => import('./MultiVehicleView'));
 const DataPurifyView = React.lazy(() => import('../DataPurify/DataPurifyView'));
 
-type WorkbenchTabKey = 'pool' | 'compare' | 'fill' | 'multi' | 'purify';
+type WorkbenchTabKey = 'pool' | 'compare' | 'fill' | 'purify';
 
 const repairModuleTabMap: Record<RepairSourceModule, string> = {
     compare: 'compare',
     smart_fill: 'fill',
-    multi_vehicle: 'multi',
+    multi_vehicle: 'fill',
 };
 
 interface ParameterWorkbenchProps {
@@ -93,15 +92,6 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             children: (
                 <React.Suspense fallback={<Skeleton active />}>
                     <SmartFillView onGoRepair={handleGoRepair} />
-                </React.Suspense>
-            )
-        },
-        {
-            key: 'multi',
-            label: <span className="flex items-center gap-1.5"><AppstoreOutlined /> 多车型管理</span>,
-            children: (
-                <React.Suspense fallback={<Skeleton active />}>
-                    <MultiVehicleView onGoRepair={handleGoRepair} />
                 </React.Suspense>
             )
         },

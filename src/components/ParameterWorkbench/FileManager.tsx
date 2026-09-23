@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
-import { readFileAsWorkbook, previewWorkbook } from '../../utils/excelParser';
-import { parseWithConfigAsync } from '../../utils/excelParserAsync';
-import type { SheetPreview, SheetParseConfig } from '../../types';
+import { readFileAsWorkbook, previewWorkbook, detectWorkbookOrientation } from '../../utils/excelParser';
+import { parseWithConfigAsync, parseExcelAsync } from '../../utils/excelParserAsync';
+import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
 import SheetPickerModal from './SheetPickerModal';
@@ -39,6 +39,12 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
 
   const openPreviewDialog = async (file: File) => {
     const workbook = await readFileAsWorkbook(file);
+    // 全横向格式（参数为列、车型为行，如"产品准入导出"）：列角色配置无法表达，
+    // 直接自动解析进入车型确认弹窗
+    if (detectWorkbookOrientation(workbook) === 'horizontal') {
+      await importHorizontalDirectly(file);
+      return;
+    }
     const previews = previewWorkbook(workbook);
     setPendingFileName(file.name);
     setPreviewData(previews);
@@ -50,10 +56,19 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     }
   };
 
-  const handlePreviewConfirm = async (configs: SheetParseConfig[]) => {
-    const cachedFile = fileCache.get(pendingFileName);
-    if (!cachedFile) { message.error('文件缓存过期'); return; }
-    const data = await parseWithConfigAsync(cachedFile, configs);
+  const importHorizontalDirectly = async (file: File) => {
+    try {
+      const data = await parseExcelAsync(file);
+      const productCount = new Set(data.data.map(p => p.productName)).size;
+      message.info(`检测到横向格式（参数为列、车型为行），已解析出 ${productCount} 个车型`);
+      showProductConfirm(data, file.name);
+    } catch (err) {
+      message.error('解析失败：' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  /** 按产品分组并弹出「确认导入车型」弹窗（预览配置路径与横向快捷路径共用） */
+  const showProductConfirm = (data: SheetData, fileName: string) => {
     const productGroups = new Map<string, typeof data.data>();
     data.data.forEach(p => {
       const key = p.productName || data.fileName;
@@ -62,9 +77,16 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     });
     setPendingProducts(Array.from(productGroups.entries()).map(([name, params]) => ({ name, count: params.length, checked: true })));
     setPendingProductData(data.data);
-    setPendingPendingFileName(pendingFileName);
+    setPendingPendingFileName(fileName);
     setConfirmModalVisible(true);
     setPreviewOpen(false);
+  };
+
+  const handlePreviewConfirm = async (configs: SheetParseConfig[]) => {
+    const cachedFile = fileCache.get(pendingFileName);
+    if (!cachedFile) { message.error('文件缓存过期'); return; }
+    const data = await parseWithConfigAsync(cachedFile, configs);
+    showProductConfirm(data, pendingFileName);
   };
 
   const handleConfirmSave = async () => {

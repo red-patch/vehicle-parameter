@@ -59,6 +59,13 @@ export const isGroupExclusive = (groupId: string): boolean => {
     return cachedConfig.exclusiveGroups.includes(groupId);
 };
 
+/** 互斥组的标签集合列表（批量打标签的组内替换语义用；跳过空组与已删除组） */
+export const getExclusiveGroupTagSets = (): string[][] => {
+    return cachedConfig.exclusiveGroups
+        .map(id => cachedConfig.groups.find(g => g.id === id)?.tags ?? [])
+        .filter(tags => tags.length > 0);
+};
+
 export const reloadCustomAssetTagGroups = async (libraryPath: string): Promise<void> => {
     if (!libraryPath) {
         cachedConfig = DEFAULT_ASSET_TAG_GROUPS;
