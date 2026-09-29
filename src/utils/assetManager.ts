@@ -89,13 +89,28 @@ export interface AssetFileInfo {
     announceNos: string[];
     /** 车辆型号（公告数据源以此为公告号） */
     vehicleModel: string | null;
+    /** 数据级别（治理）：参数含「准入信息」组 → 公告/准入级 */
+    hasAdmissionInfo: boolean;
+    /** 审批状态（治理）：准入信息里「审批状态」的值（已审核/驳回） */
+    approvalStatus: string | null;
 }
 
 /**
  * 遍历并轻量解析资产库的所有文件，获得核心元信息和概览统计
- * 这对实现看板级混排与列表呈现极其重要，支持大批量的毫秒级读取
+ *
+ * Tauri 环境优先走 Rust 命令 scan_asset_library：读文件+解析+统计全部在
+ * Rust 线程池完成，只回传元信息——资产库达数百文件/几十 MB 时，主线程
+ * 不再被 JSON.parse 分片阻塞（这是页面切换卡顿的主因）。
  */
 export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetFileInfo[]> => {
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            return await invoke<AssetFileInfo[]>('scan_asset_library', { path: libraryPath });
+        } catch (e) {
+            console.warn('Rust scan_asset_library 失败，回退 JS 实现', e);
+        }
+    }
     try {
         if (!await exists(libraryPath)) return [];
         const entries = await readDir(libraryPath);
@@ -124,6 +139,11 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                     const vehicleModelParam = params.find(p => p.name === '车辆型号');
                     const vehicleModel = vehicleModelParam?.value ? String(vehicleModelParam.value).trim() : null;
 
+                    // 治理字段：与 Rust scan_one 对齐
+                    const hasAdmissionInfo = params.some(p => (p.group || '').includes('准入'));
+                    const statusParam = params.find(p => p.name === '审批状态' && String(p.value ?? '').trim() !== '');
+                    const approvalStatus = statusParam ? String(statusParam.value).trim() : null;
+
                     return {
                         fileName,
                         productName: parsed.productName || fileName.replace(/\.json$/i, ''),
@@ -132,6 +152,8 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                         filledParams: filled,
                         announceNos,
                         vehicleModel,
+                        hasAdmissionInfo,
+                        approvalStatus,
                     };
                 } catch (e) {
                     console.warn(`Failed to parse asset file ${fileName}`, e);
@@ -236,7 +258,10 @@ export const renameAssetFile = async (
         } catch (e) {
             console.warn('Failed to sync tags during rename', e);
         }
-        
+
+        // 同步治理元数据
+        await syncMetaOnRename(libraryPath, finalOldName, finalNewName);
+
         return true;
     } catch (error) {
         console.error("Failed to rename asset file", error);
@@ -289,6 +314,9 @@ export const renameAssetIdentity = async (
         } catch (e) {
             console.warn('Failed to sync tags during unified asset rename', e);
         }
+
+        // 同步治理元数据
+        await syncMetaOnRename(libraryPath, finalOldName, finalNewName);
 
         return {
             success: true,
@@ -356,7 +384,10 @@ export const deleteAssetFile = async (libraryPath: string, fileName: string): Pr
         } catch (e) {
             console.warn('Failed to sync tags during delete', e);
         }
-        
+
+        // 同步清除治理元数据
+        await syncMetaOnDelete(libraryPath, finalFileName);
+
         return true;
     } catch (error) {
         console.error("Failed to delete asset file", error);
@@ -427,4 +458,87 @@ export const batchAddAssetTags = async (
         return { ...tags, ...updates };
     }
     return tags;
+};
+
+// ==================== 治理元数据（主文件/历史/废弃） ====================
+
+export const META_FILE = '_asset_meta.json';
+
+/** 单个资产的治理标注（旁路存储在 META_FILE，不写入资产 JSON 本体） */
+export interface AssetGovernanceMeta {
+    /** 主文件标记：同一车型组内原则上只有一个 */
+    isPrimary?: boolean;
+    /** 状态标记：历史版本 / 废弃（只打标，不隐藏、不移动文件） */
+    status?: 'superseded' | 'deprecated';
+    note?: string;
+}
+
+export type AssetMetaMap = Record<string, AssetGovernanceMeta>;
+
+/** 加载治理元数据映射（文件不存在/损坏时返回空表） */
+export const loadAssetMeta = async (libraryPath: string): Promise<AssetMetaMap> => {
+    try {
+        const fullPath = await join(libraryPath, META_FILE);
+        if (!await exists(fullPath)) return {};
+        const content = await readTextFile(fullPath);
+        return JSON.parse(content) as AssetMetaMap;
+    } catch (error) {
+        console.error('Failed to load asset meta', error);
+        return {};
+    }
+};
+
+/** 保存整个治理元数据映射 */
+export const saveAssetMeta = async (libraryPath: string, meta: AssetMetaMap): Promise<void> => {
+    try {
+        const fullPath = await join(libraryPath, META_FILE);
+        await writeTextFile(fullPath, JSON.stringify(meta, null, 2));
+    } catch (error) {
+        console.error('Failed to save asset meta', error);
+    }
+};
+
+/**
+ * 更新单个资产的治理元数据并持久化
+ * @param patch null 表示清除该文件的全部治理标注
+ */
+export const setAssetFileMeta = async (
+    libraryPath: string,
+    fileName: string,
+    patch: AssetGovernanceMeta | null
+): Promise<void> => {
+    const meta = await loadAssetMeta(libraryPath);
+    if (patch === null || Object.keys(patch).length === 0) {
+        delete meta[fileName];
+    } else {
+        meta[fileName] = { ...(meta[fileName] || {}), ...patch };
+    }
+    await saveAssetMeta(libraryPath, meta);
+};
+
+/** 重命名资产时同步迁移治理元数据（与标签同步同款逻辑） */
+const syncMetaOnRename = async (libraryPath: string, oldName: string, newName: string): Promise<void> => {
+    try {
+        const meta = await loadAssetMeta(libraryPath);
+        if (meta[oldName]) {
+            meta[newName] = meta[oldName];
+            delete meta[oldName];
+            await saveAssetMeta(libraryPath, meta);
+        }
+    } catch (e) {
+        console.warn('Failed to sync meta during rename', e);
+    }
+};
+
+/** 删除资产时同步清除治理元数据 */
+const syncMetaOnDelete = async (libraryPath: string, fileName: string): Promise<void> => {
+    try {
+        const meta = await loadAssetMeta(libraryPath);
+        if (meta[fileName]) {
+            delete meta[fileName];
+            await saveAssetMeta(libraryPath, meta);
+        }
+    } catch (e) {
+        console.warn('Failed to sync meta during delete', e);
+    }
 };

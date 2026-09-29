@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Input, Button, Card, Typography, Space, Alert, message, Steps } from 'antd';
 import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
 import ParametersTable from '../DiffViewer/ParametersTable';
 import type { SheetData } from '../../types';
 import { saveAssetFile } from '../../utils/assetManager';
@@ -31,7 +32,15 @@ const BOOKMARKLET_CODE = `javascript:(function(){try{const table=document.queryS
 const AnnouncementQuery: React.FC = () => {
     const [announcementNo, setAnnouncementNo] = useState<string>('');
     const [importJson, setImportJson] = useState<string>('');
-    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath, bumpAssetVersion } = useVehicleStore();
+    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath, bumpAssetVersion } = useVehicleStore(useShallow(state => ({
+        setMiitData: state.setMiitData,
+        miitData: state.miitData,
+        setTargetFile: state.setTargetFile,
+        setCompareMode: state.setCompareMode,
+        addFile: state.addFile,
+        assetLibraryPath: state.assetLibraryPath,
+        bumpAssetVersion: state.bumpAssetVersion,
+    })));
     const bookmarkLinkRef = React.useRef<HTMLAnchorElement>(null);
     const [saveModalVisible, setSaveModalVisible] = useState(false);
 

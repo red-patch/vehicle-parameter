@@ -4,6 +4,7 @@ import { UploadOutlined, FileExcelOutlined, ExclamationCircleOutlined } from '@a
 import { ParseError, type ParseDiagnostics } from '../../utils/excelParser';
 import { parseExcelAsync } from '../../utils/excelParserAsync';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
 import type { SheetData } from '../../types';
 
 const { Text } = Typography;
@@ -45,7 +46,12 @@ const formatDiagnostics = (diagnostics: ParseDiagnostics): React.ReactNode => {
 };
 
 const ExcelUploader: React.FC = () => {
-    const { setBaseFile, setTargetFile, baseFile, targetFile } = useVehicleStore();
+    const { setBaseFile, setTargetFile, baseFile, targetFile } = useVehicleStore(useShallow(state => ({
+        setBaseFile: state.setBaseFile,
+        setTargetFile: state.setTargetFile,
+        baseFile: state.baseFile,
+        targetFile: state.targetFile,
+    })));
     const [loading, setLoading] = useState(false);
 
     const handleUpload = async (file: File, type: 'base' | 'target') => {

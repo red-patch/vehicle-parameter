@@ -72,7 +72,7 @@ const parseWithConfigSync = (buffer: ArrayBuffer, fileName: string, configs: She
 /**
  * 通过 Worker 发送任务（自动 fallback）
  */
-const postTask = <T extends { type: string }>(msg: T, buffer: ArrayBuffer, _fileName: string, fallback: () => SheetData): Promise<SheetData> => {
+const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fallback: () => R): Promise<R> => {
   const worker = getWorker();
   if (!worker) {
     // Worker 不可用，直接主线程执行
@@ -87,7 +87,7 @@ const postTask = <T extends { type: string }>(msg: T, buffer: ArrayBuffer, _file
 
   return new Promise((resolve, reject) => {
     const id = ++_pendingId;
-    _pending.set(id, { resolve, reject });
+    _pending.set(id, { resolve: resolve as (v: SheetData) => void, reject });
     try {
       worker.postMessage({ id, ...msg, buffer }, [buffer]);
     } catch {
@@ -111,7 +111,6 @@ export const parseExcelAsync = async (file: File): Promise<SheetData> => {
   return postTask(
     { type: 'parse' as const, buffer, fileName: file.name },
     buffer,
-    file.name,
     () => parseSync(buffer, file.name)
   );
 };
@@ -128,7 +127,41 @@ export const parseWithConfigAsync = async (
   return postTask(
     { type: 'parseWithConfig' as const, buffer, fileName: file.name, configs },
     buffer,
-    file.name,
     () => parseWithConfigSync(buffer, file.name, configs)
   );
+};
+
+const readWorkbookSync = (buffer: ArrayBuffer): XLSX.WorkBook =>
+  XLSX.read(new Uint8Array(buffer), { type: 'array' });
+
+/**
+ * 通过 Worker 仅做 XLSX.read 解析（不做行转换），返回 WorkBook 的结构化克隆副本。
+ * 调用方在主线程做 sheet_to_json 等轻量后处理，
+ * 用于替代散落各处的主线程 XLSX.read（重构方案A Phase 4 收敛点）。
+ */
+export const readWorkbookFromBufferAsync = async (buffer: ArrayBuffer): Promise<XLSX.WorkBook> => {
+  return postTask(
+    { type: 'readWorkbook' as const, buffer },
+    buffer,
+    () => readWorkbookSync(buffer)
+  );
+};
+
+/** 便捷封装：File → Worker 解析为 WorkBook（替代 excelParser.readFileAsWorkbook 的主线程版本） */
+export const readWorkbookAsync = async (file: File): Promise<XLSX.WorkBook> => {
+  const buffer = await file.arrayBuffer();
+  return readWorkbookFromBufferAsync(buffer);
+};
+
+/**
+ * Phase 5：Tauri Rust 命令（calamine）按路径解析，返回 SheetJS 兼容 WorkBook。
+ * 仅 Tauri 环境可用（调用方需已持有文件路径，如 dialog 返回值）。
+ */
+export const readWorkbookFromPathAsync = async (path: string): Promise<XLSX.WorkBook> => {
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
+    throw new Error('readWorkbookFromPathAsync 仅在 Tauri 环境可用');
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  const workbook = await invoke<unknown>('read_workbook', { path });
+  return workbook as XLSX.WorkBook;
 };

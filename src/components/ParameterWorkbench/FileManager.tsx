@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
-import { readFileAsWorkbook, previewWorkbook, detectWorkbookOrientation } from '../../utils/excelParser';
-import { parseWithConfigAsync, parseExcelAsync } from '../../utils/excelParserAsync';
+import { useShallow } from 'zustand/react/shallow';
+import { previewWorkbook, detectWorkbookOrientation } from '../../utils/excelParser';
+import { parseWithConfigAsync, parseExcelAsync, readWorkbookAsync } from '../../utils/excelParserAsync';
 import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
@@ -22,7 +23,12 @@ interface FileManagerProps {
 const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFile, focusedFile }) => {
 
   const [uploading, setUploading] = useState(false);
-  const { assetLibraryPath, addActiveAsset, bumpAssetVersion, bumpAssetTagGroupsVersion } = useVehicleStore();
+  const { assetLibraryPath, addActiveAsset, bumpAssetVersion, bumpAssetTagGroupsVersion } = useVehicleStore(useShallow(state => ({
+    assetLibraryPath: state.assetLibraryPath,
+    addActiveAsset: state.addActiveAsset,
+    bumpAssetVersion: state.bumpAssetVersion,
+    bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
+  })));
 
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -38,7 +44,7 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
   };
 
   const openPreviewDialog = async (file: File) => {
-    const workbook = await readFileAsWorkbook(file);
+    const workbook = await readWorkbookAsync(file);
     // 全横向格式（参数为列、车型为行，如"产品准入导出"）：列角色配置无法表达，
     // 直接自动解析进入车型确认弹窗
     if (detectWorkbookOrientation(workbook) === 'horizontal') {

@@ -10,12 +10,14 @@ import type { TableProps } from 'antd';
 type DataTableProps<T extends object = Record<string, unknown>> = Omit<TableProps<T>, 'scroll'> & {
   /** 纵向滚动高度（像素或 CSS 值，如 400 或 "calc(100vh - 300px)"） */
   scrollY?: number | string;
-  /** 横向滚动，默认 "max-content" */
+  /** 横向滚动，默认 "max-content"；开启 virtual 时建议传数字总宽 */
   scrollX?: number | string;
   /** 每页条数，默认 50 */
   pageSize?: number;
   /** 隐藏分页切换器 */
   hideSizeChanger?: boolean;
+  /** 开启 antd 虚拟滚动（行数大的表；需配合 scrollY 且列宽为数字） */
+  virtual?: boolean;
 };
 
 export default function DataTable<T extends object = Record<string, unknown>>({
@@ -23,6 +25,7 @@ export default function DataTable<T extends object = Record<string, unknown>>({
   scrollX = 'max-content',
   pageSize = 50,
   hideSizeChanger = false,
+  virtual = false,
   size = 'small',
   pagination,
   ...rest
@@ -47,6 +50,7 @@ export default function DataTable<T extends object = Record<string, unknown>>({
       size={size}
       pagination={mergedPagination}
       scroll={mergedScroll}
+      virtual={virtual}
       {...rest}
     />
   );

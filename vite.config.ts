@@ -9,7 +9,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor-antd': ['antd', '@ant-design/icons'],
-          'vendor-pdf': ['jspdf', 'html2canvas'],
           'vendor-xlsx': ['xlsx'],
         },
       },

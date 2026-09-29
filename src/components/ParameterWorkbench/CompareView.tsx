@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Button, Empty, Tag, Alert, Space, Input, Segmented, message, Select, Spin } from 'antd';
-import { DiffOutlined, InfoCircleOutlined, SearchOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { Card, Checkbox, Empty, Tag, Alert, Space, Input, Segmented, message, Select, Spin } from 'antd';
+import { DiffOutlined, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import ProductSourceSelector from './ProductSourceSelector';
@@ -9,6 +9,9 @@ import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
 import DiffLegend from '../common/DiffLegend';
 import DataTable from '../common/DataTable';
+import ReportExportDropdown from '../common/ReportExportDropdown';
+import { exportCompareReport } from '../../utils/compareReport';
+import type { ReportFormat } from '../../utils/reportExport';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { buildVehicleDisplayLabels, getVehicleProductName } from '../../utils/vehicleInstance';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
@@ -33,7 +36,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     const [diffFilter, setDiffFilter] = useState<'all' | 'diff' | 'same' | 'required'>('all');
     const [searchText, setSearchText] = useState('');
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
-    const reportRef = useRef<HTMLDivElement>(null);
+    const [hideEmpty, setHideEmpty] = useState(true);
 
     // 自动清理：已在待分析区中被移除的车型，同步踢出对比选择
     useEffect(() => {
@@ -91,6 +94,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 group: param.group,
                 name: param.name,
                 hasDiff: localSelection.length > 1 ? !allSame : false,
+                // 任一选中车型有值即算有值；某车型缺该行时按空值计
+                hasAnyValue: values.some(v => v.trim() !== ''),
                 ...Object.fromEntries(param.values)
             };
         });
@@ -110,6 +115,11 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
             data = data.filter((row) => fieldSet.has(row.name));
         }
         
+        // 默认隐藏全空行；必填行豁免——待填报项不能被藏掉
+        if (hideEmpty) {
+            data = data.filter(r => r.hasAnyValue || isFieldRequired(r.name));
+        }
+
         // 差异/一致/必填过滤
         if (diffFilter === 'diff') {
             data = data.filter(r => r.hasDiff);
@@ -130,7 +140,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         }
 
         return data;
-    }, [comparisonData, diffFilter, searchText, localSelection, fieldGroupFilter, fieldGroupsVersion]);
+    }, [comparisonData, diffFilter, hideEmpty, searchText, localSelection, fieldGroupFilter, fieldGroupsVersion]);
 
     const fieldGroupOptions = useMemo(
         () => [{ value: 'all', label: '全部字段' }, ...getFieldGroupsSync().map((group) => ({ value: group.id, label: group.name }))],
@@ -224,6 +234,42 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         return { diffCount: diff, sameCount: same, requiredCount: req };
     }, [comparisonData]);
 
+    // 勾选「隐藏无值字段」后实际被藏掉的行数：全空且非必填
+    const emptyHideableCount = useMemo(
+        () => comparisonData.filter(r => !r.hasAnyValue && !isFieldRequired(r.name)).length,
+        [comparisonData]
+    );
+
+    // 表体高度实测：卡片自身永不滚动（overflow-hidden），表体是唯一纵向滚动容器，
+    // 表头/冻结列因此始终可见。可用高度必须从视口反推（视口底 − 表顶 − Footer/边距），
+    // 不能用「包裹层高度 − 表体高度」——表体高度决定卡片高度、卡片高度又决定包裹层高度，
+    // 环形测量会形成负反馈一路缩到下限。
+    const tableWrapRef = useRef<HTMLDivElement>(null);
+    const [tableBodyHeight, setTableBodyHeight] = useState(360);
+    const hasCompareRows = comparisonData.length > 0;
+
+    useEffect(() => {
+        const el = tableWrapRef.current;
+        if (!el || !hasCompareRows) return;
+        const update = () => {
+            const footer = document.querySelector<HTMLElement>('.ant-layout-footer');
+            const below = (footer?.offsetHeight ?? 0) + 18; // Content 下内边距 + 卡片边框余量
+            const available = Math.floor(window.innerHeight - el.getBoundingClientRect().top - below);
+            const head = el.querySelector<HTMLElement>('.ant-table-header, .ant-table-thead');
+            const pag = el.querySelector<HTMLElement>('.ant-pagination');
+            const reserved = (head?.offsetHeight ?? 0) + (pag ? pag.offsetHeight + 40 : 0);
+            setTableBodyHeight(Math.max(160, available - reserved));
+        };
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        window.addEventListener('resize', update);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', update);
+        };
+    }, [hasCompareRows]);
+
     // 4. UX 提升: 版本对比自动切换“只看差异”
     useEffect(() => {
         if (localSelection.length > 1 && diffCount > 0) {
@@ -233,110 +279,25 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         }
     }, [localSelection.join(','), diffCount]);
 
-    // PDF 导出（html2canvas 截图方案，支持中文）
-    const handleExportPdf = async () => {
+    // 报告导出：自包含 HTML / Markdown
+    const handleExportReport = async (format: ReportFormat) => {
         if (comparisonData.length === 0) { message.warning('暂无对比数据'); return; }
 
-        const hide = message.loading('正在生成 PDF...', 0);
+        const hide = message.loading('正在生成报告...', 0);
         try {
-            const { default: html2canvas } = await import('html2canvas');
-            const { default: jsPDF } = await import('jspdf');
-
-            const now = new Date();
-            const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-            const diffItems = comparisonData.filter(r => r.hasDiff);
-            const sameItems = comparisonData.filter(r => !r.hasDiff);
-
-            const productHeaders = localSelection.map(n => `<th style="padding:8px 10px;border:1px solid #d9d9d9;background:#e6f4ff;font-size:12px;max-width:160px;word-break:break-all;">${selectionDisplayLabels.get(n)?.shortLabel || getVehicleProductName(n)}</th>`).join('');
-
-            const renderRows = (items: typeof comparisonData) => items.map(r => {
-                const cells = localSelection.map(p => {
-                    const val = (r as Record<string, unknown>)[p] || '-';
-                    const bg = r.hasDiff ? '#fffbe6' : '#ffffff';
-                    return `<td style="padding:6px 8px;border:1px solid #d9d9d9;font-size:11px;background:${bg}">${val}</td>`;
-                }).join('');
-                return `<tr><td style="padding:6px 8px;border:1px solid #d9d9d9;font-size:11px;background:#fafafa">${r.group}</td><td style="padding:6px 8px;border:1px solid #d9d9d9;font-size:11px;font-weight:500">${r.name}</td>${cells}</tr>`;
-            }).join('');
-
-            const reportHtml = `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB',sans-serif;padding:30px;background:#fff;width:1000px;">
-  <h2 style="text-align:center;margin:0 0 6px;font-size:20px;color:#1a1a1a;">车型参数对比分析报告</h2>
-  <p style="text-align:center;color:#999;font-size:12px;margin:0 0 20px;">生成时间：${dateStr} &nbsp;|&nbsp; 对比车型：${localSelection.map((name) => selectionDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name)).join(' vs ')}</p>
-  <div style="display:flex;gap:16px;margin-bottom:24px;">
-    <div style="flex:1;padding:14px;background:#fff7e6;border-radius:8px;border:1px solid #ffd591;text-align:center;">
-      <div style="font-size:28px;font-weight:bold;color:#fa8c16;">${diffItems.length}</div>
-      <div style="font-size:12px;color:#ad6800;margin-top:4px;">差异项</div>
-    </div>
-    <div style="flex:1;padding:14px;background:#f6ffed;border-radius:8px;border:1px solid #b7eb8f;text-align:center;">
-      <div style="font-size:28px;font-weight:bold;color:#52c41a;">${sameItems.length}</div>
-      <div style="font-size:12px;color:#389e0d;margin-top:4px;">一致项</div>
-    </div>
-    <div style="flex:1;padding:14px;background:#e6f7ff;border-radius:8px;border:1px solid #91d5ff;text-align:center;">
-      <div style="font-size:28px;font-weight:bold;color:#1890ff;">${comparisonData.length}</div>
-      <div style="font-size:12px;color:#096dd9;margin-top:4px;">总参数</div>
-    </div>
-  </div>
-  ${diffItems.length > 0 ? `
-  <h3 style="font-size:14px;color:#fa8c16;border-bottom:2px solid #ffd591;padding-bottom:6px;margin:0 0 10px;">⚠ 差异项 (${diffItems.length})</h3>
-  <table style="border-collapse:collapse;width:100%;margin-bottom:24px;">
-    <thead><tr><th style="padding:8px 10px;border:1px solid #d9d9d9;background:#fafafa;font-size:12px;">分组</th><th style="padding:8px 10px;border:1px solid #d9d9d9;background:#fafafa;font-size:12px;">参数名</th>${productHeaders}</tr></thead>
-    <tbody>${renderRows(diffItems)}</tbody>
-  </table>` : ''}
-  <h3 style="font-size:14px;color:#52c41a;border-bottom:2px solid #b7eb8f;padding-bottom:6px;margin:0 0 10px;">✓ 一致项 (${sameItems.length})</h3>
-  <table style="border-collapse:collapse;width:100%;">
-    <thead><tr><th style="padding:8px 10px;border:1px solid #d9d9d9;background:#fafafa;font-size:12px;">分组</th><th style="padding:8px 10px;border:1px solid #d9d9d9;background:#fafafa;font-size:12px;">参数名</th>${productHeaders}</tr></thead>
-    <tbody>${renderRows(sameItems)}</tbody>
-  </table>
-</div>`;
-
-            // 创建临时容器
-            const container = document.createElement('div');
-            container.innerHTML = reportHtml;
-            container.style.position = 'absolute';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            document.body.appendChild(container);
-
-            // html2canvas 截图（降低缩放以减小体积）
-            const canvas = await html2canvas(container.firstElementChild as HTMLElement, {
-                scale: 1.5,
-                useCORS: true,
-                backgroundColor: '#ffffff',
+            const fileName = await exportCompareReport(format, {
+                rows: comparisonData,
+                columns: localSelection.map((n) => ({
+                    key: n,
+                    label: selectionDisplayLabels.get(n)?.shortLabel || getVehicleProductName(n),
+                })),
             });
-
-            document.body.removeChild(container);
-
-            // 分页裁剪，每页只嵌入对应区域（避免整图重复嵌入）
-            const imgWidth = 277; // A4 landscape mm - margins
-            const pageHeightMm = 190;
-            const ratio = canvas.width / imgWidth;
-            const pageHeightPx = pageHeightMm * ratio;
-            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-            const totalPages = Math.ceil(canvas.height / pageHeightPx);
-
-            for (let page = 0; page < totalPages; page++) {
-                if (page > 0) doc.addPage();
-                // 裁剪当前页区域
-                const cropY = page * pageHeightPx;
-                const cropH = Math.min(pageHeightPx, canvas.height - cropY);
-                const pageCanvas = document.createElement('canvas');
-                pageCanvas.width = canvas.width;
-                pageCanvas.height = cropH;
-                const ctx = pageCanvas.getContext('2d')!;
-                ctx.drawImage(canvas, 0, cropY, canvas.width, cropH, 0, 0, canvas.width, cropH);
-                const pageImg = pageCanvas.toDataURL('image/jpeg', 0.75);
-                const pageImgH = (cropH * imgWidth) / canvas.width;
-                doc.addImage(pageImg, 'JPEG', 10, 10, imgWidth, pageImgH);
-            }
-
-            doc.save(`车型参数对比报告_${localSelection.map(getVehicleProductName).join('_vs_')}_${now.toISOString().slice(0, 10)}.pdf`);
             hide();
-            message.success('PDF 导出成功');
-
+            message.success(`报告已导出：${fileName}`);
         } catch (e) {
             hide();
-            console.error('PDF export failed:', e);
-            message.error('PDF 导出失败: ' + (e as Error).message);
+            console.error('Report export failed:', e);
+            message.error('报告导出失败：' + (e as Error).message);
         }
     };
 
@@ -360,16 +321,10 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                             <h2 className="text-[15px] font-bold text-1 m-0">选择对比车型</h2>
                             <Tag color="processing" className="ml-2 m-0 rounded-sm">已选 {localSelection.length} 款</Tag>
                         </div>
-                        <Button 
-                            type="primary" 
-                            size="small"
-                            icon={<FilePdfOutlined />} 
-                            onClick={handleExportPdf}
+                        <ReportExportDropdown
+                            onExport={handleExportReport}
                             disabled={localSelection.length === 0}
-                            className="text-[12px] h-8"
-                        >
-                            导出 PDF 报告
-                        </Button>
+                        />
                     </div>
 
                     <ProductSourceSelector 
@@ -380,10 +335,18 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 </div>
             </Card>
 
-            {/* Results Area */}
-            <div className="flex-1 overflow-auto surface-container rounded-lg border border-default">
+            {/* Results Area
+               maxHeight + isolation：结果表在自己的卡片内滚动，不让整页滚动。
+               WebKit（Tauri 的 WKWebView）下，页面级滚动 + 表格冻结列(sticky) 会留下
+               合成层残影，把左三列画到顶部标题栏之上，看起来像一个浮窗。
+               锁定卡片高度后页面不再滚动；isolation 兜底：即便残影出现，
+               表格层也永远被限制在卡片堆叠上下文内，盖不到 sticky 顶栏（z-50）。 */}
+            <div
+                className="flex-1 flex flex-col overflow-hidden surface-container rounded-lg border border-default"
+                style={{ isolation: 'isolate' }}
+            >
                 {comparisonData.length > 0 ? (
-                    <div className="p-3 flex flex-col min-h-0 flex-1" ref={reportRef}>
+                    <div className="p-3 flex flex-col min-h-0 flex-1">
                         {/* 统计 + 工具栏 */}
                         <div className="mb-3 flex items-center justify-between flex-wrap gap-2 shrink-0">
                             <div className="flex items-center gap-3">
@@ -416,27 +379,30 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                     style={{ width: 180 }}
                                     size="small"
                                 />
+                                <Checkbox
+                                    checked={hideEmpty}
+                                    onChange={e => setHideEmpty(e.target.checked)}
+                                >
+                                    隐藏无值字段{emptyHideableCount > 0 ? ` (${emptyHideableCount})` : ''}
+                                </Checkbox>
                             </div>
                             <Space>
                                 {pendingSelectionCount > 0 && (
                                     <Tag color="processing">同步中: {pendingSelectionCount} 款</Tag>
                                 )}
                                 <Tag>显示: {filteredData.length} 条</Tag>
-                                <Button
-                                    icon={<FilePdfOutlined />}
-                                    onClick={handleExportPdf}
-                                    size="small"
-                                >
-                                    导出 PDF 报告
-                                </Button>
+                                <ReportExportDropdown onExport={handleExportReport} />
                             </Space>
                         </div>
-                        <DataTable
-                            dataSource={filteredData}
-                            columns={columns}
-                            rowKey="key"
-                            rowClassName={(record: { hasDiff: boolean }) => record.hasDiff ? 'diff-row' : ''}
-                        />
+                        <div ref={tableWrapRef} className="flex-1 min-h-0">
+                            <DataTable
+                                dataSource={filteredData}
+                                columns={columns}
+                                rowKey="key"
+                                rowClassName={(record: { hasDiff: boolean }) => record.hasDiff ? 'diff-row' : ''}
+                                scrollY={tableBodyHeight}
+                            />
+                        </div>
                     </div>
                 ) : pendingSelectionCount > 0 ? (
                     <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-3 text-center">

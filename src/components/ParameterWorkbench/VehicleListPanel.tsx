@@ -40,7 +40,8 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
         setCompareProducts,
         assetLibraryPath,
         activeAssets,
-        ignoredProductNames
+        ignoredProductNames,
+        assetVersion
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
@@ -49,7 +50,8 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
         setCompareProducts: state.setCompareProducts,
         assetLibraryPath: state.assetLibraryPath,
         activeAssets: state.activeAssets,
-        ignoredProductNames: state.ignoredProductNames
+        ignoredProductNames: state.ignoredProductNames,
+        assetVersion: state.assetVersion
     })));
 
     const [loading, setLoading] = useState(false);
@@ -80,7 +82,9 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
             }
         };
         fetchAsset();
-    }, [assetLibraryPath, activeAssets, selectedProductNames]);
+        // assetVersion：资产文件在磁盘上被保存/重命名/删除时由各入口 bump，触发重读；
+        // 不再依赖 selectedProductNames（勾选不改变磁盘内容，避免每次勾选都重读资产库）
+    }, [assetLibraryPath, activeAssets, assetVersion]);
 
     const vehicles: VehicleSummary[] = useMemo(() => {
         const products = new Map<string, VehicleSummary>();
@@ -124,12 +128,13 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ focusedProduct, onF
         }
     }, [vehicles, focusedProduct, onFocusProduct]);
 
-    const activeVehicles = vehicles.filter(vehicle =>
+    // memo 化：否则每次 render 生成新数组，导致下游 activeVehicleDetails 的 useMemo 全失效
+    const activeVehicles = useMemo(() => vehicles.filter(vehicle =>
         selectedProductNames.includes(vehicle.key) && !ignoredProductNames.includes(vehicle.key)
-    );
-    const inactiveVehicles = vehicles.filter(vehicle =>
+    ), [vehicles, selectedProductNames, ignoredProductNames]);
+    const inactiveVehicles = useMemo(() => vehicles.filter(vehicle =>
         !selectedProductNames.includes(vehicle.key) || ignoredProductNames.includes(vehicle.key)
-    );
+    ), [vehicles, selectedProductNames, ignoredProductNames]);
     const vehicleDisplayLabels = useMemo(
         () => buildVehicleDisplayLabels(vehicles.map((vehicle) => vehicle.key)),
         [vehicles]

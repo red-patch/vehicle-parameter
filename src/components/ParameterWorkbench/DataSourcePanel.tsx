@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, LoadingOutlined, EditOutlined, DeleteOutlined, CheckOutlined, ExclamationCircleOutlined, PlusSquareOutlined, MinusSquareOutlined, DownloadOutlined, ReloadOutlined, SearchOutlined, TagOutlined, CloudUploadOutlined, CopyOutlined, FolderOpenOutlined, FileTextOutlined, ThunderboltOutlined, AuditOutlined } from '@ant-design/icons';
 import { Spin, Tooltip, Input, Button, Modal, message, Tag, Checkbox } from 'antd';
 import FileManager from './FileManager';
 import AssetBatchTagBar from './AssetBatchTagBar';
 import AssetStatsBadge from './AssetStatsBadge';
+import GovernanceReportModal from './GovernanceReportModal';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getAssetFilesWithInfo, renameAssetIdentity, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, batchAddAssetTags, type AssetFileInfo } from '../../utils/assetManager';
+import { getAssetFilesWithInfo, renameAssetIdentity, deleteAssetFile, loadAssetFile, loadAssetTags, setAssetFileTags, batchAddAssetTags, loadAssetMeta, saveAssetMeta, type AssetFileInfo, type AssetMetaMap } from '../../utils/assetManager';
 import { useLongPress } from '../../hooks/useLongPress';
 import { getAssetSourceMeta } from '../../utils/assetSourceTags';
 import { downloadCsv } from '../../utils/downloadCsv';
@@ -14,6 +15,7 @@ import AssetUpgradeModal from '../AssetLibrary/AssetUpgradeModal';
 import { getAssetDisplayName, validateAssetName, fixAssetName } from '../../utils/assetNaming';
 import { classifyAvailableTagsWithConfig, filterAssetInfos } from '../../utils/assetTagFilters';
 import { getAssetTagGroupsSync, ensureTagsInDefaultGroup, getExclusiveGroupTagSets } from '../../utils/assetTagGroups';
+import { buildAdoptPrimaryMeta, buildGovernanceReport, deriveVehicleGroupKey, extractBrandNames, type VehicleGroup } from '../../utils/assetGovernance';
 import TagSelector from '../common/TagSelector';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { useContextMenu } from '../../hooks/useContextMenu';
@@ -69,6 +71,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
 
     const [assets, setAssets] = useState<AssetFileInfo[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // 治理元数据（主文件/历史/废弃）与体检弹窗
+    const [assetMeta, setAssetMeta] = useState<AssetMetaMap>({});
+    const [governanceOpen, setGovernanceOpen] = useState(false);
+    const [primaryOnly, setPrimaryOnly] = useState(false);
     
     // Rename state
     const [renameModal, setRenameModal] = useState<{ open: boolean; info: AssetFileInfo | null }>({ open: false, info: null });
@@ -93,18 +100,23 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         if (!assetLibraryPath) return;
         setLoading(true);
         try {
-            const [infos, tags] = await Promise.all([
+            const [infos, tags, meta] = await Promise.all([
                 getAssetFilesWithInfo(assetLibraryPath),
-                loadAssetTags(assetLibraryPath)
+                loadAssetTags(assetLibraryPath),
+                loadAssetMeta(assetLibraryPath)
             ]);
-            // 按照更新时间倒序
+            // 主文件优先，其余按更新时间倒序
             infos.sort((a, b) => {
+                const ap = meta[a.fileName]?.isPrimary ? 1 : 0;
+                const bp = meta[b.fileName]?.isPrimary ? 1 : 0;
+                if (ap !== bp) return bp - ap;
                 if (!a.updatedAt) return 1;
                 if (!b.updatedAt) return -1;
                 return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
             });
             setAssets(infos);
             setAssetTags(tags);
+            setAssetMeta(meta);
         } catch (err) {
             console.error("Failed to load assets with info", err);
         } finally {
@@ -344,6 +356,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         );
     };
 
+
     // 全局标签集合 = 资产上已使用的标签 ∪ 系统分组内的全部标签（分组里的标签还没绑到资产上也可见）
     const allTags = useMemo(() => {
         const set = new Set<string>();
@@ -453,6 +466,81 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         return { total: assets.length, nonCompliant };
     }, [assets]);
 
+    // ===== 数据治理（主文件/历史/废弃） =====
+    const brandNames = useMemo(
+        () => extractBrandNames(getAssetTagGroupsSync().groups),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [assetTagGroupsVersion]
+    );
+
+    const governanceReport = useMemo(
+        () => buildGovernanceReport(assets, assetMeta, brandNames, info => effectiveAnnounceNos.get(info.fileName) || []),
+        [assets, assetMeta, brandNames, effectiveAnnounceNos]
+    );
+
+    const writeMetaMap = useCallback(async (next: AssetMetaMap) => {
+        if (!assetLibraryPath) return;
+        setAssetMeta(next);
+        await saveAssetMeta(assetLibraryPath, next);
+    }, [assetLibraryPath]);
+
+    const handleTogglePrimary = (info: AssetFileInfo) => {
+        const current = assetMeta[info.fileName] || {};
+        if (current.isPrimary) {
+            writeMetaMap({ ...assetMeta, [info.fileName]: { ...current, isPrimary: false } });
+            message.info('已取消主文件标记');
+            return;
+        }
+        const groupKey = deriveVehicleGroupKey(info.fileName, info.productName, brandNames);
+        const group = governanceReport.groups.find(g => g.groupKey === groupKey);
+        const existing = group?.files.find(f => f.meta.isPrimary && f.info.fileName !== info.fileName);
+        const apply = () => {
+            const next: AssetMetaMap = {
+                ...assetMeta,
+                [info.fileName]: { ...(assetMeta[info.fileName] || {}), isPrimary: true },
+            };
+            if (existing) {
+                const rest = { ...(assetMeta[existing.info.fileName] || {}) };
+                delete rest.isPrimary;
+                if (Object.keys(rest).length === 0) delete next[existing.info.fileName];
+                else next[existing.info.fileName] = rest;
+            }
+            writeMetaMap(next);
+            message.success(`已设为主文件${existing ? '，原主文件标记已取消' : ''}`);
+        };
+        if (existing) {
+            Modal.confirm({
+                title: '该车型组已有主文件',
+                icon: <ExclamationCircleOutlined />,
+                content: `「${existing.info.productName}」已是「${groupKey}」组的主文件，设为新的主文件将自动取消它的标记。`,
+                okText: '替换为主文件',
+                cancelText: '取消',
+                onOk: apply,
+            });
+        } else {
+            apply();
+        }
+    };
+
+    const handleSetStatus = (info: AssetFileInfo, status: 'superseded' | 'deprecated') => {
+        const current = assetMeta[info.fileName] || {};
+        const nextMeta = { ...current };
+        if (current.status === status) delete nextMeta.status;
+        else nextMeta.status = status;
+        const next: AssetMetaMap = { ...assetMeta };
+        if (Object.keys(nextMeta).length === 0) delete next[info.fileName];
+        else next[info.fileName] = nextMeta;
+        writeMetaMap(next);
+        const labels = { superseded: '历史版本', deprecated: '废弃' } as const;
+        message.success(nextMeta.status === status ? `已标记为${labels[status]}` : `已清除${labels[status]}标记`);
+    };
+
+    const handleAdoptGroups = async (groups: VehicleGroup[]) => {
+        if (groups.length === 0) return;
+        await writeMetaMap(buildAdoptPrimaryMeta(assetMeta, groups));
+        message.success(`已采纳 ${groups.length} 个车型组的主文件建议`);
+    };
+
     // 按关键字 + 标签过滤资产列表
     const filteredAssets = useMemo(() => {
         let result = assets;
@@ -464,6 +552,11 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
             selectedGroupTags: selectedGroupTag,
             selectedOtherFilterTags,
         });
+
+        // 主文件过滤（治理定位）
+        if (primaryOnly) {
+            result = result.filter(a => assetMeta[a.fileName]?.isPrimary);
+        }
 
         // 关键字过滤（同时匹配文件名、产品名、标签）
         if (searchKeyword.trim()) {
@@ -486,7 +579,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         }
 
         return result;
-    }, [assets, searchKeyword, assetTags, selectedGroupTag, selectedOtherFilterTags, announceNoMatchResult, assetTagGroupsVersion]);
+    }, [assets, searchKeyword, assetTags, selectedGroupTag, selectedOtherFilterTags, announceNoMatchResult, primaryOnly, assetMeta, assetTagGroupsVersion]);
 
     // ===== 批量打标签 =====
     const enterBatchMode = (fileName: string) => {
@@ -581,6 +674,15 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             恢复布局
                         </Button>
                         {loading && <Spin indicator={<LoadingOutlined style={{ fontSize: 14 }} spin />} />}
+                        <Tooltip title="数据治理体检（车型分组/主文件/重复检测）">
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={<AuditOutlined className={`!text-[14px] text-3 hover:text-brand ${governanceReport.missingPrimaryGroups.length > 0 ? 'text-[color:var(--warning)]' : ''}`} />}
+                                onClick={() => setGovernanceOpen(true)}
+                                className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg"
+                            />
+                        </Tooltip>
                         <Tooltip title="刷新资产库">
                             <Button
                                 type="text"
@@ -615,6 +717,21 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                     </div>
                 )}
 
+                {/* 治理提醒：缺主文件的车型组 */}
+                {governanceReport.missingPrimaryGroups.length > 0 && (
+                    <div className="mb-2 px-1">
+                        <div
+                            className="text-[12px] text-[color:var(--warning-text)] surface-inset border border-[color:var(--warning)] rounded-lg px-2.5 py-1.5 flex items-center gap-2 cursor-pointer hover:opacity-90"
+                            onClick={() => setGovernanceOpen(true)}
+                        >
+                            <AuditOutlined className="text-[13px] flex-shrink-0" />
+                            <span>
+                                <b>{governanceReport.missingPrimaryGroups.length}</b>/{governanceReport.totalGroups} 个车型组未指定主文件，点击开始治理体检
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {/* 搜索框 */}
                 {assets.length > 5 && (
                     <div className="mb-2 px-1 space-y-2">
@@ -628,6 +745,16 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             className="rounded-lg border-default"
                         />
                         <div className="flex items-center gap-2 flex-wrap">
+                            <Tag
+                                onClick={() => setPrimaryOnly(v => !v)}
+                                className={`text-[12px] m-0 px-2 py-0.5 leading-[20px] rounded-lg border cursor-pointer ${
+                                    primaryOnly
+                                        ? 'tag-checked font-medium'
+                                        : 'surface-inset border-default text-2 hover:border-brand'
+                                }`}
+                            >
+                                👑 只看主文件
+                            </Tag>
                         </div>
                     </div>
                 )}
@@ -784,7 +911,22 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 onContextMenu={onContextMenu([
                                     { key: 'focus', label: '聚焦查看', onClick: () => onFocusFile(info.fileName) },
                                     { key: 'batch', label: '批量选择', onClick: () => enterBatchMode(info.fileName) },
+                                    {
+                                        key: 'primary',
+                                        label: assetMeta[info.fileName]?.isPrimary ? '👑 取消主文件' : '👑 设为主文件',
+                                        onClick: () => handleTogglePrimary(info),
+                                    },
                                     { key: 'rename', label: '重命名', onClick: () => handleStartFileRename(info) },
+                                    {
+                                        key: 'superseded',
+                                        label: assetMeta[info.fileName]?.status === 'superseded' ? '🕘 取消历史版本标记' : '🕘 标记为历史版本',
+                                        onClick: () => handleSetStatus(info, 'superseded'),
+                                    },
+                                    {
+                                        key: 'deprecated',
+                                        label: assetMeta[info.fileName]?.status === 'deprecated' ? '🚫 清除废弃标记' : '🚫 标记为废弃',
+                                        onClick: () => handleSetStatus(info, 'deprecated'),
+                                    },
                                     { key: 'divider1', divider: true, onClick: () => {} },
                                     { key: 'copy', label: '复制公告号', onClick: () => handleCopyAnnounceNo(info) },
                                     { key: 'csv', label: '导出 CSV', onClick: () => handleExportCsv(info) },
@@ -833,6 +975,20 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                                     </div>
                                                 </Tooltip>
                                                 <div className="min-w-0 flex items-center gap-2">
+                                                    {assetMeta[info.fileName]?.isPrimary && (
+                                                        <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-brand border-brand font-medium">👑 主文件</Tag>
+                                                    )}
+                                                    {info.approvalStatus === '驳回' && (
+                                                        <Tooltip title="准入审批状态为「驳回」（自动识别）">
+                                                            <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0 text-warning-text border-warning">⚠ 驳回</Tag>
+                                                        </Tooltip>
+                                                    )}
+                                                    {assetMeta[info.fileName]?.status === 'superseded' && (
+                                                        <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-2 border-default">🕘 历史版本</Tag>
+                                                    )}
+                                                    {assetMeta[info.fileName]?.status === 'deprecated' && (
+                                                        <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-2 border-default">🚫 废弃</Tag>
+                                                    )}
                                                     {sourceMeta && (
                                                         <Tag className={`src-${sourceMeta.tone} m-0 text-[12px] leading-[18px] px-2.5 rounded-lg border-0`}>
                                                             {sourceMeta.icon} {sourceMeta.label}
@@ -1057,6 +1213,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 assetTags={upgradeAsset ? (assetTags[upgradeAsset.fileName] || []) : []}
                 onClose={() => setUpgradeAsset(null)}
                 onSaved={fetchAssets}
+            />
+            <GovernanceReportModal
+                open={governanceOpen}
+                onClose={() => setGovernanceOpen(false)}
+                report={governanceReport}
+                onAdoptGroups={handleAdoptGroups}
             />
             {ContextMenuPortal}
         </div>

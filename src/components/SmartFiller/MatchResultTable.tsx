@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Tag, Select, Progress, Button, message, Input, Switch, Tooltip } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
 import DataTable from '../common/DataTable';
@@ -58,12 +58,12 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
         [assetFiles, productName]
     );
 
-    const triggerRepair = (fieldName: string, reason: 'unmatched' | 'enum_mismatch') => {
+    const triggerRepair = useCallback((fieldName: string, reason: 'unmatched' | 'enum_mismatch') => {
         if (!productName || !assetSourceFile) return;
         setRepairContext(buildRepairContext('smart_fill', productName, assetSourceFile, reason, fieldName));
         setPurifyProduct(productName);
         onGoRepair?.();
-    };
+    }, [productName, assetSourceFile, setRepairContext, setPurifyProduct, onGoRepair]);
 
     // 计算快捷修正推荐
     const quickFixes = useMemo(() => {
@@ -222,7 +222,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
         await downloadCsv(csvOutput, '智能填报结果.csv');
     };
 
-    const toggleManualMode = (id: string) => {
+    const toggleManualMode = useCallback((id: string) => {
         const turningOn = !manualInputMode[id];
         setManualInputMode(prev => ({
             ...prev,
@@ -239,9 +239,11 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
         if (!turningOn && record && record.manualValue === '') {
             updateManualValue(id, '');
         }
-    };
+    }, [manualInputMode, matchResults, updateManualValue]);
 
-    const columns = [
+    // columns memo：列定义引用稳定（依赖 handler 均 useCallback 化），
+    // 避免 typing/勾选等无关更新触发全表重渲染
+    const columns = useMemo(() => [
         {
             title: '需求参数名',
             dataIndex: 'requirementName',
@@ -397,7 +399,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                 );
             }
         }
-    ];
+    ], [assetSourceFile, triggerRepair, manualInputMode, enumLoaded, updateManualValue, quickFixes, toggleManualMode]);
 
     // 计算枚举不匹配的记录
     const enumMismatchItems = useMemo(() => {
@@ -451,7 +453,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                     <Button
                         type="primary"
                         icon={<CloudUploadOutlined />}
-                        onClick={() => {
+                        onClick={async () => {
                             if (!filteredResults.length) { message.warning('暂无内容可导出'); return; }
                             const rows = filteredResults.map(m => {
                                 const value = m.manualValue !== undefined
@@ -461,14 +463,40 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 return [m.requirementName, value];
                             });
                             const data = [['参数项名称', '参数值'], ...rows];
+                            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                            const name = productName ? getVehicleProductName(productName) : '未命名车型';
+                            const fileName = `车上云系统导入_${name}_${date}.xlsx`;
+
+                            // Phase 5：Tauri 下由 Rust rust_xlsxwriter 直接写盘（不再占用前端线程）
+                            if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+                                try {
+                                    const { save } = await import('@tauri-apps/plugin-dialog');
+                                    const { invoke } = await import('@tauri-apps/api/core');
+                                    const target = await save({
+                                        defaultPath: fileName,
+                                        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+                                    });
+                                    if (!target) return; // 用户取消
+                                    await invoke('export_xlsx', {
+                                        path: target,
+                                        sheetName: '产品准入导入模版',
+                                        rows: data,
+                                        colWidths: [30, 40],
+                                    });
+                                    message.success('导出成功');
+                                } catch (err) {
+                                    message.error(`导出失败: ${(err as Error).message}`);
+                                }
+                                return;
+                            }
+
+                            // 非 Tauri 环境回退浏览器下载
                             const ws = XLSX.utils.aoa_to_sheet(data);
                             // 设置列宽
                             ws['!cols'] = [{ wch: 30 }, { wch: 40 }];
                             const wb = XLSX.utils.book_new();
                             XLSX.utils.book_append_sheet(wb, ws, '产品准入导入模版');
-                            const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-                            const name = productName ? getVehicleProductName(productName) : '未命名车型';
-                            XLSX.writeFile(wb, `车上云系统导入_${name}_${date}.xlsx`);
+                            XLSX.writeFile(wb, fileName);
                             message.success('导出成功');
                         }}
                     >
@@ -534,6 +562,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                 columns={columns}
                 rowKey="id"
                 scrollY={600}
+                scrollX={970}
+                virtual
             />
         </div>
     );

@@ -38,6 +38,8 @@ interface VehicleStore {
     addFile: (file: SheetData) => void;
     removeFile: (fileName: string) => void;
     clearFiles: () => void;
+    // 启动时由 sessionPersistence 从 appDataDir/session.json 恢复会话（大数组不再走 localStorage persist）
+    hydrateSession: (partial: Partial<Pick<VehicleStore, 'uploadedFiles' | 'selectedProductNames' | 'confirmedProducts' | 'excludedProducts' | 'ignoredProductNames'>>) => void;
     setSelectedProductNames: (names: string[]) => void;
     // V3.0 Unified Pool Blacklist
     ignoredProductNames: string[];
@@ -135,29 +137,37 @@ export const useVehicleStore = create<VehicleStore>()(
             m.id === id ? { ...m, matchedParam: param, isManual: true, confidence: 1, manualValue: undefined } : m
         )
     })),
-    updateManualValue: (id, value, opts) => set((state) => ({
-        matchResults: state.matchResults.map(m => {
-            if (m.id !== id) return m;
-            
-            // 空值或纯空格 = 没填任何内容，恢复为自动匹配状态
-            if (!value || !value.trim()) {
-                // 手动输入模式下：空值 = 用户明确填报「空」，导出保持空值，不回退到自动匹配值
-                if (opts?.explicitEmpty) {
-                    return { ...m, manualValue: '', isManual: true };
-                }
-                return { ...m, manualValue: undefined, isManual: false };
+    updateManualValue: (id, value, opts) => set((state) => {
+        // 行级更新：只替换命中项，避免全量 map 重建 matchResults 触发整表重渲染
+        const index = state.matchResults.findIndex(m => m.id === id);
+        if (index === -1) return {};
+
+        const m = state.matchResults[index];
+        let next: MatchItem;
+
+        // 空值或纯空格 = 没填任何内容，恢复为自动匹配状态
+        if (!value || !value.trim()) {
+            // 手动输入模式下：空值 = 用户明确填报「空」，导出保持空值，不回退到自动匹配值
+            if (opts?.explicitEmpty) {
+                next = { ...m, manualValue: '', isManual: true };
+            } else {
+                next = { ...m, manualValue: undefined, isManual: false };
             }
-            
+        } else {
             // 如果修改后的值等于自动匹配的值，清除manualValue
             const autoMatchValue = m.matchedParam?.value?.toString() || '';
             if (value === autoMatchValue) {
-                return { ...m, manualValue: undefined, isManual: false };
+                next = { ...m, manualValue: undefined, isManual: false };
+            } else {
+                // 否则标记为手动修改
+                next = { ...m, manualValue: value, isManual: true };
             }
-            
-            // 否则标记为手动修改
-            return { ...m, manualValue: value, isManual: true };
-        })
-    })),
+        }
+
+        const nextResults = state.matchResults.slice();
+        nextResults[index] = next;
+        return { matchResults: nextResults };
+    }),
 
     // MIIT Data Import State
     miitData: null,
@@ -264,6 +274,7 @@ export const useVehicleStore = create<VehicleStore>()(
         currentSmartFillProduct: null,
         assetFiles: []
     }),
+    hydrateSession: (partial) => set(partial),
     setSelectedProductNames: (names) => set((state) => ({
         selectedProductNames: names,
         // 自动剪枝：若某个模块选中的车型在总列表中被取消勾选了，则同步清理
@@ -543,13 +554,10 @@ export const useVehicleStore = create<VehicleStore>()(
         bidPullSchemeId: state.bidPullSchemeId,
         assetLibraryPath: state.assetLibraryPath,
         activeAssets: state.activeAssets,
-        // 核心分析环境持久化
-        uploadedFiles: state.uploadedFiles,
-        selectedProductNames: state.selectedProductNames,
-        confirmedProducts: state.confirmedProducts,
-        excludedProducts: state.excludedProducts,
-        ignoredProductNames: state.ignoredProductNames,
         poolSidebarWidth: state.poolSidebarWidth,
         poolWorkspaceHeight: state.poolWorkspaceHeight,
+        // 核心分析环境（uploadedFiles/selected*/confirmed*/excluded*/ignored*）已迁移至
+        // appDataDir/session.json，由 src/utils/sessionPersistence.ts 异步持久化，
+        // 避免每次 set() 在主线程同步序列化 MB 级数据写 localStorage
     }),
 }));

@@ -4,6 +4,7 @@ import { UploadOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/ic
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { ColumnsType } from 'antd/es/table';
 import * as XLSX from 'xlsx';
+import { readWorkbookFromBufferAsync } from '../../utils/excelParserAsync';
 import { downloadCsv } from '../../utils/downloadCsv';
 
 interface AttributeRow {
@@ -35,10 +36,11 @@ const AttributeDedup: React.FC = () => {
     // 处理文件上传
     const handleUpload = (file: UploadFile) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
-                const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
+                const buffer = e.target?.result as ArrayBuffer;
+                // Worker 线程解析，避免大文件 XLSX.read 阻塞 UI
+                const workbook = await readWorkbookFromBufferAsync(buffer);
                 const sheetName = workbook.SheetNames[0];
                 const sheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
