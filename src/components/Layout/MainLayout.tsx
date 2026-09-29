@@ -149,14 +149,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
     return (
         <AntLayout className="min-h-screen">
             <Header data-tauri-drag-region className={`app-header flex items-center gap-3 px-4 h-12 border-b sticky top-0 z-50 surface-container border-default`}>
-                <div className="min-w-0 shrink flex items-center gap-2">
+                <div data-tauri-drag-region className="min-w-0 shrink flex items-center gap-2">
                     <span
                         data-testid="app-title"
+                        data-tauri-drag-region
                         className={`max-w-[180px] truncate font-semibold text-sm md:max-w-[260px] lg:max-w-none text-1`}
                     >
                         DST车型参数管理工具
                     </span>
-                    <span className="font-mono text-xs text-3 tabular-nums whitespace-nowrap">v{version}</span>
+                    <span data-tauri-drag-region className="font-mono text-xs text-3 tabular-nums whitespace-nowrap">v{version}</span>
                 </div>
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
                     <div data-testid="top-nav-scroll" className="top-nav-scroll min-w-0 flex-1 overflow-x-auto">

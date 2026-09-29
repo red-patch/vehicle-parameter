@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Space, Alert } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
 import DataTable from '../common/DataTable';
@@ -116,8 +116,8 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     useEffect(() => {
         if (selectedProduct) {
             const data = selectedProductState?.status === 'ready' ? selectedProductState.data : [];
-            // 深度拷贝以脱离 store 变异
-            setPurifyParams(JSON.parse(JSON.stringify(data)));
+            // 深拷贝脱离 store；structuredClone 比 JSON 往返快且保留原始类型
+            setPurifyParams(structuredClone(data));
             
             // 检查资产库中是否存在同名文件
             if (assetLibraryPath) {
@@ -129,14 +129,14 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         }
     }, [selectedProduct, selectedProductState, assetLibraryPath, currentAssetFileName, selectedProductName]);
 
-    const handleUpdateParam = (id: string, field: keyof VehicleParameter, value: string | number) => {
+    const handleUpdateParam = useCallback((id: string, field: keyof VehicleParameter, value: string | number) => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         setPurifyParams((prev: VehicleParameter[]) => prev.map(p => p.id === id ? { ...p, [field]: value, updatedAt: nowStr } : p));
-    };
+    }, []);
 
-    const handleDeleteParam = (id: string) => {
+    const handleDeleteParam = useCallback((id: string) => {
         setPurifyParams((prev: VehicleParameter[]) => prev.filter(p => p.id !== id));
-    };
+    }, []);
 
     const handleAddParam = () => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -313,7 +313,8 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
     const anomalyCount = augmentedParams.filter(p => !p.isNameStandard || p.isEnumMismatch).length;
 
-    const columns = [
+    // columns memo：引用稳定（handler 均 useCallback 化），避免每次击键/过滤触发全表重渲染
+    const columns = useMemo(() => [
         {
             title: '参数分组',
             dataIndex: 'group',
@@ -436,15 +437,15 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             key: 'action',
             width: 80,
             render: (_: any, record: any) => (
-                <Popconfirm 
-                    title="确定删除此参数？" 
+                <Popconfirm
+                    title="确定删除此参数？"
                     onConfirm={() => handleDeleteParam(record.id)}
                 >
                     <Button type="text" danger icon={<DeleteOutlined />} size="small" />
                 </Popconfirm>
             )
         }
-    ];
+    ], [handleUpdateParam, manualValueRows, handleDeleteParam]);
 
     return (
         <div className="h-full flex flex-col gap-3">

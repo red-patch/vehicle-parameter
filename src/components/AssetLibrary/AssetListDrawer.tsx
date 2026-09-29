@@ -3,6 +3,7 @@ import { Drawer, Input, List, Button, message, Tooltip } from 'antd';
 import { CloudDownloadOutlined, SearchOutlined, FolderOpenOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { getAssetFiles, loadAssetFile, renameAssetFile, deleteAssetFile } from '../../utils/assetManager';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
 
 interface AssetListDrawerProps {
     visible: boolean;
@@ -10,7 +11,12 @@ interface AssetListDrawerProps {
 }
 
 const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) => {
-    const { assetLibraryPath, addFile, uploadedFiles, renameFileName } = useVehicleStore();
+    const { assetLibraryPath, addFile, uploadedFiles, renameFileName } = useVehicleStore(useShallow(state => ({
+        assetLibraryPath: state.assetLibraryPath,
+        addFile: state.addFile,
+        uploadedFiles: state.uploadedFiles,
+        renameFileName: state.renameFileName,
+    })));
     const [files, setFiles] = useState<string[]>([]);
     const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(false);

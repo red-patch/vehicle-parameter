@@ -4,6 +4,7 @@ import TagSelector from '../common/TagSelector';
 import { checkAssetExists, setAssetFileTags } from '../../utils/assetManager';
 import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
 
 interface SaveAssetModalProps {
     visible: boolean;
@@ -17,7 +18,10 @@ interface SaveAssetModalProps {
 const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSave, onSaved, defaultName, defaultTags = [] }) => {
     const [fileName, setFileName] = useState(defaultName);
     const [loading, setLoading] = useState(false);
-    const { assetLibraryPath, bumpAssetTagGroupsVersion } = useVehicleStore();
+    const { assetLibraryPath, bumpAssetTagGroupsVersion } = useVehicleStore(useShallow(state => ({
+        assetLibraryPath: state.assetLibraryPath,
+        bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
+    })));
 
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [allAvailableTags, setAllAvailableTags] = useState<string[]>([]);

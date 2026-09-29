@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Collapse, Descriptions, Empty, Modal, Space, Spin, Statistic, Table, Tag, Typography, Upload, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CheckCircleOutlined, CloudUploadOutlined, ExclamationCircleOutlined, FilePdfOutlined, HistoryOutlined, SaveOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, CloudUploadOutlined, ExclamationCircleOutlined, HistoryOutlined, SaveOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import type { AssetUpgradeCategory, AssetUpgradeItem, SheetData, SheetParseConfig, SheetPreview, UpgradeDecision } from '../../types';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { loadAssetFile, saveAssetFile, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
 import { applyAssetUpgradeDraft, buildAssetUpgradeDraft, buildAssetUpgradePreview } from '../../utils/assetUpgrade';
-import { previewWorkbook, readFileAsWorkbook } from '../../utils/excelParser';
+import { previewWorkbook } from '../../utils/excelParser';
+import { readWorkbookAsync } from '../../utils/excelParserAsync';
 import { parseExcelAsync, parseWithConfigAsync } from '../../utils/excelParserAsync';
-import { exportAssetUpgradeReviewPdf } from '../../utils/assetUpgradeReport';
+import { exportAssetUpgradeReviewReport } from '../../utils/assetUpgradeReport';
+import ReportExportDropdown from '../common/ReportExportDropdown';
+import type { ReportFormat } from '../../utils/reportExport';
 import SaveAssetModal from './SaveAssetModal';
 import ExcelPreviewDialog from '../ParameterWorkbench/ExcelPreviewDialog';
 
@@ -171,7 +174,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
 
     const openPreviewDialog = useCallback(async (file: File) => {
         try {
-            const workbook = await readFileAsWorkbook(file);
+            const workbook = await readWorkbookAsync(file);
             setPendingFileName(file.name);
             pendingFileRef.current = file; // 缓存原始 File 供 Worker 重解析
             setPreviewData(previewWorkbook(workbook));
@@ -262,21 +265,21 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
         });
     }, [assetUpgradeDraft, setAssetUpgradeDraft]);
 
-    const handleExportReviewPdf = useCallback(async () => {
+    const handleExportReview = useCallback(async (format: ReportFormat) => {
         if (!assetUpgradeDraft || !preview) {
             message.warning('请先导入新版文件并生成升级清单');
             return;
         }
 
-        const hide = message.loading('正在生成升级审查 PDF...', 0);
+        const hide = message.loading('正在生成升级审查单...', 0);
         try {
-            const fileName = await exportAssetUpgradeReviewPdf(assetUpgradeDraft, preview);
+            const fileName = await exportAssetUpgradeReviewReport(assetUpgradeDraft, preview, format);
             hide();
-            message.success(`PDF 已导出：${fileName}`);
+            message.success(`审查单已导出：${fileName}`);
         } catch (error) {
             hide();
-            console.error('Failed to export asset upgrade review PDF', error);
-            message.error(`PDF 导出失败：${(error as Error).message}`);
+            console.error('Failed to export asset upgrade review report', error);
+            message.error(`审查单导出失败：${(error as Error).message}`);
         }
     }, [assetUpgradeDraft, preview]);
 
@@ -665,12 +668,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                                 </div>
                                             </div>
                                             <Space wrap>
-                                                <Button
-                                                    icon={<FilePdfOutlined />}
-                                                    onClick={handleExportReviewPdf}
-                                                >
-                                                    导出升级审查 PDF
-                                                </Button>
+                                                <ReportExportDropdown onExport={handleExportReview} label="导出审查单" />
                                                 <Button
                                                     icon={<SaveOutlined />}
                                                     onClick={() => setSaveAsVisible(true)}

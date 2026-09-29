@@ -23,10 +23,6 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         // 1. Identify all unique product names
         const products = Array.from(new Set(data.map(p => p.productName).filter(Boolean))) as string[];
 
-        // DEBUG
-        console.log('[ParametersTable] products:', products);
-        console.log('[ParametersTable] data sample:', data.slice(0, 2));
-
         // 2. Group by "Group + Name" to create rows
         const rowMap = new Map<string, any>();
 

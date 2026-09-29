@@ -14,6 +14,7 @@ import {
     type TagGroupItem,
 } from '../../utils/assetTagGroups';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useShallow } from 'zustand/react/shallow';
 import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { parseFieldBatchInput } from './coreFieldRules';
@@ -84,7 +85,12 @@ const ConfigManagerView: React.FC = () => {
 
 
 
-    const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion, bumpAssetVersion } = useVehicleStore();
+    const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion, bumpAssetVersion } = useVehicleStore(useShallow(state => ({
+        assetLibraryPath: state.assetLibraryPath,
+        bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
+        bumpFieldGroupsVersion: state.bumpFieldGroupsVersion,
+        bumpAssetVersion: state.bumpAssetVersion,
+    })));
 
     useEffect(() => {
         const init = async () => {

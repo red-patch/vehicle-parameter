@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Modal, Button, message, Select, Table, Tag, Spin, Statistic, Divider, Input } from 'antd';
 import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined, SearchOutlined } from '@ant-design/icons';
-import { readFile, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
+import { readWorkbookFromPathAsync } from '../../utils/excelParserAsync';
 
 
 interface EnumImportModalProps {
@@ -74,12 +75,8 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
             setLoading(true);
 
             const XLSX = await import('xlsx');
-            const buffer = await readFile(selected);
-            const data = new Uint8Array(buffer);
-            let binary = '';
-            for (let i = 0; i < data.length; i++) binary += String.fromCharCode(data[i]);
-
-            const workbook = XLSX.read(binary, { type: 'binary' });
+            // Phase 5：Rust calamine 按路径直接解析，文件二进制不再过 IPC
+            const workbook = await readWorkbookFromPathAsync(selected);
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
 
