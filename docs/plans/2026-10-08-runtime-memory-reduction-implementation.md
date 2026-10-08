@@ -391,7 +391,7 @@ git commit -m "perf(memory): cache asset library scan by (path, version); drop d
 Create `src/utils/__tests__/excelParser.preview.test.ts`:
 
 ```ts
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as XLSX from 'xlsx';
 import { previewWorkbook } from '../excelParser';
 
@@ -413,15 +413,25 @@ describe('previewWorkbook', () => {
         expect(p.totalCols).toBe(20);
     });
 
-    it('keeps real column count instead of padding to the sheet width', () => {
-        // 第 1 行只有 2 列，第 2 行有 5 列；totalCols 应为 5，
-        // 但每行的长度应保持其真实长度（不补空到 5）
-        const ws = XLSX.utils.aoa_to_sheet([['a', 'b'], ['c', 'd', 'e', 'f', 'g']]);
-        const wb: XLSX.WorkBook = { SheetNames: ['S'], Sheets: { S: ws } };
-        const [p] = previewWorkbook(wb);
+    it('bounds sheet_to_json to the preview window instead of the whole sheet', () => {
+        const spy = vi.spyOn(XLSX.utils, 'sheet_to_json');
+        previewWorkbook(buildSheet(5000, 40));
+        expect(spy).toHaveBeenCalled();
+        const opts = spy.mock.calls[0][1] as { range?: { s: { r: number }; e: { r: number } } };
+        expect(opts.range).toBeDefined();
+        // 只物化前 101 行，而不是整表 5000 行
+        expect(opts.range!.e.r - opts.range!.s.r).toBeLessThanOrEqual(100);
+    });
+
+    it('is byte-identical to the previous full-sheet implementation', () => {
+        // defval:'' 会把行补满到 range 宽度，所以有界化不影响输出——
+        // 这里锁住「输出不变」这一契约（含 ragged 与 XFD 膨胀两种形态）。
+        const ragged = XLSX.utils.aoa_to_sheet([['a', 'b'], ['c', 'd', 'e', 'f', 'g']]);
+        const [p] = previewWorkbook({ SheetNames: ['S'], Sheets: { S: ragged } });
+        expect(p.totalRows).toBe(2);
         expect(p.totalCols).toBe(5);
-        expect(p.rows[0].length).toBe(2);
-        expect(p.rows[1].length).toBe(5);
+        // 旧实现（整表 sheet_to_json + 补空到 totalCols）得到的就是每行等宽 5 列
+        expect(p.rows).toEqual([['a', 'b', '', '', ''], ['c', 'd', 'e', 'f', 'g']]);
     });
 
     it('reports totals for a sheet far larger than the preview window', () => {
@@ -445,7 +455,7 @@ describe('previewWorkbook', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/utils/__tests__/excelParser.preview.test.ts`
-Expected: 第 2 条 FAIL（当前实现把每行补空到 `totalCols`，`p.rows[0].length` 会是 5 而非 2）。其余通过。
+Expected: 「bounds sheet_to_json…」FAIL（当前实现对 5000 行表不传 `range`，整表物化，`opts.range` 为 `undefined`）。其余（含 byte-identical）应已通过——本项是**输出不变**的纯优化。
 
 - [ ] **Step 3: 改写为有界实现**
 
