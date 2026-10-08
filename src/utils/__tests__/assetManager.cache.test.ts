@@ -15,7 +15,15 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
     mkdir: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { getAssetFilesWithInfo, invalidateAssetScanCache } from '../assetManager';
+import {
+    archiveAssetFile,
+    deleteAssetFile,
+    getAssetFilesWithInfo,
+    invalidateAssetScanCache,
+    renameAssetFile,
+    saveAssetFile,
+    saveAssetsBatch,
+} from '../assetManager';
 import type { AssetFileInfo } from '../assetManager';
 
 // 非空夹具：缓存对空结果一律不缓存（瞬时故障与真空库不可区分），故需真实数据才能命中
@@ -81,5 +89,77 @@ describe('getAssetFilesWithInfo scan cache', () => {
         expect(a).toEqual([]);
         expect(b).toEqual([]);
         expect(invokeMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('re-scans when force is true, even with a warm cache', async () => {
+        // 「刷新资产库」按钮：应用外的文件增删改没有失效信号，必须能强制重扫
+        await getAssetFilesWithInfo('/lib');
+        await getAssetFilesWithInfo('/lib', true);
+        expect(invokeMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not force a re-scan for a truthy non-true force value', async () => {
+        // 直传事件对象给 force 参数会得到 truthy——不应误触发强制重扫
+        await getAssetFilesWithInfo('/lib');
+        await getAssetFilesWithInfo('/lib', {} as unknown as boolean);
+        expect(invokeMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+// 写操作必须使缓存失效：否则 UI 会长期展示过期资产列表。
+// 这是本分支引入的最高风险行为，逐个锁住。
+describe('write operations invalidate the scan cache', () => {
+    const scanCount = () => invokeMock.mock.calls.filter(c => c[0] === 'scan_asset_library').length;
+
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        invokeMock.mockResolvedValue(ONE_ASSET);
+        invalidateAssetScanCache();
+        (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {};
+        // 让写操作走「成功」路径（否则 exists→false 会 early-return，不触发失效——
+        // 这正是「只在成功时失效」的设计，另有断言覆盖）
+        const fs = await import('@tauri-apps/plugin-fs');
+        (fs.exists as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+        (fs.readTextFile as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(JSON.stringify({ productName: 'A', parameters: [] }));
+        await getAssetFilesWithInfo('/lib'); // 预热缓存
+    });
+
+    it('saveAssetFile invalidates', async () => {
+        const before = scanCount();
+        await saveAssetFile('/lib', 'a.json', 'A', []).catch(() => {});
+        await getAssetFilesWithInfo('/lib');
+        expect(scanCount()).toBe(before + 1);
+    });
+
+    it('deleteAssetFile invalidates', async () => {
+        const before = scanCount();
+        await deleteAssetFile('/lib', 'a.json').catch(() => {});
+        await getAssetFilesWithInfo('/lib');
+        expect(scanCount()).toBe(before + 1);
+    });
+
+    it('renameAssetFile invalidates', async () => {
+        const before = scanCount();
+        await renameAssetFile('/lib', 'a.json', 'b.json').catch(() => {});
+        await getAssetFilesWithInfo('/lib');
+        expect(scanCount()).toBe(before + 1);
+    });
+
+    it('archiveAssetFile invalidates', async () => {
+        const before = scanCount();
+        await archiveAssetFile('/lib', 'a.json').catch(() => {});
+        await getAssetFilesWithInfo('/lib');
+        expect(scanCount()).toBe(before + 1);
+    });
+
+    it('saveAssetsBatch invalidates when at least one item succeeds', async () => {
+        const before = scanCount();
+        // Rust 快路径按 invoke 名分派：save_assets_batch 回每项 {ok}
+        invokeMock.mockImplementation(async (cmd: string) =>
+            cmd === 'save_assets_batch' ? [{ index: 0, fileName: 'x.json', ok: true }] : ONE_ASSET
+        );
+        await saveAssetsBatch('/lib', [{ baseName: 'x', productName: 'X', parameters: [] }]).catch(() => {});
+        await getAssetFilesWithInfo('/lib');
+        expect(scanCount()).toBe(before + 1);
     });
 });
