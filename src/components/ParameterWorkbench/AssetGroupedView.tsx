@@ -303,35 +303,30 @@ const AssetGroupedView: React.FC<AssetGroupedViewProps> = ({
                             onRenameGroup={onRenameGroup}
                             onEditGroupFacets={onEditGroupFacets}
                         />
-                        {/* grid-rows reveal：高度过渡替代条件挂载的瞬跳；
-                            visibility 离散过渡——收起播完才隐藏，展开立即显示 */}
-                        <div
-                            className={`grid transition-[grid-template-rows,visibility] duration-200 ease-[var(--ease-ui)] ${
-                                expanded ? 'grid-rows-[1fr] visible' : 'grid-rows-[0fr] invisible'
-                            }`}
-                        >
-                            <div className="overflow-hidden min-h-0">
-                                <div className="mt-1 space-y-0.5">
-                                    {group.files.map(entry => (
-                                        <GroupFileRow
-                                            key={entry.info.fileName}
-                                            entry={entry}
-                                            active={activeFileNames.has(entry.info.fileName)}
-                                            focused={focusedFile === entry.info.fileName}
-                                            batchMode={batchMode}
-                                            checked={selectedFileNames.has(entry.info.fileName)}
-                                            tags={assetTags[entry.info.fileName] || []}
-                                            isLatest={latestFileNames.has(entry.info.fileName)}
-                                            onRowContextMenu={onRowContextMenu}
-                                            onFocusFile={onFocusFile}
-                                            onToggleAsset={onToggleAsset}
-                                            onOpenInspector={onOpenInspector}
-                                            onToggleBatchSelected={onToggleBatchSelected}
-                                        />
-                                    ))}
-                                </div>
+                        {/* 仅展开时挂载行：收起态的组曾用 grid-rows-[0fr] 视觉折叠，
+                            行仍全部常驻（实测 158 组 × 均 3.3 行 = 677 行）。
+                            改为条件挂载换取内存，代价是失去高度过渡动画（2026-10-08 已确认）。 */}
+                        {expanded && (
+                            <div className="mt-1 space-y-0.5">
+                                {group.files.map(entry => (
+                                    <GroupFileRow
+                                        key={entry.info.fileName}
+                                        entry={entry}
+                                        active={activeFileNames.has(entry.info.fileName)}
+                                        focused={focusedFile === entry.info.fileName}
+                                        batchMode={batchMode}
+                                        checked={selectedFileNames.has(entry.info.fileName)}
+                                        tags={assetTags[entry.info.fileName] || []}
+                                        isLatest={latestFileNames.has(entry.info.fileName)}
+                                        onRowContextMenu={onRowContextMenu}
+                                        onFocusFile={onFocusFile}
+                                        onToggleAsset={onToggleAsset}
+                                        onOpenInspector={onOpenInspector}
+                                        onToggleBatchSelected={onToggleBatchSelected}
+                                    />
+                                ))}
                             </div>
-                        </div>
+                        )}
                     </div>
                 );
             })}
