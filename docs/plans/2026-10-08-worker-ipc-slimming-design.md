@@ -164,6 +164,19 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
 
 回滚：P2-1/P2-2/P2-3/P2-4 各自独立提交，可按阶段回退；`readWorkbook*` 保留到最后一阶段才删，保证中途可退。
 
+### 6.1 释放粒度是刻意的差异（勿"统一"）
+
+两个消费者释放 handle 的粒度**故意不同**，不是遗漏：
+
+| 消费者 | 释放入口 | 粒度 | 原因 |
+|---|---|---|---|
+| `FileManager` | `releaseImportTransients`（P0–P1 既有漏斗） | handle + fileCache/previewData/diffState | 该组件本就以这个漏斗统一清理导入过程态，handle 搭同一班车最不易漏 |
+| `AssetUpgradeModal` | `releasePendingHandle` | 仅 handle | 其状态形状不同，没有那套 process-state 需要一起清 |
+
+另外 `FileManager` 的 handle 有**两种持有形态**：非横向（跨预览→确认持有，由 `releaseImportTransients` 释放）与横向（在 `importHorizontalDirectly` 的 `finally` 内消费即释放，且 ref 在调用前置 null）。
+
+**后续代理注意**：看到两者不对称时，不要以"保持一致"为由重构——差异由各自的状态形状决定。若确实要统一，先确认 `AssetUpgradeModal` 是否真的需要 fileCache/diffState 这类状态。
+
 ## 7. 实施分期
 
 | 阶段 | 内容 | 触点 | 验证 |
