@@ -2,14 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { clearImportTransients } from '../importTransients';
 
 describe('clearImportTransients', () => {
-    it('releases the file cache, preview data and diff payload together', () => {
-        const setFileCache = vi.fn();
+    it('releases preview data and diff payload together', () => {
         const setPreviewData = vi.fn();
         const setDiffState = vi.fn();
 
-        clearImportTransients({ setFileCache, setPreviewData, setDiffState });
+        clearImportTransients({ setPreviewData, setDiffState });
 
-        expect(setFileCache).toHaveBeenCalledWith(new Map());
         expect(setPreviewData).toHaveBeenCalledWith([]);
         expect(setDiffState).toHaveBeenCalledTimes(1);
     });
@@ -19,7 +17,6 @@ describe('clearImportTransients', () => {
         const { setDiffState } = { setDiffState: reset };
 
         clearImportTransients({
-            setFileCache: vi.fn(),
             setPreviewData: vi.fn(),
             setDiffState,
         });
@@ -30,31 +27,14 @@ describe('clearImportTransients', () => {
         expect(next).toEqual({ open: false, base: null, target: null, baseFileName: '', targetName: '' });
     });
 
-    it('hands each call a fresh empty Map (no shared instance reused across calls)', () => {
-        const setFileCache = vi.fn();
-        const setPreviewData = vi.fn();
-        const setDiffState = vi.fn();
-        const bag = { setFileCache, setPreviewData, setDiffState };
-
-        clearImportTransients(bag);
-        clearImportTransients(bag);
-
-        const first = setFileCache.mock.calls[0][0] as Map<string, File>;
-        const second = setFileCache.mock.calls[1][0] as Map<string, File>;
-        expect(first).not.toBe(second);
-        expect(first.size).toBe(0);
-        expect(second.size).toBe(0);
-    });
-
     it('is idempotent and does not mutate the setter bag', () => {
-        const bag = { setFileCache: vi.fn(), setPreviewData: vi.fn(), setDiffState: vi.fn() };
+        const bag = { setPreviewData: vi.fn(), setDiffState: vi.fn() };
         const snapshot = { ...bag };
 
         clearImportTransients(bag);
         clearImportTransients(bag);
 
         expect(bag).toEqual(snapshot);
-        expect(bag.setFileCache).toHaveBeenCalledTimes(2);
         expect(bag.setPreviewData).toHaveBeenCalledTimes(2);
         expect(bag.setDiffState).toHaveBeenCalledTimes(2);
     });

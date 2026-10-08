@@ -683,6 +683,57 @@ export const buildWorkbookHandleInfo = (
 });
 
 /**
+ * 首 sheet 的二维数组（header:1），不给调用方 workbook。
+ *
+ * 供「只按索引取列」的消费者使用：在解析侧转好，避免整份 workbook 跨线程克隆。
+ */
+export const firstSheetRows = (workbook: XLSX.WorkBook): unknown[][] => {
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
+};
+
+/**
+ * 首 sheet 的表头对象数组——直接委托 SheetJS，语义由库保证（勿手写复刻）。
+ *
+ * SheetJS 默认 sheet_to_json 的命名语义（空表头 ""、重复 _1、超宽列 __EMPTY、
+ * null 单元格省略键、全空行保留）用手写复刻会静默改结果，故在此原样调用。
+ */
+export const firstSheetHeaderObjects = (workbook: XLSX.WorkBook): Record<string, unknown>[] => {
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+};
+
+/**
+ * 首 sheet 行载荷的形状（解析侧产出、跨线程/进程回传的终态）。
+ * 定义在生产者旁边（而非 excelParserAsync），使 worker 侧也能用同一类型标注结果，
+ * 从而把「worker 与 fallback 返回同形」从约定变成编译期约束。
+ */
+export interface SheetRowsResult {
+    sheetName: string;
+    /** header:1 的二维数组 */
+    rows: unknown[][];
+}
+
+/** 首 sheet 表头对象载荷的形状（同 SheetRowsResult 的理由） */
+export interface SheetObjectsResult {
+    sheetName: string;
+    /** SheetJS 默认语义：含空表头/重复去重/__EMPTY 规则 */
+    objects: Record<string, unknown>[];
+}
+
+/** 构造行载荷的唯一实现：worker 与主线程 fallback 共用，避免两侧形状漂移 */
+export const buildSheetRowsResult = (workbook: XLSX.WorkBook): SheetRowsResult => ({
+    sheetName: workbook.SheetNames[0],
+    rows: firstSheetRows(workbook),
+});
+
+/** 构造表头对象载荷的唯一实现：同上 */
+export const buildSheetObjectsResult = (workbook: XLSX.WorkBook): SheetObjectsResult => ({
+    sheetName: workbook.SheetNames[0],
+    objects: firstSheetHeaderObjects(workbook),
+});
+
+/**
  * 按 handle 解析的唯一实现：主线程 fallback 与 worker 共用。
  *
  * worker 与 fallback 是两个 realm，但 store 只是普通参数，故可共用纯函数。
