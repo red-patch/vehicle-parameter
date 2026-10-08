@@ -3,8 +3,9 @@ import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag, Select, 
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { previewWorkbook, detectWorkbookOrientation } from '../../utils/excelParser';
-import { parseWithConfigAsync, parseExcelAsync, readWorkbookAsync } from '../../utils/excelParserAsync';
+import { previewWorkbook, detectWorkbookOrientation, parseWorkbook, parseWorkbookWithConfig } from '../../utils/excelParser';
+import { parseWithConfigAsync, readWorkbookAsync } from '../../utils/excelParserAsync';
+import type * as XLSX from 'xlsx';
 import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
@@ -62,9 +63,12 @@ const FileManager: React.FC<FileManagerProps> = () => {
     // 全横向格式（参数为列、车型为行，如"产品准入导出"）：列角色配置无法表达，
     // 直接自动解析进入车型确认弹窗
     if (detectWorkbookOrientation(workbook) === 'horizontal') {
-      await importHorizontalDirectly(file);
+      pendingWorkbookRef.current = null; // 横向路径同步消费，不残留旧 workbook
+      // 复用刚解析出的 workbook，避免 importHorizontalDirectly 再 read 一遍
+      await importHorizontalDirectly(file, workbook);
       return;
     }
+    pendingWorkbookRef.current = workbook; // 供 handlePreviewConfirm 复用
     const previews = previewWorkbook(workbook);
     setPendingFileName(file.name);
     setPreviewData(previews);
@@ -76,9 +80,10 @@ const FileManager: React.FC<FileManagerProps> = () => {
     }
   };
 
-  const importHorizontalDirectly = async (file: File) => {
+  const importHorizontalDirectly = async (file: File, workbook: XLSX.WorkBook) => {
     try {
-      const data = await parseExcelAsync(file);
+      // 复用 openPreviewDialog 已解析的 workbook：不再对同一文件重复 read + parse
+      const data = parseWorkbook(workbook, file.name);
       const productCount = new Set(data.data.map(p => p.productName)).size;
       message.info(`检测到横向格式（参数为列、车型为行），已解析出 ${productCount} 个车型`);
       await showProductConfirm(data, file.name);
@@ -131,11 +136,27 @@ const FileManager: React.FC<FileManagerProps> = () => {
   };
 
   const handlePreviewConfirm = async (configs: SheetParseConfig[]) => {
-    const cachedFile = fileCache.get(pendingFileName);
-    if (!cachedFile) { message.error('文件缓存过期'); return; }
-    const data = await parseWithConfigAsync(cachedFile, configs);
-    await showProductConfirm(data, pendingFileName);
-    // 解析并进入确认弹窗后释放预览态（此时 cachedFile 已读取完毕）
+    try {
+      const workbook = pendingWorkbookRef.current;
+      if (workbook) {
+        // 复用预览已解析的 workbook：不再对原文件重新 read + parse。
+        // 注意：这里是主线程同步解析（旧路径走 Worker）；单次确认量级可接受。
+        const data = parseWorkbookWithConfig(workbook, pendingFileName, configs);
+        await showProductConfirm(data, pendingFileName);
+      } else {
+        // 兜底：引用已释放（异常路径）时退回原路径
+        const cachedFile = fileCache.get(pendingFileName);
+        if (!cachedFile) { message.error('文件缓存过期'); return; }
+        const data = await parseWithConfigAsync(cachedFile, configs);
+        await showProductConfirm(data, pendingFileName);
+      }
+    } catch (err) {
+      // parseWorkbookWithConfig 在「配置未提取到任何参数」时会抛用户可读错误；
+      // 必须在此捕获，否则 onConfirm 未被 await 会让它变成无人处理的 rejection。
+      message.error('解析失败：' + (err instanceof Error ? err.message : String(err)));
+      return;
+    }
+    // 解析并进入确认弹窗后释放预览态（此时 workbook 已消费完毕）
     setPreviewOpen(false);
     releaseImportTransients();
   };
@@ -242,8 +263,13 @@ const FileManager: React.FC<FileManagerProps> = () => {
     open: boolean; baseFileName: string; targetName: string;
     base: SheetData | null; target: SheetData | null;
   }>({ open: false, baseFileName: '', targetName: '', base: null, target: null });
-  /** 释放导入过程态（fileCache/previewData/diffState）。预览/确认/选择器的关闭与取消路径统一走它。 */
+  /** 预览阶段已解析的 workbook，供确认导入时复用，避免二次解析（内存治理 P1-2）。
+   *  生命周期 = 一次预览会话（含 sheet 选择阶段）：openPreviewDialog 写入，
+   *  releaseImportTransients 在任一路径退出时释放。 */
+  const pendingWorkbookRef = useRef<XLSX.WorkBook | null>(null);
+  /** 释放导入过程态（fileCache/previewData/diffState/pendingWorkbook）。预览/确认/选择器的关闭与取消路径统一走它。 */
   const releaseImportTransients = useCallback(() => {
+    pendingWorkbookRef.current = null;
     clearImportTransients({ setFileCache, setPreviewData, setDiffState });
   }, []);
   // 大批量导入预览：分类筛选 + 搜索（477 条级别的批次用）
