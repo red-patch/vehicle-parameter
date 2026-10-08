@@ -159,11 +159,14 @@ buffer              0 MB
 
 #### P1-1 预览有界化（`excelParser.ts:596` `previewWorkbook`）
 
-- 用 `sheet['!ref']`（`decode_range`）直接得到 `totalRows / totalCols`，不再扫全表。
-- 仅对**前 110 行 × 真实列数**调 `sheet_to_json`（带 `range` 收敛，复用已有 `getEffectiveSheetRange` 的边界思路），只保留前 100 行。
-- 去掉「按 `totalCols` 补空到 504 列」的二次分配：渲染层用 `colSpan`/CSS 补齐，不在数据层造 504 宽的空数组。
+- 用收敛后的 `!ref`（`decode_range`）直接得到 `totalRows / totalCols`，不再扫全表。
+- 仅对**前 101 行**调 `sheet_to_json`（`range` 只约束行、列仍取 `!ref` 全宽），再 `slice(0, 100)`。
 
-**验收**：Node 口径复现 §2.3，量化「整表 json 物化 + 补空」两项中间分配的下降（预期 ~3 MB 量级，**不以 72 MB 为对照**）；`previewWorkbook` 输出的 `totalRows/totalCols` 与旧实现逐文件一致（回归单测）。
+**勘误（2026-10-08，实测后）**：初稿第 3 条「去掉按 `totalCols` 补空」**做不到且不必做**。`sheet_to_json` 传 `defval: ''` 时会把每行补满到 `range` 的宽度，所以有界化后行仍是等宽——已实测：新实现在 7 组用例（含 ragged、XFD 膨胀、空表、5000 行）下与旧实现**逐字节一致**。因此本项的收益来自**行数**（整表 → 101 行），不是列补空。
+
+**实测收益**（真实文件 `产品准入导出*.xlsx`，478×504）：物化行数 **478 → 101**，预览堆增量约 **11.0 MB → 2.4 MB**（单次预览量级；具体数值受 GC 时机影响有波动，行数是稳定事实）。
+
+**验收**：`previewWorkbook` 输出与旧实现逐字节一致（回归单测，含 XFD 膨胀与 ragged 用例）；用 spy 断言 `sheet_to_json` 收到的 `range.e.r - range.s.r ≤ 100`（即不再整表物化）。
 
 #### P1-2 免二次解析（`FileManager.tsx`）— P1 中数值收益最高
 
