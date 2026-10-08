@@ -182,12 +182,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 message.info(`已将 ${primaryFileNames.length} 个主文件标记迁移为「${KEY_VEHICLE_TAG}」标签`);
             }
             // 按更新时间倒序（每车最新版的定位交给分组视图的链头徽章）
-            infos.sort((a, b) => {
+            // 复制后再排序：infos 现由扫描缓存共享，原地排序会污染其他调用方
+            setAssets([...infos].sort((a, b) => {
                 if (!a.updatedAt) return 1;
                 if (!b.updatedAt) return -1;
                 return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-            });
-            setAssets(infos);
+            }));
             setAssetTags(effectiveTags);
             setAssetMeta(effectiveMeta);
         } catch (err) {
