@@ -7,11 +7,16 @@
  */
 import type { SheetData, SheetParseConfig } from '../types';
 import {
+  buildSheetObjectsResult,
+  buildSheetRowsResult,
   buildWorkbookHandleInfo,
   parseByHandle,
   parseWorkbook,
-  parseWorkbookWithConfig,
 } from './excelParser';
+import type { SheetObjectsResult, SheetRowsResult } from './excelParser';
+
+// 类型定义在 excelParser（生产者旁），此处再导出以保持既有引用路径
+export type { SheetObjectsResult, SheetRowsResult };
 import { WorkbookHandleStore } from './workbookHandles';
 import type { WorkbookHandleInfo } from './workbookHandles';
 import * as XLSX from 'xlsx';
@@ -74,11 +79,6 @@ const parseSync = (buffer: ArrayBuffer, fileName: string): SheetData => {
   return parseWorkbook(workbook, fileName);
 };
 
-const parseWithConfigSync = (buffer: ArrayBuffer, fileName: string, configs: SheetParseConfig[]): SheetData => {
-  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
-  return parseWorkbookWithConfig(workbook, fileName, configs);
-};
-
 /** 主线程 fallback 时的 handle 存储（worker 可用时不用它） */
 const _fallbackStore = new WorkbookHandleStore(3);
 
@@ -90,6 +90,16 @@ const openWorkbookSync = (buffer: ArrayBuffer, fileName: string): WorkbookHandle
 
 const parseHandleSync = (handleId: number, configs?: SheetParseConfig[]): SheetData =>
   parseByHandle(_fallbackStore, handleId, configs);
+
+const firstSheetRowsSync = (buffer: ArrayBuffer): SheetRowsResult => {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  return buildSheetRowsResult(workbook);
+};
+
+const firstSheetObjectsSync = (buffer: ArrayBuffer): SheetObjectsResult => {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  return buildSheetObjectsResult(workbook);
+};
 
 /**
  * 通过 Worker 发送任务（自动 fallback）。
@@ -190,42 +200,18 @@ export const parseExcelAsync = async (file: File): Promise<SheetData> => {
 };
 
 /**
- * 异步解析 - 配置化模式
- * 替代同步版 parseWorkbookWithConfig
+ * 解析侧直接产出首 sheet 的 header:1 二维数组（不给调用方 workbook）。
+ * 供「只按索引取列」的消费者使用——整份 workbook 不再跨线程克隆。
  */
-export const parseWithConfigAsync = async (
-  file: File,
-  configs: SheetParseConfig[]
-): Promise<SheetData> => {
-  const buffer = await file.arrayBuffer();
-  return postTask(
-    { type: 'parseWithConfig' as const, buffer, fileName: file.name, configs },
-    buffer,
-    () => parseWithConfigSync(buffer, file.name, configs)
-  );
-};
-
-const readWorkbookSync = (buffer: ArrayBuffer): XLSX.WorkBook =>
-  XLSX.read(new Uint8Array(buffer), { type: 'array' });
+export const readFirstSheetRowsAsync = async (buffer: ArrayBuffer): Promise<SheetRowsResult> =>
+  postTask({ type: 'readFirstSheetRows' as const, buffer }, buffer, () => firstSheetRowsSync(buffer));
 
 /**
- * 通过 Worker 仅做 XLSX.read 解析（不做行转换），返回 WorkBook 的结构化克隆副本。
- * 调用方在主线程做 sheet_to_json 等轻量后处理，
- * 用于替代散落各处的主线程 XLSX.read（重构方案A Phase 4 收敛点）。
+ * 解析侧直接产出首 sheet 的表头对象数组（SheetJS 默认语义）。
+ * 转换发生在解析侧用 SheetJS 本身完成，主线程只收终态对象（0.54MB vs 21.37MB workbook）。
  */
-export const readWorkbookFromBufferAsync = async (buffer: ArrayBuffer): Promise<XLSX.WorkBook> => {
-  return postTask(
-    { type: 'readWorkbook' as const, buffer },
-    buffer,
-    () => readWorkbookSync(buffer)
-  );
-};
-
-/** 便捷封装：File → Worker 解析为 WorkBook（替代 excelParser.readFileAsWorkbook 的主线程版本） */
-export const readWorkbookAsync = async (file: File): Promise<XLSX.WorkBook> => {
-  const buffer = await file.arrayBuffer();
-  return readWorkbookFromBufferAsync(buffer);
-};
+export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<SheetObjectsResult> =>
+  postTask({ type: 'readFirstSheetObjects' as const, buffer }, buffer, () => firstSheetObjectsSync(buffer));
 
 /**
  * Phase 5：Tauri Rust 命令（calamine）按路径解析，返回 SheetJS 兼容 WorkBook。

@@ -3,7 +3,7 @@ import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag, Select, 
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { parseWithConfigAsync, openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../../utils/excelParserAsync';
+import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../../utils/excelParserAsync';
 import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
@@ -45,7 +45,6 @@ const FileManager: React.FC<FileManagerProps> = () => {
 
   const handleUpload = async (file: File) => {
     setUploading(true);
-    setFileCache(prev => { const next = new Map(prev); next.set(file.name, file); return next; });
     try {
       await openPreviewDialog(file);
     } catch {
@@ -137,18 +136,12 @@ const FileManager: React.FC<FileManagerProps> = () => {
   const handlePreviewConfirm = async (configs: SheetParseConfig[]) => {
     try {
       const handleId = pendingHandleIdRef.current;
-      if (handleId !== null) {
-        // 在解析侧用缓存的 workbook 解析：不重读文件、workbook 不过线程边界
-        const data = await parseHandleAsync(handleId, configs);
-        await showProductConfirm(data, pendingFileName);
-      } else {
-        // 兜底（当前 UI 流程下不可达：预览弹窗挡着上传入口，ref 在放行到确认前不会被清）。
-        // 保留是为 ref 为 null 时仍不静默失败；代价是 fileCache 存活只为服务它。
-        const cachedFile = fileCache.get(pendingFileName);
-        if (!cachedFile) { message.error('文件缓存过期'); return; }
-        const data = await parseWithConfigAsync(cachedFile, configs);
-        await showProductConfirm(data, pendingFileName);
-      }
+      // handleId 为 null 只有在弹窗未经 openPreviewDialog 打开时才可能发生——异常态。
+      // 预览弹窗打开时必已写入 handle，用户看不到此分支（上传入口被遮罩挡住）。
+      if (handleId === null) { message.error('预览会话已失效，请重新选择文件'); return; }
+      // 在解析侧用缓存的 workbook 解析：不重读文件、workbook 不过线程边界
+      const data = await parseHandleAsync(handleId, configs);
+      await showProductConfirm(data, pendingFileName);
     } catch (err) {
       // 解析侧会抛用户可读错误（如「按当前配置未提取到任何参数数据」）；
       // 必须在此捕获，否则 onConfirm 未被 await 会让它变成无人处理的 rejection。
@@ -242,7 +235,6 @@ const FileManager: React.FC<FileManagerProps> = () => {
     }
   };
 
-  const [fileCache, setFileCache] = useState<Map<string, File>>(new Map());
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<SheetPreview[]>([]);
   const [pendingFileName, setPendingFileName] = useState('');
@@ -265,14 +257,14 @@ const FileManager: React.FC<FileManagerProps> = () => {
    *  非横向路径：openPreviewDialog 写入，releaseImportTransients 释放。
    *  横向路径不经此 ref（写入前即置 null），由 importHorizontalDirectly 的 finally 单独释放。 */
   const pendingHandleIdRef = useRef<number | null>(null);
-  /** 释放导入过程态（fileCache/previewData/diffState/解析侧 workbook handle）。
+  /** 释放导入过程态（previewData/diffState/解析侧 workbook handle）。
    *  预览/确认/选择器的关闭与取消路径统一走它。 */
   const releaseImportTransients = useCallback(() => {
     if (pendingHandleIdRef.current !== null) {
       releaseWorkbookHandle(pendingHandleIdRef.current);
       pendingHandleIdRef.current = null;
     }
-    clearImportTransients({ setFileCache, setPreviewData, setDiffState });
+    clearImportTransients({ setPreviewData, setDiffState });
   }, []);
   // 大批量导入预览：分类筛选 + 搜索（477 条级别的批次用）
   const [verdictFilter, setVerdictFilter] = useState<'all' | 'new' | 'updated' | 'suspect'>('all');
