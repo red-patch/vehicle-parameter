@@ -897,6 +897,17 @@ Expected: PASS。
 
 **等价性**：原实现 `cell ? String(cell.v ?? '') : ''`，与 AOA 下空 → `''` 一致；`!ref` 收敛逻辑（`minCol/maxCol/minRow/maxRow` 扫描）不再需要——`rows` 已对齐。
 
+**⚠ 必须保留一处既有缺陷，不要"顺手修好"**（实施前实测发现）：现有代码用 `if (val) headers.push(val)` 建表头，**跳过空表头**；随后用 `if (c < headers.length) rowObj[headers[c]] = val` 取值。当表头行中间有空列时，`headers` 变短、列索引整体错位。实测：
+
+```
+表头 ['A','','C']，数据 ['a1','b1','c1']
+现有输出：{"A":"a1","C":"b1"}   ← C 列读到的是 b1，c1 丢失
+```
+
+这是**既有缺陷**，不是本任务引入的。迁移时必须**照搬同一逻辑**（表头同样只收非空、同样按 `c < headers.length` 截断），保证迁移前后输出逐字节一致。修它是另一件事——若要修，单独提交并说明；**不要混在本次迁移里**（否则无法判断差异是迁移引入还是行为变更引入）。
+
+迁移后请用一个含空表头的用例实测前后输出一致，并在报告里给出该实测。
+
 - [ ] **Step 4: 验证与提交**
 
 Run: `npm run lint && npm run typecheck && npm run test && npm run build && (cd src-tauri && cargo test)`
