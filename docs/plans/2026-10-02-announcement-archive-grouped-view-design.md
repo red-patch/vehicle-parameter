@@ -1,6 +1,6 @@
 # 公告归档分组视图重设计 — 设计方案
 
-> 日期：2026-10-02 ｜ 状态：设计定稿（**实施未开始，待用户确认后动工**）
+> 日期：2026-10-02 ｜ 状态：**已实施并验证**（Q1–Q11 全项落地；实施备注与验证范围见 §9）
 > 来源：2026-10-02 grilling 会话（Q1–Q11 两轮收口，用户逐项确认）。
 > 关联：`docs/plans/2026-10-01-announcement-center-design.md`（公告中心）、`2026-09-29-asset-grouped-view-design.md`（资产分组视图，范式参照）、`docs/adr/0003`（版本链语义）。
 
@@ -163,3 +163,45 @@ antd Table 三类行（treeData 展开箭头 + 缩进）：
 ## 8. 开放问题
 
 无——Q1–Q11 已全部收口。实施期唯一自由度是 BRAND_WORDS 初始词表范围（先 `['远程','解放','吉利']`，按库内数据再扩）。
+
+## 9. 实施备注（2026-10-08 回填；代码核对）
+
+**落位产物**：
+
+| 文件 | 动作 | 说明 |
+|---|---|---|
+| `src/utils/announcementGrouping.ts` | 新增 | 归一化（R1–R4）+ `buildAnnouncementTree` + `filterArchiveInfos` + 行键/展开键工具；`BRAND_WORDS` 初始词表即 §8 三项 |
+| `src/utils/__tests__/announcementGrouping.test.ts` | 新增 | 19 单测，fixture = 真实库 22 条（§1 表格） |
+| `src/utils/announcementCompare.ts` | 扩展 | `compareBatchParams`（复用 `toValueMap`） |
+| `src/utils/__tests__/announcementCompare.test.ts` | 扩展 | 批次对比例再 +4（`compareAssetWithAnnouncement` 6 + 批次 4） |
+| `src/components/AnnouncementQuery/AnnouncementGroupedTable.tsx` | 新增 | 分组树（antd treeData，309 行） |
+| `src/components/AnnouncementQuery/AnnouncementFlatTable.tsx` | 新增 | 平铺表原样抽出（162 行，回归基线） |
+| `src/components/AnnouncementQuery/AnnouncementBatchDiffDrawer.tsx` | 新增 | 批次对比抽屉（168 行） |
+| `src/components/AnnouncementQuery/AnnouncementArchiveList.tsx` | 改造 | 工具栏（chips/Segmented/搜索）+ 双视图编排 + 动作编排（425 行） |
+| `src/store/vehicleStore.ts` | 微改 | `pendingAnnounceNoFilter: string[] \| null`（§4.5） |
+| `src/components/ParameterWorkbench/DataSourcePanel.tsx` | 微改 | 消费侧多值信号 → `announceNoInput`（按空白拆多值） |
+| `src/index.css` | 微改 | `.group-row` / `.diff-row` 高亮 |
+| `scripts/verify_archive_grouping_dry_run.ts` | 新增 | 只读真实库干跑，对照验收 #1–#4 |
+
+**§ 节覆盖对照**（逐项核对，非凭组件存在推断）：
+
+- **§2.1 决策 Q1–Q11 全项落地**：双视图（Q1）、归一化组键纯函数（Q2）、版本链链头+历史折叠（Q3）、未归类桶置顶+认领（Q4）、搜索自动展开+5 chips（Q5）、纯视图层聚合（Q6）、三级操作（Q7）、批次对比进本期（Q8）、antd treeData 树形表格（Q9）、组改名 v1 不做（Q10）、默认折叠不持久化 / Segmented 记 localStorage（Q11）。
+- **§3 分组算法**：R1–R4 齐；链头 = `batchSeq` 最大、非标/无批次（seq=-1）恒排链头之后（`batchSeq` 取首个数字，无数字返回 -1）；组间显示名 `localeCompare('zh')`、未归类恒置顶；`groupKeyOf` 以 `orphan || 归一化空` 判未归类。
+- **§3.2 同公告号跨车型不强行合并**：树按车型归属（`DNC5037XXYBEVP1` 裸记录落未归类桶、V6E 组内两条各自成链），未做车型间合并——符合 Q4「只提示不自动动」。
+- **§4.1 分组树**：三类行、批次行 6 操作原样、组行/公告号行各自操作、未归类桶不设公告号层直接平铺（`AnnouncementGroupedTable.tsx:70-108`）；默认全折叠、展开态不持久化。
+- **§4.2/§4.3 平铺视图 + 切换**：`AnnouncementFlatTable` 保留孤儿置顶/导入时间倒序/6 操作/关联资产展开行；Segmented 共用搜索与 chips，写 `announcement-archive-view`，默认分组。
+- **§4.4 批次对比**：入口公告号行「对比批次」（<2 批次禁用）；默认相邻两批次（索引 0 vs 1）、抽屉内 Select 可切换；新批次为基准列、差异行 `.diff-row` 高亮、统计条 `N 项 · 一致 / 差异`；只读；`compareBatchParams` 在 `announcementCompare.ts`，抽屉独立成文件（未堆进 ArchiveList）。
+- **§4.5 级间联动**：组级多值过滤信号 `pendingAnnounceNoFilter: string[]`，消费侧改为输入框多值（空白拼接）而非 Set 实例；`导入新批次`/`导入该车型新公告` 复用 `AnnouncementImportModal` prefill 通道（零新弹窗）。
+- **§5 改动面**：均按表落位；`AnnouncementArchiveList` 425 行（含平铺表抽出），热点纪律满足。
+
+**实施偏差**（1 处，方向已反转）：
+
+- **组显示名平票取舍与 §3.1 相反**：§3.1 写「平票取更长者（信息多者优先）」，实现取**更短者**（`announcementGrouping.ts:87-103`，按「脏写法往往更长，如粘连公告号的那种」）。22 条真库样例下两种规则产出一致（`远程V8E` 3 票 > `V8E` 1 票），故验收 #1 不受影响；仅平票且长短写法并存时行为有别。以代码为准，本节即口径。
+
+**验证记录**（2026-10-08，主仓库 e15bc7b）：
+
+- `npx vitest run` 两文件全绿：`announcementGrouping` 19 + `announcementCompare` 10 = **29 passed**（满足 §6.8「新纯函数 ≥15 单测」，实际 19）。
+- 代码核对：`grep` 确认 `pendingAnnounceNoFilter` 类型、`DataSourcePanel` 消费侧、`.group-row`/`.diff-row` CSS、`batchSeq`/`orphan` 语义均已落位。
+- **未重复执行**：`npm run lint` / `npm run build` 因本次为纯文档改动、无代码变更而未重跑；构建态与验收 #1–#7 的用户实测记录属 v4.10.0 发布（`e15bc7b`）本身，本文不另行复现。
+
+**遗留**：无阻断项。可选后续：BRAND_WORDS 按库内数据扩词（§8）；组显示名若确认要「取更长者」，改 `pickDisplayName` 比较方向即可。
