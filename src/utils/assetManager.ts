@@ -340,10 +340,17 @@ const scanAssetFiles = async (libraryPath: string): Promise<AssetFileInfo[]> => 
 /**
  * 资产库扫描缓存入口：按 (库路径, 版本) 复用同一份 Promise，
  * 任何写操作后由 invalidateAssetScanCache() 递增版本使其失效。
+ *
+ * @param force 跳过缓存强制重扫。用于「刷新资产库」按钮——缓存只在应用内写操作时
+ *   失效，而应用外的文件增删改（用户在 Finder 里操作）不会触发任何失效信号。
  */
-export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetFileInfo[]> => {
+export const getAssetFilesWithInfo = async (
+    libraryPath: string,
+    force = false
+): Promise<AssetFileInfo[]> => {
     const key = `${libraryPath}\u0000${scanCacheVersion}`;
-    if (scanCache?.key === key) return scanCache.promise;
+    // 严格比较 true：直传事件对象给这个参数会得到 truthy，误触发强制重扫
+    if (force !== true && scanCache?.key === key) return scanCache.promise;
     const promise = scanAssetFiles(libraryPath);
     scanCache = { key, promise };
     // 空结果一律不缓存：scanAssetFiles 对失败是「吞错 → 回退」，瞬时故障与真空库
