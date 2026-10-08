@@ -105,37 +105,29 @@ worker 侧新增三类消息：`openWorkbook`（`XLSX.read` → `detectWorkbookO
 
 它今天保留原始 `File`（`pendingFileRef`）供确认时 `parseWithConfigAsync` 重解析一遍——本方案下改为持 handle，顺带消掉这次重解析。与 P2-1 同一协议，无新概念。
 
-### P2-3 「只需行」的消费者改走 AOA
+### P2-3 「只需行」的消费者改走解析侧载荷
 
-新增（替换 `readWorkbookFromBufferAsync` 的使用）：
+> **实施前实测修正**：本节的初稿要求「worker 回 AOA，主线程用自写函数把 AOA 转成表头对象并复刻 SheetJS 命名」。实测否决——SheetJS 的命名语义比预想复杂：空表头 → `""`、**重复空表头 → `_1`**、行超出表头宽度 → `__EMPTY`/`__EMPTY_1`、**单元格为 `null` → 该键整体省略**、**全空行保留**、表头行为空 → `[]`。手写复刻极易静默改结果。
+>
+> **改为：在解析侧直接调 SheetJS 转换**（workbook 本就在那里），只把终态送回。零复刻、零语义风险，且载荷更小：终态对象 **0.54MB** vs AOA 1.72MB vs workbook 克隆 21.37MB（111,936 单元格的枚举文件实测）。
+
+新增两个接口（替换 `readWorkbookFromBufferAsync` 的使用）：
 
 ```ts
-export interface SheetRowsResult {
-    sheetName: string;
-    /** header:1 的二维数组 */
-    rows: unknown[][];
-}
+export interface SheetRowsResult { sheetName: string; rows: unknown[][] }
+export interface SheetObjectsResult { sheetName: string; objects: Record<string, unknown>[] }
 
-/** 只解析首 sheet 的行，不把 workbook 送到主线程 */
+/** 首 sheet 的行（header:1），workbook 不出解析侧 */
 export const readFirstSheetRowsAsync = async (buffer: ArrayBuffer): Promise<SheetRowsResult>;
+/** 首 sheet 的表头对象数组——解析侧直接委托 SheetJS sheet_to_json，语义由库保证 */
+export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<SheetObjectsResult>;
 ```
 
-迁移 `MultiVehicleView`、`SmartFillView`（取 `rows[0]` 找名称列）、`AttributeDedup`（用首行做表头建对象数组，顺带去掉该文件对 `xlsx` 的直接依赖）。
+底层两个转换函数（`firstSheetRows` / `firstSheetHeaderObjects`）放在 `excelParser.ts`，**worker 与主线程 fallback 共用同一份实现**（不做双份，避免漂移）。
 
-**⚠ `AttributeDedup` 的表头命名必须逐字复刻**（实测 xlsx 0.18.5 的行为，写错会静默改变解析结果）：它现在用的是**默认** `sheet_to_json(sheet)`（无 `header:1`），SheetJS 会对表头做两件事——
-
-- 空表头 → 键名 `""`（不是 `__EMPTY`）；
-- 重复表头 → 第二个起加后缀 `属性名称_1`、`属性名称_2`…
-
-```js
-// 实测
-sheet_to_json(ws)             // [{"属性名称":"a","":"b","属性名称_1":"c","值":"d"}]
-sheet_to_json(ws,{header:1})  // [["属性名称","","属性名称","值"],["a","b","c","d"]]
-```
-
-因此 P2-3 里 `AttributeDedup` 的落地方式**不是**「手写 ~5 行转换」，而是**把这段转换做成一个独立纯函数**（例如 `rowsToHeaderObjects(rows)` 放在 `src/utils/`，附上表头命名规则的单测——空表头、重复表头、行比表头长/短四种情形），在 worker 内复用它。理由：该消费者依赖的是 SheetJS 的命名语义，手抄一遍极易漏掉去重后缀，且这是本轮唯一一处「输出必须复刻第三方库行为」的地方，必须由测试锁住。
-
-若为控制风险，也可让 `AttributeDedup` 暂时保留 `header` 默认语义，走 `parseExcelAsync` 之外的独立通道——但那样它仍需 workbook，等于放弃该处收益。**建议按纯函数 + 单测落地。**
+迁移：
+- `MultiVehicleView`、`SmartFillView` → `readFirstSheetRowsAsync`，用 `rows`；
+- `AttributeDedup` → `readFirstSheetObjectsAsync`，用 `objects`。它原来调的就是 `sheet_to_json(sheet)`（默认语义），现在由解析侧调**同一个函数**，语义差异为零——这正是放弃手写复刻的原因。
 
 `readWorkbookFromBufferAsync` / `readWorkbookAsync` **在本轮全部迁移完成后删除**，避免留下仍会拖 32MB 的入口。
 
