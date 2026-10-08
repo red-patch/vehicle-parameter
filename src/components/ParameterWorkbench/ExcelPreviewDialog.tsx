@@ -139,21 +139,6 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
         }));
     }, [updateConfig]);
 
-    // 初始化并同步 SheetPicker 传入的禁用列表
-    React.useEffect(() => {
-        if (previews.length === 0) return;
-        previews.forEach(p => {
-            // 首次打开：自动检测列角色
-            if (!sheetConfigs.has(p.sheetName)) {
-                autoDetect(p);
-            }
-            // 始终同步跳过状态（包括重新配置场景）
-            if (preselectedDisabledSheets?.has(p.sheetName)) {
-                setSheetEnabled(p.sheetName, false);
-            }
-        });
-    }, [previews, preselectedDisabledSheets]); // eslint-disable-line react-hooks/exhaustive-deps
-
     // 设置列角色
     const setColumnRole = (colIdx: number, role: ColumnRole) => {
         if (!currentPreview) return;
@@ -182,6 +167,21 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
     const setSheetEnabled = (sheetName: string, enabled: boolean) => {
         updateConfig(sheetName, prev => ({ ...prev, enabled }));
     };
+
+    // 初始化并同步 SheetPicker 传入的禁用列表（须在 setSheetEnabled 声明之后）
+    React.useEffect(() => {
+        if (previews.length === 0) return;
+        previews.forEach(p => {
+            // 首次打开：自动检测列角色
+            if (!sheetConfigs.has(p.sheetName)) {
+                autoDetect(p);
+            }
+            // 始终同步跳过状态（包括重新配置场景）
+            if (preselectedDisabledSheets?.has(p.sheetName)) {
+                setSheetEnabled(p.sheetName, false);
+            }
+        });
+    }, [previews, preselectedDisabledSheets]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const enableOnlyCurrentSheet = () => {
         if (!currentPreview) return;

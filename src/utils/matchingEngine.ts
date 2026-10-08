@@ -82,7 +82,7 @@ export const PARAMETER_ALIASES: Record<string, string[]> = {
 export const normalizeName = (name: string): string => {
     return name
         .replace(/[（(].*?[)）]/g, '') // 去除括号及内容
-        .replace(/[\[【].*?[\]】]/g, '') // 去除中括号及内容
+        .replace(/[[【].*?[\]】]/g, '') // 去除中括号及内容
         .replace(/\s+/g, '') // 去除空格
         // V1.5: 移除常见的单位词
         .replace(/mm$|kg$|km\/h$|kW$|kWh$|L$/i, '')

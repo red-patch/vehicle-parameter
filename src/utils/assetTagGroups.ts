@@ -72,7 +72,13 @@ export const reloadCustomAssetTagGroups = async (libraryPath: string): Promise<v
         return;
     }
     try {
-        const config = await loadCustomConfig<any>(libraryPath, TAG_GROUPS_FILE);
+        // 现格式 { groups, exclusiveGroups }；旧格式为三个平铺标签数组，读到后归并成 groups
+        type LegacyTagGroupsConfig = Partial<AssetTagGroupsConfig> & {
+            otherTags?: string[];
+            vehicleFamilyTags?: string[];
+            manufacturerTags?: string[];
+        };
+        const config = await loadCustomConfig<LegacyTagGroupsConfig>(libraryPath, TAG_GROUPS_FILE);
         if (!config) {
             cachedConfig = DEFAULT_ASSET_TAG_GROUPS;
         } else if (config.groups) {
@@ -163,7 +169,7 @@ const needsDefaultGroupConsolidation = (config: AssetTagGroupsConfig): boolean =
 
 export const ensureTagsInDefaultGroup = async (libraryPath: string, newTags: string[]): Promise<boolean> => {
     const shouldConsolidate = needsDefaultGroupConsolidation(cachedConfig);
-    let config = shouldConsolidate ? consolidateDefaultTagGroups(cachedConfig) : cachedConfig;
+    const config = shouldConsolidate ? consolidateDefaultTagGroups(cachedConfig) : cachedConfig;
     const existing = new Set(config.groups.flatMap(g => g.tags));
     const toAdd = newTags.map(t => t.trim()).filter(t => t.length > 0 && !existing.has(t));
     if (toAdd.length === 0) {

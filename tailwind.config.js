@@ -55,15 +55,7 @@ export default {
         'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
         'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
       },
-      animation: {
-        'fade-in': 'fadeIn 0.2s ease-out',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: 0 },
-          '100%': { opacity: 1 },
-        }
-      }
+      // 动效：统一走 src/index.css 的 vp-* 动画与 --ease-ui 曲线（此处不再另立 token）
     },
   },
   // 该包导出的是 { handler, config } 插件对象，直接传数组（不要调用）

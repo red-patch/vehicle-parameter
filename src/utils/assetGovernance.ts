@@ -11,6 +11,9 @@ export const DEFAULT_BRAND_NAMES = [
   '吉利', '金旅', '福田', '九识', '新石器', '大通', '陕汽', '东风', '徐工', '金龙', '白犀牛',
 ];
 
+/** 关键车型标签名（ADR-0003：业务主推/对比偏好的人工标记，替代已退役的主文件） */
+export const KEY_VEHICLE_TAG = '关键车型';
+
 /** 变体尾缀：同一车型不同上装/用途的叫法，分组时视为同组 */
 const VARIANT_SUFFIX_RE = /(客运版|货运版)$/;
 
@@ -88,6 +91,26 @@ export const deriveVehicleGroupKey = (
   return '未分组';
 };
 
+/**
+ * 归组键规范化（人工显示名 → 键）：去掉全部空白 + 拉丁大写。
+ * 推导键同样无空白、恒大写，同口径保证「同名必同键」。
+ */
+export const normalizeGroupKey = (name: string): string => name.replace(/\s+/g, '').toUpperCase();
+
+/**
+ * 归组键解析：人工显示名（meta.groupName）优先，缺省回落文件名推导。
+ * 显示名参与归组——把车型组重命名为与既有组同名即自动合并，改不同名即拆出；
+ * 文件名始终不动（与显示名解耦）。
+ */
+export const resolveVehicleGroupKey = (
+  info: { fileName: string; productName?: string | null },
+  meta: AssetGovernanceMeta | undefined,
+  brandNames: string[] = DEFAULT_BRAND_NAMES,
+): string => {
+  const named = meta?.groupName ? normalizeGroupKey(meta.groupName) : '';
+  return named || deriveVehicleGroupKey(info.fileName, info.productName, brandNames);
+};
+
 export interface GovernanceFileEntry {
   info: AssetFileInfo;
   meta: AssetGovernanceMeta;
@@ -97,10 +120,6 @@ export interface GovernanceFileEntry {
 export interface VehicleGroup {
   groupKey: string;
   files: GovernanceFileEntry[];
-  /** 规则推荐的主文件 fileName */
-  suggestedPrimary: string | null;
-  /** 用户已标记的主文件 fileName（多个时取第一个，多主文件问题单独上报） */
-  currentPrimary: string | null;
 }
 
 export interface DuplicateCluster {
@@ -109,12 +128,34 @@ export interface DuplicateCluster {
   fileNames: string[];
 }
 
+/**
+ * 车辆版本组（ADR-0003）：同一辆车（身份键）的全部资产。
+ * 身份键 = 公告号 + 准入编号（有公告号时；ZR 不同即不同车），否则车型组 + 产品名。
+ */
+export interface CarVersionGroup {
+  identityKey: string;
+  files: GovernanceFileEntry[];
+  /** 活跃版本（未 superseded/deprecated） */
+  activeFiles: GovernanceFileEntry[];
+  /** 版本链头：活跃版本中 updatedAt 最新（并列比参数数、文件名字典序） */
+  latest: GovernanceFileEntry | null;
+}
+
+/** 版本链未收敛：同一辆车存在多份活跃版本，体检提示把旧的标 superseded */
+export interface UnconvergedCar {
+  identityKey: string;
+  files: GovernanceFileEntry[];
+  latestFileName: string | null;
+}
+
 export interface GovernanceReport {
   totalFiles: number;
   totalGroups: number;
   groups: VehicleGroup[];
-  missingPrimaryGroups: VehicleGroup[];
-  multiPrimaryGroups: VehicleGroup[];
+  /** 每辆车的链头文件名（⚡激活/对比默认入口） */
+  latestFileNames: string[];
+  /** 版本链未收敛的车（同车多份活跃版本） */
+  unconvergedCars: UnconvergedCar[];
   /** 审批状态为「驳回」的文件（自动派生，无需标注） */
   rejectedFiles: AssetFileInfo[];
   /** 疑似重复：同车辆型号/公告号的文件簇（含 ZR 重报对） */
@@ -122,30 +163,57 @@ export interface GovernanceReport {
   namingNonCompliant: { name: string; errors: string[] }[];
 }
 
+const normalizeIdentityToken = (s: string): string => s.replace(/\s+/g, '').toUpperCase();
+
 /**
- * 主文件建议规则（确定性排序）：
- * 文件名带「废弃」的降级 → 审批状态=已审核 优先 → 填写参数最多 → updatedAt 最新 → 文件名字典序兜底
+ * 车辆身份键（与导入查重同源，ADR-0002/0003）：
+ * 有公告号 → `公告号|准入编号`（准入编号不同即不同车）；无公告号 → 车型组 + 产品名。
  */
-export const suggestPrimary = (entries: GovernanceFileEntry[]): string | null => {
-  if (entries.length === 0) return null;
+export const deriveCarIdentityKey = (
+  info: Pick<AssetFileInfo, 'announceNos' | 'admissionNos' | 'productName'>,
+  effectiveAnnounceNos: string[],
+  groupKey: string,
+): string => {
+  const announcePart = normalizeIdentityToken(effectiveAnnounceNos.filter(Boolean).sort().join(','));
+  if (announcePart) {
+    const zrPart = normalizeIdentityToken((info.admissionNos ?? []).filter(Boolean).sort().join(','));
+    return `A:${announcePart}|Z:${zrPart}`;
+  }
+  return `N:${groupKey}::${normalizeIdentityToken(info.productName)}`;
+};
+
+/** 链头判定（确定性）：updatedAt 最新 → 参数最多 → 文件名字典序 */
+const latestOf = (files: GovernanceFileEntry[]): GovernanceFileEntry | null => {
+  if (files.length === 0) return null;
   const timeOf = (v: string | null) => {
     const t = v ? Date.parse(v) : NaN;
     return Number.isNaN(t) ? 0 : t;
   };
-  const sorted = [...entries].sort((a, b) => {
-    const ad = a.info.fileName.includes('废弃') ? 0 : 1;
-    const bd = b.info.fileName.includes('废弃') ? 0 : 1;
-    if (ad !== bd) return bd - ad;
-    const ap = a.info.approvalStatus === '已审核' ? 1 : 0;
-    const bp = b.info.approvalStatus === '已审核' ? 1 : 0;
-    if (ap !== bp) return bp - ap;
+  return [...files].sort((a, b) => {
+    const d = timeOf(b.info.updatedAt) - timeOf(a.info.updatedAt);
+    if (d !== 0) return d;
     if (a.info.filledParams !== b.info.filledParams) return b.info.filledParams - a.info.filledParams;
-    const at = timeOf(a.info.updatedAt);
-    const bt = timeOf(b.info.updatedAt);
-    if (at !== bt) return bt - at;
     return a.info.fileName.localeCompare(b.info.fileName);
+  })[0];
+};
+
+/** 按身份键聚合车辆版本组（跨车型组聚合——同车理论上只属一组，聚合放全量口径防漏） */
+export const computeCarVersionGroups = (
+  entries: GovernanceFileEntry[],
+  effectiveAnnounceNosResolver: (info: AssetFileInfo) => string[],
+): Map<string, CarVersionGroup> => {
+  const map = new Map<string, CarVersionGroup>();
+  entries.forEach(entry => {
+    const key = deriveCarIdentityKey(entry.info, effectiveAnnounceNosResolver(entry.info), entry.groupKey);
+    if (!map.has(key)) map.set(key, { identityKey: key, files: [], activeFiles: [], latest: null });
+    const car = map.get(key)!;
+    car.files.push(entry);
+    if (entry.meta.status !== 'superseded' && entry.meta.status !== 'deprecated') {
+      car.activeFiles.push(entry);
+    }
   });
-  return sorted[0].info.fileName;
+  map.forEach(car => { car.latest = latestOf(car.activeFiles); });
+  return map;
 };
 
 /** 疑似重复检测：车辆型号或任一公告号相同的文件通过并查集聚簇 */
@@ -202,7 +270,7 @@ const buildDuplicateClusters = (infos: AssetFileInfo[]): DuplicateCluster[] => {
   return clusters;
 };
 
-/** 治理体检报告：聚合分组、主文件缺口、多主文件、驳回件、疑似重复、命名不规范 */
+/** 治理体检报告：聚合分组、版本链收敛、驳回件、疑似重复、命名不规范（ADR-0003，主文件概念已退役） */
 export const buildGovernanceReport = (
   infos: AssetFileInfo[],
   metaMap: AssetMetaMap,
@@ -211,11 +279,10 @@ export const buildGovernanceReport = (
   announceNosResolver?: (info: AssetFileInfo) => string[],
 ): GovernanceReport => {
   const resolveNos = announceNosResolver ?? ((info: AssetFileInfo) => info.announceNos);
-  const entries: GovernanceFileEntry[] = infos.map(info => ({
-    info,
-    meta: metaMap[info.fileName] || {},
-    groupKey: deriveVehicleGroupKey(info.fileName, info.productName, brandNames),
-  }));
+  const entries: GovernanceFileEntry[] = infos.map(info => {
+    const meta = metaMap[info.fileName] || {};
+    return { info, meta, groupKey: resolveVehicleGroupKey(info, meta, brandNames) };
+  });
 
   const groupMap = new Map<string, GovernanceFileEntry[]>();
   entries.forEach(entry => {
@@ -223,16 +290,27 @@ export const buildGovernanceReport = (
     groupMap.get(entry.groupKey)!.push(entry);
   });
 
-  const groups: VehicleGroup[] = Array.from(groupMap.entries()).map(([groupKey, files]) => {
-    const primaryFiles = files.filter(f => f.meta.isPrimary);
-    return {
-      groupKey,
-      files,
-      suggestedPrimary: suggestPrimary(files),
-      currentPrimary: primaryFiles[0]?.info.fileName ?? null,
-    };
-  });
+  const groups: VehicleGroup[] = Array.from(groupMap.entries()).map(([groupKey, files]) => ({
+    groupKey,
+    files,
+  }));
   groups.sort((a, b) => a.groupKey.localeCompare(b.groupKey));
+
+  // 车辆版本组：链头集合 + 未收敛车
+  const carGroups = computeCarVersionGroups(entries, resolveNos);
+  const latestFileNames: string[] = [];
+  const unconvergedCars: UnconvergedCar[] = [];
+  carGroups.forEach(car => {
+    if (car.latest) latestFileNames.push(car.latest.info.fileName);
+    if (car.activeFiles.length > 1) {
+      unconvergedCars.push({
+        identityKey: car.identityKey,
+        files: [...car.files].sort((a, b) => a.info.fileName.localeCompare(b.info.fileName)),
+        latestFileName: car.latest?.info.fileName ?? null,
+      });
+    }
+  });
+  unconvergedCars.sort((a, b) => b.files.length - a.files.length || a.identityKey.localeCompare(b.identityKey));
 
   // 命名合规：与 DataSourcePanel 同口径（名称须包含有效公告号）
   const namingNonCompliant: { name: string; errors: string[] }[] = [];
@@ -245,8 +323,8 @@ export const buildGovernanceReport = (
     totalFiles: infos.length,
     totalGroups: groups.length,
     groups,
-    missingPrimaryGroups: groups.filter(g => !g.currentPrimary),
-    multiPrimaryGroups: groups.filter(g => g.files.filter(f => f.meta.isPrimary).length > 1),
+    latestFileNames,
+    unconvergedCars,
     rejectedFiles: infos.filter(i => i.approvalStatus === '驳回'),
     duplicateClusters: buildDuplicateClusters(infos),
     namingNonCompliant,
@@ -254,24 +332,118 @@ export const buildGovernanceReport = (
 };
 
 /**
- * 采纳主文件建议：对给定组清除现有主文件的 isPrimary，并把建议文件标为主文件。
- * 返回完整的新 meta 映射（其余条目原样保留），由调用方一次性落盘。
+ * 组内展示排序：🆕每车链头 → 其它活跃 → 历史 → 废弃（ADR-0003）。
+ * 同级按 updatedAt 新→旧，再按文件名字典序，保证确定性。
  */
-export const buildAdoptPrimaryMeta = (
+export const sortGroupFiles = (
+  entries: GovernanceFileEntry[],
+  latestFileNames?: Set<string>,
+): GovernanceFileEntry[] => {
+  const rank = (e: GovernanceFileEntry): number => {
+    if (latestFileNames?.has(e.info.fileName)) return 0;
+    if (e.meta.status === 'deprecated') return 3;
+    if (e.meta.status === 'superseded') return 2;
+    return 1;
+  };
+  const timeOf = (v: string | null) => {
+    const t = v ? Date.parse(v) : NaN;
+    return Number.isNaN(t) ? 0 : t;
+  };
+  return [...entries].sort((a, b) => {
+    const r = rank(a) - rank(b);
+    if (r !== 0) return r;
+    const d = timeOf(b.info.updatedAt) - timeOf(a.info.updatedAt);
+    if (d !== 0) return d;
+    return a.info.fileName.localeCompare(b.info.fileName);
+  });
+};
+
+/**
+ * 规范化分组显示名：仅收尾空白与压缩连续空格。
+ * 显示名与文件名、归组推导完全解耦，允许任意字符（含空格/括号）。
+ */
+export const sanitizeGroupName = (input: string): string => input.trim().replace(/\s+/g, ' ');
+
+/**
+ * 分组显示名：取任一文件的 groupName 覆盖（组重命名会写入组内全部文件），无覆盖时回落归组键。
+ */
+export const pickGroupAlias = (entries: GovernanceFileEntry[], fallback: string): string => {
+    for (const e of entries) {
+        if (e.meta.groupName) return e.meta.groupName;
+    }
+    return fallback;
+};
+
+/**
+ * 主文件迁移（ADR-0003）：收集 meta 中的 isPrimary 标记并从 meta 清除。
+ * 调用方把 primaryFileNames 转写为「关键车型」标签后落盘。
+ */
+export const collectPrimaryMeta = (
   metaMap: AssetMetaMap,
-  groups: VehicleGroup[],
+): { primaryFileNames: string[]; cleaned: AssetMetaMap } => {
+  const primaryFileNames: string[] = [];
+  const cleaned: AssetMetaMap = {};
+  Object.entries(metaMap).forEach(([fileName, m]) => {
+    if (m.isPrimary) {
+      primaryFileNames.push(fileName);
+      const rest = { ...m } as Record<string, unknown>;
+      delete rest.isPrimary;
+      if (Object.keys(rest).length > 0) cleaned[fileName] = rest as AssetGovernanceMeta;
+    } else {
+      cleaned[fileName] = m;
+    }
+  });
+  return { primaryFileNames, cleaned };
+};
+
+// ============================================================
+// 生命周期状态流转（ADR-0002：永不静默覆盖，更新=版本演进，删除=软删除）
+// 均为纯计算：返回完整新 meta 映射，由调用方一次性落盘。
+// ============================================================
+
+/**
+ * 版本流转：旧文件标 superseded（历史版本）。一次导入产生多对新旧版本时传入多个 pair。
+ */
+export const buildSupersedeMeta = (
+  metaMap: AssetMetaMap,
+  pairs: { oldFileName: string; newFileName: string }[],
 ): AssetMetaMap => {
   const next: AssetMetaMap = { ...metaMap };
-  groups.forEach(group => {
-    if (!group.suggestedPrimary) return;
-    group.files.forEach(file => {
-      if (!file.meta.isPrimary || file.info.fileName === group.suggestedPrimary) return;
-      const rest = { ...(next[file.info.fileName] || {}) };
-      delete rest.isPrimary;
-      if (Object.keys(rest).length === 0) delete next[file.info.fileName];
-      else next[file.info.fileName] = rest;
-    });
-    next[group.suggestedPrimary] = { ...(next[group.suggestedPrimary] || {}), isPrimary: true };
+  pairs.forEach(({ oldFileName }) => {
+    const oldMeta = { ...(next[oldFileName] || {}) } as Record<string, unknown>;
+    delete oldMeta.isPrimary; // 历史遗留字段顺手清理（主文件已退役）
+    oldMeta.status = 'superseded';
+    next[oldFileName] = oldMeta as AssetGovernanceMeta;
+  });
+  return next;
+};
+
+/** 软删除：标 deprecated（文件保留，可恢复） */
+export const buildDeprecateMeta = (
+  metaMap: AssetMetaMap,
+  fileNames: string[],
+): AssetMetaMap => {
+  const next: AssetMetaMap = { ...metaMap };
+  fileNames.forEach(fileName => {
+    const rest = { ...(next[fileName] || {}) } as Record<string, unknown>;
+    delete rest.isPrimary; // 历史遗留字段顺手清理
+    rest.status = 'deprecated';
+    next[fileName] = rest as AssetGovernanceMeta;
+  });
+  return next;
+};
+
+/** 恢复：清除 status（历史/废弃标记），其余标注保留；空条目移除 */
+export const buildRestoreMeta = (
+  metaMap: AssetMetaMap,
+  fileNames: string[],
+): AssetMetaMap => {
+  const next: AssetMetaMap = { ...metaMap };
+  fileNames.forEach(fileName => {
+    const rest = { ...(next[fileName] || {}) };
+    delete rest.status;
+    if (Object.keys(rest).length === 0) delete next[fileName];
+    else next[fileName] = rest;
   });
   return next;
 };

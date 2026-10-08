@@ -59,6 +59,14 @@ const NAME_LIKE_KEYWORDS = [
 // ===================== 公共工具函数 =====================
 
 /**
+ * 追加大数组：横向大表（如产品准入导出）单 sheet 可产出 20w+ 条参数，
+ * push(...items) 展开实参超过引擎上限直接 RangeError（Maximum call stack size exceeded）
+ */
+const appendAll = (target: VehicleParameter[], items: VehicleParameter[]): void => {
+    for (const item of items) target.push(item);
+};
+
+/**
  * 智能百分比转换：Excel 存储 25% 为 0.25，需还原为 "25%"
  */
 const convertPercentValue = (value: unknown, name: string): string | number => {
@@ -76,7 +84,7 @@ const extractProductNameFromFileName = (fileName: string): string => {
     const baseName = fileName.replace(/\.[^/.]+$/, '').split('/').pop() || fileName;
     // 提取有意义的前缀：字母数字+中文（去掉"整车配置清单"等通用后缀）
     const cleaned = baseName
-        .replace(/[_\-]?(整车|配置|清单|参数表|面类|V\d+).*$/u, '')
+        .replace(/[_-]?(整车|配置|清单|参数表|面类|V\d+).*$/u, '')
         .trim();
     if (cleaned.length > 2) return cleaned.substring(0, 30);
     // 兜底：取开头的字母数字+中文
@@ -386,7 +394,7 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
                     sheetName, convertValue: convertPercentValue
                 });
                 if (params.length > 0) {
-                    allParameters.push(...params);
+                    appendAll(allParameters, params);
                     horizontalSheetNames.add(sheetName);
                     diagnostics.headerFound = true;
                     diagnostics.productColumnsFound += new Set(params.map(p => p.productName)).size;
@@ -398,7 +406,7 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
 
         // 检测键值对格式
         if (isKeyValueFormat(jsonData)) {
-            allParameters.push(...parseKeyValueSheet(jsonData, sheetName, fileName));
+            appendAll(allParameters, parseKeyValueSheet(jsonData, sheetName, fileName));
             diagnostics.sheetsProcessed.push(sheetName);
             return;
         }
@@ -650,7 +658,7 @@ export const parseWorkbookWithConfig = (
         // 横向格式由解析端自动识别，列角色配置不适用（列配置无法表达"行=车型"）
         const horizontalInfo = detectHorizontalSheet(jsonData);
         if (horizontalInfo) {
-            allParameters.push(...parseHorizontalSheet(jsonData, horizontalInfo, {
+            appendAll(allParameters, parseHorizontalSheet(jsonData, horizontalInfo, {
                 sheetName: config.sheetName, convertValue: convertPercentValue
             }));
             if (headers.length === 0) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Input, message } from 'antd';
+import type { InputRef } from 'antd';
 import TagSelector from '../common/TagSelector';
 import { checkAssetExists, setAssetFileTags } from '../../utils/assetManager';
 import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
@@ -25,7 +26,7 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
 
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [allAvailableTags, setAllAvailableTags] = useState<string[]>([]);
-    const inputRef = useRef<any>(null);
+    const inputRef = useRef<InputRef>(null);
 
     // 弹窗打开时聚焦输入框
     useEffect(() => {
@@ -119,11 +120,6 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
             width={480}
         >
             <div className="py-4 space-y-5">
-                <p className="text-3 text-sm m-0">
-                    系统会自动将其以 JSON 格式极速归档至您指定的本地资产库目录。
-                    再次加载时，将秒开无需任何解析与转化等待。
-                </p>
-
                 {/* 文件名 */}
                 <div className="flex flex-col gap-1.5">
                     <label className="font-medium text-2 text-sm">资产文件名</label>

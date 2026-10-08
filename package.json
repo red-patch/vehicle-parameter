@@ -1,13 +1,14 @@
 {
   "name": "shining-lagoon",
   "private": true,
-  "version": "4.9.1",
+  "version": "4.10.0",
   "type": "module",
   "scripts": {
     "stats": "node scripts/stats.js",
     "start": "./scripts/start.sh",
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",

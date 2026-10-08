@@ -274,3 +274,27 @@ describe('detectWorkbookOrientation', () => {
         expect(detectWorkbookOrientation(wbFromSheets({ Sheet1: [] }))).toBe('empty');
     });
 });
+
+// ===================== 大表回归 =====================
+
+describe('parseWorkbook 横向大表', () => {
+    it('参数量超过函数实参上限时不爆栈（push 展开回归：478×504 的产品准入导出实测爆栈）', () => {
+        const extraParamCols = 482;   // 18 个标准列 + 482 = 500 列
+        const dataRowCount = 480;     // 480 × 500 = 240,000 条参数，超 V8 实参数量上限
+        const headers = [...HORIZONTAL_HEADERS, ...Array.from({ length: extraParamCols }, (_, i) => `参数${i + 1}`)];
+        const rows: unknown[][] = [headers];
+        for (let r = 0; r < dataRowCount; r++) {
+            const row: unknown[] = [
+                'PJZM', 'Ⅱ', '', '全新车型', '已审核', `ZR${r + 1}`, '启用',
+                `JL6481BEV${r}`, 'GGH', '远程牌', 'V6E客运版', '404',
+            ];
+            row.length = headers.length;
+            row.fill('v', 12);
+            rows.push(row);
+        }
+
+        const result = parseWorkbook(wbFromSheets({ 产品准入导出_part0: rows }), '产品准入导出大表.xlsx');
+        expect(result.data.length).toBe(dataRowCount * headers.length);
+        expect(productNamesOf(result.data)).toHaveLength(dataRowCount);
+    });
+});

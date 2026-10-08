@@ -181,7 +181,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                             <ProductSourceSelector 
                                 mode="single"
                                 value={referenceProduct}
-                                onChange={setReferenceProduct}
+                                onChange={v => setReferenceProduct((Array.isArray(v) ? v[0] : v) ?? null)}
                                 placeholder={selectedProductNames.length > 0 ? "选择参考车型" : "请先在资产管理中激活车型"}
                                 showTags={false}
                             />

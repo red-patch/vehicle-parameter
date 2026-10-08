@@ -28,7 +28,9 @@ const MemoWorkbench: React.FC<{
   <ParameterWorkbench activeTab={activeTab} onTabChange={onTabChange} showTabs={false} />
 ));
 
-const MemoAnnouncement = React.memo(() => <AnnouncementQuery />);
+const MemoAnnouncement: React.FC<{ onOpenWorkbench?: () => void }> = ({ onOpenWorkbench }) => (
+  <AnnouncementQuery onOpenWorkbench={onOpenWorkbench} />
+);
 const MemoConfigManager = React.memo(() => <ConfigManagerView />);
 
 const App: React.FC = () => {
@@ -91,26 +93,26 @@ const App: React.FC = () => {
 
           {/* 所有模块保持挂载，用 display:none 切换，避免顶层菜单切换的 mount/unmount 开销 */}
           <React.Suspense fallback={<Skeleton active />}>
-            <div style={{ display: WORKBENCH_TABS.includes(activeTab as WorkbenchTab) ? undefined : 'none' }}>
+            <div className="vp-fade-in" style={{ display: WORKBENCH_TABS.includes(activeTab as WorkbenchTab) ? undefined : 'none' }}>
               <MemoWorkbench activeTab={workbenchTab} onTabChange={handleTabChange} />
             </div>
           </React.Suspense>
 
           {/* Legacy Tabs (Hidden from Menu but logic kept for safety) */}
           <React.Suspense fallback={<Skeleton active />}>
-            <div style={{ display: activeTab === 'diff' ? undefined : 'none' }}>
+            <div className="vp-fade-in" style={{ display: activeTab === 'diff' ? undefined : 'none' }}>
               <LegacyDiffPanel />
             </div>
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
-              <MemoAnnouncement />
+            <div className="vp-fade-in" style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
+              <MemoAnnouncement onOpenWorkbench={() => handleTabChange('pool')} />
             </div>
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
+            <div className="vp-fade-in" style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
               <MemoConfigManager />
             </div>
           </React.Suspense>

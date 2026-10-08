@@ -464,7 +464,7 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                             <div className="mb-2 font-medium">2. 已选车型 ({localSelection.length})</div>
                             <ProductSourceSelector
                                 value={localSelection}
-                                onChange={setLocalSelection}
+                                onChange={names => setLocalSelection(Array.isArray(names) ? names : names ? [names] : [])}
                                 placeholder="选择要取数的车型"
                             />
                         </div>

@@ -227,7 +227,16 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         }
     };
 
-    // 为每一行计算异常状态和推荐
+    /** 数据体检表的一行：VehicleParameter + 体检派生字段 */
+type PurifyRow = VehicleParameter & {
+    isNameStandard: boolean;
+    nameFixes: string[];
+    enums: string[];
+    hasEnums: boolean;
+    isEnumMismatch: boolean;
+};
+
+// 为每一行计算异常状态和推荐
     // 性能优化：用 ref 缓存上次计算结果，仅当 purifyParams.name 或 enumLoaded 变化时重算 fuse
     const prevNameKeys = useRef('');
     const nameFixesCache = useRef<Map<string, string[]>>(new Map());
@@ -242,10 +251,10 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                     return;
                 }
                 const results = standardFieldsFuse.search(p.name);
-                nameFixesCache.current.set(p.id, results.slice(0, 3).map((r: any) => r.item.name));
+                nameFixesCache.current.set(p.id, results.slice(0, 3).map(r => r.item.name));
             });
         }
-        return purifyParams.map(p => {
+        return purifyParams.map((p): PurifyRow => {
             const enums = enumLoaded && p.name ? getEnumValuesSync(p.name) : [];
             const hasEnums = enums.length > 0;
             const strValue = String(p.value || '').trim();
@@ -320,7 +329,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             dataIndex: 'group',
             key: 'group',
             width: 150,
-            render: (text: string, record: any) => (
+            render: (text: string, record: PurifyRow) => (
                 <Input 
                     value={text} 
                     onChange={e => handleUpdateParam(record.id, 'group', e.target.value)} 
@@ -332,7 +341,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             title: '参数名',
             key: 'name',
             width: 300,
-            render: (_: any, record: any) => (
+            render: (_: unknown, record: PurifyRow) => (
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         <Input 
@@ -366,7 +375,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                                     )
                                 }
                             >
-                                <WarningOutlined className="text-warning hover:text-[color:var(--warning)] text-[15px]" />
+                                <WarningOutlined className="text-warning hover:text-[color:var(--warning-text)] text-[15px]" />
                             </Popover>
                         )}
                     </div>
@@ -378,7 +387,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             title: '参数值',
             key: 'value',
             width: 350,
-            render: (_: any, record: any) => {
+            render: (_: unknown, record: PurifyRow) => {
                 const isManual = manualValueRows.has(record.id);
                 return (
                     <div className="flex flex-col gap-1">
@@ -436,7 +445,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
             title: '操作',
             key: 'action',
             width: 80,
-            render: (_: any, record: any) => (
+            render: (_: unknown, record: PurifyRow) => (
                 <Popconfirm
                     title="确定删除此参数？"
                     onConfirm={() => handleDeleteParam(record.id)}
@@ -587,7 +596,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
                     dataSource={displayedParams}
                     rowKey="id"
                     scrollY="calc(100vh - 320px)"
-                    rowClassName={(record: { name: string }) => targetFieldName && record.name === targetFieldName ? 'bg-brand-weak' : ''}
+                    rowClassName={(record: PurifyRow) => targetFieldName && record.name === targetFieldName ? 'bg-brand-weak' : ''}
                 />
             </div>
 

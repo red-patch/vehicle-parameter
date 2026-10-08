@@ -2,15 +2,17 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ProductSourceSelector from '../ProductSourceSelector';
 import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
+import type { SheetData } from '../../../types';
+import type { VehicleStore } from '../../../store/vehicleStore';
 
 const mockState = {
-  uploadedFiles: [] as any[],
-  assetFiles: [] as any[],
+  uploadedFiles: [] as SheetData[],
+  assetFiles: [] as SheetData[],
   selectedProductNames: [] as string[],
 };
 
 vi.mock('../../../store/vehicleStore', () => ({
-  useVehicleStore: (selector: any) => selector(mockState),
+  useVehicleStore: (selector: (state: VehicleStore) => unknown) => selector(mockState as unknown as VehicleStore),
 }));
 
 describe('ProductSourceSelector tag labels', () => {

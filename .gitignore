@@ -40,3 +40,10 @@ src-tauri/Cargo.lock
 .workbuddy/
 .workbuddy-ai/
 .zcode/
+.zcodeignore
+
+# Browser / UI 验证产物（Playwright MCP 会话日志、临时截图）
+.playwright-mcp/
+/ui-optimized-preview.png
+/ui-tauri-window.png
+/docs/plans/*-verify.png

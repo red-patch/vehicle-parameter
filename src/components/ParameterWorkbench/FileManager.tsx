@@ -1,7 +1,6 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
-import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag, Select, Table, Segmented } from 'antd';
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { previewWorkbook, detectWorkbookOrientation } from '../../utils/excelParser';
@@ -9,23 +8,37 @@ import { parseWithConfigAsync, parseExcelAsync, readWorkbookAsync } from '../../
 import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
+import ImportDiffModal from '../AssetLibrary/ImportDiffModal';
 import SheetPickerModal from './SheetPickerModal';
-import { FolderOpenOutlined } from '@ant-design/icons';
-import { saveAssetFile, loadAssetTags, setAssetFileTags } from '../../utils/assetManager';
+import { loadAssetTags, saveAssetTags, getAssetFilesWithInfo, loadAssetMeta, saveAssetMeta, loadAssetFile, saveAssetsBatch } from '../../utils/assetManager';
+import { compareSheets } from '../../utils/comparator';
+import { buildImportCandidate, classifyImportBatch, defaultDecisionFor } from '../../utils/assetImportDedup';
+import { buildSupersedeMeta } from '../../utils/assetGovernance';
 import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import TagSelector from '../common/TagSelector';
+
+/** 判定 → 徽章/选项元数据 */
+const VERDICT_META = {
+  new: { label: '新增', color: 'success' },
+  updated: { label: '更新已有', color: 'warning' },
+  suspect: { label: '疑似重复', color: 'error' },
+};
+const DECISION_OPTIONS = {
+  new: [{ value: 'save', label: '保存入库' }, { value: 'skip', label: '跳过' }],
+  updated: [{ value: 'keep-new', label: '并存为新版本' }, { value: 'replace', label: '替换旧版内容' }, { value: 'skip', label: '跳过' }],
+  suspect: [{ value: 'skip', label: '跳过' }, { value: 'save', label: '仍按新车保存' }],
+};
 
 interface FileManagerProps {
     hiddenAssetButton?: boolean;
     onSelectFile?: (fileName: string | null) => void;
     focusedFile?: string | null;
 }
-const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFile, focusedFile }) => {
+const FileManager: React.FC<FileManagerProps> = () => {
 
   const [uploading, setUploading] = useState(false);
-  const { assetLibraryPath, addActiveAsset, bumpAssetVersion, bumpAssetTagGroupsVersion } = useVehicleStore(useShallow(state => ({
+  const { assetLibraryPath, bumpAssetVersion, bumpAssetTagGroupsVersion } = useVehicleStore(useShallow(state => ({
     assetLibraryPath: state.assetLibraryPath,
-    addActiveAsset: state.addActiveAsset,
     bumpAssetVersion: state.bumpAssetVersion,
     bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
   })));
@@ -67,23 +80,51 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
       const data = await parseExcelAsync(file);
       const productCount = new Set(data.data.map(p => p.productName)).size;
       message.info(`检测到横向格式（参数为列、车型为行），已解析出 ${productCount} 个车型`);
-      showProductConfirm(data, file.name);
+      await showProductConfirm(data, file.name);
     } catch (err) {
       message.error('解析失败：' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
   /** 按产品分组并弹出「确认导入车型」弹窗（预览配置路径与横向快捷路径共用） */
-  const showProductConfirm = (data: SheetData, fileName: string) => {
+  const showProductConfirm = async (data: SheetData, fileName: string) => {
     const productGroups = new Map<string, typeof data.data>();
     data.data.forEach(p => {
       const key = p.productName || data.fileName;
       if (!productGroups.has(key)) productGroups.set(key, []);
       productGroups.get(key)!.push(p);
     });
-    setPendingProducts(Array.from(productGroups.entries()).map(([name, params]) => ({ name, count: params.length, checked: true })));
+    let products = Array.from(productGroups.entries()).map(([name, params]) => ({ name, count: params.length, checked: true }));
+
+    // 导入三分类查重（ADR-0002）：新增 / 更新已有 / 疑似重复
+    if (assetLibraryPath) {
+      try {
+        const [infos, meta] = await Promise.all([
+          getAssetFilesWithInfo(assetLibraryPath),
+          loadAssetMeta(assetLibraryPath),
+        ]);
+        const candidates = Array.from(productGroups.entries()).map(([name, params]) =>
+          buildImportCandidate(params, name, name)
+        );
+        const results = classifyImportBatch(candidates, infos, meta);
+        products = products.map((p, i) => ({
+          ...p,
+          verdict: results[i].verdict,
+          reason: results[i].reason,
+          matchedFiles: results[i].matchedFiles,
+          decision: defaultDecisionFor(results[i].verdict),
+        }));
+      } catch (e) {
+        console.warn('导入查重失败，全部按新增处理', e);
+      }
+    }
+
+    setPendingProducts(products);
     setPendingProductData(data.data);
     setPendingPendingFileName(fileName);
+    setVerdictFilter('all');
+    setConfirmSearch('');
+    contentRefineDoneRef.current = false;
     setConfirmModalVisible(true);
     setPreviewOpen(false);
   };
@@ -92,35 +133,89 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     const cachedFile = fileCache.get(pendingFileName);
     if (!cachedFile) { message.error('文件缓存过期'); return; }
     const data = await parseWithConfigAsync(cachedFile, configs);
-    showProductConfirm(data, pendingFileName);
+    await showProductConfirm(data, pendingFileName);
   };
 
   const handleConfirmSave = async () => {
     if (!assetLibraryPath) { message.error('请先设置资产库路径'); return; }
-    const selected = pendingProducts.filter(p => p.checked !== false);
-    if (selected.length === 0) { message.warning('请至少选择一个车型'); return; }
-    // 收集所有新产品中出现的新标签，同步到标签分组的"其他"组
-    const allNewTags = new Set<string>();
-    for (const prod of selected) {
-      const params = pendingProductData.filter(p => (p.productName || pendingPendingFileName) === prod.name);
-      const fileNameBase = prod.customName || prod.name;
-      const fileNameJson = fileNameBase + '.json';
-      await saveAssetFile(assetLibraryPath, fileNameBase, fileNameBase, params);
-      addActiveAsset(fileNameJson, fileNameBase);
-      if (prod.tags && prod.tags.length > 0) {
-        await setAssetFileTags(assetLibraryPath, fileNameJson, prod.tags);
-        prod.tags.forEach(t => allNewTags.add(t));
+    const selected = pendingProducts.filter(p => p.checked !== false && (p.decision ?? 'save') !== 'skip');
+    if (selected.length === 0) { message.warning('请至少选择一个要保存的车型（处理方式为「跳过」的不会保存）'); return; }
+
+    setImportSaving({ active: true, done: 0, total: selected.length });
+    try {
+      // 组装批量项：replace → 固定文件名；save/keep-new → 基名。
+      // 整批一次 IPC 交给 Rust（save_assets_batch）：唯一名解析（批内重名由已占用
+      // 集合保证不互覆）+ N 个文件写盘都在线程池完成，主线程只发一次请求。
+      const planned = selected.map(prod => ({
+        prod,
+        decision: prod.decision ?? defaultDecisionFor(prod.verdict ?? 'new'),
+      }));
+      const items = planned.map(({ prod, decision }) => {
+        const params = pendingProductData.filter(p => (p.productName || pendingPendingFileName) === prod.name);
+        if (decision === 'replace' && prod.matchedFiles && prod.matchedFiles.length > 0) {
+          // 替换旧版内容：写入命中文件本身，文件名不变（用户显式选择）
+          const targetBase = prod.matchedFiles[0].replace(/\.json$/i, '');
+          return { fixedFileName: prod.matchedFiles[0], productName: targetBase, parameters: params };
+        }
+        // save / keep-new：唯一文件名落盘，永不静默覆盖（ADR-0002）
+        return { baseName: prod.customName || prod.name, productName: prod.customName || prod.name, parameters: params };
+      });
+
+      const results = await saveAssetsBatch(assetLibraryPath, items);
+      setImportSaving({ active: true, done: results.filter(r => r.ok).length, total: selected.length });
+
+      const failures = results.filter(r => !r.ok);
+      if (failures.length > 0) {
+        message.warning(`${failures.length} 个文件写入失败（如 ${failures[0].fileName}：${failures[0].error ?? '未知错误'}）`);
       }
+
+      const supersedePairs: { oldFileName: string; newFileName: string }[] = [];
+      const tagEntries: [string, string[]][] = [];
+      const allNewTags = new Set<string>();
+      let replacedCount = 0;
+      let okCount = 0;
+      results.forEach((r, i) => {
+        if (!r.ok) return;
+        okCount++;
+        const { prod, decision } = planned[i];
+        if (decision === 'keep-new' && prod.matchedFiles) {
+          prod.matchedFiles.forEach(old => supersedePairs.push({ oldFileName: old, newFileName: r.fileName }));
+        }
+        if (prod.tags && prod.tags.length > 0) {
+          tagEntries.push([r.fileName, prod.tags]);
+          prod.tags.forEach(t => allNewTags.add(t));
+        }
+        if (decision === 'replace') replacedCount++;
+      });
+
+      // 标签一次性合并写（原先逐行 load+save 整个标签文件，N 行 = 2N 次全量 IO）
+      if (tagEntries.length > 0) {
+        const tags = await loadAssetTags(assetLibraryPath);
+        tagEntries.forEach(([fileName, list]) => { tags[fileName] = list; });
+        await saveAssetTags(assetLibraryPath, tags);
+      }
+      // 更新已有 → 旧版本标记为历史版本（主文件标记随新版本继承），一次读写
+      if (supersedePairs.length > 0) {
+        const meta = await loadAssetMeta(assetLibraryPath);
+        await saveAssetMeta(assetLibraryPath, buildSupersedeMeta(meta, supersedePairs));
+      }
+      // 新建标签同步到标签分组的"其他"分组
+      if (allNewTags.size > 0) {
+        const groupsUpdated = await ensureTagsInDefaultGroup(assetLibraryPath, Array.from(allNewTags));
+        if (groupsUpdated) bumpAssetTagGroupsVersion();
+      }
+      bumpAssetVersion();
+      setConfirmModalVisible(false);
+      setPendingFileName('');
+      const savedCount = okCount - replacedCount;
+      const parts = [];
+      if (savedCount > 0) parts.push(`保存 ${savedCount} 个`);
+      if (replacedCount > 0) parts.push(`替换旧版内容 ${replacedCount} 个`);
+      if (supersedePairs.length > 0) parts.push(`${supersedePairs.length} 个旧版本已标记为历史`);
+      message.success(`已导入至资产库：${parts.join('，')}（入库不等于加入工作区，可在资产面板筛选后加载）`);
+    } finally {
+      setImportSaving({ active: false, done: 0, total: 0 });
     }
-    // 新建标签同步到标签分组的"其他"分组
-    if (allNewTags.size > 0 && assetLibraryPath) {
-      const groupsUpdated = await ensureTagsInDefaultGroup(assetLibraryPath, Array.from(allNewTags));
-      if (groupsUpdated) bumpAssetTagGroupsVersion();
-    }
-    bumpAssetVersion();
-    setConfirmModalVisible(false);
-    setPendingFileName('');
-    message.success('已保存 ' + selected.length + ' 个车型至资产库');
   };
 
   const [fileCache, setFileCache] = useState<Map<string, File>>(new Map());
@@ -131,7 +226,43 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
   const [sheetPickerData, setSheetPickerData] = useState<{ name: string; totalRows: number }[]>([]);
   const [preselectedDisabledSheets, setPreselectedDisabledSheets] = useState<Set<string>>(new Set());
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-  const [pendingProducts, setPendingProducts] = useState<{ name: string; count: number; checked?: boolean; customName?: string; tags?: string[] }[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<{
+    name: string; count: number; checked?: boolean; customName?: string; tags?: string[];
+    verdict?: 'new' | 'updated' | 'suspect'; reason?: string; matchedFiles?: string[];
+    decision?: 'save' | 'keep-new' | 'replace' | 'skip';
+    /** 内容二次比对：与现有资产无实质差异（仅空模板字段） */
+    identical?: boolean;
+  }[]>([]);
+  const [diffState, setDiffState] = useState<{
+    open: boolean; baseFileName: string; targetName: string;
+    base: SheetData | null; target: SheetData | null;
+  }>({ open: false, baseFileName: '', targetName: '', base: null, target: null });
+  // 大批量导入预览：分类筛选 + 搜索（477 条级别的批次用）
+  const [verdictFilter, setVerdictFilter] = useState<'all' | 'new' | 'updated' | 'suspect'>('all');
+  const [confirmSearch, setConfirmSearch] = useState('');
+  const contentRefineDoneRef = useRef(false);
+  // 批量落盘进度（275 行级别：并发分块写 + 进度反馈）
+  const [importSaving, setImportSaving] = useState<{ active: boolean; done: number; total: number }>({ active: false, done: 0, total: 0 });
+
+  /** 查看 diff：命中文件（现有资产） vs 本次导入数据 */
+  const openDiff = async (prod: { name: string; customName?: string; matchedFiles?: string[] }) => {
+    const matched = prod.matchedFiles?.[0];
+    if (!assetLibraryPath || !matched) return;
+    const base = await loadAssetFile(assetLibraryPath, matched);
+    const params = pendingProductData.filter(p => (p.productName || pendingPendingFileName) === prod.name);
+    const target: SheetData = {
+      fileName: `${prod.customName || prod.name}.json`,
+      data: params,
+      rawHeaders: ['参数分组', '参数名称', '参数值'],
+    };
+    setDiffState({
+      open: true,
+      baseFileName: matched,
+      targetName: prod.customName || prod.name,
+      base,
+      target,
+    });
+  };
   const [pendingProductData, setPendingProductData] = useState<import('../../types').VehicleParameter[]>([]);
   const [pendingPendingFileName, setPendingPendingFileName] = useState('');
   const [allImportTags, setAllImportTags] = useState<string[]>([]);
@@ -148,6 +279,69 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
     }
   }, [confirmModalVisible, assetLibraryPath]);
   const [assetDrawerVisible, setAssetDrawerVisible] = useState(false);
+
+  // 三分类统计（统计条点击即筛选）
+  const verdictCounts = useMemo(() => ({
+    all: pendingProducts.length,
+    new: pendingProducts.filter(p => p.verdict === 'new').length,
+    updated: pendingProducts.filter(p => p.verdict === 'updated').length,
+    suspect: pendingProducts.filter(p => p.verdict === 'suspect').length,
+  }), [pendingProducts]);
+
+  // 表格行：附原始下标（状态更新用），按分类 tab + 搜索过滤
+  const confirmTableRows = useMemo(() => pendingProducts
+    .map((p, idx) => ({ ...p, __idx: idx }))
+    .filter(p => verdictFilter === 'all' || p.verdict === verdictFilter)
+    .filter(p => {
+      const kw = confirmSearch.trim().toLowerCase();
+      if (!kw) return true;
+      return p.name.toLowerCase().includes(kw) || (p.customName || '').toLowerCase().includes(kw);
+    }), [pendingProducts, verdictFilter, confirmSearch]);
+
+  // 内容二次精化：对「更新已有」的行加载现有资产做参数比对，
+  // 无实质差异（变更/缺失/有值新增均为 0，仅空模板字段）的自动改为跳过——
+  // 身份命中只说明"是同一辆车"，内容一致时不该制造新版本。
+  useEffect(() => {
+    if (!confirmModalVisible || contentRefineDoneRef.current || !assetLibraryPath) return;
+    const targets = pendingProducts.filter(p => p.verdict === 'updated' && p.matchedFiles?.[0]);
+    contentRefineDoneRef.current = true;
+    if (targets.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(targets.map(async p => {
+        try {
+          if (!p.matchedFiles?.length) return null;
+          const base = await loadAssetFile(assetLibraryPath, p.matchedFiles[0]);
+          if (!base) return null;
+          const params = pendingProductData.filter(x => (x.productName || pendingPendingFileName) === p.name);
+          const targetSheet: SheetData = {
+            fileName: `${p.customName || p.name}.json`,
+            data: params,
+            rawHeaders: ['参数分组', '参数名称', '参数值'],
+          };
+          const diff = compareSheets(base, targetSheet, 'content');
+          const substantive = diff.modified.length
+            + diff.removed.length
+            + diff.added.filter(a => String(a.value ?? '').trim() !== '').length;
+          return substantive === 0 ? p.name : null;
+        } catch {
+          return null;
+        }
+      }));
+      if (cancelled) return;
+      const identicalNames = new Set(results.filter(Boolean));
+      if (identicalNames.size === 0) return;
+      setPendingProducts(prev => prev.map(p => (
+        identicalNames.has(p.name) && p.verdict === 'updated' && p.decision === 'keep-new'
+          ? { ...p, identical: true, decision: 'skip', reason: '内容与现有资产一致（仅空模板字段差异），已自动改为跳过' }
+          : p
+      )));
+      message.info(`${identicalNames.size} 个「更新已有」经内容比对无实质差异，已自动改为跳过`);
+    })();
+    return () => { cancelled = true; };
+    // 仅在弹窗打开后跑一次（contentRefineDoneRef 兜底），不随行状态重跑
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmModalVisible]);
 
   const handleSheetPickerConfirm = (disabledSheets: Set<string>) => {
     setSheetPickerOpen(false);
@@ -179,17 +373,44 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
         <Modal
           open={confirmModalVisible}
           title="确认导入车型"
-          width={520}
+          width={980}
           onCancel={() => { setConfirmModalVisible(false); setPendingProductData([]); }}
           footer={[
-            <Button key="cancel" onClick={() => { setConfirmModalVisible(false); setPendingProductData([]); }}>取消</Button>,
-            <Button key="confirm" type="primary" onClick={handleConfirmSave}>
-              保存至资产库 ({pendingProducts.filter(p => p.checked !== false).length})
+            <Button key="cancel" disabled={importSaving.active}
+              onClick={() => { setConfirmModalVisible(false); setPendingProductData([]); }}>取消</Button>,
+            <Button key="confirm" type="primary" loading={importSaving.active} onClick={handleConfirmSave}>
+              {importSaving.active
+                ? `保存中…（${importSaving.total} 个）`
+                : `保存至资产库 (${pendingProducts.filter(p => p.checked !== false && (p.decision ?? 'save') !== 'skip').length})`}
             </Button>,
           ]}
         >
-          <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--text-2)' }}>
-            解析发现 {pendingProducts.length} 个车型，请选择需要保存到资产库的车型：
+          <div style={{ marginBottom: 8, fontSize: 13, color: 'var(--text-2)' }}>
+            解析发现 {pendingProducts.length} 个车型，已与资产库查重。点分类查看，逐行或批量处理：
+          </div>
+
+          {/* 统计 + 分类筛选 + 搜索 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+            <Segmented
+              size="small"
+              value={verdictFilter}
+              onChange={v => setVerdictFilter(v as 'all' | 'new' | 'updated' | 'suspect')}
+              options={[
+                { label: `全部 ${verdictCounts.all}`, value: 'all' },
+                { label: `新增 ${verdictCounts.new}`, value: 'new' },
+                { label: `更新已有 ${verdictCounts.updated}`, value: 'updated' },
+                { label: `疑似重复 ${verdictCounts.suspect}`, value: 'suspect' },
+              ]}
+            />
+            <Input
+              size="small"
+              allowClear
+              prefix={<SearchOutlined style={{ color: 'var(--text-3)' }} />}
+              placeholder="搜索车型名 / 文件名..."
+              value={confirmSearch}
+              onChange={e => setConfirmSearch(e.target.value)}
+              style={{ flex: 1, minWidth: 160, maxWidth: 260 }}
+            />
           </div>
 
           {/* 批量操作栏 */}
@@ -218,70 +439,149 @@ const FileManager: React.FC<FileManagerProps> = ({ hiddenAssetButton, onSelectFi
             allImportTags={allImportTags}
           />
 
-          {pendingProducts.map((prod, idx) => (
-            <div key={idx}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px',
-                borderBottom: prod.tags && prod.tags.length > 0 ? 'none' : '1px solid var(--border-default)'
-              }}>
-                <Checkbox
-                  checked={prod.checked !== false}
-                  onChange={e => {
-                    const next = [...pendingProducts];
-                    next[idx] = { ...next[idx], checked: e.target.checked };
-                    setPendingProducts(next);
-                  }}
-                />
-                <span style={{ flex: 1, fontSize: 13 }}>{prod.name}</span>
-                <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{prod.count} 个参数</span>
-                <Input
-                  size="small"
-                  defaultValue={prod.name}
-                  onChange={e => {
-                    const next = [...pendingProducts];
-                    next[idx] = { ...next[idx], customName: e.target.value };
-                    setPendingProducts(next);
-                  }}
-                  style={{ width: 160 }}
-                  placeholder="输入文件名"
-                  onClick={e => e.stopPropagation()}
-                  addonAfter=".json"
-                />
-                <TagSelector
-                  selected={prod.tags || []}
-                  availableTags={allImportTags}
-                  onChange={tags => {
-                    const next = [...pendingProducts];
-                    next[idx] = { ...next[idx], tags };
-                    setPendingProducts(next);
-                    // 新建的标签立即加入可用列表，关闭再打开也能看见
-                    setAllImportTags(prev => {
-                      const merged = new Set(prev);
-                      tags.forEach(t => merged.add(t));
-                      return Array.from(merged).sort();
-                    });
-                  }}
-                />
-              </div>
-              {(prod.tags || []).length > 0 && (
-                <div style={{ display: 'flex', gap: 4, padding: '2px 30px 6px', borderBottom: '1px solid var(--border-default)', flexWrap: 'wrap' }}>
-                  {prod.tags!.map(tag => (
-                    <span key={tag} style={{
-                      fontSize: 11, padding: '1px 6px', borderRadius: 3,
-                      background: 'var(--brand-weak)', color: 'var(--brand)',
-                    }}>{tag}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-3)' }}>
-            保存后车型将自动加入待分析工作区
+          {/* 分页表格：勾选 / 判定 / 处理 / 文件名 / 标签 / diff */}
+          <Table
+            size="small"
+            rowKey={r => String(r.__idx)}
+            dataSource={confirmTableRows}
+            pagination={{
+              pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [20, 50, 100, 200],
+              showTotal: t => `共 ${t} 条`,
+            }}
+            scroll={{ y: 380 }}
+            rowSelection={{
+              selectedRowKeys: pendingProducts.flatMap((p, i) => (p.checked !== false ? [String(i)] : [])),
+              onChange: (keys) => {
+                // 表头全选只作用于当前筛选视图内的行，视图外的保持原状
+                const keySet = new Set((keys as string[]).map(String));
+                const viewKeys = new Set(confirmTableRows.map(r => String(r.__idx)));
+                setPendingProducts(prev => prev.map((p, i) => (
+                  viewKeys.has(String(i)) ? { ...p, checked: keySet.has(String(i)) } : p
+                )));
+              },
+              columnWidth: 36,
+            }}
+            columns={[
+              {
+                title: '车型',
+                dataIndex: 'name',
+                width: 230,
+                ellipsis: true,
+                render: (_, prod) => (
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={prod.name}>{prod.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{prod.count} 个参数</div>
+                  </div>
+                ),
+              },
+              {
+                title: '判定',
+                key: 'verdict',
+                width: 90,
+                render: (_, prod) => prod.verdict ? (
+                  <Tag color={VERDICT_META[prod.verdict].color} className="m-0" style={{ fontSize: 11 }}>
+                    {VERDICT_META[prod.verdict].label}
+                  </Tag>
+                ) : <span style={{ fontSize: 11, color: 'var(--text-3)' }}>—</span>,
+              },
+              {
+                title: '判定说明 / diff',
+                key: 'reason',
+                ellipsis: true,
+                render: (_, prod) => (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
+                    {prod.identical && (
+                      <Tag className="m-0" style={{ fontSize: 10, flexShrink: 0 }}>内容一致</Tag>
+                    )}
+                    <Tooltip title={prod.reason}>
+                      <span style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {prod.reason || ''}
+                      </span>
+                    </Tooltip>
+                    {(prod.matchedFiles?.length ?? 0) > 0 && (
+                      <Button size="small" type="link" style={{ fontSize: 11, padding: 0, flexShrink: 0 }} onClick={() => openDiff(prod)}>
+                        diff
+                      </Button>
+                    )}
+                  </span>
+                ),
+              },
+              {
+                title: '处理',
+                key: 'decision',
+                width: 145,
+                render: (_, prod) => prod.verdict ? (
+                  <Select
+                    size="small"
+                    value={prod.decision ?? 'save'}
+                    style={{ width: 132 }}
+                    onChange={value => {
+                      const next = [...pendingProducts];
+                      next[prod.__idx] = { ...next[prod.__idx], decision: value };
+                      setPendingProducts(next);
+                    }}
+                    options={DECISION_OPTIONS[prod.verdict]}
+                  />
+                ) : null,
+              },
+              {
+                title: '文件名',
+                key: 'customName',
+                width: 200,
+                render: (_, prod) => (
+                  <Input
+                    size="small"
+                    value={prod.customName ?? prod.name}
+                    onChange={e => {
+                      const next = [...pendingProducts];
+                      next[prod.__idx] = { ...next[prod.__idx], customName: e.target.value };
+                      setPendingProducts(next);
+                    }}
+                    placeholder="文件名"
+                    onClick={e => e.stopPropagation()}
+                    addonAfter=".json"
+                  />
+                ),
+              },
+              {
+                title: '标签',
+                key: 'tags',
+                width: 150,
+                render: (_, prod) => (
+                  <TagSelector
+                    selected={prod.tags || []}
+                    availableTags={allImportTags}
+                    onChange={tags => {
+                      const next = [...pendingProducts];
+                      next[prod.__idx] = { ...next[prod.__idx], tags };
+                      setPendingProducts(next);
+                      // 新建的标签立即加入可用列表
+                      setAllImportTags(prev => {
+                        const merged = new Set(prev);
+                        tags.forEach(t => merged.add(t));
+                        return Array.from(merged).sort();
+                      });
+                    }}
+                  />
+                ),
+              },
+            ]}
+          />
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-3)' }}>
+            仅保存至资产库，不自动加入待分析工作区（需要分析时在资产面板筛选后「⚡新增到工作区」）；处理方式为「跳过」的不会保存。
           </div>
         </Modal>
       )}
 
       <AssetListDrawer visible={assetDrawerVisible} onClose={() => setAssetDrawerVisible(false)} />
+      <ImportDiffModal
+        open={diffState.open}
+        baseFileName={diffState.baseFileName}
+        targetName={diffState.targetName}
+        base={diffState.base}
+        target={diffState.target}
+        onClose={() => setDiffState(prev => ({ ...prev, open: false }))}
+      />
     </>
   );
 };

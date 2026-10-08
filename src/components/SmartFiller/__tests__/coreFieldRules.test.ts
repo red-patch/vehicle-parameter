@@ -6,9 +6,15 @@ import {
 } from '../coreFieldRules'
 
 describe('parseFieldBatchInput', () => {
-  it('splits mixed separators and removes duplicates', () => {
-    const result = parseFieldBatchInput('快充\n慢充, 快充，电池包')
+  // v4.5.10 起：换行/分号切分；逗号（含全角）不再切分——字段名常含逗号
+  it('splits on newlines and semicolons and removes duplicates', () => {
+    const result = parseFieldBatchInput('快充\n慢充；快充；电池包')
     expect(result).toEqual(['快充', '慢充', '电池包'])
+  })
+
+  it('keeps commas and semicolons inside parentheses intact', () => {
+    const result = parseFieldBatchInput('直流充电时间（常温;SOC:20%-100%）（h）\n快充')
+    expect(result).toEqual(['直流充电时间（常温;SOC:20%-100%）（h）', '快充'])
   })
 })
 

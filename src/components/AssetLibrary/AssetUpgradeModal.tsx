@@ -106,12 +106,10 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
     }, [onClose, resetSession]);
 
     useEffect(() => {
-        if (!open || !assetInfo || !assetLibraryPath) {
-            if (!open) {
-                resetSession();
-            }
-            return;
-        }
+        // 关闭态不跑 resetSession：挂载即写一次空草稿没有意义，且会触发持久化存储写
+        // （测试环境的存储适配器不完整时直接抛错；关闭清理由 handleClose 负责）
+        if (!open) return;
+        if (!assetInfo || !assetLibraryPath) return;
 
         let alive = true;
 
@@ -494,13 +492,6 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                         <Empty description="未找到可升级的基线资产" />
                     ) : (
                         <>
-                            <Alert
-                                type="info"
-                                showIcon
-                                message="升级导入会保护已维护的旧资产"
-                                description="系统会自动推荐低风险更新，但冲突字段必须由你明确确认后才能保存。"
-                            />
-
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                                 <div className="rounded-xl border border-default bg-surface-3 p-4">
                                     <div className="flex items-center gap-2 mb-3">
@@ -542,7 +533,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                             { key: 'count', label: '字段数量', children: importedData.data.length },
                                         ]} />
                                     ) : (
-                                        <Text type="secondary">尚未导入新版文件。支持自动解析，解析异常时会自动进入预览配置。</Text>
+                                        <Text type="secondary">尚未导入新版文件。</Text>
                                     )}
 
                                     {importedProductName && importedProductName !== assetInfo.productName && (
@@ -551,7 +542,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                             type="warning"
                                             showIcon
                                             message="导入车型名与基线资产不同"
-                                            description={`基线车型为「${assetInfo.productName}」，导入文件识别为「${importedProductName}」。第一版不会自动匹配名称，仅按字段结构生成升级草稿。`}
+                                            description={`基线车型为「${assetInfo.productName}」，导入文件识别为「${importedProductName}」。将按字段结构生成升级草稿，不按车型名自动匹配。`}
                                         />
                                     )}
                                 </div>
@@ -572,7 +563,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                             type="warning"
                                             showIcon
                                             message={`还有 ${pendingConflictCount} 个冲突字段待决策`}
-                                            description="冲突字段默认不会自动覆盖。请逐项选择保留旧值或使用新版后再保存。"
+                                            description="请逐项为冲突字段选择保留旧值或使用新版，再保存。"
                                         />
                                     ) : (
                                         <Alert

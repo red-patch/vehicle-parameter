@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
 import { Modal, Tag, Button, Empty } from 'antd';
-import { CrownFilled, CheckOutlined, WarningFilled } from '@ant-design/icons';
+import { CheckOutlined, WarningFilled, CloseCircleOutlined, HistoryOutlined, StopOutlined, MergeOutlined } from '@ant-design/icons';
 import type { AssetFileInfo, AssetGovernanceMeta } from '../../utils/assetManager';
-import type { GovernanceReport, VehicleGroup, GovernanceFileEntry } from '../../utils/assetGovernance';
+import { pickGroupAlias, type GovernanceReport, type UnconvergedCar } from '../../utils/assetGovernance';
 
 interface GovernanceReportModalProps {
     open: boolean;
     onClose: () => void;
     report: GovernanceReport | null;
-    /** 采纳（若干组的）主文件建议，由父组件落盘并刷新 */
-    onAdoptGroups: (groups: VehicleGroup[]) => void | Promise<void>;
+    /** 版本链收敛（把同车非链头的活跃文件标为历史版本），由父组件落盘并刷新 */
+    onConvergeCars: (cars: UnconvergedCar[]) => void | Promise<void>;
+    /** 受控属性待补全/待归类（P4 补录闭环） */
+    facetIssues?: {
+        missingCount: number;
+        unmapped: { dim: string; values: string[] }[];
+    };
+    /** 打开批量补录表格 */
+    onOpenBatchEditor?: () => void;
 }
 
 const StatChip = ({ label, value, tone }: { label: string; value: number; tone?: 'warn' }) => (
@@ -20,85 +27,70 @@ const StatChip = ({ label, value, tone }: { label: string; value: number; tone?:
     </span>
 );
 
-const LevelChip = ({ info }: { info: AssetFileInfo }) => (
-    info.hasAdmissionInfo
-        ? <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-2 border-default">🏛 准入</Tag>
-        : <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-3 border-default">🛠 开发</Tag>
-);
-
-const StatusChips = ({ info, meta }: { info: AssetFileInfo; meta: AssetGovernanceMeta }) => (
+const StatusChips = ({ info, meta, isLatest }: { info: AssetFileInfo; meta: AssetGovernanceMeta; isLatest: boolean }) => (
     <>
-        {meta.isPrimary && (
-            <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-brand border-brand">👑 主文件</Tag>
+        {isLatest && (
+            <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-brand border-brand">最新版</Tag>
         )}
         {info.approvalStatus === '驳回' && (
-            <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-danger border-danger">⚠ 驳回</Tag>
+            <Tag icon={<CloseCircleOutlined className="text-[11px]" />} className="m-0 text-[12px] leading-[16px] px-1.5 rounded cursor-help flex-shrink-0 text-danger border-danger">驳回</Tag>
         )}
         {meta.status === 'superseded' && (
-            <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-2 border-default">🕘 历史版本</Tag>
+            <Tag icon={<HistoryOutlined className="text-[11px]" />} className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-2 border-default">历史版本</Tag>
         )}
         {meta.status === 'deprecated' && (
-            <Tag className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-2 border-default">🚫 废弃</Tag>
+            <Tag icon={<StopOutlined className="text-[11px]" />} className="m-0 text-[12px] leading-[16px] px-1.5 rounded flex-shrink-0 text-2 border-default">废弃</Tag>
         )}
     </>
 );
 
-const GroupFileRow = ({ entry }: { entry: GovernanceFileEntry }) => (
+const CarFileRow = ({ entry, isLatest }: { entry: { info: AssetFileInfo; meta: AssetGovernanceMeta }; isLatest: boolean }) => (
     <div className="flex items-center gap-1.5 min-w-0 py-0.5">
         <span className="text-[12px] text-1 truncate flex-1" title={entry.info.fileName}>{entry.info.fileName}</span>
-        <LevelChip info={entry.info} />
-        <StatusChips info={entry.info} meta={entry.meta} />
+        <StatusChips info={entry.info} meta={entry.meta} isLatest={isLatest} />
     </div>
 );
 
-const PendingGroupCard = ({
-    group,
-    adopting,
-    onAdopt,
+const UnconvergedCarCard = ({
+    car,
+    converging,
+    onConverge,
 }: {
-    group: VehicleGroup;
-    adopting: boolean;
-    onAdopt: (group: VehicleGroup) => void;
-}) => {
-    const primaries = group.files.filter(f => f.meta.isPrimary);
-    return (
-        <div key={group.groupKey} className="surface-inset border border-default rounded-lg px-3 py-2 space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[13px] font-semibold text-1">{group.groupKey}</span>
-                <span className="text-[12px] text-3">{group.files.length} 个文件</span>
-                {primaries.length > 1 && (
-                    <span className="text-[12px] text-warning-text">
-                        当前 {primaries.length} 个主文件（{primaries.map(p => p.info.fileName).join('、')}）
-                    </span>
-                )}
-                <Button
-                    size="small"
-                    type="link"
-                    icon={<CheckOutlined />}
-                    loading={adopting}
-                    disabled={adopting}
-                    onClick={() => onAdopt(group)}
-                    className="!text-[12px] ml-auto !p-0"
-                >
-                    采纳建议
-                </Button>
-            </div>
-            {group.suggestedPrimary && (
-                <div className="text-[12px] text-2 flex items-center gap-1">
-                    <CrownFilled className="text-brand text-[11px]" />
-                    建议主文件：<span className="text-brand font-medium">{group.suggestedPrimary}</span>
-                </div>
-            )}
-            <div className="divide-y divide-[color:var(--line)]">
-                {group.files.map(entry => <GroupFileRow key={entry.info.fileName} entry={entry} />)}
-            </div>
+    car: UnconvergedCar;
+    converging: boolean;
+    onConverge: (car: UnconvergedCar) => void;
+}) => (
+    <div className="surface-inset border border-default rounded-lg px-3 py-2 space-y-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[12px] text-2">身份 <Tag className="m-0 text-[10px]">{car.identityKey}</Tag></span>
+            <span className="text-[12px] text-3">{car.files.length} 个文件</span>
+            <Button
+                size="small"
+                type="link"
+                icon={<MergeOutlined />}
+                loading={converging}
+                disabled={converging || !car.latestFileName}
+                onClick={() => onConverge(car)}
+                className="!text-[12px] ml-auto !p-0"
+            >
+                收敛（保留最新，其余标历史）
+            </Button>
         </div>
-    );
-};
+        <div className="divide-y divide-[color:var(--line)]">
+            {car.files.map(entry => (
+                <CarFileRow key={entry.info.fileName} entry={entry} isLatest={entry.info.fileName === car.latestFileName} />
+            ))}
+        </div>
+    </div>
+);
 
-/** 治理体检弹窗：车型分组总览 + 主文件建议采纳 + 驳回/重复/命名问题清单 */
-const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({ open, onClose, report, onAdoptGroups }) => {
-    const [adoptingCount, setAdoptingCount] = useState(0);
+/** 治理体检弹窗：版本链收敛 + 驳回/重复/命名问题清单（ADR-0003，主文件概念已退役） */
+const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({
+    open, onClose, report, onConvergeCars, facetIssues, onOpenBatchEditor,
+}) => {
+    const [convergingCount, setConvergingCount] = useState(0);
+    // 已收敛、正在播收起动画的车：报告刷新后仍挂载 240ms，避免卡片瞬跳消失
+    const [leavingCars, setLeavingCars] = useState<UnconvergedCar[]>([]);
 
     if (!report || report.totalFiles === 0) {
         return (
@@ -108,16 +100,27 @@ const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({ open, onC
         );
     }
 
-    const pendingGroups = [...report.missingPrimaryGroups, ...report.multiPrimaryGroups];
-    const healthyGroups = report.groups.filter(g => !pendingGroups.some(p => p.groupKey === g.groupKey));
+    const latestSet = new Set(report.latestFileNames);
+    const leavingKeys = new Set(leavingCars.map(c => c.identityKey));
+    const displayCars = [
+        ...report.unconvergedCars.filter(c => !leavingKeys.has(c.identityKey)),
+        ...leavingCars,
+    ];
 
-    const runAdopt = async (groups: VehicleGroup[]) => {
-        if (groups.length === 0) return;
-        setAdoptingCount(groups.length);
+    const runConverge = async (cars: UnconvergedCar[]) => {
+        if (cars.length === 0) return;
+        setConvergingCount(cars.length);
+        setLeavingCars(prev => [
+            ...prev,
+            ...cars.filter(c => !prev.some(p => p.identityKey === c.identityKey)),
+        ]);
         try {
-            await onAdoptGroups(groups);
+            await onConvergeCars(cars);
+            // 等收起动画（200ms）播完再清场
+            await new Promise(r => setTimeout(r, 240));
         } finally {
-            setAdoptingCount(0);
+            setLeavingCars([]);
+            setConvergingCount(0);
         }
     };
 
@@ -132,11 +135,11 @@ const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({ open, onC
                     <Button
                         type="primary"
                         icon={<CheckOutlined />}
-                        disabled={pendingGroups.length === 0 || adoptingCount > 0}
-                        loading={adoptingCount > 0}
-                        onClick={() => runAdopt(pendingGroups)}
+                        disabled={report.unconvergedCars.length === 0 || convergingCount > 0}
+                        loading={convergingCount > 0}
+                        onClick={() => runConverge(report.unconvergedCars)}
                     >
-                        全部采纳建议{pendingGroups.length > 0 ? `（${pendingGroups.length} 组）` : ''}
+                        全部收敛{report.unconvergedCars.length > 0 ? `（${report.unconvergedCars.length} 辆车）` : ''}
                     </Button>
                     <Button onClick={onClose}>关闭</Button>
                 </div>
@@ -147,28 +150,72 @@ const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({ open, onC
                 <div className="flex flex-wrap gap-1.5 items-center">
                     <StatChip label="文件" value={report.totalFiles} />
                     <StatChip label="车型组" value={report.totalGroups} />
-                    <StatChip label="缺主文件组" value={report.missingPrimaryGroups.length} tone="warn" />
-                    <StatChip label="多主文件组" value={report.multiPrimaryGroups.length} tone="warn" />
+                    <StatChip label="车辆" value={report.latestFileNames.length} />
+                    <StatChip label="版本链未收敛" value={report.unconvergedCars.length} tone="warn" />
                     <StatChip label="驳回件" value={report.rejectedFiles.length} tone="warn" />
                     <StatChip label="疑似重复簇" value={report.duplicateClusters.length} tone="warn" />
                     <StatChip label="命名不规范" value={report.namingNonCompliant.length} tone="warn" />
+                    {facetIssues && <StatChip label="受控属性待补全" value={facetIssues.missingCount} tone="warn" />}
                 </div>
 
-                {/* 待处理组 */}
-                {pendingGroups.length > 0 && (
+                {/* 受控属性待补全 / 待归类（批量补录入口） */}
+                {facetIssues && (facetIssues.missingCount > 0 || facetIssues.unmapped.some(u => u.values.length > 0)) && (
+                    <div className="space-y-1.5">
+                        <div className="text-[13px] font-semibold text-1 flex items-center gap-2">
+                            受控属性待补全 / 待归类
+                            {onOpenBatchEditor && (
+                                <Button size="small" type="link" className="!text-[12px] !p-0 ml-auto" onClick={onOpenBatchEditor}>
+                                    打开批量补录 →
+                                </Button>
+                            )}
+                        </div>
+                        <div className="surface-inset border border-default rounded-lg px-3 py-2 space-y-1.5">
+                            {facetIssues.missingCount > 0 && (
+                                <div className="text-[12px] text-2">
+                                    <b>{facetIssues.missingCount}</b> 个资产的电池品牌/电量/准入等级存在缺失（可自动派生的已派生，其余人工补录）。
+                                </div>
+                            )}
+                            {facetIssues.unmapped.filter(u => u.values.length > 0).map(u => (
+                                <div key={u.dim} className="text-[12px] text-2">
+                                    {u.dim}词表外写法 <b>{u.values.length}</b> 个（未归一，不自动合并）：
+                                    <span className="flex flex-wrap gap-1 mt-1">
+                                        {u.values.slice(0, 12).map(v => (
+                                            <Tag key={v} className="m-0 text-[10px] px-1">{v}</Tag>
+                                        ))}
+                                        {u.values.length > 12 && <span className="text-[10px] text-3">+{u.values.length - 12}</span>}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 版本链未收敛：收敛后卡片 grid-rows 折叠收场，而不是从列表里瞬跳消失 */}
+                {displayCars.length > 0 && (
                     <div className="space-y-2">
                         <div className="text-[13px] font-semibold text-1 flex items-center gap-1.5">
                             <WarningFilled className="text-warning text-[12px]" />
-                            待处理（{pendingGroups.length} 组）
+                            版本链未收敛（{displayCars.length} 辆车）——同一辆车存在多份活跃版本
                         </div>
-                        {pendingGroups.map(group => (
-                            <PendingGroupCard
-                                key={group.groupKey}
-                                group={group}
-                                adopting={adoptingCount > 0}
-                                onAdopt={g => runAdopt([g])}
-                            />
-                        ))}
+                        {displayCars.map(car => {
+                            const leaving = leavingKeys.has(car.identityKey);
+                            return (
+                                <div
+                                    key={car.identityKey}
+                                    className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[var(--ease-ui)] ${
+                                        leaving ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr]'
+                                    }`}
+                                >
+                                    <div className="overflow-hidden min-h-0">
+                                        <UnconvergedCarCard
+                                            car={car}
+                                            converging={convergingCount > 0}
+                                            onConverge={c => runConverge([c])}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -209,22 +256,18 @@ const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({ open, onC
                     </div>
                 )}
 
-                {/* 已治理组一览 */}
-                {healthyGroups.length > 0 && (
+                {/* 全部车型组一览 */}
+                {report.groups.length > 0 && (
                     <div className="space-y-1">
                         <div className="text-[13px] font-semibold text-1">全部车型组（{report.totalGroups}）</div>
                         <div className="surface-inset border border-default rounded-lg px-3 py-2">
                             {report.groups.map(group => {
-                                const primary = group.files.find(f => f.meta.isPrimary);
+                                const latestCount = group.files.filter(f => latestSet.has(f.info.fileName)).length;
                                 return (
                                     <div key={group.groupKey} className="flex items-center gap-2 py-0.5 min-w-0">
-                                        <span className="text-[12px] text-1 font-medium flex-shrink-0">{group.groupKey}</span>
-                                        <span className="text-[12px] text-3 flex-shrink-0">{group.files.length}</span>
-                                        {primary ? (
-                                            <span className="text-[12px] text-brand truncate" title={primary.info.fileName}>👑 {primary.info.fileName}</span>
-                                        ) : (
-                                            <span className="text-[12px] text-warning-text flex-shrink-0">缺主文件</span>
-                                        )}
+                                        <span className="text-[12px] text-1 font-medium flex-shrink-0">{pickGroupAlias(group.files, group.groupKey)}</span>
+                                        <span className="text-[12px] text-3 flex-shrink-0">{group.files.length} 文件</span>
+                                        <span className="text-[12px] text-brand flex-shrink-0">{latestCount} 辆车</span>
                                     </div>
                                 );
                             })}

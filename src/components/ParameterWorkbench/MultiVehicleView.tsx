@@ -390,7 +390,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                             <div className="mb-2 font-medium">2. 已选待整理车型 ({localSelection.length})</div>
                             <ProductSourceSelector 
                                 value={localSelection}
-                                onChange={setLocalSelection}
+                                onChange={names => setLocalSelection(Array.isArray(names) ? names : names ? [names] : [])}
                                 placeholder="选择要整理的车型"
                             />
                         </div>

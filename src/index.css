@@ -105,8 +105,8 @@
   --mask: rgba(16, 18, 24, 0.45);
   --shadow-popover: 0 4px 16px rgba(16, 18, 24, 0.10), 0 1px 3px rgba(16, 18, 24, 0.06);
 
-  --skeleton-base: #EDEFF3;
-  --skeleton-shine: #FFFFFF;
+  /* 动效 token：UI 统一曲线（强 ease-out，弹层/展开/淡入共用） */
+  --ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
 
   --scrollbar-thumb: #CCD1D9;
   --scrollbar-hover: #8A91A0;
@@ -218,9 +218,6 @@
 
   --mask: rgba(0, 0, 0, 0.62);
   --shadow-popover: 0 6px 20px rgba(0, 0, 0, 0.55);
-
-  --skeleton-base: #1D2530;
-  --skeleton-shine: #39434F;   /* 与 base 差 1.54 倍，扫光可见 */
 
   --scrollbar-thumb: #3F4959;
   --scrollbar-hover: #5B6684;
@@ -350,17 +347,26 @@ body {
   box-shadow: var(--shadow-popover);
 }
 
-/* 骨架屏扫光：两值差须 ≥1.5，否则暗色下看不见 */
-.skeleton {
-  background: var(--skeleton-base);
-  background-image: linear-gradient(
-    90deg, var(--skeleton-base) 0%, var(--skeleton-shine) 50%, var(--skeleton-base) 100%);
-  background-size: 200% 100%;
-  animation: skeleton-sweep 1.4s ease-out infinite;
+/* ====================================================================
+   瞬跳补动效：display:none → 渲染会重启 CSS animation，
+   借此给保活切换的内容加淡入，退场不拖泥带水（crisp）。
+   ==================================================================== */
+@keyframes vp-fade-in {
+  from { opacity: 0; }
 }
-@keyframes skeleton-sweep {
-  from { background-position: 200% 0; }
-  to   { background-position: -100% 0; }
+
+.vp-fade-in { animation: vp-fade-in 0.18s ease-out; }
+
+/* 工具栏类「从上方落位」：位移 + 淡入解释它从哪来 */
+@keyframes vp-slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+.vp-slide-down { animation: vp-slide-down 0.18s var(--ease-ui) both; }
+
+/* 工作台 Tab：antd 以 display:none 隐藏非活动 pane，激活即淡入 */
+.parameter-workbench-tabs .ant-tabs-tabpane {
+  animation: vp-fade-in 0.18s ease-out;
 }
 
 /* 顶栏导航：可横向滚动但隐藏滚动条（常驻滚动条视觉像 bug） */
@@ -377,9 +383,10 @@ body {
 /* ====================================================================
    表格微调（语义色）
    ==================================================================== */
+/* 表格行 hover：瞬时不渐变——行 hover 是全应用最高频交互，
+   渐变写在 :hover 内还会造成「渐入瞬出」不对称 */
 .ant-table-tbody > tr:hover > td {
   background-color: var(--table-row-hover) !important;
-  transition: background-color 0.15s ease;
 }
 
 /* 必填缺失："待办"信号 = 白底 + 左缘红条；仅 hover 叠加浅红瞬态提示 */
@@ -408,11 +415,16 @@ body {
   border-left: 3px solid var(--diff-modified-bar);
 }
 
+/* 公告归档分组树：车型组行底色（中性弱填充，把组行与记录行区分开） */
+.ant-table-tbody > tr.group-row > td {
+  background-color: var(--surface-2);
+}
+
 /* ====================================================================
    Upload 区域
    ==================================================================== */
 .ant-upload-drag {
-  transition: border-color 0.3s ease, background-color 0.3s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .ant-upload-drag:hover {
@@ -466,12 +478,98 @@ img, a { -webkit-user-drag: none; }
 /* macOS 红绿灯避让 */
 .is-macos .app-header { padding-left: 84px; }
 
-/* 尊重减少动态效果 */
+/* ====================================================================
+   弹层动效调教
+   antd v6 的 keyframe 名带 hash（css-<hash>-antZoomIn，dev/prod 不同），
+   按名覆盖不可行，改为覆盖 animation-name。motion 类挂在 .ant-modal
+   同一元素上，此处特异性 (0,3,0) 稳压 antd 的 :where() 前缀规则 (0,2,0)。
+   缩放起点 0.2 → 0.96（万物不从无中生有）；曲线/时长沿用 antd token
+   （outCirc + Mid 0.3s，本就在预算内），见 plans/001-overlay-motion-tuning.md
+   ==================================================================== */
+@keyframes vp-modal-zoom-in {
+  from { transform: scale(0.96); opacity: 0; }
+}
+
+@keyframes vp-modal-zoom-out {
+  to { transform: scale(0.96); opacity: 0; }
+}
+
+.ant-modal.ant-zoom-enter.ant-zoom-enter-active,
+.ant-modal.ant-zoom-appear.ant-zoom-appear-active {
+  animation-name: vp-modal-zoom-in;
+}
+
+.ant-modal.ant-zoom-leave.ant-zoom-leave-active {
+  animation-name: vp-modal-zoom-out;
+}
+
+/* ---- 右键菜单：token 化 + 从点击点缩放淡入（替代硬编码白底孤岛） ---- */
+@keyframes vp-menu-in {
+  from { transform: scale(0.96); opacity: 0; }
+}
+
+.vp-context-menu {
+  position: fixed;
+  z-index: 99999;
+  min-width: 160px;
+  padding: 4px 0;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-popover);
+  border-radius: 8px;
+  box-shadow: var(--shadow-popover);
+  font-size: var(--fs-body);
+  color: var(--text-1);
+  user-select: none;
+  animation: vp-menu-in 0.15s var(--ease-ui) both;
+}
+
+.vp-context-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  cursor: default;
+  color: var(--text-1);
+  transition: background-color 0.15s ease;
+}
+
+.vp-context-menu__item:hover { background: var(--surface-3); }
+
+.vp-context-menu__item--danger { color: var(--danger-text); }
+.vp-context-menu__item--disabled { color: var(--text-4); pointer-events: none; }
+.vp-context-menu__divider { height: 1px; margin: 4px 0; background: var(--border-default); }
+.vp-context-menu__icon { font-size: 14px; width: 16px; text-align: center; }
+
+/* message 提示条点击穿透：它固定在顶部居中，会盖住工作台 Tab（版本对比等），
+   而 antd v6 给内容块显式加了 pointer-events: all，存在期内挡住下层控件点击。
+   提示条是纯信息展示（本项目未用 closable message），整块放行点击。
+   特异性 (0,3,0) 稳压 antd :where() 前缀规则 (0,2,0)，不依赖样式注入顺序。 */
+.ant-message .ant-message-notice .ant-message-notice-content {
+  pointer-events: none;
+}
+
+/* 尊重减少动态效果：停掉位移/缩放，保留颜色与透明度反馈。
+   全杀写法会把加载转圈、脉冲提醒一起冻住——旋转是必要的状态信号，豁免。 */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-property: color, background-color, border-color, outline-color,
+      text-decoration-color, fill, stroke, opacity, box-shadow !important;
+    transition-duration: 0.15s !important;
     scroll-behavior: auto !important;
   }
+
+  .ant-spin-dot { animation-duration: 1.2s !important; animation-iteration-count: infinite !important; }
+  .ant-spin-dot-item { animation-duration: 1s !important; animation-iteration-count: infinite !important; }
+}
+
+/* 购物车反向定位：滚动到目标行后的短暂高亮（设计文档 2026-10-01 §3.5） */
+@keyframes vp-locate-flash {
+  0%   { box-shadow: 0 0 0 2px var(--brand); }
+  70%  { box-shadow: 0 0 0 2px var(--brand); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.vp-locate-flash {
+  animation: vp-locate-flash 1.6s ease-out;
 }

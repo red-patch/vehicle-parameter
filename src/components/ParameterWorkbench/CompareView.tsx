@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, Checkbox, Empty, Tag, Alert, Space, Input, Segmented, message, Select, Spin } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { DiffOutlined, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -19,6 +20,15 @@ import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
 interface CompareViewProps {
     onGoRepair?: () => void;
 }
+
+/** 对比表一行：固定列 + 每个选中车型一列（列名是实例键，值是参数文本） */
+type CompareRow = {
+    key: string;
+    group: string;
+    name: string;
+    hasDiff: boolean;
+    hasAnyValue: boolean;
+} & Record<string, string | boolean>;
 
 const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     const { uploadedFiles, assetFiles, activeAssets, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion } = useVehicleStore(useShallow(state => ({
@@ -63,7 +73,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     // Build comparison matrix (supports 1+ products)
     // 合并 key 为「分组+参数名」：同名参数在不同总成下（如各传感器的"型号"）
     // 不能互相覆盖，否则每车只留最后一行的值，跨车对比会拿错总成的值来比
-    const comparisonData = useMemo(() => {
+    const comparisonData = useMemo<CompareRow[]>(() => {
         if (localSelection.length < 1) return [];
 
         const allParams = new Map<string, { group: string; name: string; values: Map<string, string> }>();
@@ -171,7 +181,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
 
     // Dynamic columns
     const columns = useMemo(() => {
-        const dynamicCols: any[] = [
+        const dynamicCols: ColumnsType<CompareRow> = [
             {
                 title: '分组',
                 dataIndex: 'group',
@@ -329,7 +339,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
 
                     <ProductSourceSelector 
                         value={localSelection}
-                        onChange={setLocalSelection}
+                        onChange={names => setLocalSelection(Array.isArray(names) ? names : names ? [names] : [])}
                         placeholder="从已选车型中选择进行对比..."
                     />
                 </div>
@@ -399,7 +409,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                 dataSource={filteredData}
                                 columns={columns}
                                 rowKey="key"
-                                rowClassName={(record: { hasDiff: boolean }) => record.hasDiff ? 'diff-row' : ''}
+                                rowClassName={(record: CompareRow) => record.hasDiff ? 'diff-row' : ''}
                                 scrollY={tableBodyHeight}
                             />
                         </div>

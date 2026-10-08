@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>车辆资产 · 治理体系与资产管理现状地图</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1f2329; --sub:#646a73; --line:#e5e6eb;
+    --blue:#1664ff; --blue-bg:#e8f0ff;
+    --green:#2ea121; --green-bg:#e8f7e6;
+    --amber:#ff8800; --amber-bg:#fff3e0;
+    --red:#f54a45; --red-bg:#feecec;
+    --purple:#7c3aed; --purple-bg:#f1e9fd;
+    --gray:#8f959e; --gray-bg:#f2f3f5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.65;font-size:14px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 80px}
+
+  /* ---- 顶栏 ---- */
+  header.hero{background:linear-gradient(135deg,#0f1b3d 0%,#1b3a8a 60%,#1664ff 100%);color:#fff;padding:44px 0 36px;margin-bottom:28px}
+  .hero .wrap{padding-bottom:0}
+  .hero h1{font-size:26px;font-weight:700;letter-spacing:.5px}
+  .hero p{opacity:.85;margin-top:8px;font-size:14px;max-width:860px}
+  .hero .meta{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap}
+  .hero .chip{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:3px 12px;font-size:12px}
+
+  /* ---- 导航 ---- */
+  nav.toc{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:32px}
+  nav.toc .wrap{display:flex;gap:6px;flex-wrap:wrap;padding-top:0;padding-bottom:0}
+  nav.toc a{color:var(--sub);text-decoration:none;font-size:13px;padding:5px 14px;border-radius:99px;border:1px solid transparent}
+  nav.toc a:hover{background:var(--blue-bg);color:var(--blue)}
+
+  /* ---- 通用 ---- */
+  section{margin-bottom:44px;scroll-margin-top:64px}
+  h2{font-size:19px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+  h2 .no{background:var(--blue);color:#fff;width:26px;height:26px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+  .lead{color:var(--sub);margin-bottom:18px;font-size:13.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  .tag{display:inline-block;border-radius:6px;padding:1px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+  .t-green{background:var(--green-bg);color:var(--green)}
+  .t-amber{background:var(--amber-bg);color:var(--amber)}
+  .t-red{background:var(--red-bg);color:var(--red)}
+  .t-blue{background:var(--blue-bg);color:var(--blue)}
+  .t-gray{background:var(--gray-bg);color:var(--gray)}
+  .t-purple{background:var(--purple-bg);color:var(--purple)}
+
+  code{background:var(--gray-bg);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px;font-family:"SF Mono",Menlo,monospace;color:#d0384e}
+  .fn{font-size:12px;color:var(--sub)}
+
+  /* ---- 数据模型 ---- */
+  .model-hub{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px}
+  @media(max-width:900px){.model-hub{grid-template-columns:1fr}}
+  .model-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;position:relative}
+  .model-card h4{font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .model-card ul{list-style:none}
+  .model-card li{font-size:12.5px;color:var(--sub);padding:3px 0;border-bottom:1px dashed #f0f1f3;display:flex;justify-content:space-between;gap:8px}
+  .model-card li:last-child{border-bottom:none}
+  .model-card li b{color:var(--ink);font-weight:600}
+  .model-card.main{border:2px solid var(--blue);background:linear-gradient(180deg,#f5f9ff, #fff)}
+  .model-card.side{border-style:dashed}
+
+  .prio-chain{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-top:16px}
+  .prio-chain .step{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .prio-chain .step small{display:block;font-weight:400;color:var(--sub);font-size:11.5px}
+  .prio-chain .arr{color:var(--gray);padding:0 8px;font-size:16px}
+
+  /* ---- 生命周期 ---- */
+  .lifecycle{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;justify-content:center}
+  .lc-node{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-width:150px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .lc-node b{display:block;font-size:14px}
+  .lc-node small{color:var(--sub);font-size:11.5px;display:block;margin-top:2px}
+  .lc-arr{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--sub);padding:0 6px;min-width:118px;font-size:12px;text-align:center}
+  .lc-arr .arrow{color:var(--blue);font-size:18px;line-height:1}
+  .lc-arr.err .arrow{color:var(--red)}
+
+  /* ---- 动线 ---- */
+  .flow{display:flex;gap:0;overflow-x:auto;padding:6px 2px 14px}
+  .flow-step{flex:none;width:158px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;position:relative;margin-right:26px}
+  .flow-step::after{content:"";position:absolute;right:-20px;top:50%;width:14px;height:14px;border-top:2px solid var(--blue);border-right:2px solid var(--blue);transform:translateY(-50%) rotate(45deg)}
+  .flow-step:last-child::after{display:none}
+  .flow-step .idx{position:absolute;top:-10px;left:12px;background:var(--blue);color:#fff;font-size:11px;border-radius:99px;padding:0 9px;font-weight:700}
+  .flow-step h5{font-size:13.5px;margin:4px 0 6px}
+  .flow-step p{font-size:11.5px;color:var(--sub)}
+  .flow-step .cost{margin-top:8px;font-size:11px}
+  .flow-step.warn{border-color:var(--amber);background:#fffdf8}
+  .flow-step.bad{border-color:var(--red);background:#fffafa}
+
+  /* ---- 体检红绿灯 ---- */
+  table.gate{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .gate th{background:#f2f5fb;text-align:left;font-size:12.5px;color:var(--sub);padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600}
+  .gate td{padding:11px 14px;border-bottom:1px solid #f0f1f3;font-size:13px;vertical-align:top}
+  .gate tr:last-child td{border-bottom:none}
+  .gate .issue{font-weight:600}
+  .gate .detail{color:var(--sub);font-size:12.5px;margin-top:2px}
+
+  /* ---- 入口地图 ---- */
+  .map{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:900px){.map{grid-template-columns:1fr}}
+  .map-zone{border-radius:14px;border:1px solid var(--line);background:#fff;padding:16px 18px}
+  .map-zone h4{font-size:14px;margin-bottom:4px}
+  .map-zone .zsub{font-size:12px;color:var(--sub);margin-bottom:10px}
+  .entry{display:flex;gap:8px;align-items:baseline;padding:5px 0;border-bottom:1px dashed #f0f1f3;font-size:12.5px}
+  .entry:last-child{border-bottom:none}
+  .entry .where{color:var(--sub);flex:none;width:112px;font-size:11.5px}
+  .entry .badge{flex:none}
+  .dead{opacity:.55}
+  .dead .name{text-decoration:line-through}
+
+  /* ---- 痛点 & 方向 ---- */
+  .pain{background:#fff;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:10px;padding:13px 16px;margin-bottom:10px}
+  .pain h5{font-size:13.5px;margin-bottom:3px}
+  .pain p{font-size:12.5px;color:var(--sub)}
+  .pain .fix{margin-top:7px;font-size:12.5px;color:var(--blue);background:var(--blue-bg);border-radius:8px;padding:6px 10px;display:inline-block}
+  .pain.mid{border-left-color:var(--amber)}
+  .pain.dead{border-left-color:var(--gray)}
+
+  .plan{border:2px solid var(--blue);border-radius:14px;background:linear-gradient(180deg,#f5f9ff,#fff);padding:20px 22px}
+  .plan h3{font-size:16px;color:var(--blue);margin-bottom:8px}
+  .plan .lane{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px}
+  .plan .lane b.lane-t{font-size:14px}
+  .plan .lane ul{margin:8px 0 0 18px;font-size:13px;color:var(--sub)}
+  .plan .lane li{margin:3px 0}
+  .plan .lane li b{color:var(--ink)}
+
+  footer{color:var(--gray);font-size:12px;text-align:center;margin-top:40px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin:10px 0 18px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>车辆资产 · 治理体系与资产管理现状地图</h1>
+    <p>数据模型 → 生命周期 → 导入动线 → 体检闭环 → 入口分布 → 痛点与已定方向。红黄绿标注“闭环是否真的能走通”。</p>
+    <div class="meta">
+      <span class="chip">基线：ADR-0003（主文件退役 → 关键车型 + 版本链收敛）</span>
+      <span class="chip">数据：/Users/ethan/车型数据库 · 256 文件 / 67 组</span>
+      <span class="chip">2026-10-02 现状快照</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#s1">① 数据模型</a>
+    <a href="#s2">② 生命周期</a>
+    <a href="#s3">③ 导入动线</a>
+    <a href="#s4">④ 体检闭环（红绿灯）</a>
+    <a href="#s5">⑤ 入口地图</a>
+    <a href="#s6">⑥ 痛点诊断</a>
+    <a href="#s7">⑦ 已定方向：A/B 双轨</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ================= ① 数据模型 ================= -->
+<section id="s1">
+  <h2><span class="no">1</span>数据模型：一份资产 = 本体 + 四个旁路文件</h2>
+  <p class="lead">资产本体是车型参数 JSON（只读不动）；所有治理信息都在库目录的下划线旁路文件里，删旁路不丢原始数据。</p>
+
+  <div class="model-hub">
+    <div class="model-card main">
+      <h4>📄 资产本体 <span class="tag t-blue">只读</span></h4>
+      <ul>
+        <li><b>车型参数</b><span>按分组存（基本/配置/准入…）</span></li>
+        <li><b>扫描派生字段</b><span class="fn">算完不落盘</span></li>
+        <li>公告号 announceNos<span class="fn">assetManager 扫描</span></li>
+        <li>车辆型号 vehicleModel<span class="fn">公告数据源口径</span></li>
+        <li>审批状态 approvalStatus<span class="fn">准入·已审核/驳回</span></li>
+        <li>主机厂/电池/电量/等级 raw<span class="fn">词表归一前原值</span></li>
+        <li>填充率 filledParams / 日期<span class="fn">体检建议依据</span></li>
+      </ul>
+    </div>
+
+    <div class="model-card side">
+      <h4>🏷️ _asset_tags.json <span class="tag t-gray">自由标签</span></h4>
+      <ul>
+        <li><b>关键车型</b> KEY_VEHICLE_TAG<span class="tag t-green">63</span></li>
+        <li>生命周期（历史/废弃）<span class="fn">与 meta 双写</span></li>
+        <li>业务标签：轻卡/中面/吉利…<span class="fn">互斥组自动替换</span></li>
+        <li>来源标签 4 个<span class="tag t-red">3 死</span></li>
+        <li>入口：右键/批量打标条/导入<span class="fn">3 处</span></li>
+      </ul>
+    </div>
+
+    <div class="model-card side">
+      <h4>📌 _asset_meta.json <span class="tag t-purple">人工标注</span></h4>
+      <ul>
+        <li>status：superseded / deprecated<span class="fn">只打标不移动</span></li>
+        <li>groupName：分组显示名覆盖<span class="fn">与文件名解耦</span></li>
+        <li>note 备注</li>
+        <li><b>isPrimary 已废</b>（ADR-0003）<span class="tag t-amber">迁移完成</span></li>
+      </ul>
+    </div>
+
+    <div class="model-card side">
+      <h4>📚 _facet_vocab.json <span class="tag t-blue">词表（4 维）</span></h4>
+      <ul>
+        <li>主机厂<span class="fn">24 法人 + 集团/别名</span></li>
+        <li>电池品牌<span class="fn">17 个</span></li>
+        <li>车型族群<span class="fn">大面/中面/小卡/微卡/轻卡/无人车</span></li>
+        <li>准入等级<span class="fn">Ⅰ~Ⅳ（含 Ⅲ1/Ⅲ2/Ⅲ3）</span></li>
+        <li>词表外写法 → <b>待归类</b><span class="tag t-red">无编辑 UI</span></li>
+      </ul>
+    </div>
+
+    <div class="model-card side">
+      <h4>✍️ _facet_values.json <span class="tag t-purple">人工修正层</span></h4>
+      <ul>
+        <li>资产级修正：电池/电量/等级/公告号</li>
+        <li>组级修正：主机厂/族群（一组一值）</li>
+        <li>入口：批量补录抽屉 / 组属性 Modal</li>
+        <li>空值 = 清除回退到自动派生</li>
+      </ul>
+    </div>
+
+    <div class="model-card side">
+      <h4>📂 _archive/ <span class="tag t-gray">归档</span></h4>
+      <ul>
+        <li>彻底删除的去处（软删除≠物理删）</li>
+        <li>链路：先「标记废弃」→ 开「显示废弃」→ 右键「彻底删除」<span class="tag t-amber">入口深</span></li>
+        <li>reconcileSidecarEntries 定期对账悬空条目</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="prio-chain">
+    <div class="step">① 人工修正<small>_facet_values 资产级</small></div><span class="arr">→</span>
+    <div class="step">② 自动派生<small>扫描 + 词表归一</small></div><span class="arr">→</span>
+    <div class="step">③ 组级继承<small>_facet_values 组级</small></div><span class="arr">→</span>
+    <div class="step">④ 标签兜底<small>旧标签组「活回退」</small></div>
+    <span class="tag t-blue" style="margin-left:14px">受控属性解析优先级（assetFacets）</span>
+  </div>
+</section>
+
+<!-- ================= ② 生命周期 ================= -->
+<section id="s2">
+  <h2><span class="no">2</span>生命周期与导入裁决：永不静默覆盖（ADR-0002）</h2>
+  <p class="lead">身份键：有公告号 = 公告号；无公告号 = 车型组 + 产品名。同公告号但准入编号/等级不同 = 不同车（2026-10-01 裁定）。</p>
+
+  <div class="card">
+    <div class="lifecycle">
+      <div class="lc-node"><b>活跃 active</b><small>正常参与筛选/工作区</small></div>
+      <div class="lc-arr"><span class="arrow">→</span>更新并存<br>（导入 keep-new）</div>
+      <div class="lc-node"><b>superseded 历史</b><small>标旧不删 · buildSupersedeMeta</small></div>
+      <div class="lc-arr"><span class="arrow">→</span>软删除<br>（右键·标记废弃）</div>
+      <div class="lc-node"><b>deprecated 废弃</b><small>默认隐藏 · 需开显示</small></div>
+      <div class="lc-arr err"><span class="arrow">→</span>彻底删除<br>（显式确认）</div>
+      <div class="lc-node" style="border-style:dashed"><b>_archive/ 归档</b><small>可恢复 · meta 同步清理</small></div>
+    </div>
+  </div>
+
+  <div class="grid3" style="margin-top:16px">
+    <div class="card">
+      <h4 style="font-size:14px;margin-bottom:8px">导入三分类 <span class="tag t-green">已闭环</span></h4>
+      <ul style="list-style:none;font-size:13px">
+        <li style="padding:4px 0">🆕 新增 → 直接入库</li>
+        <li style="padding:4px 0">🔄 更新已有 → 并存 + 旧版标历史<br><span class="fn">内容无差异自动改「跳过」</span></li>
+        <li style="padding:4px 0">⚠️ 疑似重复 → 人工逐行裁决<br><span class="fn">保存入库/并存新版/替换内容/跳过</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="font-size:14px;margin-bottom:8px">版本链收敛 <span class="tag t-green">ADR-0003 新</span></h4>
+      <p style="font-size:13px;color:var(--sub)">同车多份活跃版本时，体检列出 <code>unconvergedCars</code>，一键把非链头标历史（<code>handleConvergeCars</code>），取代旧的「采纳主文件建议」。</p>
+    </div>
+    <div class="card">
+      <h4 style="font-size:14px;margin-bottom:8px">入库 ≠ 加入工作区 <span class="tag t-amber">易混淆</span></h4>
+      <p style="font-size:13px;color:var(--sub)">导入只落盘资产库；要用还得在分组视图 / 筛选结果里手动加入工作区。导入完成有文案提示，但两个概念对新用户是认知负担。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ③ 导入动线 ================= -->
+<section id="s3">
+  <h2><span class="no">3</span>主干动线：从 Excel 到工作区</h2>
+  <p class="lead">黄色 = 有摩擦的环节，红色 = 断点。注意弹窗最多叠三层。</p>
+
+  <div class="flow">
+    <div class="flow-step"><span class="idx">1</span><h5>导入 Excel</h5><p>资产面板头部唯一入口 · FileManager</p><div class="cost"><span class="tag t-green">批量</span></div></div>
+    <div class="flow-step warn"><span class="idx">2</span><h5>Sheet/列配置</h5><p>多 Sheet 先 SheetPicker，再 ExcelPreviewDialog 配列</p><div class="cost"><span class="tag t-amber">弹窗 ×2</span></div></div>
+    <div class="flow-step warn"><span class="idx">3</span><h5>查重三分类确认</h5><p>980 宽大弹窗，逐行判定 + 处理方式；可再叠 ImportDiff 逐行 diff</p><div class="cost"><span class="tag t-amber">弹窗叠 3 层</span> <span class="tag t-red">几百行时逐行审吃力</span></div></div>
+    <div class="flow-step"><span class="idx">4</span><h5>saveAssetsBatch</h5><p>单次 IPC 落盘（Rust 快路径）</p><div class="cost"><span class="tag t-green">整批一次写</span></div></div>
+    <div class="flow-step warn"><span class="idx">5</span><h5>打标 facets</h5><p>组级 Modal / 批量补录抽屉 / 右键批量打标签</p><div class="cost"><span class="tag t-amber">补录入口藏在体检里</span></div></div>
+    <div class="flow-step bad"><span class="idx">6</span><h5>体检治理</h5><p>体检 Modal：6 类问题，5 类只能看</p><div class="cost"><span class="tag t-red">修不了</span></div></div>
+    <div class="flow-step"><span class="idx">7</span><h5>分组/筛选</h5><p>4 视图 Segmented + 筛选面板 + 级联计数</p><div class="cost"><span class="tag t-amber">清除不彻底</span></div></div>
+    <div class="flow-step"><span class="idx">8</span><h5>加入工作区</h5><p>行 hover ± / 组头 ⚡ / 筛选结果一键新增</p><div class="cost"><span class="tag t-green">3 个快捷口</span></div></div>
+  </div>
+</section>
+
+<!-- ================= ④ 体检闭环红绿灯 ================= -->
+<section id="s4">
+  <h2><span class="no">4</span>体检闭环红绿灯：看得见 ≠ 修得了</h2>
+  <p class="lead">治理体检是整个体系的枢纽。红 = 发现问题后无任何修复动作；黄 = 有动作但断点/缺文案；绿 = 可闭环。</p>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--green)"></span>可闭环</span>
+    <span><span class="dot" style="background:var(--amber)"></span>半通，有断点</span>
+    <span><span class="dot" style="background:var(--red)"></span>只读，修不了</span>
+    <span><span class="dot" style="background:var(--gray)"></span>死/假</span>
+  </div>
+
+  <table class="gate">
+    <tr><th style="width:24%">体检项</th><th style="width:30%">现在的动作</th><th>闭环状态与断点</th></tr>
+    <tr>
+      <td class="issue">版本链收敛<small class="detail">同车多份活跃版本（ADR-0003）</small></td>
+      <td>单组收敛 / 全部收敛按钮，写 superseded meta</td>
+      <td><span class="tag t-green">可闭环</span> 63 关键车型标注迁移已完成，代码零残留、tsc 通过</td>
+    </tr>
+    <tr>
+      <td class="issue">疑似重复簇<small class="detail">并查集按车辆型号/公告号聚簇</small></td>
+      <td>只读清单——没有任何操作</td>
+      <td><span class="tag t-red">只读</span> 看得到重复，标废弃/收敛都得自己去右键找文件</td>
+    </tr>
+    <tr>
+      <td class="issue">驳回件<small class="detail">真实库现存 5 件（准入·审批状态=驳回）</small></td>
+      <td>只读清单——没有任何操作</td>
+      <td><span class="tag t-red">只读</span> <span class="fn">Q14 待定：跳转 / 批量废弃 / 自动建议</span></td>
+    </tr>
+    <tr>
+      <td class="issue">命名不规范<small class="detail">名称缺有效公告号</small></td>
+      <td>弹窗文案称「提醒条可一键修复」</td>
+      <td><span class="tag t-gray">假文案</span> 提醒条点击只会重新打开体检；真按钮只在平铺卡片，<b>默认的分组视图没有</b></td>
+    </tr>
+    <tr>
+      <td class="issue">受控属性待补全<small class="detail">facet 覆盖率 79%~97%</small></td>
+      <td>「打开批量补录 →」链接</td>
+      <td><span class="tag t-amber">半通</span> 先关体检弹窗 → 再开抽屉；面板头部无直通按钮</td>
+    </tr>
+    <tr>
+      <td class="issue">待归类<small class="detail">词表外写法（collectUnmappedValues）</small></td>
+      <td>提示「手改 _facet_vocab.json 的 aliases」</td>
+      <td><span class="tag t-red">只读</span> 词表编辑 UI 设计文档明示「暂不做」</td>
+    </tr>
+    <tr>
+      <td class="issue">治理提醒条<small class="detail">列表顶部黄条</small></td>
+      <td>仅「缺主文件 / 命名不规范」两类触发</td>
+      <td><span class="tag t-amber">覆盖 2/6</span> 驳回/重复/待补全/待归类不提醒，只能想得起来才开体检</td>
+    </tr>
+  </table>
+</section>
+
+<!-- ================= ⑤ 入口地图 ================= -->
+<section id="s5">
+  <h2><span class="no">5</span>入口地图：治理能力散落在 6 个区域</h2>
+  <p class="lead">同一状态 4 种呈现、同一动作 2-3 条路径。划线 = 死入口（永远打不开/永远不触发）。</p>
+
+  <div class="map">
+    <div class="map-zone">
+      <h4>🅰️ 主布局顶部导航</h4>
+      <div class="zsub">6 个一级 tab</div>
+      <div class="entry"><span class="where">tab 1</span><span class="badge tag t-blue">资产管理</span><span class="name">治理主战场（DataSourcePanel）</span></div>
+      <div class="entry"><span class="where">tab 4</span><span class="badge tag t-amber">数据体检与修复</span><span class="name">参数内容体检（与资产治理撞名）</span></div>
+      <div class="entry dead"><span class="where">tab 5</span><span class="badge tag t-gray">公告中心</span><span class="name">公告数据已迁走 ← 你的迁移</span></div>
+      <div class="entry"><span class="where">tab 6</span><span class="badge tag t-blue">系统配置</span><span class="name">标签分组配置</span></div>
+    </div>
+
+    <div class="map-zone">
+      <h4>🅱️ 资产面板头部</h4>
+      <div class="zsub">一行按钮 + 筛选</div>
+      <div class="entry"><span class="where">按钮</span><span class="badge tag t-blue">导入车型数据</span></div>
+      <div class="entry"><span class="where">按钮</span><span class="badge tag t-amber">治理体检 icon</span><span class="name">有警情变警告色</span></div>
+      <div class="entry"><span class="where">黄条</span><span class="badge tag t-amber">治理提醒条</span><span class="name">点击 = 打开体检（非修复）</span></div>
+      <div class="entry"><span class="where">Segmented</span><span class="badge tag t-blue">车型/主机厂/族群/平铺</span></div>
+      <div class="entry"><span class="where">开关</span><span class="badge tag t-blue">只看关键车型 · 显示废弃</span><span class="fn">「清除」不清它们</span></div>
+      <div class="entry"><span class="where">按钮</span><span class="badge tag t-amber">刷新资产库</span><span class="name">改完要手动刷</span></div>
+    </div>
+
+    <div class="map-zone">
+      <h4>🅲 右键菜单（15 项）+ 组头 + 批量条</h4>
+      <div class="zsub">行级操作真正集中的地方</div>
+      <div class="entry"><span class="where">右键×2</span><span class="badge tag t-blue">设关键车型 / 重命名 / 标历史 / 标废弃</span></div>
+      <div class="entry"><span class="where">右键</span><span class="badge tag t-blue">升级导入 · 与公告对比 · 导出 CSV</span></div>
+      <div class="entry"><span class="where">右键</span><span class="badge tag t-amber">彻底删除</span><span class="name">仅废弃件可见（先废弃再显示）</span></div>
+      <div class="entry"><span class="where">组头 hover</span><span class="badge tag t-blue">组属性 / 重命名 / ⚡激活</span></div>
+      <div class="entry"><span class="where">长按/右键</span><span class="badge tag t-blue">批量选择 → 打标条</span></div>
+    </div>
+
+    <div class="map-zone">
+      <h4>🅳 弹窗群</h4>
+      <div class="zsub">Modal 套 Modal 的重灾区</div>
+      <div class="entry"><span class="where">体检</span><span class="badge tag t-amber">GovernanceReportModal</span><span class="name">治理枢纽，但半只读</span></div>
+      <div class="entry"><span class="where">体检→关→开</span><span class="badge tag t-amber">批量补录抽屉</span><span class="name">唯一入口在体检里</span></div>
+      <div class="entry"><span class="where">导入链</span><span class="badge tag t-amber">确认车型(980) ⊃ diff ⊃ SheetPicker</span></div>
+      <div class="entry"><span class="where">数据体检 tab</span><span class="badge tag t-amber">SaveAssetModal ⊃ 覆盖确认</span><span class="fn">查重提示未收口</span></div>
+      <div class="entry"><span class="where">右键升级</span><span class="badge tag t-amber">UpgradeModal ⊃ SaveAsset ⊃ Preview</span></div>
+      <div class="entry dead"><span class="where">—</span><span class="badge tag t-gray">我的资产中心抽屉</span><span class="name">无任何按钮能打开 + 摆设按钮</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ⑥ 痛点 ================= -->
+<section id="s6">
+  <h2><span class="no">6</span>痛点诊断（拷问结论）</h2>
+  <p class="lead">对应你亲述的 Q7：「点开体检治理，根本不知道从何开始去治理，链路不清晰」。</p>
+
+  <div class="grid2">
+    <div>
+      <div class="pain">
+        <h5>❌ 体检闭环断裂（Q2-B · 最痛）</h5>
+        <p>6 类问题里 5 类是只读清单：看见问题 → 没有“去修”的按钮 → 自己回忆“这类该去哪修” → 找不到 → 放弃。</p>
+        <span class="fix">→ A 轨：体检弹窗补成真闭环（v1：重复簇 / 命名 / 补录链路）</span>
+      </div>
+      <div class="pain">
+        <h5>❌ 批量弱 + 反馈差（Q3-B+C）</h5>
+        <p>批量补录入口深、要先关弹窗；改完要手动「刷新资产库」；几百行重导入时逐行审不现实。</p>
+        <span class="fix">→ 批量能力集中到治理页；导入预览分组折叠默认直过</span>
+      </div>
+      <div class="pain mid">
+        <h5>⚠️ 提醒覆盖 2/6 + 假文案</h5>
+        <p>只有缺主文件/命名不规范触发提醒条；「一键修复」文案指向不存在的功能。</p>
+        <span class="fix">→ 全类目计数提醒 + 文案修正</span>
+      </div>
+    </div>
+    <div>
+      <div class="pain mid">
+        <h5>⚠️ 认知不成体系（Q4-B / Q5 场景）</h5>
+        <p>概念散落在 6 个区域（组/别名/词表/facet/生命周期/关键车型），日常全量重导几百行时没有“治理工作台”承接。</p>
+        <span class="fix">→ B 轨：独立「数据治理」页面，分类任务队列 + 全局进度</span>
+      </div>
+      <div class="pain dead">
+        <h5> gray 死功能与不一致</h5>
+        <p>「我的资产中心」抽屉无入口、摆设按钮；来源标签 4 个 3 个永不触发（公告数据已随迁移清零）；同一状态 4 种画法；「清除」清不干净；平铺卡片 <code>isEditing=false</code> 死代码、FileManager 整文件 @ts-nocheck。</p>
+        <span class="fix">→ 顺手清理，不扩大战场</span>
+      </div>
+      <div class="pain dead">
+        <h5>gray 未决小项</h5>
+        <p>Q14 驳回件动作（5 件）待你裁决；死来源标签只删「公告数据」定义；「数据体检与修复」tab 改名「参数体检」避免撞车。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ⑦ A/B 双轨 ================= -->
+<section id="s7">
+  <h2><span class="no">7</span>已定方向：A/B 双轨（Q6/Q9-Q12 已锁定）</h2>
+
+  <div class="plan">
+    <h3>核心架构：一次实现，两处挂载</h3>
+    <p style="font-size:13.5px;color:var(--sub)">抽取 <code>&lt;GovernanceWorkspace&gt;</code> 组件 —— A 用 Modal 包（先落地），B 用页面包（终态）。A 直接是 B 的活原型，杜绝两套逻辑漂移。</p>
+
+    <div class="lane">
+      <b class="lane-t">🚦 A 轨 · 体检弹窗闭环（先实现）</b>
+      <ul>
+        <li><b>v1 加动作：</b>疑似重复簇 → 行内收敛版本链/标废弃；命名不规范 → 一键修复补进分组视图；补录链路 → 去掉“先关弹窗”断点</li>
+        <li><b>维持只读：</b>待归类 → 轻提示（复制值 + 改 JSON 指引）；驳回件 → 待 Q14 裁决</li>
+        <li><b>提醒条：</b>扩到全类目计数，修正假文案</li>
+        <li>不动数据模型，纯交互补洞</li>
+      </ul>
+    </div>
+
+    <div class="lane">
+      <b class="lane-t">🖥️ B 轨 · 独立「数据治理」页面（同步出方案）</b>
+      <ul>
+        <li><b>落位：</b>主布局新增「数据治理」tab；现有「数据体检与修复」改名「参数体检」消除撞车</li>
+        <li><b>信息架构（Q11=A）：</b>左侧问题分类 rail（每类带计数）→ 逐类清掉 → 顶部全局进度「N 类问题剩 M 项」→ 全清变绿（治理的“终点状态”）</li>
+        <li><b>动线：</b>发现问题 → 点分类 → 列表行内/抽屉直接修 → 计数即时回落，无需手动重跑</li>
+        <li><b>承接 Q5 场景：</b>几百行重导后的治理待办在这里集中呈现</li>
+      </ul>
+    </div>
+
+    <div class="lane">
+      <b class="lane-t">📋 配套决策</b>
+      <ul>
+        <li>Q12 导入预览：分组折叠（新增 X / 更新 Y / 疑似重复 Z），新增默认直过、更新默认采纳、重复必须人工裁决</li>
+        <li>Q1 基线：ADR-0003 为既定前提，不再重议主文件</li>
+        <li>Q13 时序：另一会话的 ADR-0003 迁移已编译通过（tsc 0 错），待确认活动状态后动工</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>现状地图 · 依据代码实探（2026-10-02）+ grilling 会话 Q1-Q14 · 设计共识确认后动工</footer>
+</div>
+</body>
+</html>

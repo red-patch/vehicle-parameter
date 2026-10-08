@@ -1,3 +1,6 @@
+import type { ComponentType } from 'react';
+import { AuditOutlined, MedicineBoxOutlined, FileTextOutlined, EditOutlined } from '@ant-design/icons';
+
 export const ASSET_SOURCE_TAGS = {
     announcement: '公告数据',
     purify: '数据体检',
@@ -10,30 +13,33 @@ export type AssetSourceFilter = 'all' | 'announcement' | 'purify' | 'workspace' 
 /** 来源标签色调（对应 index.css 的 --src-* 中性偏色 token，绝不占用语义色） */
 export type AssetSourceTone = 'announcement' | 'asset' | 'excel';
 
+/** 来源图标：Ant Design 图标组件（跟随文字色 currentColor），勿再用 emoji */
+type SourceIcon = ComponentType<{ className?: string }>;
+
 export const ASSET_SOURCE_META = {
     announcement: {
         filter: 'announcement' as const,
         label: ASSET_SOURCE_TAGS.announcement,
         tone: 'announcement' as AssetSourceTone,
-        icon: '🏛',
+        icon: AuditOutlined as SourceIcon,
     },
     purify: {
         filter: 'purify' as const,
         label: ASSET_SOURCE_TAGS.purify,
         tone: 'asset' as AssetSourceTone,
-        icon: '🩺',
+        icon: MedicineBoxOutlined as SourceIcon,
     },
     workspace: {
         filter: 'workspace' as const,
         label: ASSET_SOURCE_TAGS.workspace,
         tone: 'excel' as AssetSourceTone,
-        icon: '📄',
+        icon: FileTextOutlined as SourceIcon,
     },
     manual: {
         filter: 'manual' as const,
         label: ASSET_SOURCE_TAGS.manual,
         tone: 'excel' as AssetSourceTone,
-        icon: '✏️',
+        icon: EditOutlined as SourceIcon,
     },
 } as const;
 

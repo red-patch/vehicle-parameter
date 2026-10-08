@@ -4,6 +4,7 @@ import {
     getVehicleProductName,
     getVehicleInstanceMetaFromParam,
     matchesVehicleSelection,
+    parseVehicleInstanceKey,
 } from '../utils/vehicleInstance';
 
 const uploadedIndexCache = new WeakMap<SheetData[], Map<string, VehicleParameter[]>>();
@@ -53,6 +54,23 @@ export const getProductData = (
     const fromAsset = assetIndex.get(productName) || [];
     if (fromUploaded.length > 0 || fromAsset.length > 0) {
         return [...fromUploaded, ...fromAsset];
+    }
+
+    // 资产选择 key 的 productName 部分可能与数据行漂移（旧会话 key vs 重导入后的行，
+    // 见 utils/assetKeyHeal）。资产文件名全局唯一，精确/按名都未命中时退化为按文件名取该文件全部行
+    const parsedSelection = parseVehicleInstanceKey(productName);
+    if (parsedSelection?.source === 'asset') {
+        const driftedMatches: VehicleParameter[] = [];
+        const seenIds = new Set<string>();
+        for (const [instanceKey, params] of assetIndex.entries()) {
+            const parsed = parseVehicleInstanceKey(instanceKey);
+            if (parsed?.source === 'asset' && parsed.fileName === parsedSelection.fileName) {
+                for (const p of params) {
+                    if (!seenIds.has(p.id)) { seenIds.add(p.id); driftedMatches.push(p); }
+                }
+            }
+        }
+        if (driftedMatches.length > 0) return driftedMatches;
     }
 
     // 兼容旧状态：如果传入的是纯车型名，则回退到按显示名聚合

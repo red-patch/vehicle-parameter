@@ -1,10 +1,12 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
+import type { SheetData } from '../../../types';
+import type { VehicleStore } from '../../../store/vehicleStore';
 
 const mockState = {
-  uploadedFiles: [] as any[],
-  assetFiles: [] as any[],
+  uploadedFiles: [] as SheetData[],
+  assetFiles: [] as SheetData[],
   activeAssets: [] as string[],
   selectedProductNames: [] as string[],
   currentCompareProducts: [] as string[],
@@ -15,7 +17,7 @@ const mockState = {
 };
 
 vi.mock('../../../store/vehicleStore', () => ({
-  useVehicleStore: (selector: any) => selector(mockState),
+  useVehicleStore: (selector: (state: VehicleStore) => unknown) => selector(mockState as unknown as VehicleStore),
 }));
 
 describe('CompareView asset sync', () => {

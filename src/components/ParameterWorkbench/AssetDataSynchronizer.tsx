@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { loadAssetFile } from '../../utils/assetManager';
+import { deriveCanonicalAssetProductNames } from '../../utils/assetKeyHeal';
 import type { SheetData } from '../../types';
 
 /**
@@ -57,6 +58,13 @@ const AssetDataSynchronizer: React.FC = () => {
 
                 if (currentFileNames !== nextFileNames) {
                     setAssetFiles(finalFiles);
+                }
+
+                // 数据行的 productName 可能与会话里持久化的选择 key 漂移
+                // （资产被重新导入/改写过），按当前数据把旧 key 修正回规范产品名
+                const canonical = deriveCanonicalAssetProductNames(finalFiles);
+                if (Object.keys(canonical).length > 0) {
+                    useVehicleStore.getState().healAssetSelectionKeys(canonical);
                 }
             } catch (err) {
                 console.error("AssetDataSynchronizer failed to sync", err);

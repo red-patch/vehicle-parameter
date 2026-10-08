@@ -8,7 +8,7 @@ import { buildVehicleDisplayLabels, buildVehicleOptionLabel, getVehicleProductNa
 
 interface ProductSourceSelectorProps {
     value: string | string[] | null;
-    onChange: (value: any) => void;
+    onChange: (value: string | string[] | null) => void;
     mode?: 'multiple' | 'single';
     placeholder?: string;
     style?: React.CSSProperties;
@@ -68,8 +68,8 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                     style={{ flex: 1 }}
                     placeholder={productOptions.length > 0 ? placeholder : "请先在资产管理中激活车型"}
                     options={productOptions}
-                    value={value as any}
-                    onChange={onChange}
+                    value={value ?? undefined}
+                    onChange={v => onChange(v as string | string[] | null)}
                     disabled={productOptions.length === 0}
                     showSearch
                     optionRender={(option) => (

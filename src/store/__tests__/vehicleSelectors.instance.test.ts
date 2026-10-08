@@ -65,4 +65,37 @@ describe('vehicleSelectors instance identity', () => {
       label: '车型B',
     });
   });
+
+  it('resolves a drifted asset selection key by its fileName', () => {
+    // 会话里的 key 是写入当时的 productName；资产重导入后行内 productName 漂移
+    const assetFiles: SheetData[] = [
+      {
+        fileName: '白犀牛R3_20260309.json',
+        rawHeaders: [],
+        data: [
+          { id: 'a1', group: '基础信息', name: '整备质量', value: '1000', productName: '白犀牛R3' },
+          { id: 'a2', group: '基础信息', name: '轴距', value: '3000', productName: '白犀牛R3' },
+        ],
+      },
+    ];
+
+    const data = getProductData([], 'asset::白犀牛R3_20260309.json::白犀牛R3_20260309', assetFiles);
+
+    expect(data).toHaveLength(2);
+    expect(data.map((p) => p.id)).toEqual(['a1', 'a2']);
+  });
+
+  it('does not leak asset rows into an exact-miss excel selection', () => {
+    const assetFiles: SheetData[] = [
+      {
+        fileName: '白犀牛R3_20260309.json',
+        rawHeaders: [],
+        data: [
+          { id: 'a1', group: '基础信息', name: '整备质量', value: '1000', productName: '白犀牛R3' },
+        ],
+      },
+    ];
+
+    expect(getProductData([], 'excel::other.xlsx::白犀牛R3_20260309', assetFiles)).toEqual([]);
+  });
 });

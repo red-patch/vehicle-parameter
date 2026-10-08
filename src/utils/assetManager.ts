@@ -1,4 +1,4 @@
-import { writeTextFile, readTextFile, exists, readDir, remove } from '@tauri-apps/plugin-fs';
+import { writeTextFile, readTextFile, exists, readDir, remove, rename, mkdir } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import type { SheetData, VehicleParameter } from '../types';
 import { getAssetBaseName, toAssetFileName } from './assetNaming';
@@ -58,6 +58,103 @@ export const checkAssetExists = async (libraryPath: string, fileName: string): P
     return await exists(fullPath);
 };
 
+/**
+ * 生成不与现有文件冲突的文件名基名（永不静默覆盖，ADR-0002）。
+ * 冲突时依次尝试「基名-新版本」「基名-新版本2」…
+ */
+export const ensureUniqueAssetFileName = async (libraryPath: string, baseName: string): Promise<string> => {
+    const base = getAssetBaseName(baseName) || '未命名';
+    if (!await checkAssetExists(libraryPath, base)) return base;
+    let i = 1;
+    while (true) {
+        const candidate = i === 1 ? `${base}-新版本` : `${base}-新版本${i}`;
+        if (!await checkAssetExists(libraryPath, candidate)) return candidate;
+        i++;
+    }
+};
+
+// ==================== 批量导入落盘 ====================
+
+export interface BatchSaveItem {
+    /** unique 模式：期望基名（不含 .json），冲突时 Rust 侧自动追加 -新版本 */
+    baseName?: string;
+    /** fixed 模式：直接写入该文件名（替换旧版内容场景） */
+    fixedFileName?: string;
+    productName: string;
+    /** 参数数组原样透传，保留 rowCheck/originSheet 等全部字段 */
+    parameters: unknown[];
+}
+
+export interface BatchSaveResultItem {
+    index: number;
+    fileName: string;
+    ok: boolean;
+    error?: string;
+}
+
+/**
+ * 批量保存资产文件：Tauri 下走 Rust save_assets_batch（一次 IPC 完成唯一名解析 +
+ * N 个文件写盘，数百行批次的主路径）；非 Tauri 环境回退为 JS 批内去重 + 分块并发写。
+ */
+export const saveAssetsBatch = async (
+    libraryPath: string,
+    items: BatchSaveItem[],
+    nowIso: string = new Date().toISOString(),
+): Promise<BatchSaveResultItem[]> => {
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+        try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            return await invoke<BatchSaveResultItem[]>('save_assets_batch', { path: libraryPath, items, nowIso });
+        } catch (e) {
+            console.warn('save_assets_batch 失败，回退 JS 实现', e);
+        }
+    }
+
+    // JS 回退：先顺序解析批内唯一名（含磁盘查重），再分块并发写
+    const taken = new Set<string>();
+    const resolved: { index: number; item: BatchSaveItem; fileName: string }[] = [];
+    for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+        if (item.fixedFileName) {
+            const fixed = item.fixedFileName.endsWith('.json') ? item.fixedFileName : `${item.fixedFileName}.json`;
+            taken.add(fixed);
+            resolved.push({ index, item, fileName: fixed });
+            continue;
+        }
+        const base = getAssetBaseName(item.baseName || '') || '未命名';
+        let candidate = `${base}.json`;
+        let i = 1;
+        while (taken.has(candidate) || await checkAssetExists(libraryPath, candidate)) {
+            const suffix = i === 1 ? '-新版本' : `-新版本${i}`;
+            candidate = `${base}${suffix}.json`;
+            i++;
+        }
+        taken.add(candidate);
+        resolved.push({ index, item, fileName: candidate });
+    }
+
+    const results: BatchSaveResultItem[] = [];
+    const CHUNK = 12;
+    for (let i = 0; i < resolved.length; i += CHUNK) {
+        await Promise.all(resolved.slice(i, i + CHUNK).map(async ({ index, item, fileName }) => {
+            try {
+                const data: AssetFileFormat = {
+                    version: '1.0',
+                    productName: item.productName,
+                    createdAt: nowIso,
+                    updatedAt: nowIso,
+                    parameters: item.parameters as VehicleParameter[],
+                };
+                await writeTextFile(await join(libraryPath, fileName), JSON.stringify(data, null, 2));
+                results.push({ index, fileName, ok: true });
+            } catch (e) {
+                results.push({ index, fileName, ok: false, error: e instanceof Error ? e.message : String(e) });
+            }
+        }));
+    }
+    return results.sort((a, b) => a.index - b.index);
+};
+
 /** 判断是否为资产数据文件（排除元数据/配置文件） */
 const isAssetDataFile = (name: string) =>
     name.endsWith('.json') && !name.startsWith('_') && !name.startsWith('custom_');
@@ -93,6 +190,16 @@ export interface AssetFileInfo {
     hasAdmissionInfo: boolean;
     /** 审批状态（治理）：准入信息里「审批状态」的值（已审核/驳回） */
     approvalStatus: string | null;
+    /** 主机厂原文（整车生产企业 > 公告申报企业 > 企业名称；受控属性派生，前端词表归一） */
+    manufacturerRaw?: string | null;
+    /** 电池品牌原文（动力电池包厂商，回退单体生产企业） */
+    batteryBrandRaw?: string | null;
+    /** 电量（kWh）原文（可能带注记/多值，前端归一） */
+    capacityRaw?: string | null;
+    /** 准入等级原文（产品等级标准） */
+    admissionLevelRaw?: string | null;
+    /** 准入编号列表（ZR...；导入查重判别：同公告号不同准入编号=不同车） */
+    admissionNos?: string[];
 }
 
 /**
@@ -106,7 +213,10 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
     if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
         try {
             const { invoke } = await import('@tauri-apps/api/core');
-            return await invoke<AssetFileInfo[]>('scan_asset_library', { path: libraryPath });
+            const results = await invoke<AssetFileInfo[]>('scan_asset_library', { path: libraryPath });
+            // 扫描对账：清掉 tags/meta 中指向已不存在文件的悬空条目（外部手工删除/移动）
+            await reconcileSidecarEntries(libraryPath, results.map(r => r.fileName));
+            return results;
         } catch (e) {
             console.warn('Rust scan_asset_library 失败，回退 JS 实现', e);
         }
@@ -144,6 +254,32 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                     const statusParam = params.find(p => p.name === '审批状态' && String(p.value ?? '').trim() !== '');
                     const approvalStatus = statusParam ? String(statusParam.value).trim() : null;
 
+                    // 受控属性派生原文：与 Rust scan_one 同口径同优先级
+                    const textOf = (p: { value?: unknown }): string | null => {
+                        const v = p.value;
+                        if (v === undefined || v === null) return null;
+                        const s = String(v).trim();
+                        return s === '' ? null : s;
+                    };
+                    const firstOf = (names: string[]): string | null => {
+                        for (const n of names) {
+                            const hit = params.find(p => p.name === n);
+                            const t = hit ? textOf(hit) : null;
+                            if (t) return t;
+                        }
+                        return null;
+                    };
+                    const manufacturerRaw = firstOf(['整车生产企业', '公告申报企业', '企业名称']);
+                    const batteryBrandRaw = firstOf(['动力电池包厂商', '动力电池单体生产企业']);
+                    const capacityRaw = textOf(params.find(p => (p.name || '').includes('动力电池包电量')) || {});
+                    const admissionLevelRaw = textOf(params.find(p => p.name === '产品等级标准') || {});
+                    const admissionNos = Array.from(new Set(
+                        params
+                            .filter(p => (p.name || '').includes('准入编号'))
+                            .map(p => textOf(p))
+                            .filter((v): v is string => !!v)
+                    ));
+
                     return {
                         fileName,
                         productName: parsed.productName || fileName.replace(/\.json$/i, ''),
@@ -154,6 +290,11 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
                         vehicleModel,
                         hasAdmissionInfo,
                         approvalStatus,
+                        manufacturerRaw,
+                        batteryBrandRaw,
+                        capacityRaw,
+                        admissionLevelRaw,
+                        admissionNos,
                     };
                 } catch (e) {
                     console.warn(`Failed to parse asset file ${fileName}`, e);
@@ -162,7 +303,10 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
             })
         );
         
-        return results.filter(Boolean) as AssetFileInfo[];
+        const infos = results.filter(Boolean) as AssetFileInfo[];
+        // 扫描对账：清掉 tags/meta 中指向已不存在文件的悬空条目（外部手工删除/移动）
+        await reconcileSidecarEntries(libraryPath, infos.map(r => r.fileName));
+        return infos;
     } catch (error) {
         console.error("Failed to read asset directory with info", error);
         return [];
@@ -395,6 +539,46 @@ export const deleteAssetFile = async (libraryPath: string, fileName: string): Pr
     }
 };
 
+/** 归档子目录（`_` 前缀目录不被扫描，文件保留在盘上可手工找回） */
+const ARCHIVE_DIR = '_archive';
+
+/**
+ * 彻底删除 = 归档清理：把资产文件移入 _archive/（时间戳前缀防重名），
+ * 并清除其标签/治理元数据。仅在用户显式清理时调用（软删除走 setAssetFileMeta）。
+ */
+export const archiveAssetFile = async (libraryPath: string, fileName: string): Promise<boolean> => {
+    try {
+        const finalFileName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
+        const fullPath = await join(libraryPath, finalFileName);
+
+        if (!await exists(fullPath)) return false;
+
+        const archiveDir = await join(libraryPath, ARCHIVE_DIR);
+        if (!await exists(archiveDir)) {
+            await mkdir(archiveDir, { recursive: true });
+        }
+        const targetPath = await join(archiveDir, `${Date.now()}_${finalFileName}`);
+        await rename(fullPath, targetPath);
+
+        // 同步清除标签与治理元数据（与 deleteAssetFile 同口径）
+        try {
+            const tags = await loadAssetTags(libraryPath);
+            if (tags[finalFileName]) {
+                delete tags[finalFileName];
+                await saveAssetTags(libraryPath, tags);
+            }
+        } catch (e) {
+            console.warn('Failed to sync tags during archive', e);
+        }
+        await syncMetaOnDelete(libraryPath, finalFileName);
+
+        return true;
+    } catch (error) {
+        console.error('Failed to archive asset file', error);
+        return false;
+    }
+};
+
 // ==================== 标签管理 ====================
 
 const TAGS_FILE = '_asset_tags.json';
@@ -460,16 +644,18 @@ export const batchAddAssetTags = async (
     return tags;
 };
 
-// ==================== 治理元数据（主文件/历史/废弃） ====================
+// ==================== 治理元数据（历史/废弃/组名） ====================
 
 export const META_FILE = '_asset_meta.json';
 
 /** 单个资产的治理标注（旁路存储在 META_FILE，不写入资产 JSON 本体） */
 export interface AssetGovernanceMeta {
-    /** 主文件标记：同一车型组内原则上只有一个 */
+    /** @deprecated 已退役（ADR-0003）：仅一次性迁移时读取/清理遗留数据，新代码勿读写 */
     isPrimary?: boolean;
     /** 状态标记：历史版本 / 废弃（只打标，不隐藏、不移动文件） */
     status?: 'superseded' | 'deprecated';
+    /** 分组显示名覆盖：文件名正确但推导会剥离品牌前缀时（白犀牛R3→R3），仅影响组头展示，不影响归组 */
+    groupName?: string;
     note?: string;
 }
 
@@ -540,5 +726,36 @@ const syncMetaOnDelete = async (libraryPath: string, fileName: string): Promise<
         }
     } catch (e) {
         console.warn('Failed to sync meta during delete', e);
+    }
+};
+
+/**
+ * 扫描对账：清理 _asset_tags.json / _asset_meta.json 中指向已不存在文件的悬空条目
+ * （应用外手工删除/移动文件产生）。仅在发现悬空键时写盘。
+ */
+export const reconcileSidecarEntries = async (
+    libraryPath: string,
+    aliveFileNames: string[]
+): Promise<void> => {
+    const alive = new Set(aliveFileNames.map(n => (n.endsWith('.json') ? n : `${n}.json`)));
+    try {
+        const tags = await loadAssetTags(libraryPath);
+        const danglingTags = Object.keys(tags).filter(k => !alive.has(k));
+        if (danglingTags.length > 0) {
+            danglingTags.forEach(k => delete tags[k]);
+            await saveAssetTags(libraryPath, tags);
+        }
+    } catch (e) {
+        console.warn('Failed to reconcile asset tags', e);
+    }
+    try {
+        const meta = await loadAssetMeta(libraryPath);
+        const danglingMeta = Object.keys(meta).filter(k => !alive.has(k));
+        if (danglingMeta.length > 0) {
+            danglingMeta.forEach(k => delete meta[k]);
+            await saveAssetMeta(libraryPath, meta);
+        }
+    } catch (e) {
+        console.warn('Failed to reconcile asset meta', e);
     }
 };
