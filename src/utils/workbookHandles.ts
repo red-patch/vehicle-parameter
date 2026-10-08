@@ -1,4 +1,20 @@
 import type * as XLSX from 'xlsx';
+import type { SheetPreview } from '../types';
+import type { WorkbookOrientation } from './excelParserHorizontal';
+
+/**
+ * openWorkbook 的返回值：主线程需要的全部信息，**不含 workbook**（workbook 留在解析侧）。
+ * 定义在本模块（叶子）而非 excelParserAsync，避免 worker ↔ excelParserAsync 的循环依赖。
+ * 均为 type-only import，编译期擦除，不产生运行时环。
+ */
+export interface WorkbookHandleInfo {
+    handleId: number;
+    fileName: string;
+    sheetNames: string[];
+    orientation: WorkbookOrientation;
+    /** 已按 P1-1 有界化（≤100 行） */
+    previews: SheetPreview[];
+}
 
 /**
  * workbook handle 存储（内存治理 P2）。
