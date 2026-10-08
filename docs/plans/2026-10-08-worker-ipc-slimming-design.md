@@ -1,6 +1,6 @@
 # worker IPC 瘦身 — workbook 改由 worker 持有 — 设计方案
 
-> 日期：2026-10-08 ｜ 状态：设计定稿（**实施未开始，待用户确认后动工**）
+> 日期：2026-10-08 ｜ 状态：**P2-1～P2-4 已实施**（分支 `perf/runtime-memory`；实施备注见 §8）
 > 前置文档：`2026-10-08-runtime-memory-reduction-design.md`（P0–P1，已实施）、`2026-10-08-runtime-memory-reduction-implementation.md`（实施计划）。
 > 来源：该方案 §3 非目标中列为 P2 的「实测最大单项杠杆」，2026-10-08 续做。
 
@@ -187,3 +187,41 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
 | P2-4 | Rust `read_workbook` → AOA + 迁移 `EnumImportModal`（可独立推后） | `src-tauri/src/excel.rs`、`EnumImportModal.tsx` | 四条 + `cargo test` |
 
 **优先级提示**：P2-1 是本方案的收益核心（主路径 32MB 克隆）；P2-4 是另一条通道的同类问题，收益独立、风险独立，可单独排期。
+
+## 8. 实施备注（2026-10-09）
+
+分支 `perf/runtime-memory`，P2 共 8 个提交（Task 1–7 + 收尾）。全部验证通过：`lint` 0 error（24 条既有 warning）、`typecheck` 干净、`test` 48 文件 / **382** 测试、`build` 通过、`cargo test` 10 passed / 3 ignored。
+
+### 8.1 实测结果（真实文件 `产品准入导出*.xlsx`，1.03MB / 478×504 / 240,912 单元格）
+
+**跨边界载荷**（P2 的核心指标）：
+
+| 阶段 | 旧 | 新 | 降幅 |
+|---|---|---|---|
+| 预览 | **32.21 MB**（workbook `structuredClone`） | **0.44 MB**（handle + 有界预览） | **−99%** |
+| 确认 | 32.21 MB（同一份克隆） | 21.61 MB（最终 SheetData，无 workbook） | −33% |
+
+即：**完整 workbook 不再跨线程边界**。确认阶段的 21.61MB 是该规模文件解析结果的固有成本（`SheetData` 本身），非本次可省。
+
+**另一条通道（Rust `read_workbook`）**：A1 单元格矩阵 JSON **6.41 MB → 1.71 MB**（−73%，111,936 单元格文件）。
+
+### 8.2 实施中发现并修正的问题
+
+1. **P2-3 的做法被实测否决**（写计划时发现）：原设计要主线程手写复刻 SheetJS 的表头命名语义（空表头 `""`、重复 `_1`、超宽列 `__EMPTY`、`null` 键省略、全空行保留）。实测证明手写必错，改为**在解析侧直接调 SheetJS 转换**，语义由库保证且载荷更小（0.54MB vs 21.37MB workbook）。§4 P2-3 已同步。
+2. **Task 2 的 `never[]` 型**、**Task 5 的 `onCancel` 漏放**、**Task 5 的 `resetSession` 漏放**、**Task 6 的 `fileCache` 死重**：均为评审发现，详见各提交。
+3. **`erasableSyntaxOnly` 陷阱**：`tsconfig.app.json` 禁止 TS 构造器参数属性，计划里逐字给出的 `constructor(private readonly capacity = 3)` 会报 TS1294。已在计划中前置说明。
+4. **jsdom 缺 `Blob.prototype.arrayBuffer`**：生产代码依赖它，测试基建补了带守卫的 polyfill。
+5. **载荷形状只靠约定维系**（Task 6 评审）：`postTask<R>` 会擦掉 worker/fallback 的 realm 差异，两侧返回形状漂移会通过类型检查、只在 worker 路径运行时炸。已改为共享 builder 单点产出 + worker 侧显式类型标注 + 9 条测试。
+6. **既有一处缺陷，按要求保留未修**（Task 7）：`EnumImportModal` 表头循环跳过空表头、数据循环按 `headers.length` 截断 → 表头有空列时后续列错位。迁移只求等价，混入行为变更会让 diff 无法验证；已抽成 `buildEnumRows` 纯函数 + 4 条测试（含该缺陷用例）锁住，待单独修复。
+
+### 8.3 未验证项（重要）
+
+- **worker 真实分支未经真机验证**。jsdom 无 `Worker`，所有测试只覆盖主线程 fallback 分支。已验证的只有：`npm run build` 成功打包 worker（含新消息类型）、协议逻辑由 fallback 测试覆盖、「主线程必定 settled 不得挂起」有假 Worker 测试守护。**在真实 Tauri/浏览器环境下跑一次导入（预览 → 确认）仍是待办。**
+- **真实应用 RSS 复测未做**（同 P0–P1 的缺口）：本环境无法驱动 Tauri 应用。上表为 Node 侧口径。
+- **Rust 侧改动无端到端真机验证**：`cargo test` 覆盖了单元格→行数组的转换与列对齐，但 `read_workbook` 命令在真实 Tauri 运行时返回给前端的链路未验证。
+
+### 8.4 遗留与建议
+
+- 上表 §8.2.6 的既有缺陷建议单独修（会改变解析输出，需评估对存量数据的影响）。
+- `detectWorkbookOrientation` 在解析侧会逐 sheet 全量物化（本方案未动）。新方案下它跑在 worker 内，不再卡 UI；是否再有界化待观察。
+- 顶层模块常驻挂载治理（`App.tsx` 用 `display:none` 保活 5 个模块）仍未做，是 P0 设计里列出的另一条内存轴。
