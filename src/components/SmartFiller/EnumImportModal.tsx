@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Modal, Button, message, Select, Table, Tag, Spin, Statistic, Divider, Input } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined, SearchOutlined } from '@ant-design/icons';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
@@ -50,6 +51,30 @@ const defaultMapping: ColumnMapping = {
     requiredCol: '是否必填',
     fieldKeyCol: '属性key',
     categoryPathCol: '所属类目',
+};
+
+// 展开行：枚举值全量 + 搜索（独立组件——hook 不能在 expandedRowRender 回调里调用）
+const ExpandedEnumValues: React.FC<{ record: FieldGroup }> = ({ record }) => {
+    const [valSearch, setValSearch] = React.useState('');
+    const filtered = valSearch.trim()
+        ? record.values.filter(v => v.toLowerCase().includes(valSearch.toLowerCase()))
+        : record.values;
+    return (
+        <div className="p-3 bg-surface-3 rounded max-h-[300px] overflow-y-auto">
+            <Input
+                size="small"
+                placeholder="搜索枚举值..."
+                prefix={<SearchOutlined />}
+                value={valSearch}
+                onChange={e => setValSearch(e.target.value)}
+                className="mb-2 w-64"
+            />
+            <div className="flex flex-wrap gap-1">
+                {filtered.map((v, i) => <Tag key={i} className="text-xs">{v}</Tag>)}
+                {filtered.length === 0 && <span className="text-xs text-3">无匹配</span>}
+            </div>
+        </div>
+    );
 };
 
 const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetLibraryPath, onImported }) => {
@@ -306,7 +331,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
 
     // Build dynamic table columns from mapping
     const tableColumns = useMemo(() => {
-        const cols: { title: string; dataIndex: keyof FieldGroup; key: string; width?: number; ellipsis?: boolean; render?: (v: any, r: FieldGroup) => React.ReactNode }[] = [];
+        const cols: ColumnsType<FieldGroup> = [];
 
         cols.push({ title: '字段名称', dataIndex: 'fieldName', key: 'fieldName', width: 180, ellipsis: true });
 
@@ -357,30 +382,6 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
 
         return cols;
     }, [mapping]);
-
-    // Expanded row: full enum values with search
-    const expandedRowRender = (record: FieldGroup) => {
-        const [valSearch, setValSearch] = React.useState('');
-        const filtered = valSearch.trim()
-            ? record.values.filter(v => v.toLowerCase().includes(valSearch.toLowerCase()))
-            : record.values;
-        return (
-            <div className="p-3 bg-surface-3 rounded max-h-[300px] overflow-y-auto">
-                <Input
-                    size="small"
-                    placeholder="搜索枚举值..."
-                    prefix={<SearchOutlined />}
-                    value={valSearch}
-                    onChange={e => setValSearch(e.target.value)}
-                    className="mb-2 w-64"
-                />
-                <div className="flex flex-wrap gap-1">
-                    {filtered.map((v, i) => <Tag key={i} className="text-xs">{v}</Tag>)}
-                    {filtered.length === 0 && <span className="text-xs text-3">无匹配</span>}
-                </div>
-            </div>
-        );
-    };
 
     return (
         <Modal
@@ -490,7 +491,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                                 bordered
                                 rowKey="fieldName"
                                 expandable={{
-                                    expandedRowRender,
+                                    expandedRowRender: record => <ExpandedEnumValues record={record} />,
                                     rowExpandable: r => r.count > 8,
                                     expandRowByClick: true,
                                 }}

@@ -42,7 +42,7 @@ const items = [
     {
         key: 'announcement',
         icon: <GlobalOutlined />,
-        label: '公告号查询',
+        label: '公告中心',
     },
     {
         key: 'dict',
@@ -159,9 +159,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                     </span>
                     <span data-tauri-drag-region className="font-mono text-xs text-3 tabular-nums whitespace-nowrap">v{version}</span>
                 </div>
-                <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-                    <div data-testid="top-nav-scroll" className="top-nav-scroll min-w-0 flex-1 overflow-x-auto">
+                <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                    <div data-testid="top-nav-scroll" data-tauri-drag-region className="top-nav-scroll min-w-0 flex-1 overflow-x-auto">
                         <Menu
+                            data-tauri-drag-region
                             mode="horizontal"
                             selectedKeys={[activeTab]}
                             items={items}

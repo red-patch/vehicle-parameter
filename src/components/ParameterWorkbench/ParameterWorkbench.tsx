@@ -1,9 +1,16 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { useShallow } from 'zustand/react/shallow';
 import DataSourcePanel from './DataSourcePanel';
 import VehicleListPanel from './VehicleListPanel';
+import AssetSummaryCard from './AssetSummaryCard';
+import AssetInspector from './AssetInspector';
+import { useAssetActions } from './useAssetActions';
 import AssetDataSynchronizer from './AssetDataSynchronizer';
+import { useAssetLibrarySnapshot } from '../../hooks/useAssetLibrarySnapshot';
+import { useViewportPaneHeight } from '../../hooks/useViewportPaneHeight';
+import { useVehicleStore } from '../../store/vehicleStore';
 import type { RepairSourceModule } from '../../types';
 
 const CompareView = React.lazy(() => import('./CompareView'));
@@ -25,34 +32,87 @@ interface ParameterWorkbenchProps {
 }
 
 /**
- * 四个视图 pane 各自 memo 化：items 因焦点状态（focusedFile/Product）重建时，
+ * 四个视图 pane 各自 memo 化：items 因焦点状态（focusedFile）重建时，
  * 未受影响的重组件（CompareView/SmartFillView/DataPurifyView）不再被连带重渲染。
  */
 interface PoolPaneProps {
     focusedFile: string | null;
-    focusedProduct: string | null;
     onFocusFile: (fileName: string | null) => void;
-    onFocusProduct: React.Dispatch<React.SetStateAction<string | null>>;
     onGoCompare: () => void;
 }
 
-const PoolPane: React.FC<PoolPaneProps> = React.memo(({ focusedFile, focusedProduct, onFocusFile, onFocusProduct, onGoCompare }) => (
-    <div className="flex gap-3 h-full">
-        <div className="flex-1 min-w-0 surface-container border border-default rounded-xl">
-            <DataSourcePanel
-                focusedFile={focusedFile}
-                onFocusFile={onFocusFile}
+/**
+ * 资产管理两栏（设计文档 2026-10-01-asset-panel-layout-redesign）：
+ * - 视口锁定：面板高度钉在视口内，两栏各自内部滚动，购物车常驻可见；
+ * - 右栏双段式：选中资产摘要卡（点选即刷新）+ 待分析车型购物车；
+ * - 资产检查器抽屉与对象级动作弹层在此统一挂载（actions.modals）。
+ */
+const PoolPane: React.FC<PoolPaneProps> = React.memo(({ focusedFile, onFocusFile, onGoCompare }) => {
+    const paneRef = useRef<HTMLDivElement>(null);
+    const paneHeight = useViewportPaneHeight(paneRef);
+    const snapshot = useAssetLibrarySnapshot();
+    const actions = useAssetActions({ focusedFile, onFocusFile });
+    const setCompareProducts = useVehicleStore(useShallow(state => state.setCompareProducts));
+
+    const [inspectorTarget, setInspectorTarget] = useState<string | null>(null);
+    const [locateRequest, setLocateRequest] = useState<{ fileName: string; nonce: number } | null>(null);
+
+    const handleOpenInspector = useCallback((instanceKey: string) => {
+        setInspectorTarget(instanceKey);
+    }, []);
+
+    // 购物车反向定位：左栏滚动定位 + 摘要卡切换（设计文档 §3.5）
+    const handleLocateAsset = useCallback((fileName: string) => {
+        setLocateRequest(prev => ({ fileName, nonce: (prev?.nonce ?? 0) + 1 }));
+        onFocusFile(fileName);
+    }, [onFocusFile]);
+
+    const handleInspectorGoCompare = useCallback((instanceKey: string) => {
+        setCompareProducts([instanceKey]);
+        onGoCompare();
+    }, [setCompareProducts, onGoCompare]);
+
+    return (
+        <div ref={paneRef} className="flex gap-3" style={paneHeight ? { height: paneHeight } : undefined}>
+            <div className="flex-1 min-w-0 surface-container border border-default rounded-xl overflow-hidden">
+                <DataSourcePanel
+                    focusedFile={focusedFile}
+                    onFocusFile={onFocusFile}
+                    onOpenInspector={handleOpenInspector}
+                    locateRequest={locateRequest}
+                    actions={actions}
+                />
+            </div>
+            <div className="flex-1 min-w-0 surface-container border border-default rounded-xl overflow-hidden flex flex-col">
+                {focusedFile && (
+                    <AssetSummaryCard
+                        fileName={focusedFile}
+                        snapshot={snapshot}
+                        actions={actions}
+                        onOpenInspector={handleOpenInspector}
+                    />
+                )}
+                <div className="flex-1 min-h-0">
+                    <VehicleListPanel
+                        onLocateAsset={handleLocateAsset}
+                        onOpenInspector={handleOpenInspector}
+                        onGoCompare={onGoCompare}
+                        snapshot={snapshot}
+                    />
+                </div>
+            </div>
+            <AssetInspector
+                open={Boolean(inspectorTarget)}
+                instanceKey={inspectorTarget}
+                snapshot={snapshot}
+                actions={actions}
+                onClose={() => setInspectorTarget(null)}
+                onGoCompare={handleInspectorGoCompare}
             />
+            {actions.modals}
         </div>
-        <div className="flex-1 min-w-0 surface-container border border-default rounded-xl">
-            <VehicleListPanel
-                focusedProduct={focusedProduct}
-                onFocusProduct={onFocusProduct}
-                onGoCompare={onGoCompare}
-            />
-        </div>
-    </div>
-));
+    );
+});
 
 const ComparePane: React.FC<{ onGoRepair: () => void }> = React.memo(({ onGoRepair }) => (
     <React.Suspense fallback={<Skeleton active />}>
@@ -79,12 +139,10 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
 }) => {
     const [innerActiveTab, setInnerActiveTab] = useState<WorkbenchTabKey>('pool');
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
-    const [focusedProduct, setFocusedProduct] = useState<string | null>(null);
     const [mountedTabs, setMountedTabs] = useState<Set<string>>(new Set(['pool'])); // 懒挂载：只渲染激活过的 tab
 
     const handleFocusFile = useCallback((fileName: string | null) => {
         setFocusedFile(fileName);
-        setFocusedProduct(null);
     }, []);
 
     const activeTab = controlledActiveTab ?? innerActiveTab;
@@ -112,9 +170,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             children: (
                 <PoolPane
                     focusedFile={focusedFile}
-                    focusedProduct={focusedProduct}
                     onFocusFile={handleFocusFile}
-                    onFocusProduct={setFocusedProduct}
                     onGoCompare={handleGoCompare}
                 />
             )
@@ -135,13 +191,14 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             children: <PurifyPane onReturnToSource={handleReturnToModule} />
         }
         // 注意：不依赖 activeTab——切换 tab 不应重建任何 pane 的元素树
-    ], [handleGoRepair, handleReturnToModule, handleFocusFile, handleGoCompare, focusedFile, focusedProduct]);
+    ], [handleGoRepair, handleReturnToModule, handleFocusFile, handleGoCompare, focusedFile]);
 
     // 懒挂载：激活过的 tab 才渲染，之后保活
-    useEffect(() => {
-        if (!mountedTabs.has(activeTab)) {
-            setMountedTabs(prev => new Set([...prev, activeTab]));
-        }
+    React.useEffect(() => {
+        setMountedTabs(prev => {
+            if (prev.has(activeTab)) return prev;
+            return new Set([...prev, activeTab]);
+        });
     }, [activeTab]);
 
     return (
@@ -163,7 +220,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             ) : (
                 // 子模块嵌入模式：懒挂载，首次激活后保活
                 items.map(item => mountedTabs.has(item.key) ? (
-                    <div key={item.key} className="h-full" style={{ display: item.key === activeTab ? undefined : 'none' }}>
+                    <div key={item.key} className="h-full vp-fade-in" style={{ display: item.key === activeTab ? undefined : 'none' }}>
                         {item.children}
                     </div>
                 ) : null)

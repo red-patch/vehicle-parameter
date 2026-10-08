@@ -1,5 +1,4 @@
 import XLSX from 'xlsx';
-import * as fs from 'fs';
 import * as path from 'path';
 
 const filePath = path.resolve('/Users/ethan/code/vehicle-parameter/docs/need_param.xlsx');

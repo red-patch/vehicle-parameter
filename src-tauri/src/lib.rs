@@ -1,5 +1,53 @@
+mod announcements;
 mod assets;
 mod excel;
+mod pdf_sniff;
+
+/// macOS 标准应用菜单：系统预定义项自带加速键（Cmd+Q 退出 / Cmd+W 关窗 /
+/// Cmd+M 最小化 / Cmd+H 隐藏 / Cmd+C·V·X·Z·A 编辑）。不配菜单时 macOS 落到
+/// 缺加速键的默认菜单，Cmd+W/Q 全部无效——这是「基本快捷键不可用」的根因。
+/// 仅 macOS 生效；Windows 保持默认（Alt+F4 等系统行为已可用）。
+#[cfg(target_os = "macos")]
+fn setup_macos_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
+  use tauri::menu::{MenuBuilder, SubmenuBuilder};
+
+  let app_menu = SubmenuBuilder::new(app, "DST车型参数管理工具")
+    .about(None)
+    .separator()
+    .hide()
+    .hide_others()
+    .show_all()
+    .separator()
+    .quit()
+    .build()?;
+
+  let file_menu = SubmenuBuilder::new(app, "文件")
+    .close_window()
+    .build()?;
+
+  let edit_menu = SubmenuBuilder::new(app, "编辑")
+    .undo()
+    .redo()
+    .separator()
+    .cut()
+    .copy()
+    .paste()
+    .select_all()
+    .build()?;
+
+  let window_menu = SubmenuBuilder::new(app, "窗口")
+    .minimize()
+    .separator()
+    .fullscreen()
+    .build()?;
+
+  let menu = MenuBuilder::new(app)
+    .items(&[&app_menu, &file_menu, &edit_menu, &window_menu])
+    .build()?;
+
+  app.set_menu(menu)?;
+  Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -11,7 +59,14 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       excel::read_workbook,
       excel::export_xlsx,
-      assets::scan_asset_library
+      assets::scan_asset_library,
+      assets::save_assets_batch,
+      announcements::scan_announcements,
+      announcements::move_to_trash,
+      announcements::copy_files_to_clipboard,
+      pdf_sniff::scan_pdf_candidates,
+      pdf_sniff::cancel_pdf_scan,
+      pdf_sniff::probe_downloads
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -24,6 +79,8 @@ pub fn run() {
 
       // 注：曾启用 window-vibrancy 毛玻璃/Mica，实测 transparent 窗口会让
       // WKWebView 退化成非加速合成路径，大型 Table 页面严重掉帧——性能即原生感，移除。
+      #[cfg(target_os = "macos")]
+      setup_macos_menu(app.handle())?;
       Ok(())
     })
     .run(tauri::generate_context!())

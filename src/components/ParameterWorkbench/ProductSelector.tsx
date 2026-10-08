@@ -125,7 +125,7 @@ const ProductSelector: React.FC = () => {
                             parsed.productName = newName;
                         }
                         if (Array.isArray(parsed.parameters)) {
-                            parsed.parameters.forEach((p: any) => {
+                            parsed.parameters.forEach((p: { productName?: string }) => {
                                 if (p.productName === item.name) {
                                     p.productName = newName;
                                 }

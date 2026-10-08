@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Table, Input, Tag, Card, Skeleton, Empty, Typography, Tabs, Button, message, Modal, Space, AutoComplete, Select, Switch } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded, getEnumActiveFilter, setEnumActiveFilter, getAllCategoryPaths, getAllCategories, isEnumActive } from '../../utils/attributeEnums';
 import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
@@ -293,7 +294,7 @@ const ConfigManagerView: React.FC = () => {
 
 
 
-    const columns = [
+    const columns: ColumnsType<EnumItem> = [
         {
             title: '字段名称',
             dataIndex: 'name',
@@ -319,7 +320,7 @@ const ConfigManagerView: React.FC = () => {
                 { text: '已激活', value: true },
                 { text: '未激活', value: false },
             ],
-            onFilter: (value: any, record: EnumItem) => record.isActive === value,
+            onFilter: (value, record: EnumItem) => record.isActive === value,
             render: (v: boolean) => v ? <Tag color="success" className="text-xs">已激活</Tag> : <span className="text-4">-</span>,
         },
         {
@@ -330,7 +331,7 @@ const ConfigManagerView: React.FC = () => {
             filters: enumData.length > 0
                 ? [...new Set(enumData.map(d => d.category).filter(Boolean))].map(v => ({ text: v, value: v }))
                 : undefined,
-            onFilter: (value: any, record: EnumItem) => record.category === value,
+            onFilter: (value, record: EnumItem) => record.category === String(value),
             render: (v: string) => v ? <Tag className="text-xs">{v}</Tag> : <span className="text-4">-</span>,
         },
         {
@@ -342,7 +343,7 @@ const ConfigManagerView: React.FC = () => {
                 { text: '是', value: '是' },
                 { text: '否', value: '否' },
             ],
-            onFilter: (value: any, record: EnumItem) => record.required === value,
+            onFilter: (value, record: EnumItem) => record.required === String(value),
             render: (v: string) => v === '是' ? <Tag color="error" className="text-xs">是</Tag> : v === '否' ? <Tag className="text-xs">否</Tag> : <span className="text-4">-</span>,
         },
         {
@@ -354,7 +355,7 @@ const ConfigManagerView: React.FC = () => {
             filters: enumData.length > 0
                 ? [...new Set(enumData.map(d => d.categoryPath).filter(Boolean))].map(v => ({ text: v, value: v }))
                 : undefined,
-            onFilter: (value: any, record: EnumItem) => record.categoryPath === value,
+            onFilter: (value, record: EnumItem) => record.categoryPath === String(value),
             render: (v: string) => v || <span className="text-4">-</span>,
         },
         {

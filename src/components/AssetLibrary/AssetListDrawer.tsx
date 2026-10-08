@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Drawer, Input, List, Button, message, Tooltip } from 'antd';
-import { CloudDownloadOutlined, SearchOutlined, FolderOpenOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { getAssetFiles, loadAssetFile, renameAssetFile, deleteAssetFile } from '../../utils/assetManager';
+import { Drawer, Input, List, Button, message, Tooltip, Modal, Tag } from 'antd';
+import type { InputRef } from 'antd';
+import { CloudDownloadOutlined, SearchOutlined, FolderOpenOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, UndoOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { getAssetFiles, loadAssetFile, renameAssetFile, archiveAssetFile, loadAssetMeta, saveAssetMeta, type AssetMetaMap } from '../../utils/assetManager';
+import { buildDeprecateMeta, buildRestoreMeta } from '../../utils/assetGovernance';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -11,20 +13,23 @@ interface AssetListDrawerProps {
 }
 
 const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) => {
-    const { assetLibraryPath, addFile, uploadedFiles, renameFileName } = useVehicleStore(useShallow(state => ({
+    const { assetLibraryPath, addFile, uploadedFiles, renameFileName, removeActiveAsset, bumpAssetVersion } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         addFile: state.addFile,
         uploadedFiles: state.uploadedFiles,
         renameFileName: state.renameFileName,
+        removeActiveAsset: state.removeActiveAsset,
+        bumpAssetVersion: state.bumpAssetVersion,
     })));
     const [files, setFiles] = useState<string[]>([]);
+    const [metaMap, setMetaMap] = useState<AssetMetaMap>({});
     const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(false);
     
     // Rename State
     const [editingFile, setEditingFile] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
-    const renameInputRef = useRef<any>(null);
+    const renameInputRef = useRef<InputRef>(null);
 
     // 进入编辑时聚焦一次，避免 autoFocus 每次渲染重置光标
     useEffect(() => {
@@ -42,8 +47,12 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
     const loadFiles = async () => {
         setLoading(true);
         try {
-            const list = await getAssetFiles(assetLibraryPath!);
+            const [list, meta] = await Promise.all([
+                getAssetFiles(assetLibraryPath!),
+                loadAssetMeta(assetLibraryPath!),
+            ]);
             setFiles(list.sort((a, b) => b.localeCompare(a)));
+            setMetaMap(meta);
         } catch (error) {
             console.error('获取资产列表失败', error);
             message.error('获取资产列表失败');
@@ -70,22 +79,75 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
         }
     };
 
-    const handleDeleteAsset = async (e: React.MouseEvent, fileName: string) => {
+    // 软删除（ADR-0002）：标记废弃并隐藏，文件保留可恢复
+    const handleDeleteAsset = (e: React.MouseEvent, fileName: string) => {
         e.stopPropagation();
         if (!assetLibraryPath) return;
-        
-        try {
-            const success = await deleteAssetFile(assetLibraryPath, fileName);
-            if (success) {
-                message.success(`已删除资产: ${fileName}`);
-                loadFiles(); // 刷新列表
-            } else {
-                message.error('删除资产失败，文件可能不存在');
+        Modal.confirm({
+            title: '确认删除该资产？',
+            icon: <ExclamationCircleOutlined className="text-danger" />,
+            content: `「${fileName}」将标记为废弃并从资产库列表隐藏（文件保留、可恢复）。彻底删除请在废弃后使用「归档清理」。`,
+            okText: '确认删除',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk: async () => {
+                try {
+                    await saveAssetMeta(assetLibraryPath, buildDeprecateMeta(metaMap, [fileName]));
+                    removeActiveAsset(fileName, fileName.replace(/\.json$/i, ''));
+                    bumpAssetVersion();
+                    message.success(`已标记废弃: ${fileName}（可恢复）`);
+                    loadFiles();
+                } catch (error) {
+                    console.error('删除失败', error);
+                    message.error('删除资产时发生意外错误');
+                }
             }
+        });
+    };
+
+    // 恢复：清除废弃/历史标记
+    const handleRestoreAsset = async (e: React.MouseEvent, fileName: string) => {
+        e.stopPropagation();
+        if (!assetLibraryPath) return;
+        try {
+            await saveAssetMeta(assetLibraryPath, buildRestoreMeta(metaMap, [fileName]));
+            bumpAssetVersion();
+            message.success(`已恢复: ${fileName}`);
+            loadFiles();
         } catch (error) {
-            console.error('删除失败', error);
-            message.error('删除资产时发生意外错误');
+            console.error('恢复失败', error);
+            message.error('恢复资产时发生意外错误');
         }
+    };
+
+    // 彻底删除 = 归档清理：移入 _archive/ 并清除标注
+    const handleArchiveAsset = (e: React.MouseEvent, fileName: string) => {
+        e.stopPropagation();
+        if (!assetLibraryPath) return;
+        Modal.confirm({
+            title: '彻底删除该资产？',
+            icon: <ExclamationCircleOutlined className="text-danger" />,
+            content: `「${fileName}」将移入归档目录 _archive/，标签与治理标注一并清除。此操作不可在界面内撤销。`,
+            okText: '彻底删除',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk: async () => {
+                try {
+                    const success = await archiveAssetFile(assetLibraryPath, fileName);
+                    if (success) {
+                        removeActiveAsset(fileName, fileName.replace(/\.json$/i, ''));
+                        bumpAssetVersion();
+                        message.success(`已归档清理: ${fileName}`);
+                        loadFiles();
+                    } else {
+                        message.error('归档失败，文件可能不存在');
+                    }
+                } catch (error) {
+                    console.error('归档失败', error);
+                    message.error('归档资产时发生意外错误');
+                }
+            }
+        });
     };
 
     const handleStartRename = (e: React.MouseEvent, fileName: string) => {
@@ -177,7 +239,7 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                 
                                 return (
                                     <List.Item
-                                        className={`hover:bg-brand-weak transition-colors group px-3 py-2 rounded mb-1 border ${isEditing ? 'border-brand bg-brand-weak' : 'border-transparent hover:border-blue-100'} ${!isEditing && ''}`}
+                                        className={`hover:bg-brand-weak transition-colors group px-3 py-2 rounded mb-1 border ${isEditing ? 'border-brand bg-brand-weak' : 'border-transparent hover:border-[color:var(--border-strong)]'} ${!isEditing && ''}`}
                                         onClick={() => {
                                             if (!isEditing) handleLoadAsset(item);
                                         }}
@@ -214,33 +276,64 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                                         <span className="text-sm font-medium text-2 truncate" title={item}>
                                                             {item.replace('.json', '')}
                                                         </span>
-                                                        <span className="text-[10px] text-3 mt-0.5">.json 孪生档案</span>
+                                                        {metaMap[item]?.status && (
+                                                            <span className="text-[10px] text-3 mt-0.5">
+                                                                {metaMap[item]?.status === 'deprecated' && (
+                                                                    <Tag className="m-0 text-[10px] leading-[14px] px-1" color="error">废弃</Tag>
+                                                                )}
+                                                                {metaMap[item]?.status === 'superseded' && (
+                                                                    <Tag className="m-0 text-[10px] leading-[14px] px-1" color="default">历史</Tag>
+                                                                )}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                                         <Tooltip title="重命名">
-                                                            <Button 
-                                                                type="text" 
-                                                                size="small" 
-                                                                icon={<EditOutlined className="text-3 hover:text-brand" />} 
+                                                            <Button
+                                                                type="text"
+                                                                size="small"
+                                                                icon={<EditOutlined className="text-3 hover:text-brand" />}
                                                                 onClick={(e) => handleStartRename(e, item)}
                                                             />
                                                         </Tooltip>
                                                         <Tooltip title="一键加入工作台">
-                                                            <Button 
-                                                                type="text" 
-                                                                size="small" 
-                                                                icon={<CloudDownloadOutlined className="text-brand" />} 
+                                                            <Button
+                                                                type="text"
+                                                                size="small"
+                                                                icon={<CloudDownloadOutlined className="text-brand" />}
                                                             />
                                                         </Tooltip>
-                                                        <Tooltip title="删除档案">
-                                                            <Button 
-                                                                type="text" 
-                                                                size="small" 
-                                                                danger
-                                                                icon={<DeleteOutlined />} 
-                                                                onClick={(e) => handleDeleteAsset(e, item)}
-                                                            />
-                                                        </Tooltip>
+                                                        {metaMap[item]?.status ? (
+                                                            <>
+                                                                <Tooltip title="恢复（清除标记）">
+                                                                    <Button
+                                                                        type="text"
+                                                                        size="small"
+                                                                        icon={<UndoOutlined className="text-3 hover:text-brand" />}
+                                                                        onClick={(e) => handleRestoreAsset(e, item)}
+                                                                    />
+                                                                </Tooltip>
+                                                                <Tooltip title="彻底删除（归档）">
+                                                                    <Button
+                                                                        type="text"
+                                                                        size="small"
+                                                                        danger
+                                                                        icon={<DeleteOutlined />}
+                                                                        onClick={(e) => handleArchiveAsset(e, item)}
+                                                                    />
+                                                                </Tooltip>
+                                                            </>
+                                                        ) : (
+                                                            <Tooltip title="删除档案（可恢复）">
+                                                                <Button
+                                                                    type="text"
+                                                                    size="small"
+                                                                    danger
+                                                                    icon={<DeleteOutlined />}
+                                                                    onClick={(e) => handleDeleteAsset(e, item)}
+                                                                />
+                                                            </Tooltip>
+                                                        )}
                                                     </div>
                                                 </>
                                             )}

@@ -3,9 +3,10 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { SheetData, DiffResult, MatchItem, VehicleParameter, CompareMode, RepairContext, AssetUpgradeDraft } from '../types';
 import { calculateProductConfidence } from '../utils/productConfidence';
 import { DEFAULT_POOL_SIDEBAR_WIDTH, DEFAULT_POOL_WORKSPACE_HEIGHT } from '../utils/poolLayout';
-import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam, parseVehicleInstanceKey } from '../utils/vehicleInstance';
+import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam, parseVehicleInstanceKey, type VehicleInstanceMeta } from '../utils/vehicleInstance';
+import { remapAssetSelectionKeys } from '../utils/assetKeyHeal';
 
-interface VehicleStore {
+export interface VehicleStore {
     baseFile: SheetData | null;
     targetFile: SheetData | null;
     diffResult: DiffResult | null;
@@ -64,12 +65,17 @@ interface VehicleStore {
     // V5.0 Asset Library
     assetLibraryPath: string | null;
     setAssetLibraryPath: (path: string | null) => void;
+    /** 公告中心「查看关联资产」的一次性跳转信号（组级可带多公告号）：消费后清空（不持久化） */
+    pendingAnnounceNoFilter: string[] | null;
+    setPendingAnnounceNoFilter: (nos: string[] | null) => void;
 
     // V6.2 Global Module Selections (Synchronization)
     activeAssets: string[];
     addActiveAsset: (fileName: string, productName: string) => void;
     removeActiveAsset: (fileName: string, productName: string) => void;
     renameActiveAsset: (oldFileName: string, newFileName: string, newProductName: string) => void;
+    // 资产数据行的 productName 与会话选择 key 漂移时的自愈（见 utils/assetKeyHeal）
+    healAssetSelectionKeys: (canonicalByFileName: Record<string, string>) => void;
 
     currentPurifyProduct: string | null;
     currentCompareProducts: string[];
@@ -222,15 +228,17 @@ export const useVehicleStore = create<VehicleStore>()(
             .filter(([, product]) => calculateProductConfidence(product.name, product.paramCount).level !== 'low')
             .map(([instanceKey]) => instanceKey);
 
-        // 去重：同一 productName 可能来自不同 source（asset vs excel），避免重复勾选
-        const existingProductNames = new Set(
-            nextSelectedNames
-                .map(k => parseVehicleInstanceKey(k)?.productName)
-                .filter(Boolean) as string[]
-        );
+        // 去重：异源同名（asset vs excel）视为同一辆车，不重复勾选；
+        // 同源异文件是两份独立数据，各自成为实例键
+        const existingSelections = nextSelectedNames
+            .map(k => parseVehicleInstanceKey(k))
+            .filter((meta): meta is VehicleInstanceMeta => meta !== null);
         const dedupedAutoSelected = autoSelected.filter(key => {
             const parsed = parseVehicleInstanceKey(key);
-            return parsed && !existingProductNames.has(parsed.productName);
+            if (!parsed) return false;
+            return !existingSelections.some(
+                existing => existing.productName === parsed.productName && existing.source !== parsed.source
+            );
         });
 
         nextSelectedNames = Array.from(new Set([...nextSelectedNames, ...dedupedAutoSelected]));
@@ -407,6 +415,8 @@ export const useVehicleStore = create<VehicleStore>()(
     // V5.0 资产库
     assetLibraryPath: null,
     setAssetLibraryPath: (path) => set({ assetLibraryPath: path }),
+    pendingAnnounceNoFilter: null,
+    setPendingAnnounceNoFilter: (nos) => set({ pendingAnnounceNoFilter: nos }),
 
     reset: () => set({
         baseFile: null,
@@ -498,6 +508,45 @@ export const useVehicleStore = create<VehicleStore>()(
             currentSmartFillProduct: state.currentSmartFillProduct === oldKey
                 ? newKey
                 : state.currentSmartFillProduct,
+        };
+    }),
+    // 把各选择列表里 asset::文件名::旧名 的 key 统一重映射为数据行当前的规范产品名；
+    // 无漂移时各列表保持原引用，不触发订阅方重渲染
+    healAssetSelectionKeys: (canonicalByFileName) => set((state) => {
+        const selectedProductNames = remapAssetSelectionKeys(state.selectedProductNames, canonicalByFileName);
+        const confirmedProducts = remapAssetSelectionKeys(state.confirmedProducts, canonicalByFileName);
+        const excludedProducts = remapAssetSelectionKeys(state.excludedProducts, canonicalByFileName);
+        const ignoredProductNames = remapAssetSelectionKeys(state.ignoredProductNames, canonicalByFileName);
+        const currentCompareProducts = remapAssetSelectionKeys(state.currentCompareProducts, canonicalByFileName);
+        const currentMultiVehicleProducts = remapAssetSelectionKeys(state.currentMultiVehicleProducts, canonicalByFileName);
+        const currentBidPullProducts = remapAssetSelectionKeys(state.currentBidPullProducts, canonicalByFileName);
+        const remapSingle = (value: string | null) =>
+            value ? remapAssetSelectionKeys([value], canonicalByFileName)[0] ?? null : null;
+        const currentSmartFillProduct = remapSingle(state.currentSmartFillProduct);
+        const currentPurifyProduct = remapSingle(state.currentPurifyProduct);
+        if (
+            selectedProductNames === state.selectedProductNames &&
+            confirmedProducts === state.confirmedProducts &&
+            excludedProducts === state.excludedProducts &&
+            ignoredProductNames === state.ignoredProductNames &&
+            currentCompareProducts === state.currentCompareProducts &&
+            currentMultiVehicleProducts === state.currentMultiVehicleProducts &&
+            currentBidPullProducts === state.currentBidPullProducts &&
+            currentSmartFillProduct === state.currentSmartFillProduct &&
+            currentPurifyProduct === state.currentPurifyProduct
+        ) {
+            return {};
+        }
+        return {
+            selectedProductNames,
+            confirmedProducts,
+            excludedProducts,
+            ignoredProductNames,
+            currentCompareProducts,
+            currentMultiVehicleProducts,
+            currentBidPullProducts,
+            currentSmartFillProduct,
+            currentPurifyProduct,
         };
     }),
 

@@ -7,6 +7,15 @@ vi.mock('../../store/vehicleStore', () => ({
   useVehicleStore: () => ({ assetLibraryPath: '/tmp/assets' })
 }))
 
+// v4.5.5 起字段组默认为空、由 custom_fields.json 动态加载；测试里给确定性数据
+vi.mock('../../../utils/fieldLists', () => ({
+  getFieldGroupsSync: () => [
+    { id: 'system-required', name: '系统必填字段', fields: ['快充'] },
+    { id: 'quality-check', name: '质量验车字段', fields: [] },
+  ],
+  reloadCustomFields: vi.fn(),
+}))
+
 afterEach(() => {
   cleanup()
 })

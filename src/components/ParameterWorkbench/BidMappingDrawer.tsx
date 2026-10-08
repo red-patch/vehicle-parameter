@@ -335,10 +335,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
                 </div>
             )}
 
-            <div className="mt-auto pt-3 border-t border-default flex justify-between items-center">
-                <span className="text-xs text-3">
-                    保存位置：资产库目录 / custom_bid_field_mappings.json（可随资产库目录共享）
-                </span>
+            <div className="mt-auto pt-3 border-t border-default flex justify-end items-center">
                 <Space>
                     <Button onClick={onClose}>取消</Button>
                     <Button type="primary" onClick={handleSave}>保存方案</Button>
@@ -357,7 +354,9 @@ const BidMappingDrawer: React.FC<BidMappingDrawerProps> = ({ open, onClose, onSa
         destroyOnClose
         styles={{ body: { display: 'flex', flexDirection: 'column' } }}
     >
-        {open && <SchemeEditor onClose={onClose} onSaved={onSaved} />}
+        {/* 内容保持挂载到退场动画播完，由 destroyOnClose 在动画后卸载——
+            包 {open && …} 会让抽屉滑出时只剩空壳 */}
+        <SchemeEditor onClose={onClose} onSaved={onSaved} />
     </Drawer>
 );
 

@@ -107,4 +107,35 @@ describe('vehicleStore instance selection', () => {
     expect(state.currentCompareProducts).toEqual([compareKey]);
     expect(state.currentMultiVehicleProducts).toEqual([]);
   });
+
+  it('heals drifted asset selection keys across module selections', () => {
+    const driftedKey = 'asset::白犀牛R3_20260309.json::白犀牛R3_20260309';
+    const healedKey = 'asset::白犀牛R3_20260309.json::白犀牛R3';
+
+    useVehicleStore.setState({
+      selectedProductNames: [driftedKey],
+      currentCompareProducts: [driftedKey],
+      currentSmartFillProduct: driftedKey,
+      activeAssets: ['白犀牛R3_20260309.json'],
+    });
+
+    useVehicleStore.getState().healAssetSelectionKeys({ '白犀牛R3_20260309.json': '白犀牛R3' });
+
+    const state = useVehicleStore.getState();
+    expect(state.selectedProductNames).toEqual([healedKey]);
+    expect(state.currentCompareProducts).toEqual([healedKey]);
+    expect(state.currentSmartFillProduct).toBe(healedKey);
+    // activeAssets 按文件名记录，不受 productName 漂移影响
+    expect(state.activeAssets).toEqual(['白犀牛R3_20260309.json']);
+  });
+
+  it('leaves selection references untouched when healing has nothing to fix', () => {
+    const key = 'excel::first.xlsx::车型A';
+    useVehicleStore.setState({ selectedProductNames: [key], currentCompareProducts: [key] });
+
+    const before = useVehicleStore.getState().selectedProductNames;
+    useVehicleStore.getState().healAssetSelectionKeys({ '某资产.json': '某车型' });
+
+    expect(useVehicleStore.getState().selectedProductNames).toBe(before);
+  });
 });

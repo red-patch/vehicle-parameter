@@ -24,7 +24,9 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         const products = Array.from(new Set(data.map(p => p.productName).filter(Boolean))) as string[];
 
         // 2. Group by "Group + Name" to create rows
-        const rowMap = new Map<string, any>();
+        // 行 = 固定三列 + 每个产品一列（列名是产品名或 'value'），值是参数文本
+        type ParamRow = { key: string; group: string; name: string } & Record<string, string | number | undefined>;
+        const rowMap = new Map<string, ParamRow>();
 
         data.forEach(p => {
             const rowKey = `${p.group}::${p.name}`; // Unique identifying row key
@@ -35,7 +37,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     name: p.name,
                 });
             }
-            const row = rowMap.get(rowKey);
+            const row = rowMap.get(rowKey)!;
             
             // CRITICAL FIX: If only 1 product, always use 'value' key for simpler column mapping
             if (products.length <= 1) {
@@ -50,7 +52,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         const rows = Array.from(rowMap.values());
 
         // 3. Generate Columns
-        const cols: ColumnsType<any> = [
+        const cols: ColumnsType<ParamRow> = [
             {
                 title: '分组',
                 dataIndex: 'group',
