@@ -5,6 +5,7 @@ import {
     parseHorizontalSheet,
     type WorkbookOrientation
 } from './excelParserHorizontal';
+import type { WorkbookHandleInfo, WorkbookHandleStore } from './workbookHandles';
 
 /**
  * Excel 参数解析器
@@ -666,6 +667,37 @@ export const detectWorkbookOrientation = (workbook: XLSX.WorkBook): WorkbookOrie
     if (!sawHorizontal && !sawOther) return 'empty';
     if (sawHorizontal && sawOther) return 'mixed';
     return sawHorizontal ? 'horizontal' : 'vertical';
+};
+
+/** 构造 handle 信息的唯一实现：主线程 fallback 与 worker 共用，避免两份拷贝漂移 */
+export const buildWorkbookHandleInfo = (
+    workbook: XLSX.WorkBook,
+    handleId: number,
+    fileName: string
+): WorkbookHandleInfo => ({
+    handleId,
+    fileName,
+    sheetNames: workbook.SheetNames,
+    orientation: detectWorkbookOrientation(workbook),
+    previews: previewWorkbook(workbook),
+});
+
+/**
+ * 按 handle 解析的唯一实现：主线程 fallback 与 worker 共用。
+ *
+ * worker 与 fallback 是两个 realm，但 store 只是普通参数，故可共用纯函数。
+ * 关键是错误文案（对用户可见，设计 §4 要求「释放后解析必须明确报错」）只此一份。
+ */
+export const parseByHandle = (
+    store: WorkbookHandleStore,
+    handleId: number,
+    configs?: SheetParseConfig[]
+): SheetData => {
+    const entry = store.get(handleId);
+    if (!entry) throw new Error(`workbook handle 不存在或已释放：${handleId}`);
+    return configs
+        ? parseWorkbookWithConfig(entry.workbook, entry.fileName, configs)
+        : parseWorkbook(entry.workbook, entry.fileName);
 };
 
 export const parseWorkbookWithConfig = (
