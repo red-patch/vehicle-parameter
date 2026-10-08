@@ -561,37 +561,6 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
     return { fileName, data: allParameters, rawHeaders: headers };
 };
 
-// ===================== 入口函数 =====================
-
-export const parseExcel = async (file: File): Promise<SheetData> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
-                const workbook = XLSX.read(data, { type: 'array' });
-                resolve(parseWorkbook(workbook, file.name));
-            } catch (error) { reject(error); }
-        };
-        reader.onerror = (error) => reject(error);
-        reader.readAsArrayBuffer(file);
-    });
-};
-
-export const readFileAsWorkbook = (file: File): Promise<XLSX.WorkBook> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
-                resolve(XLSX.read(data, { type: 'array' }));
-            } catch (error) { reject(error); }
-        };
-        reader.onerror = (error) => reject(error);
-        reader.readAsArrayBuffer(file);
-    });
-};
-
 // ===================== 预览 + 配置化解析 =====================
 
 /** 预览最多保留的行数 */

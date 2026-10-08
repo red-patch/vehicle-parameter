@@ -187,8 +187,8 @@ export const releaseWorkbookHandle = (handleId: number): void => {
 };
 
 /**
- * 异步解析 Excel 文件（自动检测模式）
- * 替代同步版 parseExcel
+ * 异步解析 Excel 文件（自动检测模式）。
+ * 解析在 worker 内（不可用则主线程 fallback），只把 SheetData 交回主线程。
  */
 export const parseExcelAsync = async (file: File): Promise<SheetData> => {
   const buffer = await file.arrayBuffer();

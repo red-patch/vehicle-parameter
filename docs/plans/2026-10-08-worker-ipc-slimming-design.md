@@ -190,7 +190,7 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
 
 ## 8. 实施备注（2026-10-09）
 
-分支 `perf/runtime-memory`，P2 共 8 个提交（Task 1–7 + 收尾）。全部验证通过：`lint` 0 error（24 条既有 warning）、`typecheck` 干净、`test` 48 文件 / **382** 测试、`build` 通过、`cargo test` 10 passed / 3 ignored。
+本阶段落于分支 `perf/runtime-memory`（P2 共 8 个提交：Task 1–7 + 收尾，位于该分支后段）。全部验证通过：`lint` 0 error（24 条既有 warning）、`typecheck` 干净、`test` 48 文件 / **382** 测试、`build` 通过、`cargo test` 10 passed / 3 ignored。
 
 ### 8.1 实测结果（真实文件 `产品准入导出*.xlsx`，1.03MB / 478×504 / 240,912 单元格）
 
@@ -212,7 +212,9 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
 3. **`erasableSyntaxOnly` 陷阱**：`tsconfig.app.json` 禁止 TS 构造器参数属性，计划里逐字给出的 `constructor(private readonly capacity = 3)` 会报 TS1294。已在计划中前置说明。
 4. **jsdom 缺 `Blob.prototype.arrayBuffer`**：生产代码依赖它，测试基建补了带守卫的 polyfill。
 5. **载荷形状只靠约定维系**（Task 6 评审）：`postTask<R>` 会擦掉 worker/fallback 的 realm 差异，两侧返回形状漂移会通过类型检查、只在 worker 路径运行时炸。已改为共享 builder 单点产出 + worker 侧显式类型标注 + 9 条测试。
-6. **既有一处缺陷，按要求保留未修**（Task 7）：`EnumImportModal` 表头循环跳过空表头、数据循环按 `headers.length` 截断 → 表头有空列时后续列错位。迁移只求等价，混入行为变更会让 diff 无法验证；已抽成 `buildEnumRows` 纯函数 + 4 条测试（含该缺陷用例）锁住，待单独修复。
+6. **两个「只需行」消费者的读取选项有细微变化**（Task 6）：`MultiVehicleView`/`SmartFillView` 原用 `sheet_to_json(sheet, {header:1})`（无 defval），迁移后经 `firstSheetRows` 带 `defval:''`；空格由 `undefined` 变 `''`、尾部全空行会保留。下游只做 `r[i] ? … : ''` 与 `filter(Boolean)`，行为不变（已实测 8 组表形态）。属等价迁移，记录备查。
+
+7. **既有一处缺陷，按要求保留未修**（Task 7）：`EnumImportModal` 表头循环跳过空表头、数据循环按 `headers.length` 截断 → 表头有空列时后续列错位。迁移只求等价，混入行为变更会让 diff 无法验证；已抽成 `buildEnumRows` 纯函数 + 4 条测试（含该缺陷用例）锁住，待单独修复。
 
 ### 8.3 未验证项（重要）
 
