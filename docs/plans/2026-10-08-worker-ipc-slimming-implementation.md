@@ -131,9 +131,14 @@ export interface WorkbookHandleEntry {
 
 export class WorkbookHandleStore {
     private readonly entries = new Map<number, WorkbookHandleEntry>();
+    private readonly capacity: number;
     private nextId = 1;
 
-    constructor(private readonly capacity = 3) {}
+    // 注意：tsconfig.app.json 开了 erasableSyntaxOnly，禁止构造器参数属性
+    // （constructor(private readonly capacity = 3) 会报 TS1294），必须显式声明字段。
+    constructor(capacity = 3) {
+        this.capacity = capacity;
+    }
 
     /** 存入并返回 handle id；超出容量时驱逐最久未用的一项 */
     open(workbook: XLSX.WorkBook, fileName: string): number {
