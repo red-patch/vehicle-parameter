@@ -214,14 +214,47 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
   postTask({ type: 'readFirstSheetObjects' as const, buffer }, buffer, () => firstSheetObjectsSync(buffer));
 
 /**
- * Phase 5：Tauri Rust 命令（calamine）按路径解析，返回 SheetJS 兼容 WorkBook。
+ * 一侧的单元格值（Rust calamine AOA 载荷的元素）。
+ * 空单元格为 null；数值保持 number（不在此层字符串化，与旧 `cell.v` 语义一致）。
+ */
+export type CellValue = string | number | boolean | null;
+
+/** Rust `read_workbook` 命令返回的原始形状（按 sheet 的行数组载荷） */
+interface RawSheetAoa {
+  rows: CellValue[][];
+  totalRows: number;
+  totalCols: number;
+}
+interface RawWorkbookAoa {
+  sheetNames: string[];
+  sheets: Record<string, RawSheetAoa>;
+}
+
+/** 首 sheet 行数组载荷（AOA）：空单元格占 null，列位不塌缩 */
+export interface SheetAoaFromPath {
+  sheetName: string;
+  rows: CellValue[][];
+  totalRows: number;
+  totalCols: number;
+}
+
+/**
+ * Phase 5 / P2-4：Tauri Rust 命令（calamine）按路径解析，只回**首 sheet 的行数组（AOA）**。
+ *
+ * 只取首 sheet：本函数唯一消费者（EnumImportModal）始终只用首个 sheet，
+ * 让包装层选定 sheet，消费者无需再复刻 SheetNames[0] 的选择逻辑。
  * 仅 Tauri 环境可用（调用方需已持有文件路径，如 dialog 返回值）。
  */
-export const readWorkbookFromPathAsync = async (path: string): Promise<XLSX.WorkBook> => {
+export const readFirstSheetRowsFromPathAsync = async (path: string): Promise<SheetAoaFromPath> => {
   if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
-    throw new Error('readWorkbookFromPathAsync 仅在 Tauri 环境可用');
+    throw new Error('readFirstSheetRowsFromPathAsync 仅在 Tauri 环境可用');
   }
   const { invoke } = await import('@tauri-apps/api/core');
-  const workbook = await invoke<unknown>('read_workbook', { path });
-  return workbook as XLSX.WorkBook;
+  const wb = await invoke<RawWorkbookAoa>('read_workbook', { path });
+  const sheetName = wb.sheetNames[0];
+  // Rust 侧对 sheetNames 里每个名字都必定写入 sheets 键，缺失即表示形状漂移或
+  // 工作簿确实没有任何 sheet——两种情况都明确报错，不静默返回空表（见设计 §6 风险项）。
+  const sheet: RawSheetAoa | undefined = sheetName != null ? wb.sheets[sheetName] : undefined;
+  if (!sheet) throw new Error('读取结果里没有可用的工作表（首 sheet 缺失）');
+  return { sheetName, ...sheet };
 };
