@@ -820,10 +820,10 @@ const firstSheetObjectsSync = (buffer: ArrayBuffer): SheetObjectsResult => {
 };
 
 export const readFirstSheetRowsAsync = async (buffer: ArrayBuffer): Promise<SheetRowsResult> =>
-    postHandleTask({ type: 'readFirstSheetRows' as const, buffer }, buffer, () => firstSheetRowsSync(buffer));
+    postTask({ type: 'readFirstSheetRows' as const, buffer }, buffer, () => firstSheetRowsSync(buffer));
 
 export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<SheetObjectsResult> =>
-    postHandleTask({ type: 'readFirstSheetObjects' as const, buffer }, buffer, () => firstSheetObjectsSync(buffer));
+    postTask({ type: 'readFirstSheetObjects' as const, buffer }, buffer, () => firstSheetObjectsSync(buffer));
 ```
 
 - [ ] **Step 3: worker 加两个对应 case**
