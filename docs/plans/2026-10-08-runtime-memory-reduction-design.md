@@ -1,6 +1,6 @@
 # 运行内存占用治理（稳态 + 导入峰值）— 设计方案
 
-> 日期：2026-10-08 ｜ 状态：**P0–P1 已实施**（分支 `perf/runtime-memory`，9 提交；实施备注见 §8）
+> 日期：2026-10-08 ｜ 状态：**P0–P1 已实施**（分支 `perf/runtime-memory`；实施备注见 §8）
 > 来源：2026-10-08 内存实测会话（真实运行时采样 + Node 复现口径，见 §2）。
 > 关联：`docs/adr/0003`（每车最新版 / 主文件退役）、`docs/plans/2026-10-01-asset-panel-layout-redesign.md`（资产管理两栏，性能注记来源）、`docs/plans/2026-09-30-asset-facets-lifecycle-design.md`（分组/分节视图）。
 > 术语：`CONTEXT.md`（资产 / 资产库 / 车型组 / 每车最新版）。
@@ -223,7 +223,7 @@ npm run lint && npm run typecheck && npm run test && npm run build
 
 ## 8. 实施备注（2026-10-08）
 
-分支 `perf/runtime-memory`，9 提交。全部四条验证通过：`lint` 0 error（24 条既有 warning）、`typecheck` 干净、`test` 44 文件 / **356** 测试、`build` 通过。
+本阶段落于分支 `perf/runtime-memory`（当时 9 提交；后续 P2 在同一分支追加）。全部四条验证通过：`lint` 0 error（24 条既有 warning）、`typecheck` 干净、`test` 44 文件 / **356** 测试、`build` 通过。
 
 ### 8.1 实测结果
 
