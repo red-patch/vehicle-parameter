@@ -7,8 +7,8 @@
  */
 import type { SheetData, SheetParseConfig } from '../types';
 import {
-  detectWorkbookOrientation,
-  previewWorkbook,
+  buildWorkbookHandleInfo,
+  parseByHandle,
   parseWorkbook,
   parseWorkbookWithConfig,
 } from './excelParser';
@@ -85,27 +85,24 @@ const _fallbackStore = new WorkbookHandleStore(3);
 const openWorkbookSync = (buffer: ArrayBuffer, fileName: string): WorkbookHandleInfo => {
   const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
   const handleId = _fallbackStore.open(workbook, fileName);
-  return {
-    handleId,
-    fileName,
-    sheetNames: workbook.SheetNames,
-    orientation: detectWorkbookOrientation(workbook),
-    previews: previewWorkbook(workbook),
-  };
+  return buildWorkbookHandleInfo(workbook, handleId, fileName);
 };
 
-const parseHandleSync = (handleId: number, configs?: SheetParseConfig[]): SheetData => {
-  const entry = _fallbackStore.get(handleId);
-  if (!entry) throw new Error(`workbook handle 不存在或已释放：${handleId}`);
-  return configs
-    ? parseWorkbookWithConfig(entry.workbook, entry.fileName, configs)
-    : parseWorkbook(entry.workbook, entry.fileName);
-};
+const parseHandleSync = (handleId: number, configs?: SheetParseConfig[]): SheetData =>
+  parseByHandle(_fallbackStore, handleId, configs);
 
 /**
- * 通过 Worker 发送任务（自动 fallback）
+ * 通过 Worker 发送任务（自动 fallback）。
+ *
+ * buffer 可选：handle 协议的 parseHandle 没有 buffer（workbook 已在解析侧），
+ * 此时不构造 transfer 列表。返回值 R 既可能是 SheetData，也可能是
+ * WorkbookHandleInfo（含 handleId）——由调用方泛型决定。
  */
-const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fallback: () => R): Promise<R> => {
+const postTask = <R, M extends { type: string } = { type: string } & Record<string, unknown>>(
+  msg: M,
+  buffer: ArrayBuffer | undefined,
+  fallback: () => R
+): Promise<R> => {
   const worker = getWorker();
   if (!worker) {
     // Worker 不可用，直接主线程执行
@@ -122,7 +119,8 @@ const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fa
     const id = ++_pendingId;
     _pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
     try {
-      worker.postMessage({ id, ...msg, buffer }, [buffer]);
+      if (buffer) worker.postMessage({ id, ...msg, buffer }, [buffer]);
+      else worker.postMessage({ id, ...msg });
     } catch {
       _pending.delete(id);
       // postMessage 失败（如 buffer 已 detach），回退主线程
@@ -136,35 +134,6 @@ const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fa
 };
 
 /**
- * postTask 的泛化版：buffer 可选（parseHandle 没有 buffer）；transfer 列表按需构造。
- * 用于 handle 协议——返回值可能是 SheetData，也可能是 WorkbookHandleInfo（含 handleId）。
- * 注意 releaseWorkbookHandle 不走这里（fire-and-forget，无需 pending 登记）。
- */
-const postHandleTask = <R, M extends { type: string } = { type: string } & Record<string, unknown>>(
-  msg: M,
-  buffer: ArrayBuffer | undefined,
-  fallback: () => R
-): Promise<R> => {
-  const worker = getWorker();
-  if (!worker) {
-    return new Promise((resolve, reject) => {
-      try { resolve(fallback()); } catch (err) { reject(err instanceof Error ? err : new Error(String(err))); }
-    });
-  }
-  return new Promise((resolve, reject) => {
-    const id = ++_pendingId;
-    _pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
-    try {
-      if (buffer) worker.postMessage({ id, ...msg, buffer }, [buffer]);
-      else worker.postMessage({ id, ...msg });
-    } catch {
-      _pending.delete(id);
-      try { resolve(fallback()); } catch (e) { reject(e instanceof Error ? e : new Error(String(e))); }
-    }
-  });
-};
-
-/**
  * 一次解析：worker 内 `XLSX.read` 后**留在 worker 内**缓存，只回方向判定 + 预览 + handle。
  * 这是 P2 的核心——完整 workbook 不再跨线程克隆（实测省 32.2MB/次）。
  */
@@ -172,7 +141,7 @@ export const openWorkbookAsync = async (file: File): Promise<WorkbookHandleInfo>
   const buffer = await file.arrayBuffer();
   const worker = getWorker();
   if (!worker) return openWorkbookSync(buffer, file.name);
-  return postHandleTask<WorkbookHandleInfo>(
+  return postTask<WorkbookHandleInfo>(
     { type: 'openWorkbook' as const, buffer, fileName: file.name },
     buffer,
     () => openWorkbookSync(buffer, file.name)
@@ -186,7 +155,7 @@ export const parseHandleAsync = async (
 ): Promise<SheetData> => {
   const worker = getWorker();
   if (!worker) return parseHandleSync(handleId, configs);
-  return postHandleTask<SheetData>(
+  return postTask<SheetData>(
     { type: 'parseHandle' as const, handleId, configs },
     undefined,
     () => parseHandleSync(handleId, configs)

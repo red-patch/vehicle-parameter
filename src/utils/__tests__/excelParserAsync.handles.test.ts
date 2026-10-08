@@ -66,4 +66,48 @@ describe('workbook handle protocol (main-thread fallback path)', () => {
     it('releaseWorkbookHandle is safe to call twice / with unknown id', () => {
         expect(() => releaseWorkbookHandle(999999)).not.toThrow();
     });
+
+    it('settles (rejects) rather than hanging when the worker cannot handle the message', async () => {
+        class FakeWorker {
+            onmessage: ((e: MessageEvent) => void) | null = null;
+            onerror: ((e: ErrorEvent) => void) | null = null;
+            postMessage(msg: { id: number; type: string }) {
+                queueMicrotask(() => this.onmessage?.({
+                    data: { id: msg.id, success: false, error: `Unknown worker request type: ${msg.type}` },
+                } as MessageEvent));
+            }
+        }
+        vi.stubGlobal('Worker', FakeWorker);
+        // 关键：模块缓存在 _worker / _workerFailed 上。前面几个用例跑完时
+        // jsdom 无 Worker → _workerFailed 已置 true，直接用静态导入会走 fallback，
+        // 测不到 worker 路径。resetModules + 重新动态 import 让模块在新 stub 下重新求值。
+        vi.resetModules();
+        try {
+            const mod = await import('../excelParserAsync');
+            const outcome = await Promise.race([
+                mod.openWorkbookAsync(new File([new Uint8Array([1, 2, 3])], 'x.xlsx'))
+                    .then(() => ({ ok: true as const, err: null as Error | null }),
+                          (err: Error) => ({ ok: false as const, err })),
+                new Promise<{ ok: false; err: Error }>((resolve) =>
+                    setTimeout(() => resolve({ ok: false, err: new Error('HUNG') }), 1500)),
+            ]);
+            // 真的 settled（拒绝），且不是超时哨兵
+            expect(outcome.ok).toBe(false);
+            expect(outcome.err!.message).toMatch(/Unknown worker request type/);
+            expect(outcome.err!.message).not.toBe('HUNG');
+        } finally {
+            vi.unstubAllGlobals();
+            vi.resetModules();
+        }
+    });
+});
+
+describe('parseByHandle（worker 与 fallback 共用的唯一实现）', () => {
+    it('throws the same user-facing message for a missing handle', async () => {
+        const { parseByHandle } = await import('../excelParser');
+        const { WorkbookHandleStore } = await import('../workbookHandles');
+        const store = new WorkbookHandleStore(3);
+        // 这条文案是用户可见诊断，只此一份（worker 与 fallback 都走它）
+        expect(() => parseByHandle(store, 42)).toThrow(/workbook handle 不存在或已释放：42/);
+    });
 });
