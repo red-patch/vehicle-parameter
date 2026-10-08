@@ -1,6 +1,6 @@
 # worker IPC 瘦身 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 让完整 `XLSX.WorkBook` 永不跨 worker↔主线程边界——worker 内按 handle 持有，主线程只收 `SheetPreview` / `SheetData`；并把「只需行」的消费者改为收 AOA，去掉 Rust `read_workbook` 的单元格矩阵。
 
@@ -43,7 +43,7 @@
 - Create: `src/utils/workbookHandles.ts`
 - Test: `src/utils/__tests__/workbookHandles.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/utils/__tests__/workbookHandles.test.ts`:
 
@@ -102,12 +102,12 @@ describe('WorkbookHandleStore', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/utils/__tests__/workbookHandles.test.ts`
 Expected: FAIL — `Failed to resolve import "../workbookHandles"`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `src/utils/workbookHandles.ts`:
 
@@ -177,12 +177,12 @@ export class WorkbookHandleStore {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/utils/__tests__/workbookHandles.test.ts`
 Expected: PASS（5 tests）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/utils/workbookHandles.ts src/utils/__tests__/workbookHandles.test.ts
@@ -199,7 +199,7 @@ git commit -m "feat(memory): add WorkbookHandleStore (LRU handle store for workb
 
 **说明**：jsdom 不实现 `Worker`，`new Worker(...)` 抛错 → 既有代码置 `_workerFailed = true` 并走主线程 fallback。fallback 与 worker 共用 `WorkbookHandleStore`，因此**协议逻辑在 jsdom 下真实可测**（测的就是 fallback 分支）。
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/utils/__tests__/excelParserAsync.handles.test.ts`:
 
@@ -257,12 +257,12 @@ describe('workbook handle protocol (main-thread fallback path)', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/utils/__tests__/excelParserAsync.handles.test.ts`
 Expected: FAIL — `openWorkbookAsync is not a function`.
 
-- [ ] **Step 3: Implement the protocol**
+- [x] **Step 3: Implement the protocol**
 
 Modify `src/utils/excelParserAsync.ts`. Add imports and the new API:
 
@@ -394,17 +394,17 @@ const postHandleTask = <R, M extends { type: string }>(
 
 并把 `_pending` 的 resolve 类型从 `(v: SheetData) => void` 放宽为 `(v: unknown) => void`（handle 协议返回 `WorkbookHandleInfo`，不再是 `SheetData`）。
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/utils/__tests__/excelParserAsync.handles.test.ts`
 Expected: PASS（4 tests）。
 
-- [ ] **Step 5: 手工确认既有 API 未被破坏**
+- [x] **Step 5: 手工确认既有 API 未被破坏**
 
 Run: `npm run typecheck && npm run test`
 Expected: PASS（`parseExcelAsync` / `parseWithConfigAsync` / `readWorkbook*` 行为不变，既有测试全绿）。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/utils/excelParserAsync.ts src/utils/__tests__/excelParserAsync.handles.test.ts
@@ -423,12 +423,12 @@ git commit -m "feat(memory): workbook handle protocol (openWorkbook/parseHandle/
 
 **Task 2 评审提出的三项改进，在本任务一并落地**（否则会留下重复实现）：
 
-- [ ] **Step 0a: 消除 `postTask` / `postHandleTask` 的重复**
+- [x] **Step 0a: 消除 `postTask` / `postHandleTask` 的重复**
 
 两者除「buffer 是否可选」外逐行相同，且 P2-3 还会再加两个 `postHandleTask` 调用方——泛化版正在变成主路径。把 `postTask` 的签名改为 `buffer?: ArrayBuffer`，让现有三个调用方（`parseExcelAsync`、`parseWithConfigAsync`、`readWorkbookFromBufferAsync`）原样传 buffer，然后**删除 `postHandleTask`**，全部改调 `postTask`。
 验证：`npm run typecheck && npm run test` 全绿（既有 5 个 API 行为不变）。
 
-- [ ] **Step 0b: 抽出共享的 `buildWorkbookHandleInfo`**
+- [x] **Step 0b: 抽出共享的 `buildWorkbookHandleInfo`**
 
 `openWorkbookSync`（`excelParserAsync.ts`）与 worker 侧要构造**同一个**对象字面量，而 `previews` 的「≤100 行」保证必须两边都成立——两份拷贝必然漂移。抽成共享纯函数，放在 `src/utils/excelParser.ts`（它已导出 `detectWorkbookOrientation` / `previewWorkbook`，是自然归属）：
 
@@ -449,11 +449,11 @@ export const buildWorkbookHandleInfo = (
 
 （`WorkbookHandleInfo` 从 `./workbookHandles` type-only import。）`openWorkbookSync` 与 worker 的 `openWorkbook` case 都改调它。
 
-- [ ] **Step 0c: 补一条「worker 路径干净拒绝」的测试**
+- [x] **Step 0c: 补一条「worker 路径干净拒绝」的测试**
 
 Task 2 实测确认：worker 未实现新消息类型时，worker 的 catch 会回 `{id, success:false}`（含原 id），主线程据此 **reject**（错误信息 `Unknown worker request type: openWorkbook`），**不会挂起**。这条现在无人守护，Task 3 落地后更会失效。补一条用假 Worker 的测试锁住「主线程一定能收到 settled 结果（reject 或 resolve），不得挂起」——这是整个协议最关键的不变量。
 
-- [ ] **Step 1: 扩展 worker**
+- [x] **Step 1: 扩展 worker**
 
 `src/workers/excelParser.worker.ts`：
 
@@ -535,12 +535,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
 
 > **循环依赖注意**：`excelParserAsync` 会 import worker 的 URL，worker 若 import `excelParserAsync` 的类型形成环。**优先做法**：把 `WorkbookHandleInfo` 定义在 `src/utils/workbookHandles.ts`（双方都依赖的叶子模块），两边从那里 import。Step 1 的 `handles.open` 返回值直接构造成该类型。
 
-- [ ] **Step 2: 类型与构建验证**
+- [x] **Step 2: 类型与构建验证**
 
 Run: `npm run typecheck && npm run build`
 Expected: PASS。`npm run build` 会真正打包 worker，能暴露 worker 内的 import/类型问题（jsdom 测试覆盖不到）。
 
-- [ ] **Step 3: 真机确认 worker 分支（人工）**
+- [ ] **Step 3: 真机确认 worker 分支（人工）** —— **未执行**（本环境无法驱动真实浏览器/Tauri GUI；见设计文档 §8.3）
 
 Run: `npm run dev`（或 `npm run build && npm run preview`）
 打开资产页 → 导入一个 `.xlsx`：
@@ -550,7 +550,7 @@ Run: `npm run dev`（或 `npm run build && npm run preview`）
 
 **若本环境无法跑 GUI**：明确记为未验证（同 P0–P1 的 Task 6 Step 2 缺口），不要勾选此项冒充完成。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/workers/excelParser.worker.ts src/utils/workbookHandles.ts
@@ -566,7 +566,7 @@ git commit -m "feat(memory): worker-side workbook handle handling"
 
 **说明**：这是收益核心——`FileManager` 是 32MB 克隆的来源。
 
-- [ ] **Step 1: 换 import 与 ref**
+- [x] **Step 1: 换 import 与 ref**
 
 ```tsx
 // 原：import { previewWorkbook, detectWorkbookOrientation, parseWorkbook, parseWorkbookWithConfig } from '../../utils/excelParser';
@@ -585,7 +585,7 @@ import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../.
   const pendingHandleIdRef = useRef<number | null>(null);
 ```
 
-- [ ] **Step 2: `openPreviewDialog` 改用 handle**
+- [x] **Step 2: `openPreviewDialog` 改用 handle**
 
 ```tsx
   const openPreviewDialog = async (file: File) => {
@@ -609,7 +609,7 @@ import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../.
   };
 ```
 
-- [ ] **Step 3: 横向路径改用 handle（并保证释放）**
+- [x] **Step 3: 横向路径改用 handle（并保证释放）**
 
 ```tsx
   const importHorizontalDirectly = async (fileName: string, handleId: number) => {
@@ -628,7 +628,7 @@ import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../.
   };
 ```
 
-- [ ] **Step 4: `handlePreviewConfirm` 改用 handle**
+- [x] **Step 4: `handlePreviewConfirm` 改用 handle**
 
 ```tsx
   const handlePreviewConfirm = async (configs: SheetParseConfig[]) => {
@@ -656,7 +656,7 @@ import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../.
   };
 ```
 
-- [ ] **Step 5: `releaseImportTransients` 释放 handle**
+- [x] **Step 5: `releaseImportTransients` 释放 handle**
 
 ```tsx
   /** 释放导入过程态（fileCache/previewData/diffState/解析侧 workbook handle）。
@@ -672,12 +672,12 @@ import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../.
 
 **验证所有释放路径都覆盖**：`ExcelPreviewDialog.onCancel`、`handleSheetPickerCancel`、`handleConfirmModalCancel`、`handleConfirmSave` 成功分支、`handlePreviewConfirm` 都应调用 `releaseImportTransients()`（P0–P1 已接好，本步只是让它顺带释放 handle）。用 grep 确认 `releaseImportTransients` 调用点 ≥ 5 处。
 
-- [ ] **Step 6: 验证**
+- [x] **Step 6: 验证**
 
 Run: `npm run lint && npm run typecheck && npm run test && npm run build`
 Expected: 全部 PASS。
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/components/ParameterWorkbench/FileManager.tsx
@@ -691,12 +691,12 @@ git commit -m "perf(memory): FileManager holds workbook handle instead of the wo
 **Files:**
 - Modify: `src/components/AssetLibrary/AssetUpgradeModal.tsx`
 
-- [ ] **Step 1: 换 import 与 ref**
+- [x] **Step 1: 换 import 与 ref**
 
 `pendingFileRef: useRef<File | null>` → `pendingHandleIdRef: useRef<number | null>(null)`。
 import：`readWorkbookAsync` + `parseWithConfigAsync` → `openWorkbookAsync` + `parseHandleAsync` + `releaseWorkbookHandle`（`parseExcelAsync` 若仍用于自动导入则保留）。
 
-- [ ] **Step 2: `openPreviewDialog` 改用 handle**
+- [x] **Step 2: `openPreviewDialog` 改用 handle**
 
 原 `readWorkbookAsync(file)` + `previewWorkbook(workbook)` + `pendingFileRef.current = file` 改为：
 
@@ -708,7 +708,7 @@ import：`readWorkbookAsync` + `parseWithConfigAsync` → `openWorkbookAsync` + 
             setPreviewOpen(true);
 ```
 
-- [ ] **Step 3: 确认时用 handle 解析（消掉原来的整份重解析）**
+- [x] **Step 3: 确认时用 handle 解析（消掉原来的整份重解析）**
 
 原 `parseWithConfigAsync(file, configs)` 改为：
 
@@ -718,7 +718,7 @@ import：`readWorkbookAsync` + `parseWithConfigAsync` → `openWorkbookAsync` + 
 
 并在该路径结束后 `releaseWorkbookHandle(handleId); pendingHandleIdRef.current = null;`（参照该文件既有的 `pendingFileRef.current = null` 位置）。
 
-- [ ] **Step 3b: 预览弹窗的 `onCancel` 也必须释放（原计划遗漏，会漏放整个 workbook）**
+- [x] **Step 3b: 预览弹窗的 `onCancel` 也必须释放（原计划遗漏，会漏放整个 workbook）**
 
 **已核实**：该文件 `onCancel`（约 `:706`）目前只做 `setPreviewOpen(false); setPendingFileName(''); setPreviewData([])`，**没有**清 `pendingFileRef`。持 `File` 时这无所谓（只是少一次引用释放，覆盖即回收），但换成 handle 后**会漏放解析侧的整个 workbook**——直到 worker 内 LRU（上限 3）把它挤掉。这正是本任务要消灭的那类内存占用。
 
@@ -738,7 +738,7 @@ import：`readWorkbookAsync` + `parseWithConfigAsync` → `openWorkbookAsync` + 
 
 **顺带建议**：把「释放 handle」抽成一个局部 `releasePendingHandle()`（`useCallback`），在 `onCancel` 与确认路径共用，避免再漏第三处。
 
-- [ ] **Step 4: 验证与提交**
+- [x] **Step 4: 验证与提交**
 
 Run: `npm run lint && npm run typecheck && npm run test && npm run build`
 Expected: PASS。
@@ -778,7 +778,7 @@ git commit -m "perf(memory): AssetUpgradeModal uses workbook handle (drops re-pa
 - Modify: `src/components/ParameterWorkbench/MultiVehicleView.tsx`、`SmartFillView.tsx`、`src/components/AttributeDedup/AttributeDedup.tsx`
 - （**不需要**新建 `rowsToHeaderObjects.ts`——原稿的该文件与测试作废）
 
-- [ ] **Step 1: 在 `excelParser.ts` 里加两个共享纯函数（worker 与 fallback 共用）**
+- [x] **Step 1: 在 `excelParser.ts` 里加两个共享纯函数（worker 与 fallback 共用）**
 
 ```ts
 /** 首 sheet 的二维数组（header:1），不给调用方 workbook */
@@ -794,7 +794,7 @@ export const firstSheetHeaderObjects = (workbook: XLSX.WorkBook): Record<string,
 };
 ```
 
-- [ ] **Step 2: `excelParserAsync.ts` 新增两个 AOA/对象接口**
+- [x] **Step 2: `excelParserAsync.ts` 新增两个 AOA/对象接口**
 
 ```ts
 export interface SheetRowsResult {
@@ -826,17 +826,17 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
     postTask({ type: 'readFirstSheetObjects' as const, buffer }, buffer, () => firstSheetObjectsSync(buffer));
 ```
 
-- [ ] **Step 3: worker 加两个对应 case**
+- [x] **Step 3: worker 加两个对应 case**
 
 `case 'readFirstSheetRows'` / `case 'readFirstSheetObjects'` → 复用 `excelParser.ts` 的同名函数（**不要在 worker 里重写**，保证与 fallback 完全一致）。
 
-- [ ] **Step 4: 迁移三个消费者**
+- [x] **Step 4: 迁移三个消费者**
 
 - `MultiVehicleView.tsx:363-365`、`SmartFillView.tsx:213-215`：`readFirstSheetRowsAsync(buffer)`，用 `rows`；原 `rows.length < 2` 判空保持不变（`rows` 含表头行，语义与原 `rows` 一致）。删各自的 `import * as XLSX from 'xlsx'`（若无其他用途）。
 - `AttributeDedup.tsx:43-46`：`readFirstSheetObjectsAsync(buffer)`，用 `objects` 替代原来的 `jsonData`（`XLSX.utils.sheet_to_json(sheet)` 的输出）——**语义完全一致，因为它就是同一个函数的输出**。删 `import * as XLSX`。
   注意：原代码有 `if (!jsonData.length)` 判空 → 改为 `if (!objects.length)`。
 
-- [ ] **Step 5: 删除旧入口**
+- [x] **Step 5: 删除旧入口**
 
 确认无调用方后删除 `readWorkbookAsync`、`readWorkbookFromBufferAsync`、`readWorkbookSync`：
 
@@ -854,7 +854,7 @@ Task 4 迁移后，`fileCache`（`Map<string, File>`，`handleUpload` 每次上�
 
 **先验证再动手**：把每条 `releaseImportTransients()` 调用点与预览弹窗的开关时序对照一遍，确认在 `onConfirm` 之前确无路径能把 ref 置 null。若找到可达路径，则它是真兜底，保留并在注释里写清那条路径。
 
-- [ ] **Step 6: 验证与提交**
+- [x] **Step 6: 验证与提交**
 
 Run: `npm run lint && npm run typecheck && npm run test && npm run build`
 Expected: PASS。
@@ -877,7 +877,7 @@ git commit -m "perf(memory): row-only consumers get rows/objects from the parse 
 **Files:**
 - Modify: `src-tauri/src/excel.rs`、`src/components/SmartFiller/EnumImportModal.tsx`
 
-- [ ] **Step 1: Rust 侧改为 AOA**
+- [x] **Step 1: Rust 侧改为 AOA**
 
 `read_workbook_blocking` 返回 `{ sheetNames: [..], sheets: { [name]: { rows: [[Value]], totalRows, totalCols } } }`。要点：
 - 用 `range.rows()` 逐行 `map` 出 `Vec<Value>`，**保留 `CellData::Empty` 为 `Value::Null`**（`rows()` 按 `width()` 分块，行天然等宽——空单元格必须补位，否则列错位）；
@@ -886,12 +886,12 @@ git commit -m "perf(memory): row-only consumers get rows/objects from the parse 
 
 在 `src-tauri/src/excel.rs` 末尾加 Rust 单测覆盖：含空单元格的行**列不错位**、行宽 == `totalCols`。
 
-- [ ] **Step 2: Rust 验证**
+- [x] **Step 2: Rust 验证**
 
 Run: `cd src-tauri && cargo test`
 Expected: PASS。
 
-- [ ] **Step 3: 迁移 `EnumImportModal`**
+- [x] **Step 3: 迁移 `EnumImportModal`**
 
 `readWorkbookFromPathAsync` 改为返回 AOA 结构（改 `excelParserAsync.ts` 里的包装与返回类型，或新增 `readSheetRowsFromPathAsync`）。`EnumImportModal` 中 `decode_cell` / `encode_cell` / `sheet[addr]` 那整套手工还原行列网格的代码删除，改为：表头 = `rows[0]`，单元格 = `rows[r][c]`，取值 `v == null ? '' : String(v)`。
 
@@ -908,7 +908,7 @@ Expected: PASS。
 
 迁移后请用一个含空表头的用例实测前后输出一致，并在报告里给出该实测。
 
-- [ ] **Step 4: 验证与提交**
+- [x] **Step 4: 验证与提交**
 
 Run: `npm run lint && npm run typecheck && npm run test && npm run build && (cd src-tauri && cargo test)`
 Expected: 全部 PASS。
@@ -922,7 +922,7 @@ git commit -m "perf(memory): Rust read_workbook returns AOA; EnumImportModal use
 
 ### Task 8: 全量验证与收尾
 
-- [ ] **Step 1: 四条验证 + Rust**
+- [x] **Step 1: 四条验证 + Rust**
 
 ```bash
 npm run lint && npm run typecheck && npm run test && npm run build && (cd src-tauri && cargo test)
@@ -930,7 +930,7 @@ npm run lint && npm run typecheck && npm run test && npm run build && (cd src-ta
 
 Expected: 全部通过，无新增 warning。
 
-- [ ] **Step 2: 全局搜索确认无遗留**
+- [x] **Step 2: 全局搜索确认无遗留**
 
 ```bash
 grep -rn "readWorkbookAsync\|readWorkbookFromBufferAsync\|readWorkbookFromPathAsync" src/ || echo "已全部移除"
@@ -939,15 +939,15 @@ grep -rn "_fallbackStore\|WorkbookHandleStore" src/ | head
 
 Expected：旧入口无残留；handle 存储只在 `workbookHandles.ts` 定义、在 `excelParserAsync.ts` 与 worker 各实例化一次。
 
-- [ ] **Step 3: 内存口径复测（可复现部分）**
+- [x] **Step 3: 内存口径复测（可复现部分）**
 
 Node 侧对比「旧：`readWorkbookAsync`+主线程 `parseWorkbookWithConfig`」与「新：`openWorkbookAsync`+`parseHandleAsync`」在真实文件（`~/Downloads/产品准入导出*.xlsx`）上的峰值，预期省掉一份 32MB 量级 workbook 克隆。把数值写入设计文档 §8。
 
-- [ ] **Step 4: 更新设计文档状态头 + §8**
+- [x] **Step 4: 更新设计文档状态头 + §8**
 
 `docs/plans/2026-10-08-worker-ipc-slimming-design.md` 状态头由「设计定稿（实施未开始…）」改为「P2-1～P2-4 已实施」，追加 §8 实施备注：实测数值、实施中发现的问题、以及**哪些步骤未经真机验证**（Task 3 Step 3 / 同 P0–P1 的 RSS 缺口）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add docs/plans/2026-10-08-worker-ipc-slimming-design.md
