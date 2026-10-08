@@ -716,7 +716,27 @@ import：`readWorkbookAsync` + `parseWithConfigAsync` → `openWorkbookAsync` + 
             const parsed = await parseHandleAsync(handleId, configs);
 ```
 
-并在该路径结束后 `releaseWorkbookHandle(handleId); pendingHandleIdRef.current = null;`（弹窗关闭/成功都要释放，参照该文件既有的 `pendingFileRef.current = null` 位置）。
+并在该路径结束后 `releaseWorkbookHandle(handleId); pendingHandleIdRef.current = null;`（参照该文件既有的 `pendingFileRef.current = null` 位置）。
+
+- [ ] **Step 3b: 预览弹窗的 `onCancel` 也必须释放（原计划遗漏，会漏放整个 workbook）**
+
+**已核实**：该文件 `onCancel`（约 `:706`）目前只做 `setPreviewOpen(false); setPendingFileName(''); setPreviewData([])`，**没有**清 `pendingFileRef`。持 `File` 时这无所谓（只是少一次引用释放，覆盖即回收），但换成 handle 后**会漏放解析侧的整个 workbook**——直到 worker 内 LRU（上限 3）把它挤掉。这正是本任务要消灭的那类内存占用。
+
+因此 `onCancel` 必须补上释放：
+
+```tsx
+                onCancel={() => {
+                    setPreviewOpen(false);
+                    setPendingFileName('');
+                    setPreviewData([]);
+                    if (pendingHandleIdRef.current !== null) {
+                        releaseWorkbookHandle(pendingHandleIdRef.current);
+                        pendingHandleIdRef.current = null;
+                    }
+                }}
+```
+
+**顺带建议**：把「释放 handle」抽成一个局部 `releasePendingHandle()`（`useCallback`），在 `onCancel` 与确认路径共用，避免再漏第三处。
 
 - [ ] **Step 4: 验证与提交**
 
