@@ -6,13 +6,21 @@
  * 自动 fallback 到主线程同步解析，保证功能不中断。
  */
 import type { SheetData, SheetParseConfig } from '../types';
-import { parseWorkbook, parseWorkbookWithConfig } from './excelParser';
+import {
+  detectWorkbookOrientation,
+  previewWorkbook,
+  parseWorkbook,
+  parseWorkbookWithConfig,
+} from './excelParser';
+import { WorkbookHandleStore } from './workbookHandles';
+import type { WorkbookHandleInfo } from './workbookHandles';
 import * as XLSX from 'xlsx';
 
 let _worker: Worker | null = null;
 let _workerFailed = false;
 let _pendingId = 0;
-const _pending = new Map<number, { resolve: (v: SheetData) => void; reject: (e: Error) => void }>();
+// resolve 类型为 unknown：既承载 SheetData，也承载 WorkbookHandleInfo（handle 协议）。
+const _pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
 
 const createWorker = (): Worker | null => {
   if (_workerFailed) return null;
@@ -27,7 +35,9 @@ const createWorker = (): Worker | null => {
       if (!pending) return;
       _pending.delete(id);
       if (success) {
-        pending.resolve(data as SheetData);
+        // 不再 as SheetData：_pending 的 resolve 已放宽为 unknown，
+        // 强转会把 WorkbookHandleInfo 谎报成 SheetData。
+        pending.resolve(data);
       } else {
         pending.reject(new Error(error || 'Worker parse failed'));
       }
@@ -69,6 +79,29 @@ const parseWithConfigSync = (buffer: ArrayBuffer, fileName: string, configs: She
   return parseWorkbookWithConfig(workbook, fileName, configs);
 };
 
+/** 主线程 fallback 时的 handle 存储（worker 可用时不用它） */
+const _fallbackStore = new WorkbookHandleStore(3);
+
+const openWorkbookSync = (buffer: ArrayBuffer, fileName: string): WorkbookHandleInfo => {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  const handleId = _fallbackStore.open(workbook, fileName);
+  return {
+    handleId,
+    fileName,
+    sheetNames: workbook.SheetNames,
+    orientation: detectWorkbookOrientation(workbook),
+    previews: previewWorkbook(workbook),
+  };
+};
+
+const parseHandleSync = (handleId: number, configs?: SheetParseConfig[]): SheetData => {
+  const entry = _fallbackStore.get(handleId);
+  if (!entry) throw new Error(`workbook handle 不存在或已释放：${handleId}`);
+  return configs
+    ? parseWorkbookWithConfig(entry.workbook, entry.fileName, configs)
+    : parseWorkbook(entry.workbook, entry.fileName);
+};
+
 /**
  * 通过 Worker 发送任务（自动 fallback）
  */
@@ -87,7 +120,7 @@ const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fa
 
   return new Promise((resolve, reject) => {
     const id = ++_pendingId;
-    _pending.set(id, { resolve: resolve as (v: SheetData) => void, reject });
+    _pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
     try {
       worker.postMessage({ id, ...msg, buffer }, [buffer]);
     } catch {
@@ -100,6 +133,78 @@ const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fa
       }
     }
   });
+};
+
+/**
+ * postTask 的泛化版：buffer 可选（parseHandle 没有 buffer）；transfer 列表按需构造。
+ * 用于 handle 协议——返回值可能是 SheetData，也可能是 WorkbookHandleInfo（含 handleId）。
+ * 注意 releaseWorkbookHandle 不走这里（fire-and-forget，无需 pending 登记）。
+ */
+const postHandleTask = <R, M extends { type: string } = { type: string } & Record<string, unknown>>(
+  msg: M,
+  buffer: ArrayBuffer | undefined,
+  fallback: () => R
+): Promise<R> => {
+  const worker = getWorker();
+  if (!worker) {
+    return new Promise((resolve, reject) => {
+      try { resolve(fallback()); } catch (err) { reject(err instanceof Error ? err : new Error(String(err))); }
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const id = ++_pendingId;
+    _pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
+    try {
+      if (buffer) worker.postMessage({ id, ...msg, buffer }, [buffer]);
+      else worker.postMessage({ id, ...msg });
+    } catch {
+      _pending.delete(id);
+      try { resolve(fallback()); } catch (e) { reject(e instanceof Error ? e : new Error(String(e))); }
+    }
+  });
+};
+
+/**
+ * 一次解析：worker 内 `XLSX.read` 后**留在 worker 内**缓存，只回方向判定 + 预览 + handle。
+ * 这是 P2 的核心——完整 workbook 不再跨线程克隆（实测省 32.2MB/次）。
+ */
+export const openWorkbookAsync = async (file: File): Promise<WorkbookHandleInfo> => {
+  const buffer = await file.arrayBuffer();
+  const worker = getWorker();
+  if (!worker) return openWorkbookSync(buffer, file.name);
+  return postHandleTask<WorkbookHandleInfo>(
+    { type: 'openWorkbook' as const, buffer, fileName: file.name },
+    buffer,
+    () => openWorkbookSync(buffer, file.name)
+  );
+};
+
+/** 用 handle 在解析侧解析；configs 缺省 → parseWorkbook */
+export const parseHandleAsync = async (
+  handleId: number,
+  configs?: SheetParseConfig[]
+): Promise<SheetData> => {
+  const worker = getWorker();
+  if (!worker) return parseHandleSync(handleId, configs);
+  return postHandleTask<SheetData>(
+    { type: 'parseHandle' as const, handleId, configs },
+    undefined,
+    () => parseHandleSync(handleId, configs)
+  );
+};
+
+/** 释放解析侧的 workbook 缓存；幂等，未知 id 不抛错 */
+export const releaseWorkbookHandle = (handleId: number): void => {
+  const worker = getWorker();
+  if (!worker) {
+    _fallbackStore.release(handleId);
+    return;
+  }
+  try {
+    worker.postMessage({ type: 'releaseHandle' as const, handleId });
+  } catch {
+    _fallbackStore.release(handleId);
+  }
 };
 
 /**
