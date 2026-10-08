@@ -593,18 +593,43 @@ export const readFileAsWorkbook = (file: File): Promise<XLSX.WorkBook> => {
 
 // ===================== 预览 + 配置化解析 =====================
 
+/** 预览最多保留的行数 */
+const PREVIEW_MAX_ROWS = 100;
+
 export const previewWorkbook = (workbook: XLSX.WorkBook): SheetPreview[] => {
     return workbook.SheetNames.map(sheetName => {
         const sheet = workbook.Sheets[sheetName];
-        const jsonData = sheetToRows(sheet, { header: 1, defval: '' }) as string[][];
-        const totalRows = jsonData.length;
-        const totalCols = jsonData.reduce((max, row) => Math.max(max, (row as unknown[]).length), 0);
 
-        const rows = jsonData.slice(0, 100).map(row => {
-            const padded = [...(row as string[])];
-            while (padded.length < totalCols) padded.push('');
-            return padded.map(c => (c !== null && c !== undefined) ? String(c) : '');
-        });
+        // 与 sheetToRows 同一套 !ref 收敛：部分文件把 !ref 膨胀到 XFD，
+        // 此时降级到真实单元格边界，避免 totalCols 被算成大得离谱的值。
+        const ref = getEffectiveSheetRange(sheet) || sheet['!ref'];
+        const decoded = ref ? XLSX.utils.decode_range(ref) : null;
+
+        // 行列总数直接来自收敛后的 ref，不再扫全表物化（内存治理 P1-1）：
+        // 此前先 sheet_to_json 整表再 slice(0,100)，宽表会白白分配整表数组。
+        // 畸形（倒序）ref 会产生负值，钳到 0。
+        const totalRows = decoded ? Math.max(0, decoded.e.r - decoded.s.r + 1) : 0;
+        const totalCols = decoded ? Math.max(0, decoded.e.c - decoded.s.c + 1) : 0;
+
+        let rows: string[][] = [];
+        if (decoded && totalRows > 0) {
+            // 行范围按 s.r 相对取前 PREVIEW_MAX_ROWS 行（非 0 起始的表也对），
+            // 列仍取全宽——sheet_to_json 的 range 无法只约束行而不管列。
+            const jsonData = XLSX.utils.sheet_to_json(sheet, {
+                header: 1,
+                defval: '',
+                range: {
+                    s: { r: decoded.s.r, c: decoded.s.c },
+                    e: { r: Math.min(decoded.s.r + PREVIEW_MAX_ROWS - 1, decoded.e.r), c: decoded.e.c },
+                },
+            }) as unknown[][];
+
+            // defval:'' 会把行补满到 range 宽度，故输出与旧的整表实现逐字节一致；
+            // 收益来自行数（整表 → 100 行），列宽行为不变。
+            rows = jsonData.slice(0, PREVIEW_MAX_ROWS).map(row =>
+                (row as unknown[]).map(c => (c !== null && c !== undefined) ? String(c) : '')
+            );
+        }
 
         const merges = (sheet['!merges'] || []).map(m => ({
             s: { r: m.s.r, c: m.s.c }, e: { r: m.e.r, c: m.e.c }

@@ -491,7 +491,8 @@ export const previewWorkbook = (workbook: XLSX.WorkBook): SheetPreview[] => {
                 },
             }) as unknown[][];
 
-            // 不再按 totalCols 补空：保留每行真实长度，列对齐交给渲染层（colSpan/CSS）
+            // defval:'' 会把行补满到 range 宽度，故输出与旧的整表实现逐字节一致；
+            // 收益来自行数（整表 → 101 行），列宽行为不变。
             rows = jsonData.slice(0, PREVIEW_MAX_ROWS).map(row =>
                 (row as unknown[]).map(c => (c !== null && c !== undefined) ? String(c) : '')
             );
