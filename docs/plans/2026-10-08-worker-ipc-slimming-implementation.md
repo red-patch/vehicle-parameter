@@ -417,8 +417,41 @@ git commit -m "feat(memory): workbook handle protocol (openWorkbook/parseHandle/
 
 **Files:**
 - Modify: `src/workers/excelParser.worker.ts`
+- Modify: `src/utils/excelParserAsync.ts`（Step 0 的两个收口）
 
 **说明**：改完必须**跑一次真实应用**才能确认 worker 分支（jsdom 走不到）。见 Step 3。
+
+**Task 2 评审提出的三项改进，在本任务一并落地**（否则会留下重复实现）：
+
+- [ ] **Step 0a: 消除 `postTask` / `postHandleTask` 的重复**
+
+两者除「buffer 是否可选」外逐行相同，且 P2-3 还会再加两个 `postHandleTask` 调用方——泛化版正在变成主路径。把 `postTask` 的签名改为 `buffer?: ArrayBuffer`，让现有三个调用方（`parseExcelAsync`、`parseWithConfigAsync`、`readWorkbookFromBufferAsync`）原样传 buffer，然后**删除 `postHandleTask`**，全部改调 `postTask`。
+验证：`npm run typecheck && npm run test` 全绿（既有 5 个 API 行为不变）。
+
+- [ ] **Step 0b: 抽出共享的 `buildWorkbookHandleInfo`**
+
+`openWorkbookSync`（`excelParserAsync.ts`）与 worker 侧要构造**同一个**对象字面量，而 `previews` 的「≤100 行」保证必须两边都成立——两份拷贝必然漂移。抽成共享纯函数，放在 `src/utils/excelParser.ts`（它已导出 `detectWorkbookOrientation` / `previewWorkbook`，是自然归属）：
+
+```ts
+/** 构造 handle 信息的唯一实现：主线程 fallback 与 worker 共用，避免两份拷贝漂移 */
+export const buildWorkbookHandleInfo = (
+    workbook: XLSX.WorkBook,
+    handleId: number,
+    fileName: string
+): WorkbookHandleInfo => ({
+    handleId,
+    fileName,
+    sheetNames: workbook.SheetNames,
+    orientation: detectWorkbookOrientation(workbook),
+    previews: previewWorkbook(workbook),
+});
+```
+
+（`WorkbookHandleInfo` 从 `./workbookHandles` type-only import。）`openWorkbookSync` 与 worker 的 `openWorkbook` case 都改调它。
+
+- [ ] **Step 0c: 补一条「worker 路径干净拒绝」的测试**
+
+Task 2 实测确认：worker 未实现新消息类型时，worker 的 catch 会回 `{id, success:false}`（含原 id），主线程据此 **reject**（错误信息 `Unknown worker request type: openWorkbook`），**不会挂起**。这条现在无人守护，Task 3 落地后更会失效。补一条用假 Worker 的测试锁住「主线程一定能收到 settled 结果（reject 或 resolve），不得挂起」——这是整个协议最关键的不变量。
 
 - [ ] **Step 1: 扩展 worker**
 
@@ -481,15 +514,10 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         result = workbook;
         break;
       case 'openWorkbook': {
-        // workbook 留在 worker 内：主线程只拿 id + 它真正需要的产物
+        // workbook 留在 worker 内：主线程只拿 id + 它真正需要的产物。
+        // 复用共享构造函数（Step 0b），不要内联对象字面量——两份拷贝会漂移。
         const handleId = handles.open(workbook, e.data.fileName);
-        result = {
-          handleId,
-          fileName: e.data.fileName,
-          sheetNames: workbook.SheetNames,
-          orientation: detectWorkbookOrientation(workbook),
-          previews: previewWorkbook(workbook),
-        } satisfies WorkbookHandleInfo;
+        result = buildWorkbookHandleInfo(workbook, handleId, e.data.fileName);
         break;
       }
       default:
