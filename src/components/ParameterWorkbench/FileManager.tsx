@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag, Select, Table, Segmented } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -15,6 +15,7 @@ import { compareSheets } from '../../utils/comparator';
 import { buildImportCandidate, classifyImportBatch, defaultDecisionFor } from '../../utils/assetImportDedup';
 import { buildSupersedeMeta } from '../../utils/assetGovernance';
 import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
+import { clearImportTransients } from '../../utils/importTransients';
 import TagSelector from '../common/TagSelector';
 
 /** 判定 → 徽章/选项元数据 */
@@ -134,6 +135,9 @@ const FileManager: React.FC<FileManagerProps> = () => {
     if (!cachedFile) { message.error('文件缓存过期'); return; }
     const data = await parseWithConfigAsync(cachedFile, configs);
     await showProductConfirm(data, pendingFileName);
+    // 解析并进入确认弹窗后释放预览态（此时 cachedFile 已读取完毕）
+    setPreviewOpen(false);
+    releaseImportTransients();
   };
 
   const handleConfirmSave = async () => {
@@ -207,6 +211,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
       bumpAssetVersion();
       setConfirmModalVisible(false);
       setPendingFileName('');
+      releaseImportTransients();
       const savedCount = okCount - replacedCount;
       const parts = [];
       if (savedCount > 0) parts.push(`保存 ${savedCount} 个`);
@@ -237,6 +242,10 @@ const FileManager: React.FC<FileManagerProps> = () => {
     open: boolean; baseFileName: string; targetName: string;
     base: SheetData | null; target: SheetData | null;
   }>({ open: false, baseFileName: '', targetName: '', base: null, target: null });
+  /** 释放导入过程态（fileCache/previewData/diffState）。预览/确认/选择器的关闭与取消路径统一走它。 */
+  const releaseImportTransients = useCallback(() => {
+    clearImportTransients({ setFileCache, setPreviewData, setDiffState });
+  }, []);
   // 大批量导入预览：分类筛选 + 搜索（477 条级别的批次用）
   const [verdictFilter, setVerdictFilter] = useState<'all' | 'new' | 'updated' | 'suspect'>('all');
   const [confirmSearch, setConfirmSearch] = useState('');
@@ -356,6 +365,13 @@ const FileManager: React.FC<FileManagerProps> = () => {
   const handleSheetPickerCancel = () => {
     setSheetPickerOpen(false);
     setPreselectedDisabledSheets(new Set());
+    releaseImportTransients();
+  };
+  /** 关闭「确认导入车型」弹窗并释放导入过程态（非横向与横向导入路径共用） */
+  const handleConfirmModalCancel = () => {
+    setConfirmModalVisible(false);
+    setPendingProductData([]);
+    releaseImportTransients();
   };
   return (
     <>
@@ -364,7 +380,9 @@ const FileManager: React.FC<FileManagerProps> = () => {
       </Upload>
 
       <ExcelPreviewDialog open={previewOpen} previews={previewData} fileName={pendingFileName}
-        onConfirm={handlePreviewConfirm} onCancel={() => setPreviewOpen(false)} preselectedDisabledSheets={preselectedDisabledSheets} />
+        onConfirm={handlePreviewConfirm}
+        onCancel={() => { setPreviewOpen(false); releaseImportTransients(); }}
+        preselectedDisabledSheets={preselectedDisabledSheets} />
       <SheetPickerModal open={sheetPickerOpen} sheets={sheetPickerData}
         onConfirm={handleSheetPickerConfirm} onSkip={handleSheetPickerSkip} onCancel={handleSheetPickerCancel} />
       
@@ -374,10 +392,10 @@ const FileManager: React.FC<FileManagerProps> = () => {
           open={confirmModalVisible}
           title="确认导入车型"
           width={980}
-          onCancel={() => { setConfirmModalVisible(false); setPendingProductData([]); }}
+          onCancel={handleConfirmModalCancel}
           footer={[
             <Button key="cancel" disabled={importSaving.active}
-              onClick={() => { setConfirmModalVisible(false); setPendingProductData([]); }}>取消</Button>,
+              onClick={handleConfirmModalCancel}>取消</Button>,
             <Button key="confirm" type="primary" loading={importSaving.active} onClick={handleConfirmSave}>
               {importSaving.active
                 ? `保存中…（${importSaving.total} 个）`
@@ -580,7 +598,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
         targetName={diffState.targetName}
         base={diffState.base}
         target={diffState.target}
-        onClose={() => setDiffState(prev => ({ ...prev, open: false }))}
+        onClose={() => setDiffState(prev => ({ ...prev, open: false, base: null, target: null }))}
       />
     </>
   );
