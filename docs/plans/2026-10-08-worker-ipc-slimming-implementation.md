@@ -822,6 +822,18 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
 
 Run: `grep -rn "readWorkbookAsync\|readWorkbookFromBufferAsync" src/` → 期望无输出。
 
+### Step 5b: 处置 `FileManager` 里已成死重的 `fileCache`（Task 4 评审发现）
+
+Task 4 迁移后，`fileCache`（`Map<string, File>`，`handleUpload` 每次上传都写入）**只剩一个读者**——`handlePreviewConfirm` 里那条兜底分支（`fileCache.get(pendingFileName)`）。评审追踪判定该分支**当前 UI 流程下不可达**：预览弹窗的 antd 遮罩挡住上传入口，而 ref 在放行到 `onConfirm` 之前不会被清空。
+
+后果：`fileCache` 把**每一次上传的原始 `File`** 都留在内存里，仅为一个不可达分支服务——这在内存治理任务里是反向的。
+
+处理（二选一，按实际判断）：
+- **若确认不可达**：删除兜底分支 + `fileCache` 状态 + `handleUpload` 的写入 + `importTransients` 里的 `setFileCache`，以及其类型与测试；同时确认 `parseWithConfigAsync` 是否仅剩此一处调用（若是，`excelParserAsync` 里也可一并删）。
+- **若不愿删**（作为 ref 为 null 时的保险）：保留，但须在 `fileCache` 声明处写明「唯一读者是不可达兜底，保留代价 = 常驻原始 File」，让后来者能据此决策。
+
+**先验证再动手**：把每条 `releaseImportTransients()` 调用点与预览弹窗的开关时序对照一遍，确认在 `onConfirm` 之前确无路径能把 ref 置 null。若找到可达路径，则它是真兜底，保留并在注释里写清那条路径。
+
 - [ ] **Step 6: 验证与提交**
 
 Run: `npm run lint && npm run typecheck && npm run test && npm run build`
