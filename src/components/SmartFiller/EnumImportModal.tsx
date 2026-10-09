@@ -4,7 +4,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined, SearchOutlined } from '@ant-design/icons';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import { readWorkbookFromPathAsync } from '../../utils/excelParserAsync';
+import { readFirstSheetRowsFromPathAsync } from '../../utils/excelParserAsync';
+import { buildEnumRows } from '../../utils/enumImportRowMapping';
 
 
 interface EnumImportModalProps {
@@ -99,27 +100,10 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
             setFilePath(selected);
             setLoading(true);
 
-            const XLSX = await import('xlsx');
-            // Phase 5：Rust calamine 按路径直接解析，文件二进制不再过 IPC
-            const workbook = await readWorkbookFromPathAsync(selected);
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
-
-            // !ref bug workaround: detect actual range from cell keys
-            const cellKeys = Object.keys(sheet).filter(k => !k.startsWith('!'));
-            let minCol = Infinity, maxCol = 0, minRow = Infinity, maxRow = 0;
-            for (const key of cellKeys) {
-                try {
-                    const { r, c } = XLSX.utils.decode_cell(key);
-                    minCol = Math.min(minCol, c);
-                    maxCol = Math.max(maxCol, c);
-                    minRow = Math.min(minRow, r);
-                    maxRow = Math.max(maxRow, r);
-                } catch { /* skip */ }
-            }
-
-            const numCols = maxCol - minCol + 1;
-            const numRows = maxRow - minRow + 1;
+            // Phase 5 / P2-4：Rust calamine 按路径直接解析，只回首 sheet 行数组（AOA）
+            const { rows, totalRows, totalCols } = await readFirstSheetRowsFromPathAsync(selected);
+            const numCols = totalCols;
+            const numRows = totalRows;
 
             if (numRows < 2) {
                 message.warning('表格数据不足');
@@ -127,34 +111,14 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                 return;
             }
 
-            // Extract headers from first row
-            const headers: string[] = [];
-            for (let c = 0; c < numCols; c++) {
-                const addr = XLSX.utils.encode_cell({ r: minRow, c: minCol + c });
-                const cell = sheet[addr];
-                const val = cell ? String(cell.v ?? '').trim() : '';
-                if (val) headers.push(val);
-            }
+            // 表头 + 行对象的映射抽到 utils（可单测），行为与原实现逐字一致，
+            // 含既有缺陷：空表头会使后续列错位（见 enumImportRowMapping.test.ts，勿顺手改）。
+            const { headers, rows: jsonData } = buildEnumRows(rows, numCols, numRows);
 
             if (headers.length === 0) {
                 message.warning('未检测到表头列');
                 setLoading(false);
                 return;
-            }
-
-            // Build row objects
-            const jsonData: ExcelRow[] = [];
-            for (let r = 1; r < numRows; r++) {
-                const rowObj: ExcelRow = {};
-                let hasValue = false;
-                for (let c = 0; c < numCols; c++) {
-                    const addr = XLSX.utils.encode_cell({ r: minRow + r, c: minCol + c });
-                    const cell = sheet[addr];
-                    const val = cell ? (cell.v ?? '') : '';
-                    if (c < headers.length) rowObj[headers[c]] = val;
-                    if (val !== '' && val !== null && val !== undefined) hasValue = true;
-                }
-                if (hasValue) jsonData.push(rowObj);
             }
 
             if (jsonData.length === 0) {

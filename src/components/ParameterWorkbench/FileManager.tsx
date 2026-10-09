@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag, Select, Table, Segmented } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { previewWorkbook, detectWorkbookOrientation } from '../../utils/excelParser';
-import { parseWithConfigAsync, parseExcelAsync, readWorkbookAsync } from '../../utils/excelParserAsync';
+import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../../utils/excelParserAsync';
 import type { SheetData, SheetPreview, SheetParseConfig } from '../../types';
 import ExcelPreviewDialog from './ExcelPreviewDialog';
 import AssetListDrawer from '../AssetLibrary/AssetListDrawer';
@@ -15,6 +14,7 @@ import { compareSheets } from '../../utils/comparator';
 import { buildImportCandidate, classifyImportBatch, defaultDecisionFor } from '../../utils/assetImportDedup';
 import { buildSupersedeMeta } from '../../utils/assetGovernance';
 import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
+import { clearImportTransients } from '../../utils/importTransients';
 import TagSelector from '../common/TagSelector';
 
 /** 判定 → 徽章/选项元数据 */
@@ -45,7 +45,6 @@ const FileManager: React.FC<FileManagerProps> = () => {
 
   const handleUpload = async (file: File) => {
     setUploading(true);
-    setFileCache(prev => { const next = new Map(prev); next.set(file.name, file); return next; });
     try {
       await openPreviewDialog(file);
     } catch {
@@ -57,32 +56,37 @@ const FileManager: React.FC<FileManagerProps> = () => {
   };
 
   const openPreviewDialog = async (file: File) => {
-    const workbook = await readWorkbookAsync(file);
+    const info = await openWorkbookAsync(file);
     // 全横向格式（参数为列、车型为行，如"产品准入导出"）：列角色配置无法表达，
     // 直接自动解析进入车型确认弹窗
-    if (detectWorkbookOrientation(workbook) === 'horizontal') {
-      await importHorizontalDirectly(file);
+    if (info.orientation === 'horizontal') {
+      pendingHandleIdRef.current = null; // 横向路径同步消费，不残留到确认阶段
+      await importHorizontalDirectly(info.fileName, info.handleId);
       return;
     }
-    const previews = previewWorkbook(workbook);
-    setPendingFileName(file.name);
-    setPreviewData(previews);
-    if (previews.length > 1) {
-      setSheetPickerData(previews.map(p => ({ name: p.sheetName, totalRows: p.totalRows })));
+    pendingHandleIdRef.current = info.handleId; // 供 handlePreviewConfirm 复用
+    setPendingFileName(info.fileName);
+    setPreviewData(info.previews);
+    if (info.previews.length > 1) {
+      setSheetPickerData(info.previews.map(p => ({ name: p.sheetName, totalRows: p.totalRows })));
       setSheetPickerOpen(true);
     } else {
       setPreviewOpen(true);
     }
   };
 
-  const importHorizontalDirectly = async (file: File) => {
+  const importHorizontalDirectly = async (fileName: string, handleId: number) => {
     try {
-      const data = await parseExcelAsync(file);
+      // 用 handle 在解析侧解析：不重读文件、workbook 也不过线程边界
+      const data = await parseHandleAsync(handleId);
       const productCount = new Set(data.data.map(p => p.productName)).size;
       message.info(`检测到横向格式（参数为列、车型为行），已解析出 ${productCount} 个车型`);
-      await showProductConfirm(data, file.name);
+      await showProductConfirm(data, fileName);
     } catch (err) {
       message.error('解析失败：' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      // 横向路径同步消费完，立即释放（不残留到确认阶段）
+      releaseWorkbookHandle(handleId);
     }
   };
 
@@ -130,10 +134,22 @@ const FileManager: React.FC<FileManagerProps> = () => {
   };
 
   const handlePreviewConfirm = async (configs: SheetParseConfig[]) => {
-    const cachedFile = fileCache.get(pendingFileName);
-    if (!cachedFile) { message.error('文件缓存过期'); return; }
-    const data = await parseWithConfigAsync(cachedFile, configs);
-    await showProductConfirm(data, pendingFileName);
+    try {
+      const handleId = pendingHandleIdRef.current;
+      // handleId 为 null 只有在弹窗未经 openPreviewDialog 打开时才可能发生——异常态。
+      // 预览弹窗打开时必已写入 handle，用户看不到此分支（上传入口被遮罩挡住）。
+      if (handleId === null) { message.error('预览会话已失效，请重新选择文件'); return; }
+      // 在解析侧用缓存的 workbook 解析：不重读文件、workbook 不过线程边界
+      const data = await parseHandleAsync(handleId, configs);
+      await showProductConfirm(data, pendingFileName);
+    } catch (err) {
+      // 解析侧会抛用户可读错误（如「按当前配置未提取到任何参数数据」）；
+      // 必须在此捕获，否则 onConfirm 未被 await 会让它变成无人处理的 rejection。
+      message.error('解析失败：' + (err instanceof Error ? err.message : String(err)));
+      return;
+    }
+    setPreviewOpen(false);
+    releaseImportTransients();
   };
 
   const handleConfirmSave = async () => {
@@ -207,6 +223,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
       bumpAssetVersion();
       setConfirmModalVisible(false);
       setPendingFileName('');
+      releaseImportTransients();
       const savedCount = okCount - replacedCount;
       const parts = [];
       if (savedCount > 0) parts.push(`保存 ${savedCount} 个`);
@@ -218,7 +235,6 @@ const FileManager: React.FC<FileManagerProps> = () => {
     }
   };
 
-  const [fileCache, setFileCache] = useState<Map<string, File>>(new Map());
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<SheetPreview[]>([]);
   const [pendingFileName, setPendingFileName] = useState('');
@@ -237,6 +253,19 @@ const FileManager: React.FC<FileManagerProps> = () => {
     open: boolean; baseFileName: string; targetName: string;
     base: SheetData | null; target: SheetData | null;
   }>({ open: false, baseFileName: '', targetName: '', base: null, target: null });
+  /** 预览阶段解析出的 workbook 留在解析侧；主线程只持 handle（内存治理 P2）。
+   *  非横向路径：openPreviewDialog 写入，releaseImportTransients 释放。
+   *  横向路径不经此 ref（写入前即置 null），由 importHorizontalDirectly 的 finally 单独释放。 */
+  const pendingHandleIdRef = useRef<number | null>(null);
+  /** 释放导入过程态（previewData/diffState/解析侧 workbook handle）。
+   *  预览/确认/选择器的关闭与取消路径统一走它。 */
+  const releaseImportTransients = useCallback(() => {
+    if (pendingHandleIdRef.current !== null) {
+      releaseWorkbookHandle(pendingHandleIdRef.current);
+      pendingHandleIdRef.current = null;
+    }
+    clearImportTransients({ setPreviewData, setDiffState });
+  }, []);
   // 大批量导入预览：分类筛选 + 搜索（477 条级别的批次用）
   const [verdictFilter, setVerdictFilter] = useState<'all' | 'new' | 'updated' | 'suspect'>('all');
   const [confirmSearch, setConfirmSearch] = useState('');
@@ -356,6 +385,13 @@ const FileManager: React.FC<FileManagerProps> = () => {
   const handleSheetPickerCancel = () => {
     setSheetPickerOpen(false);
     setPreselectedDisabledSheets(new Set());
+    releaseImportTransients();
+  };
+  /** 关闭「确认导入车型」弹窗并释放导入过程态（非横向与横向导入路径共用） */
+  const handleConfirmModalCancel = () => {
+    setConfirmModalVisible(false);
+    setPendingProductData([]);
+    releaseImportTransients();
   };
   return (
     <>
@@ -364,7 +400,9 @@ const FileManager: React.FC<FileManagerProps> = () => {
       </Upload>
 
       <ExcelPreviewDialog open={previewOpen} previews={previewData} fileName={pendingFileName}
-        onConfirm={handlePreviewConfirm} onCancel={() => setPreviewOpen(false)} preselectedDisabledSheets={preselectedDisabledSheets} />
+        onConfirm={handlePreviewConfirm}
+        onCancel={() => { setPreviewOpen(false); releaseImportTransients(); }}
+        preselectedDisabledSheets={preselectedDisabledSheets} />
       <SheetPickerModal open={sheetPickerOpen} sheets={sheetPickerData}
         onConfirm={handleSheetPickerConfirm} onSkip={handleSheetPickerSkip} onCancel={handleSheetPickerCancel} />
       
@@ -374,10 +412,10 @@ const FileManager: React.FC<FileManagerProps> = () => {
           open={confirmModalVisible}
           title="确认导入车型"
           width={980}
-          onCancel={() => { setConfirmModalVisible(false); setPendingProductData([]); }}
+          onCancel={handleConfirmModalCancel}
           footer={[
             <Button key="cancel" disabled={importSaving.active}
-              onClick={() => { setConfirmModalVisible(false); setPendingProductData([]); }}>取消</Button>,
+              onClick={handleConfirmModalCancel}>取消</Button>,
             <Button key="confirm" type="primary" loading={importSaving.active} onClick={handleConfirmSave}>
               {importSaving.active
                 ? `保存中…（${importSaving.total} 个）`
@@ -580,7 +618,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
         targetName={diffState.targetName}
         base={diffState.base}
         target={diffState.target}
-        onClose={() => setDiffState(prev => ({ ...prev, open: false }))}
+        onClose={() => setDiffState(prev => ({ ...prev, open: false, base: null, target: null }))}
       />
     </>
   );

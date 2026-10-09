@@ -5,6 +5,7 @@ import {
     parseHorizontalSheet,
     type WorkbookOrientation
 } from './excelParserHorizontal';
+import type { WorkbookHandleInfo, WorkbookHandleStore } from './workbookHandles';
 
 /**
  * Excel 参数解析器
@@ -560,51 +561,45 @@ export const parseWorkbook = (workbook: XLSX.WorkBook, fileName: string): SheetD
     return { fileName, data: allParameters, rawHeaders: headers };
 };
 
-// ===================== 入口函数 =====================
-
-export const parseExcel = async (file: File): Promise<SheetData> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
-                const workbook = XLSX.read(data, { type: 'array' });
-                resolve(parseWorkbook(workbook, file.name));
-            } catch (error) { reject(error); }
-        };
-        reader.onerror = (error) => reject(error);
-        reader.readAsArrayBuffer(file);
-    });
-};
-
-export const readFileAsWorkbook = (file: File): Promise<XLSX.WorkBook> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = e.target?.result;
-                resolve(XLSX.read(data, { type: 'array' }));
-            } catch (error) { reject(error); }
-        };
-        reader.onerror = (error) => reject(error);
-        reader.readAsArrayBuffer(file);
-    });
-};
-
 // ===================== 预览 + 配置化解析 =====================
+
+/** 预览最多保留的行数 */
+const PREVIEW_MAX_ROWS = 100;
 
 export const previewWorkbook = (workbook: XLSX.WorkBook): SheetPreview[] => {
     return workbook.SheetNames.map(sheetName => {
         const sheet = workbook.Sheets[sheetName];
-        const jsonData = sheetToRows(sheet, { header: 1, defval: '' }) as string[][];
-        const totalRows = jsonData.length;
-        const totalCols = jsonData.reduce((max, row) => Math.max(max, (row as unknown[]).length), 0);
 
-        const rows = jsonData.slice(0, 100).map(row => {
-            const padded = [...(row as string[])];
-            while (padded.length < totalCols) padded.push('');
-            return padded.map(c => (c !== null && c !== undefined) ? String(c) : '');
-        });
+        // 与 sheetToRows 同一套 !ref 收敛：部分文件把 !ref 膨胀到 XFD，
+        // 此时降级到真实单元格边界，避免 totalCols 被算成大得离谱的值。
+        const ref = getEffectiveSheetRange(sheet) || sheet['!ref'];
+        const decoded = ref ? XLSX.utils.decode_range(ref) : null;
+
+        // 行列总数直接来自收敛后的 ref，不再扫全表物化（内存治理 P1-1）：
+        // 此前先 sheet_to_json 整表再 slice(0,100)，宽表会白白分配整表数组。
+        // 畸形（倒序）ref 会产生负值，钳到 0。
+        const totalRows = decoded ? Math.max(0, decoded.e.r - decoded.s.r + 1) : 0;
+        const totalCols = decoded ? Math.max(0, decoded.e.c - decoded.s.c + 1) : 0;
+
+        let rows: string[][] = [];
+        if (decoded && totalRows > 0) {
+            // 行范围按 s.r 相对取前 PREVIEW_MAX_ROWS 行（非 0 起始的表也对），
+            // 列仍取全宽——sheet_to_json 的 range 无法只约束行而不管列。
+            const jsonData = XLSX.utils.sheet_to_json(sheet, {
+                header: 1,
+                defval: '',
+                range: {
+                    s: { r: decoded.s.r, c: decoded.s.c },
+                    e: { r: Math.min(decoded.s.r + PREVIEW_MAX_ROWS - 1, decoded.e.r), c: decoded.e.c },
+                },
+            }) as unknown[][];
+
+            // defval:'' 会把行补满到 range 宽度，故输出与旧的整表实现逐字节一致；
+            // 收益来自行数（整表 → 100 行），列宽行为不变。
+            rows = jsonData.slice(0, PREVIEW_MAX_ROWS).map(row =>
+                (row as unknown[]).map(c => (c !== null && c !== undefined) ? String(c) : '')
+            );
+        }
 
         const merges = (sheet['!merges'] || []).map(m => ({
             s: { r: m.s.r, c: m.s.c }, e: { r: m.e.r, c: m.e.c }
@@ -641,6 +636,88 @@ export const detectWorkbookOrientation = (workbook: XLSX.WorkBook): WorkbookOrie
     if (!sawHorizontal && !sawOther) return 'empty';
     if (sawHorizontal && sawOther) return 'mixed';
     return sawHorizontal ? 'horizontal' : 'vertical';
+};
+
+/** 构造 handle 信息的唯一实现：主线程 fallback 与 worker 共用，避免两份拷贝漂移 */
+export const buildWorkbookHandleInfo = (
+    workbook: XLSX.WorkBook,
+    handleId: number,
+    fileName: string
+): WorkbookHandleInfo => ({
+    handleId,
+    fileName,
+    sheetNames: workbook.SheetNames,
+    orientation: detectWorkbookOrientation(workbook),
+    previews: previewWorkbook(workbook),
+});
+
+/**
+ * 首 sheet 的二维数组（header:1），不给调用方 workbook。
+ *
+ * 供「只按索引取列」的消费者使用：在解析侧转好，避免整份 workbook 跨线程克隆。
+ */
+export const firstSheetRows = (workbook: XLSX.WorkBook): unknown[][] => {
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
+};
+
+/**
+ * 首 sheet 的表头对象数组——直接委托 SheetJS，语义由库保证（勿手写复刻）。
+ *
+ * SheetJS 默认 sheet_to_json 的命名语义（空表头 ""、重复 _1、超宽列 __EMPTY、
+ * null 单元格省略键、全空行保留）用手写复刻会静默改结果，故在此原样调用。
+ */
+export const firstSheetHeaderObjects = (workbook: XLSX.WorkBook): Record<string, unknown>[] => {
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+};
+
+/**
+ * 首 sheet 行载荷的形状（解析侧产出、跨线程/进程回传的终态）。
+ * 定义在生产者旁边（而非 excelParserAsync），使 worker 侧也能用同一类型标注结果，
+ * 从而把「worker 与 fallback 返回同形」从约定变成编译期约束。
+ */
+export interface SheetRowsResult {
+    sheetName: string;
+    /** header:1 的二维数组 */
+    rows: unknown[][];
+}
+
+/** 首 sheet 表头对象载荷的形状（同 SheetRowsResult 的理由） */
+export interface SheetObjectsResult {
+    sheetName: string;
+    /** SheetJS 默认语义：含空表头/重复去重/__EMPTY 规则 */
+    objects: Record<string, unknown>[];
+}
+
+/** 构造行载荷的唯一实现：worker 与主线程 fallback 共用，避免两侧形状漂移 */
+export const buildSheetRowsResult = (workbook: XLSX.WorkBook): SheetRowsResult => ({
+    sheetName: workbook.SheetNames[0],
+    rows: firstSheetRows(workbook),
+});
+
+/** 构造表头对象载荷的唯一实现：同上 */
+export const buildSheetObjectsResult = (workbook: XLSX.WorkBook): SheetObjectsResult => ({
+    sheetName: workbook.SheetNames[0],
+    objects: firstSheetHeaderObjects(workbook),
+});
+
+/**
+ * 按 handle 解析的唯一实现：主线程 fallback 与 worker 共用。
+ *
+ * worker 与 fallback 是两个 realm，但 store 只是普通参数，故可共用纯函数。
+ * 关键是错误文案（对用户可见，设计 §4 要求「释放后解析必须明确报错」）只此一份。
+ */
+export const parseByHandle = (
+    store: WorkbookHandleStore,
+    handleId: number,
+    configs?: SheetParseConfig[]
+): SheetData => {
+    const entry = store.get(handleId);
+    if (!entry) throw new Error(`workbook handle 不存在或已释放：${handleId}`);
+    return configs
+        ? parseWorkbookWithConfig(entry.workbook, entry.fileName, configs)
+        : parseWorkbook(entry.workbook, entry.fileName);
 };
 
 export const parseWorkbookWithConfig = (
