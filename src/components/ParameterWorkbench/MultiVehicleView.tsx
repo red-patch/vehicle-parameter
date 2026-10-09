@@ -8,7 +8,7 @@ import { findBestMatch } from '../../utils/matchingEngine';
 import type { MatchResult } from '../../utils/matchingEngine';
 import ProductSourceSelector from './ProductSourceSelector';
 import * as XLSX from 'xlsx';
-import { readWorkbookFromBufferAsync } from '../../utils/excelParserAsync';
+import { readFirstSheetRowsAsync } from '../../utils/excelParserAsync';
 import { downloadCsv } from '../../utils/downloadCsv';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
@@ -360,9 +360,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                     beforeUpload={async (file) => {
                                         try {
                                             const buffer = await file.arrayBuffer();
-                                            const workbook = await readWorkbookFromBufferAsync(buffer);
-                                            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                                            const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                                            const { rows } = await readFirstSheetRowsAsync(buffer);
                                             if (rows.length < 2) { message.error('文件为空'); return false; }
                                             const headers = rows[0];
                                             let nameIdx = headers.findIndex(h => h && typeof h === 'string' && 

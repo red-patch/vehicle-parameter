@@ -7,9 +7,8 @@ import type { AssetUpgradeCategory, AssetUpgradeItem, SheetData, SheetParseConfi
 import { useVehicleStore } from '../../store/vehicleStore';
 import { loadAssetFile, saveAssetFile, setAssetFileTags, type AssetFileInfo } from '../../utils/assetManager';
 import { applyAssetUpgradeDraft, buildAssetUpgradeDraft, buildAssetUpgradePreview } from '../../utils/assetUpgrade';
-import { previewWorkbook } from '../../utils/excelParser';
-import { readWorkbookAsync } from '../../utils/excelParserAsync';
-import { parseExcelAsync, parseWithConfigAsync } from '../../utils/excelParserAsync';
+import { parseExcelAsync } from '../../utils/excelParserAsync';
+import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../../utils/excelParserAsync';
 import { exportAssetUpgradeReviewReport } from '../../utils/assetUpgradeReport';
 import ReportExportDropdown from '../common/ReportExportDropdown';
 import type { ReportFormat } from '../../utils/reportExport';
@@ -85,7 +84,15 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewData, setPreviewData] = useState<SheetPreview[]>([]);
     const [pendingFileName, setPendingFileName] = useState('');
-    const pendingFileRef = useRef<File | null>(null);
+    const pendingHandleIdRef = useRef<number | null>(null);
+
+    /** 释放解析侧的 workbook handle（幂等）。所有离开预览的路径共用，避免漏放整个 workbook。 */
+    const releasePendingHandle = useCallback(() => {
+        if (pendingHandleIdRef.current !== null) {
+            releaseWorkbookHandle(pendingHandleIdRef.current);
+            pendingHandleIdRef.current = null;
+        }
+    }, []);
 
     const resetSession = useCallback(() => {
         setBaselineData(null);
@@ -98,12 +105,17 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
         setPreviewOpen(false);
         setPreviewData([]);
         setPendingFileName('');
-    }, [setAssetUpgradeDraft]);
+        releasePendingHandle();
+    }, [releasePendingHandle, setAssetUpgradeDraft]);
 
     const handleClose = useCallback(() => {
         resetSession();
         onClose();
     }, [onClose, resetSession]);
+
+    // 防御：正常关闭走 handleClose → resetSession 释放。此处兜底「父层改为条件卸载」这类
+    // 未来改动——否则预览中的 handle 要等 worker 内 LRU 才回收，等于漏放整个 workbook。
+    useEffect(() => () => releasePendingHandle(), [releasePendingHandle]);
 
     useEffect(() => {
         // 关闭态不跑 resetSession：挂载即写一次空草稿没有意义，且会触发持久化存储写
@@ -171,11 +183,12 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
     }, [baselineData, setAssetUpgradeDraft]);
 
     const openPreviewDialog = useCallback(async (file: File) => {
+        releasePendingHandle(); // 防御：替换 ref 前先放掉上一个 handle，避免二次上传残留整个 workbook
         try {
-            const workbook = await readWorkbookAsync(file);
-            setPendingFileName(file.name);
-            pendingFileRef.current = file; // 缓存原始 File 供 Worker 重解析
-            setPreviewData(previewWorkbook(workbook));
+            const info = await openWorkbookAsync(file);
+            setPendingFileName(info.fileName);
+            pendingHandleIdRef.current = info.handleId;
+            setPreviewData(info.previews);
             setPreviewOpen(true);
         } catch (error) {
             console.error('Failed to preview workbook for upgrade import', error);
@@ -183,7 +196,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
         } finally {
             setUploading(false);
         }
-    }, []);
+    }, [releasePendingHandle]);
 
     const handleUpload = useCallback(async (file: File) => {
         setUploading(true);
@@ -208,25 +221,25 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
     }, [applyImportedSheet, openPreviewDialog]);
 
     const handlePreviewConfirm = useCallback(async (configs: SheetParseConfig[]) => {
-        const file = pendingFileRef.current;
-        if (!file) {
+        const handleId = pendingHandleIdRef.current;
+        if (handleId === null) {
             message.error('文件缓存已过期，请重新上传');
             setPreviewOpen(false);
             return;
         }
 
         try {
-            const parsed = await parseWithConfigAsync(file, configs);
+            const parsed = await parseHandleAsync(handleId, configs);
             applyImportedSheet(parsed);
             setPreviewOpen(false);
             setPendingFileName('');
-            pendingFileRef.current = null;
             setPreviewData([]);
+            releasePendingHandle();
         } catch (error) {
             console.error('Failed to parse configured workbook for upgrade import', error);
             message.error(`解析失败：${(error as Error).message}`);
         }
-    }, [applyImportedSheet]);
+    }, [applyImportedSheet, releasePendingHandle]);
 
     const pendingConflictCount = useMemo(
         () => assetUpgradeDraft?.items.filter((item) => item.category === 'conflict' && item.decision === 'pending').length ?? 0,
@@ -707,6 +720,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                     setPreviewOpen(false);
                     setPendingFileName('');
                     setPreviewData([]);
+                    releasePendingHandle();
                 }}
             />
         </>

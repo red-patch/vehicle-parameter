@@ -155,12 +155,13 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const longPressTargetRef = useRef<string | null>(null);
 
 
-    const fetchAssets = useCallback(async () => {
+    /** @param force 跳过扫描缓存（「刷新资产库」按钮用：应用外的文件增删改没有失效信号） */
+    const fetchAssets = useCallback(async (force = false) => {
         if (!assetLibraryPath) return;
         setLoading(true);
         try {
             const [infos, tags, meta, vocab, values] = await Promise.all([
-                getAssetFilesWithInfo(assetLibraryPath),
+                getAssetFilesWithInfo(assetLibraryPath, force),
                 loadAssetTags(assetLibraryPath),
                 loadAssetMeta(assetLibraryPath),
                 loadFacetVocab(assetLibraryPath),
@@ -182,12 +183,12 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 message.info(`已将 ${primaryFileNames.length} 个主文件标记迁移为「${KEY_VEHICLE_TAG}」标签`);
             }
             // 按更新时间倒序（每车最新版的定位交给分组视图的链头徽章）
-            infos.sort((a, b) => {
+            // 复制后再排序：infos 现由扫描缓存共享，原地排序会污染其他调用方
+            setAssets([...infos].sort((a, b) => {
                 if (!a.updatedAt) return 1;
                 if (!b.updatedAt) return -1;
                 return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-            });
-            setAssets(infos);
+            }));
             setAssetTags(effectiveTags);
             setAssetMeta(effectiveMeta);
         } catch (err) {
@@ -858,7 +859,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                                 type="text"
                                 size="small"
                                 icon={<ReloadOutlined className={`!text-[14px] text-3 hover:text-brand ${loading ? 'animate-spin' : ''}`} />}
-                                onClick={fetchAssets}
+                                onClick={() => { void fetchAssets(true); }}
                                 disabled={loading}
                                 className="w-7 h-7 p-0 min-w-0 flex items-center justify-center rounded-lg"
                             />

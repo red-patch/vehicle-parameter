@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Button, Input, message, Segmented, Space, Alert, Upload, Select } from 'antd';
 import { ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
-import * as XLSX from 'xlsx';
-import { readWorkbookFromBufferAsync } from '../../utils/excelParserAsync';
+import { readFirstSheetRowsAsync } from '../../utils/excelParserAsync';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import ProductSourceSelector from './ProductSourceSelector';
@@ -210,9 +209,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
                                     beforeUpload={async (file) => {
                                         try {
                                             const buffer = await file.arrayBuffer();
-                                            const workbook = await readWorkbookFromBufferAsync(buffer);
-                                            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                                            const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                                            const { rows } = await readFirstSheetRowsAsync(buffer);
                                             if (rows.length < 2) { message.error('文件为空'); return false; }
                                             const headers = rows[0];
                                             let nameIdx = headers.findIndex(h => h && typeof h === 'string' && 

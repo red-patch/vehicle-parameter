@@ -3,8 +3,7 @@ import { Upload, Button, Table, Card, Statistic, Row, Col, Empty, message } from
 import { UploadOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { ColumnsType } from 'antd/es/table';
-import * as XLSX from 'xlsx';
-import { readWorkbookFromBufferAsync } from '../../utils/excelParserAsync';
+import { readFirstSheetObjectsAsync } from '../../utils/excelParserAsync';
 import { downloadCsv } from '../../utils/downloadCsv';
 
 interface AttributeRow {
@@ -39,12 +38,9 @@ const AttributeDedup: React.FC = () => {
         reader.onload = async (e) => {
             try {
                 const buffer = e.target?.result as ArrayBuffer;
-                // Worker 线程解析，避免大文件 XLSX.read 阻塞 UI
-                const workbook = await readWorkbookFromBufferAsync(buffer);
-                const sheetName = workbook.SheetNames[0];
-                const sheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
-                
+                // 解析侧用 SheetJS 直接产出表头对象数组，避免大文件 XLSX.read 阻塞 UI 且不跨线程传 workbook
+                const { objects: jsonData } = await readFirstSheetObjectsAsync(buffer);
+
                 if (!jsonData.length) {
                     message.error('文件内容为空');
                     return;
