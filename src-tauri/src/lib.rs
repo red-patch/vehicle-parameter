@@ -1,6 +1,7 @@
 mod announcements;
 mod assets;
 mod excel;
+mod mobile;
 mod pdf_sniff;
 
 /// macOS 标准应用菜单：系统预定义项自带加速键（Cmd+Q 退出 / Cmd+W 关窗 /
@@ -66,7 +67,13 @@ pub fn run() {
       announcements::copy_files_to_clipboard,
       pdf_sniff::scan_pdf_candidates,
       pdf_sniff::cancel_pdf_scan,
-      pdf_sniff::probe_downloads
+      pdf_sniff::probe_downloads,
+      mobile::start_mobile_server,
+      mobile::set_mobile_public_url,
+      mobile::set_mobile_server_enabled,
+      mobile::mobile_server_status,
+      mobile::create_mobile_pairing_code,
+      mobile::revoke_all_mobile_devices
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

@@ -18,7 +18,13 @@ struct AssetParam {
     value: serde_json::Value,
 }
 
+/// 真实资产文件是 camelCase（见 save_assets_batch 写入的形状与磁盘存量文件）。
+/// 此前无 rename_all/alias，导致 productName/updatedAt/createdAt 三个字段**恒为 None**：
+/// 列表里的时间戳从未渲染、ADR-0003「每车最新版」的 updatedAt 排序键失效、
+/// 桌面列表排序回退到字典序。JS 兜底路径（assetManager.ts:285-286）读的是
+/// parsed.productName，一直是对的——这里补齐使两条路径一致。
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AssetFile {
     #[serde(default)]
     product_name: Option<String>,
@@ -57,7 +63,8 @@ pub struct AssetFileInfo {
 }
 
 /// 与前端 isAssetDataFile 对齐：.json 且不以 _ / custom_ 开头
-fn is_asset_data_file(name: &str) -> bool {
+/// pub：手机查看服务复用同一谓词（避免两处漂移）；`mobile.rs` 另有路径穿越防线
+pub fn is_asset_data_file(name: &str) -> bool {
     name.ends_with(".json") && !name.starts_with('_') && !name.starts_with("custom_")
 }
 
@@ -198,7 +205,7 @@ fn scan_one(path: &Path, file_name: &str) -> Option<AssetFileInfo> {
     })
 }
 
-fn scan_asset_library_blocking(path: String) -> Result<Vec<AssetFileInfo>, String> {
+pub fn scan_asset_library_blocking(path: String) -> Result<Vec<AssetFileInfo>, String> {
     let dir = Path::new(&path);
     let entries = std::fs::read_dir(dir).map_err(|e| format!("无法读取资产库目录: {e}"))?;
 
