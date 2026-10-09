@@ -43,7 +43,8 @@ export const saveAssetFile = async (
 
     const jsonString = JSON.stringify(data, null, 2);
     await writeTextFile(fullPath, jsonString);
-    
+
+    invalidateAssetScanCache();
     return fullPath;
 };
 
@@ -104,7 +105,10 @@ export const saveAssetsBatch = async (
     if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
         try {
             const { invoke } = await import('@tauri-apps/api/core');
-            return await invoke<BatchSaveResultItem[]>('save_assets_batch', { path: libraryPath, items, nowIso });
+            const batchResults = await invoke<BatchSaveResultItem[]>('save_assets_batch', { path: libraryPath, items, nowIso });
+            // 仅在有实际落盘时失效缓存；全部失败则盘上无变化，缓存仍有效
+            if (batchResults.some(r => r.ok)) invalidateAssetScanCache();
+            return batchResults;
         } catch (e) {
             console.warn('save_assets_batch 失败，回退 JS 实现', e);
         }
@@ -152,6 +156,8 @@ export const saveAssetsBatch = async (
             }
         }));
     }
+    // 仅在有实际落盘时失效缓存；全部失败则盘上无变化，缓存仍有效
+    if (results.some(r => r.ok)) invalidateAssetScanCache();
     return results.sort((a, b) => a.index - b.index);
 };
 
@@ -203,13 +209,31 @@ export interface AssetFileInfo {
 }
 
 /**
+ * 扫描结果短缓存（内存治理 P0-3）。
+ *
+ * 同一份资产库元信息此前被 6 处独立拉取（DataSourcePanel / useAssetLibrarySnapshot /
+ * FileManager / AnnouncementArchiveList ×2 / AnnouncementBatchImportModal），
+ * 每次都是一轮 Rust 全库扫描 + 解析。这里按 (库路径, 版本) 去重：
+ * - 命中直接复用，绝不返回过期数据——任何写操作都必须调用 invalidateAssetScanCache()。
+ * - 存 Promise 而非结果：并发首拉也只会触发一次扫描。
+ */
+let scanCache: { key: string; promise: Promise<AssetFileInfo[]> } | null = null;
+let scanCacheVersion = 0;
+
+/** 资产库发生任何写操作（保存/重命名/删除/归档）后必须调用 */
+export const invalidateAssetScanCache = (): void => {
+    scanCache = null;
+    scanCacheVersion += 1;
+};
+
+/**
  * 遍历并轻量解析资产库的所有文件，获得核心元信息和概览统计
  *
  * Tauri 环境优先走 Rust 命令 scan_asset_library：读文件+解析+统计全部在
  * Rust 线程池完成，只回传元信息——资产库达数百文件/几十 MB 时，主线程
  * 不再被 JSON.parse 分片阻塞（这是页面切换卡顿的主因）。
  */
-export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetFileInfo[]> => {
+const scanAssetFiles = async (libraryPath: string): Promise<AssetFileInfo[]> => {
     if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
         try {
             const { invoke } = await import('@tauri-apps/api/core');
@@ -314,6 +338,31 @@ export const getAssetFilesWithInfo = async (libraryPath: string): Promise<AssetF
 };
 
 /**
+ * 资产库扫描缓存入口：按 (库路径, 版本) 复用同一份 Promise，
+ * 任何写操作后由 invalidateAssetScanCache() 递增版本使其失效。
+ *
+ * @param force 跳过缓存强制重扫。用于「刷新资产库」按钮——缓存只在应用内写操作时
+ *   失效，而应用外的文件增删改（用户在 Finder 里操作）不会触发任何失效信号。
+ */
+export const getAssetFilesWithInfo = async (
+    libraryPath: string,
+    force = false
+): Promise<AssetFileInfo[]> => {
+    const key = `${libraryPath}\u0000${scanCacheVersion}`;
+    // 严格比较 true：直传事件对象给这个参数会得到 truthy，误触发强制重扫
+    if (force !== true && scanCache?.key === key) return scanCache.promise;
+    const promise = scanAssetFiles(libraryPath);
+    scanCache = { key, promise };
+    // 空结果一律不缓存：scanAssetFiles 对失败是「吞错 → 回退」，瞬时故障与真空库
+    // 都表现为 []，无法在此层区分。固化一次故障会让 UI 长期显示空库；空库重扫近乎零成本。
+    promise.then(
+        infos => { if (infos.length === 0 && scanCache?.key === key) scanCache = null; },
+        () => { if (scanCache?.key === key) scanCache = null; },
+    );
+    return promise;
+};
+
+/**
  * 加载并解析一个本地 JSON 资产文件，转为标准 SheetData 以供系统复用
  * @param libraryPath 资产库根目录
  * @param fileName 文件名
@@ -406,6 +455,7 @@ export const renameAssetFile = async (
         // 同步治理元数据
         await syncMetaOnRename(libraryPath, finalOldName, finalNewName);
 
+        invalidateAssetScanCache();
         return true;
     } catch (error) {
         console.error("Failed to rename asset file", error);
@@ -462,6 +512,7 @@ export const renameAssetIdentity = async (
         // 同步治理元数据
         await syncMetaOnRename(libraryPath, finalOldName, finalNewName);
 
+        invalidateAssetScanCache();
         return {
             success: true,
             fileName: finalNewName,
@@ -497,6 +548,7 @@ export const renameAssetProductName = async (
         }));
 
         await writeTextFile(fullPath, JSON.stringify(parsed, null, 2));
+        invalidateAssetScanCache();
         return true;
     } catch (error) {
         console.error('Failed to rename asset product name', error);
@@ -532,6 +584,7 @@ export const deleteAssetFile = async (libraryPath: string, fileName: string): Pr
         // 同步清除治理元数据
         await syncMetaOnDelete(libraryPath, finalFileName);
 
+        invalidateAssetScanCache();
         return true;
     } catch (error) {
         console.error("Failed to delete asset file", error);
@@ -572,6 +625,7 @@ export const archiveAssetFile = async (libraryPath: string, fileName: string): P
         }
         await syncMetaOnDelete(libraryPath, finalFileName);
 
+        invalidateAssetScanCache();
         return true;
     } catch (error) {
         console.error('Failed to archive asset file', error);
