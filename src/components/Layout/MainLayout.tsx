@@ -1,7 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { version } from '../../../package.json';
 import { Layout as AntLayout, Menu, Tooltip, Button } from 'antd';
-import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, BookOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { reloadCustomFields } from '../../utils/fieldLists';
@@ -43,6 +43,11 @@ const items = [
         key: 'announcement',
         icon: <GlobalOutlined />,
         label: '公告中心',
+    },
+    {
+        key: 'regulation',
+        icon: <BookOutlined />,
+        label: '法规标准',
     },
     {
         key: 'dict',
