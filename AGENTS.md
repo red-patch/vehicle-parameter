@@ -32,7 +32,7 @@ npm run build      # tsc -b + vite build
 ## 导航指针
 
 - **领域术语**：[CONTEXT.md](CONTEXT.md) 是词汇表（资产/受控属性/身份键/公告记录…），读设计文档或写用户文案前先对齐；`_Avoid:_` 行是禁用叫法
-- **架构决策**：`docs/adr/0001-0003`（受控属性分层、身份键与永不静默覆盖、主文件退役）
+- **架构决策**：`docs/adr/0001-0004`（受控属性分层、身份键与永不静默覆盖、主文件退役、只读远程访问面）
 - **设计方案**：`docs/plans/YYYY-MM-DD-主题-design.md`，带「日期｜状态」头与前置文档链；新设计照此体例落盘，实施完把状态头改为「已实施」
 - **资产管理页组件链**：`MainLayout('pool')` → `ParameterWorkbench` → `DataSourcePanel`；`src/components/AssetLibrary/` 只装筛选面板和弹窗抽屉，不是页面入口
 
@@ -45,6 +45,7 @@ npm run build      # tsc -b + vite build
 | `src/workers/` | Web Worker（解析等重计算） |
 | `src/utils/` | 纯函数工具，优先把逻辑放这里方便测试 |
 | `src-tauri/` | Rust 后端、Tauri 配置、capabilities 权限 |
+| `src-tauri/src/mobile.rs` | **手机查看**只读 HTTP 服务（ADR-0004）。三条不可动摇：**只绑 `127.0.0.1`**（局域网不可见，只经隧道对外）、**只读**（非 GET 一律 405，无写端点）、**每设备长期 token**（非共享码）。改动后跑 `cargo test` |
 | `scripts/` | 一次性脚本（debug_*/test_*/verify_* 多为临时验证用） |
 | `docs/` | PRD.md、User_Manual.md、设计方案、测试数据 |
 
