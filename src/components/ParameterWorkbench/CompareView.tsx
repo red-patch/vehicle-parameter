@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Checkbox, Empty, Tag, Alert, Space, Input, Segmented, message, Select, Spin } from 'antd';
+import { Card, Checkbox, Empty, Tag, Alert, Space, Input, Segmented, message, Select, Spin, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DiffOutlined, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -16,19 +16,12 @@ import type { ReportFormat } from '../../utils/reportExport';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { buildVehicleDisplayLabels, getVehicleProductName } from '../../utils/vehicleInstance';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
+import { buildCompareRows } from '../../utils/compareMatrix';
+import type { CompareRow } from '../../utils/compareMatrix';
 
 interface CompareViewProps {
     onGoRepair?: () => void;
 }
-
-/** 对比表一行：固定列 + 每个选中车型一列（列名是实例键，值是参数文本） */
-type CompareRow = {
-    key: string;
-    group: string;
-    name: string;
-    hasDiff: boolean;
-    hasAnyValue: boolean;
-} & Record<string, string | boolean>;
 
 const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     const { uploadedFiles, assetFiles, activeAssets, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion } = useVehicleStore(useShallow(state => ({
@@ -47,6 +40,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     const [searchText, setSearchText] = useState('');
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
     const [hideEmpty, setHideEmpty] = useState(true);
+    // 按字段名合并（忽略分组）：解决同字段因导入归属总成不同被拆成两行、显出假差异
+    const [mergeByFieldName, setMergeByFieldName] = useState(false);
 
     // 自动清理：已在待分析区中被移除的车型，同步踢出对比选择
     useEffect(() => {
@@ -71,45 +66,20 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     );
 
     // Build comparison matrix (supports 1+ products)
-    // 合并 key 为「分组+参数名」：同名参数在不同总成下（如各传感器的"型号"）
-    // 不能互相覆盖，否则每车只留最后一行的值，跨车对比会拿错总成的值来比
+    // 默认合并 key 为「分组+参数名」：同名参数在不同总成下（如各传感器的"型号"）
+    // 不能互相覆盖，否则每车只留最后一行的值，跨车对比会拿错总成的值来比。
+    // 开启「按字段名合并」后改为只按 name 配对（冲突字段自动退回分组键，见 compareMatrix）。
     const comparisonData = useMemo<CompareRow[]>(() => {
         if (localSelection.length < 1) return [];
 
-        const allParams = new Map<string, { group: string; name: string; values: Map<string, string> }>();
-
-        localSelection.forEach(instanceKey => {
-            const data = selectionStates.get(instanceKey)?.data || [];
-            data.forEach(p => {
-                const group = p.group || '未分组';
-                const key = `${group}::${p.name}`;
-                if (!allParams.has(key)) {
-                    allParams.set(key, { group, name: p.name, values: new Map() });
-                }
-                const entry = allParams.get(key)!;
-                // 同分组同名的重复行：空值不覆盖已填值，避免对比表里被"-"吞掉
-                const value = String(p.value ?? '');
-                if (value !== '' || !entry.values.has(instanceKey) || entry.values.get(instanceKey) === '') {
-                    entry.values.set(instanceKey, value);
-                }
-            });
-        });
-
-        return Array.from(allParams.entries()).map(([key, param]) => {
-            const values = Array.from(param.values.values());
-            const allSame = values.every(v => v === values[0]);
-
-            return {
-                key,
-                group: param.group,
-                name: param.name,
-                hasDiff: localSelection.length > 1 ? !allSame : false,
-                // 任一选中车型有值即算有值；某车型缺该行时按空值计
-                hasAnyValue: values.some(v => v.trim() !== ''),
-                ...Object.fromEntries(param.values)
-            };
-        });
-    }, [localSelection, selectionStates]);
+        return buildCompareRows(
+            localSelection.map(instanceKey => ({
+                instanceKey,
+                params: selectionStates.get(instanceKey)?.data || [],
+            })),
+            { mergeByFieldName }
+        );
+    }, [localSelection, selectionStates, mergeByFieldName]);
 
     const pendingSelectionCount = useMemo(() => {
         return Array.from(selectionStates.values()).filter((state) => state.status === 'pending').length;
@@ -188,7 +158,14 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                 key: 'group',
                 width: 100,
                 fixed: 'left',
-                render: (text: string) => <Tag color="default">{text}</Tag>,
+                render: (text: string, record: CompareRow) =>
+                    record.groups && record.groups.length > 1 ? (
+                        <Tooltip title={`合并自：${record.groups.join('、')}`}>
+                            <Tag color="blue">{text}</Tag>
+                        </Tooltip>
+                    ) : (
+                        <Tag color="default">{text}</Tag>
+                    ),
             },
             {
                 title: '参数名',
@@ -395,6 +372,14 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
                                 >
                                     隐藏无值字段{emptyHideableCount > 0 ? ` (${emptyHideableCount})` : ''}
                                 </Checkbox>
+                                <Tooltip title="忽略分组，只按参数名配对；同名字段在任一车型内取值冲突时不合并">
+                                    <Checkbox
+                                        checked={mergeByFieldName}
+                                        onChange={e => setMergeByFieldName(e.target.checked)}
+                                    >
+                                        按字段名合并
+                                    </Checkbox>
+                                </Tooltip>
                             </div>
                             <Space>
                                 {pendingSelectionCount > 0 && (
