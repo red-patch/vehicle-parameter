@@ -1,41 +1,51 @@
 //! Excel 读写命令（重构方案A Phase 5：重计算下沉 Rust）
 //!
-//! - read_workbook：calamine 解析 → 输出 SheetJS WorkBook 兼容结构
-//!   （SheetNames + Sheets 的 A1 寻址单元格矩阵），前端 excelParser 逻辑无感切换
+//! - read_workbook：calamine 解析 → 按 sheet 输出行数组（AOA）载荷
+//!   （`sheetNames` + 每 sheet 的 `rows`/`totalRows`/`totalCols`）。空单元格保留为
+//!   null，列位不塌缩——A1 寻址矩阵（含 `!ref`）已退役（P2-4）。
 //! - export_xlsx：rust_xlsxwriter 把二维数组直接写盘，替代前端主线程 SheetJS 导出
 
-use calamine::{open_workbook_auto, Data as CellData, Reader};
+use calamine::{open_workbook_auto, Data as CellData, Range, Reader};
 use serde_json::{json, Map, Value};
 
-/// 将 0 基列索引编码为 Excel 列名（0→A, 25→Z, 26→AA）
-fn column_name(mut col: u32) -> String {
-    let mut bytes = Vec::new();
-    loop {
-        bytes.push(b'A' + (col % 26) as u8);
-        if col < 26 {
-            break;
-        }
-        col = col / 26 - 1;
+/// calamine 单元格 → 直接 JSON 值。
+///
+/// 数值语义与旧 `{v,t}` SheetJS 单元格一致（消费者只读 `.v`）：
+/// String→string，Float/Int/DateTime→number（Excel 日期序列数，同 SheetJS cellDates:false），
+/// Bool→bool，DateTimeIso/DurationIso→string，Error→其字符串形式。
+///
+/// `Empty` 映射为 `Null`（而非丢弃）：`Range::rows()` 按 `width()` 分块，每行已是满宽，
+/// 空单元格必须占位，否则其后列整体左移。
+fn cell_to_json(data: &CellData) -> Value {
+    match data {
+        CellData::Empty => Value::Null,
+        CellData::String(s) => Value::String(s.clone()),
+        CellData::Float(f) => json!(f),
+        CellData::Int(i) => json!(i),
+        CellData::Bool(b) => json!(b),
+        CellData::DateTime(dt) => json!(dt.as_f64()),
+        CellData::DateTimeIso(s) => Value::String(s.clone()),
+        CellData::DurationIso(s) => Value::String(s.clone()),
+        CellData::Error(e) => Value::String(e.to_string()),
     }
-    bytes.reverse();
-    String::from_utf8(bytes).unwrap_or_default()
 }
 
-/// calamine 单元格 → SheetJS 单元格（{v, t}；t: s/n/b/e）
-fn cell_to_json(data: &CellData) -> Option<Value> {
-    let (v, t) = match data {
-        CellData::Empty => return None,
-        CellData::String(s) => (Value::String(s.clone()), "s"),
-        CellData::Float(f) => (json!(f), "n"),
-        CellData::Int(i) => (json!(i), "n"),
-        CellData::Bool(b) => (json!(b), "b"),
-        // Excel 日期序列数，与 SheetJS 默认行为（cellDates:false）一致
-        CellData::DateTime(dt) => (json!(dt.as_f64()), "n"),
-        CellData::DateTimeIso(s) => (Value::String(s.clone()), "s"),
-        CellData::DurationIso(s) => (Value::String(s.clone()), "s"),
-        CellData::Error(e) => (Value::String(e.to_string()), "e"),
-    };
-    Some(json!({ "v": v, "t": t }))
+/// 单行单元格 → JSON 值数组。
+///
+/// calamine 的 `Range::rows()` 已按 `width()` 分块，故 `row` 是满宽的，逐格映射即可。
+/// 单独抽出纯函数以便单测「中间空单元格不塌缩列位」这一关键不变量。
+fn row_to_json(row: &[CellData]) -> Vec<Value> {
+    row.iter().map(cell_to_json).collect()
+}
+
+/// 单 sheet 的 `Range` → 行数组载荷（`{rows,totalRows,totalCols}`）。
+///
+/// 纯函数：不含 IO，可直接单测总量字段与行/列的对齐关系。
+fn sheet_payload(range: &Range<CellData>) -> Value {
+    let rows: Vec<Value> = range.rows().map(row_to_json).map(Value::Array).collect();
+    // width() 即每行长度（rows() 按 width 分块，恒等宽；空 range 时为 0），
+    // 直接取它而不是扫描各行求最大——把「行等宽」这个不变量写在脸上。
+    json!({ "rows": rows, "totalRows": rows.len(), "totalCols": range.width() })
 }
 
 fn read_workbook_blocking(path: String) -> Result<Value, String> {
@@ -44,44 +54,18 @@ fn read_workbook_blocking(path: String) -> Result<Value, String> {
     let mut sheets = Map::new();
 
     for name in &names {
-        let mut sheet_map = Map::new();
-        if let Ok(range) = workbook.worksheet_range(name) {
-            if let Some((start_row, start_col)) = range.start() {
-                if let Some((end_row, end_col)) = range.end() {
-                    if end_row >= start_row && end_col >= start_col {
-                        sheet_map.insert(
-                            "!ref".into(),
-                            Value::String(format!(
-                                "{}{}:{}{}",
-                                column_name(start_col),
-                                start_row + 1,
-                                column_name(end_col),
-                                end_row + 1
-                            )),
-                        );
-                    }
-                }
-                for (row_offset, row) in range.rows().enumerate() {
-                    for (col_offset, cell) in row.iter().enumerate() {
-                        if let Some(cell_json) = cell_to_json(cell) {
-                            let addr = format!(
-                                "{}{}",
-                                column_name(start_col + col_offset as u32),
-                                start_row + row_offset as u32 + 1
-                            );
-                            sheet_map.insert(addr, cell_json);
-                        }
-                    }
-                }
-            }
-        }
-        sheets.insert(name.clone(), Value::Object(sheet_map));
+        // 读取失败的 sheet → 空载荷（rows=[], totalRows/Cols=0），sheet 键仍照插。
+        // 与旧行为一致（旧的空 map 同样照插）；消费者按 totalRows<2 给出「表格数据不足」。
+        let range = workbook
+            .worksheet_range(name)
+            .unwrap_or_else(|_| Range::empty());
+        sheets.insert(name.clone(), sheet_payload(&range));
     }
 
-    Ok(json!({ "SheetNames": names, "Sheets": sheets }))
+    Ok(json!({ "sheetNames": names, "sheets": sheets }))
 }
 
-/// 读取 Excel（xlsx/xls/ods 自动识别），返回 SheetJS WorkBook 兼容 JSON
+/// 读取 Excel（xlsx/xls/ods 自动识别），返回按 sheet 的行数组（AOA）JSON
 #[tauri::command]
 pub async fn read_workbook(path: String) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || read_workbook_blocking(path))
@@ -145,4 +129,80 @@ pub async fn export_xlsx(
     })
     .await
     .map_err(|e| format!("导出任务失败: {e}"))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use calamine::Cell;
+
+    fn s(v: &str) -> CellData {
+        CellData::String(v.to_string())
+    }
+
+    /// 中间空单元格不得塌缩列位：空单元格必须占位为 null，其后的列不左移。
+    ///
+    /// 这正是 `cell_to_json` 不再返回 `Option`（不丢弃 Empty）的原因——
+    /// 丢弃任何一格都会让该行右侧整体左移，值被读进错误的列。
+    #[test]
+    fn middle_empty_cell_does_not_shift_columns() {
+        // 用 from_sparse 造一个 1×3 的行，中间 (0,1) 缺格 → 应补成 Data::Empty
+        let range = Range::from_sparse(vec![
+            Cell::new((0, 0), s("A")),
+            Cell::new((0, 2), s("C")),
+        ]);
+        // 先钉死 fixture 的前提：确实只有 2 个「有值」格，第 3 列是补出来的
+        assert_eq!(range.used_cells().count(), 2);
+        let payload = sheet_payload(&range);
+        let rows = payload["rows"].as_array().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0],
+            json!(["A", null, "C"]),
+            "中间空格必须占位为 null，否则后续列整体左移"
+        );
+    }
+
+    /// 纯 helper 层面的等价断言：直接喂含 Empty 的切片，验证不丢格。
+    #[test]
+    fn row_to_json_keeps_empty_as_null() {
+        let row = vec![s("a1"), CellData::Empty, s("c1")];
+        assert_eq!(row_to_json(&row), vec![json!("a1"), Value::Null, json!("c1")]);
+    }
+
+    /// 值类型映射语义（与旧 {v,t} 单元格的 `.v` 一致）。
+    #[test]
+    fn cell_conversion_semantics() {
+        assert_eq!(cell_to_json(&CellData::Empty), Value::Null);
+        assert_eq!(cell_to_json(&s("x")), json!("x"));
+        assert_eq!(cell_to_json(&CellData::Float(1.5)), json!(1.5));
+        assert_eq!(cell_to_json(&CellData::Int(42)), json!(42));
+        assert_eq!(cell_to_json(&CellData::Bool(true)), json!(true));
+        assert_eq!(cell_to_json(&CellData::DateTimeIso("2020-01-01".into())), json!("2020-01-01"));
+        assert_eq!(cell_to_json(&CellData::DurationIso("PT1H".into())), json!("PT1H"));
+        // DateTime 走 Excel 日期序列数（与 SheetJS cellDates:false 一致）
+        assert_eq!(
+            cell_to_json(&CellData::DateTime(calamine::ExcelDateTime::new(44197.0, calamine::ExcelDateTimeType::DateTime, false))),
+            json!(44197.0)
+        );
+        // Error 取其字符串形式（与旧 {v,t} 的 .v 一致）
+        assert_eq!(cell_to_json(&CellData::Error(calamine::CellErrorType::Div0)), json!("#DIV/0!"));
+    }
+
+    /// totalRows 等于行数；totalCols 等于行宽；每行等宽（rows() 按 width 分块）。
+    #[test]
+    fn totals_match_rows_and_width() {
+        let range = Range::from_sparse(vec![
+            Cell::new((0, 0), s("h1")),
+            Cell::new((0, 1), s("h2")),
+            Cell::new((1, 0), s("v1")),
+            // (1,1) 缺格 → 占位 null，保证第二行同为 2 列
+        ]);
+        let payload = sheet_payload(&range);
+        let rows = payload["rows"].as_array().unwrap();
+        assert_eq!(payload["totalRows"], json!(rows.len()));
+        let width = rows[0].as_array().unwrap().len();
+        assert_eq!(payload["totalCols"], json!(width));
+        assert!(rows.iter().all(|r| r.as_array().unwrap().len() == width));
+    }
 }

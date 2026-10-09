@@ -6,13 +6,26 @@
  * 自动 fallback 到主线程同步解析，保证功能不中断。
  */
 import type { SheetData, SheetParseConfig } from '../types';
-import { parseWorkbook, parseWorkbookWithConfig } from './excelParser';
+import {
+  buildSheetObjectsResult,
+  buildSheetRowsResult,
+  buildWorkbookHandleInfo,
+  parseByHandle,
+  parseWorkbook,
+} from './excelParser';
+import type { SheetObjectsResult, SheetRowsResult } from './excelParser';
+
+// 类型定义在 excelParser（生产者旁），此处再导出以保持既有引用路径
+export type { SheetObjectsResult, SheetRowsResult };
+import { WorkbookHandleStore } from './workbookHandles';
+import type { WorkbookHandleInfo } from './workbookHandles';
 import * as XLSX from 'xlsx';
 
 let _worker: Worker | null = null;
 let _workerFailed = false;
 let _pendingId = 0;
-const _pending = new Map<number, { resolve: (v: SheetData) => void; reject: (e: Error) => void }>();
+// resolve 类型为 unknown：既承载 SheetData，也承载 WorkbookHandleInfo（handle 协议）。
+const _pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
 
 const createWorker = (): Worker | null => {
   if (_workerFailed) return null;
@@ -27,7 +40,9 @@ const createWorker = (): Worker | null => {
       if (!pending) return;
       _pending.delete(id);
       if (success) {
-        pending.resolve(data as SheetData);
+        // 不再 as SheetData：_pending 的 resolve 已放宽为 unknown，
+        // 强转会把 WorkbookHandleInfo 谎报成 SheetData。
+        pending.resolve(data);
       } else {
         pending.reject(new Error(error || 'Worker parse failed'));
       }
@@ -64,15 +79,40 @@ const parseSync = (buffer: ArrayBuffer, fileName: string): SheetData => {
   return parseWorkbook(workbook, fileName);
 };
 
-const parseWithConfigSync = (buffer: ArrayBuffer, fileName: string, configs: SheetParseConfig[]): SheetData => {
+/** 主线程 fallback 时的 handle 存储（worker 可用时不用它） */
+const _fallbackStore = new WorkbookHandleStore(3);
+
+const openWorkbookSync = (buffer: ArrayBuffer, fileName: string): WorkbookHandleInfo => {
   const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
-  return parseWorkbookWithConfig(workbook, fileName, configs);
+  const handleId = _fallbackStore.open(workbook, fileName);
+  return buildWorkbookHandleInfo(workbook, handleId, fileName);
+};
+
+const parseHandleSync = (handleId: number, configs?: SheetParseConfig[]): SheetData =>
+  parseByHandle(_fallbackStore, handleId, configs);
+
+const firstSheetRowsSync = (buffer: ArrayBuffer): SheetRowsResult => {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  return buildSheetRowsResult(workbook);
+};
+
+const firstSheetObjectsSync = (buffer: ArrayBuffer): SheetObjectsResult => {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+  return buildSheetObjectsResult(workbook);
 };
 
 /**
- * 通过 Worker 发送任务（自动 fallback）
+ * 通过 Worker 发送任务（自动 fallback）。
+ *
+ * buffer 可选：handle 协议的 parseHandle 没有 buffer（workbook 已在解析侧），
+ * 此时不构造 transfer 列表。返回值 R 既可能是 SheetData，也可能是
+ * WorkbookHandleInfo（含 handleId）——由调用方泛型决定。
  */
-const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fallback: () => R): Promise<R> => {
+const postTask = <R, M extends { type: string } = { type: string } & Record<string, unknown>>(
+  msg: M,
+  buffer: ArrayBuffer | undefined,
+  fallback: () => R
+): Promise<R> => {
   const worker = getWorker();
   if (!worker) {
     // Worker 不可用，直接主线程执行
@@ -87,9 +127,10 @@ const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fa
 
   return new Promise((resolve, reject) => {
     const id = ++_pendingId;
-    _pending.set(id, { resolve: resolve as (v: SheetData) => void, reject });
+    _pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
     try {
-      worker.postMessage({ id, ...msg, buffer }, [buffer]);
+      if (buffer) worker.postMessage({ id, ...msg, buffer }, [buffer]);
+      else worker.postMessage({ id, ...msg });
     } catch {
       _pending.delete(id);
       // postMessage 失败（如 buffer 已 detach），回退主线程
@@ -103,8 +144,51 @@ const postTask = <R, M extends { type: string }>(msg: M, buffer: ArrayBuffer, fa
 };
 
 /**
- * 异步解析 Excel 文件（自动检测模式）
- * 替代同步版 parseExcel
+ * 一次解析：worker 内 `XLSX.read` 后**留在 worker 内**缓存，只回方向判定 + 预览 + handle。
+ * 这是 P2 的核心——完整 workbook 不再跨线程克隆（实测省 32.2MB/次）。
+ */
+export const openWorkbookAsync = async (file: File): Promise<WorkbookHandleInfo> => {
+  const buffer = await file.arrayBuffer();
+  const worker = getWorker();
+  if (!worker) return openWorkbookSync(buffer, file.name);
+  return postTask<WorkbookHandleInfo>(
+    { type: 'openWorkbook' as const, buffer, fileName: file.name },
+    buffer,
+    () => openWorkbookSync(buffer, file.name)
+  );
+};
+
+/** 用 handle 在解析侧解析；configs 缺省 → parseWorkbook */
+export const parseHandleAsync = async (
+  handleId: number,
+  configs?: SheetParseConfig[]
+): Promise<SheetData> => {
+  const worker = getWorker();
+  if (!worker) return parseHandleSync(handleId, configs);
+  return postTask<SheetData>(
+    { type: 'parseHandle' as const, handleId, configs },
+    undefined,
+    () => parseHandleSync(handleId, configs)
+  );
+};
+
+/** 释放解析侧的 workbook 缓存；幂等，未知 id 不抛错 */
+export const releaseWorkbookHandle = (handleId: number): void => {
+  const worker = getWorker();
+  if (!worker) {
+    _fallbackStore.release(handleId);
+    return;
+  }
+  try {
+    worker.postMessage({ type: 'releaseHandle' as const, handleId });
+  } catch {
+    _fallbackStore.release(handleId);
+  }
+};
+
+/**
+ * 异步解析 Excel 文件（自动检测模式）。
+ * 解析在 worker 内（不可用则主线程 fallback），只把 SheetData 交回主线程。
  */
 export const parseExcelAsync = async (file: File): Promise<SheetData> => {
   const buffer = await file.arrayBuffer();
@@ -116,52 +200,61 @@ export const parseExcelAsync = async (file: File): Promise<SheetData> => {
 };
 
 /**
- * 异步解析 - 配置化模式
- * 替代同步版 parseWorkbookWithConfig
+ * 解析侧直接产出首 sheet 的 header:1 二维数组（不给调用方 workbook）。
+ * 供「只按索引取列」的消费者使用——整份 workbook 不再跨线程克隆。
  */
-export const parseWithConfigAsync = async (
-  file: File,
-  configs: SheetParseConfig[]
-): Promise<SheetData> => {
-  const buffer = await file.arrayBuffer();
-  return postTask(
-    { type: 'parseWithConfig' as const, buffer, fileName: file.name, configs },
-    buffer,
-    () => parseWithConfigSync(buffer, file.name, configs)
-  );
-};
-
-const readWorkbookSync = (buffer: ArrayBuffer): XLSX.WorkBook =>
-  XLSX.read(new Uint8Array(buffer), { type: 'array' });
+export const readFirstSheetRowsAsync = async (buffer: ArrayBuffer): Promise<SheetRowsResult> =>
+  postTask({ type: 'readFirstSheetRows' as const, buffer }, buffer, () => firstSheetRowsSync(buffer));
 
 /**
- * 通过 Worker 仅做 XLSX.read 解析（不做行转换），返回 WorkBook 的结构化克隆副本。
- * 调用方在主线程做 sheet_to_json 等轻量后处理，
- * 用于替代散落各处的主线程 XLSX.read（重构方案A Phase 4 收敛点）。
+ * 解析侧直接产出首 sheet 的表头对象数组（SheetJS 默认语义）。
+ * 转换发生在解析侧用 SheetJS 本身完成，主线程只收终态对象（0.54MB vs 21.37MB workbook）。
  */
-export const readWorkbookFromBufferAsync = async (buffer: ArrayBuffer): Promise<XLSX.WorkBook> => {
-  return postTask(
-    { type: 'readWorkbook' as const, buffer },
-    buffer,
-    () => readWorkbookSync(buffer)
-  );
-};
-
-/** 便捷封装：File → Worker 解析为 WorkBook（替代 excelParser.readFileAsWorkbook 的主线程版本） */
-export const readWorkbookAsync = async (file: File): Promise<XLSX.WorkBook> => {
-  const buffer = await file.arrayBuffer();
-  return readWorkbookFromBufferAsync(buffer);
-};
+export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<SheetObjectsResult> =>
+  postTask({ type: 'readFirstSheetObjects' as const, buffer }, buffer, () => firstSheetObjectsSync(buffer));
 
 /**
- * Phase 5：Tauri Rust 命令（calamine）按路径解析，返回 SheetJS 兼容 WorkBook。
+ * 一侧的单元格值（Rust calamine AOA 载荷的元素）。
+ * 空单元格为 null；数值保持 number（不在此层字符串化，与旧 `cell.v` 语义一致）。
+ */
+export type CellValue = string | number | boolean | null;
+
+/** Rust `read_workbook` 命令返回的原始形状（按 sheet 的行数组载荷） */
+interface RawSheetAoa {
+  rows: CellValue[][];
+  totalRows: number;
+  totalCols: number;
+}
+interface RawWorkbookAoa {
+  sheetNames: string[];
+  sheets: Record<string, RawSheetAoa>;
+}
+
+/** 首 sheet 行数组载荷（AOA）：空单元格占 null，列位不塌缩 */
+export interface SheetAoaFromPath {
+  sheetName: string;
+  rows: CellValue[][];
+  totalRows: number;
+  totalCols: number;
+}
+
+/**
+ * Phase 5 / P2-4：Tauri Rust 命令（calamine）按路径解析，只回**首 sheet 的行数组（AOA）**。
+ *
+ * 只取首 sheet：本函数唯一消费者（EnumImportModal）始终只用首个 sheet，
+ * 让包装层选定 sheet，消费者无需再复刻 SheetNames[0] 的选择逻辑。
  * 仅 Tauri 环境可用（调用方需已持有文件路径，如 dialog 返回值）。
  */
-export const readWorkbookFromPathAsync = async (path: string): Promise<XLSX.WorkBook> => {
+export const readFirstSheetRowsFromPathAsync = async (path: string): Promise<SheetAoaFromPath> => {
   if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) {
-    throw new Error('readWorkbookFromPathAsync 仅在 Tauri 环境可用');
+    throw new Error('readFirstSheetRowsFromPathAsync 仅在 Tauri 环境可用');
   }
   const { invoke } = await import('@tauri-apps/api/core');
-  const workbook = await invoke<unknown>('read_workbook', { path });
-  return workbook as XLSX.WorkBook;
+  const wb = await invoke<RawWorkbookAoa>('read_workbook', { path });
+  const sheetName = wb.sheetNames[0];
+  // Rust 侧对 sheetNames 里每个名字都必定写入 sheets 键，缺失即表示形状漂移或
+  // 工作簿确实没有任何 sheet——两种情况都明确报错，不静默返回空表（见设计 §6 风险项）。
+  const sheet: RawSheetAoa | undefined = sheetName != null ? wb.sheets[sheetName] : undefined;
+  if (!sheet) throw new Error('读取结果里没有可用的工作表（首 sheet 缺失）');
+  return { sheetName, ...sheet };
 };
