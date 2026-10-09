@@ -37,10 +37,10 @@ pub struct RegulationRecord {
     #[serde(default)]
     pub year: Option<String>,
     pub title: String,
-    /// 受控属性①：标准层级（单值，可由标准号前缀判定）
+    /// 受控属性：标准层级（单值，可由标准号前缀判定——数据决定的事实）
     #[serde(default)]
     pub level: String,
-    /// 受控属性②：主题域（多值，人工选）
+    /// 受控词表主题：主题域（多值，人工从词表选定——非受控属性，见 CONTEXT.md）
     #[serde(default)]
     pub domains: Vec<String>,
     #[serde(default)]
@@ -118,7 +118,7 @@ fn default_text_layer() -> String {
     "unknown".to_string()
 }
 
-/// 受控属性词表（旁路文件持有，用户可增补）
+/// 层级与主题域的词表（旁路文件持有，用户可增补）
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct RegulationVocab {
