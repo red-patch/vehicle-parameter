@@ -2,6 +2,7 @@ mod announcements;
 mod assets;
 mod excel;
 mod pdf_sniff;
+mod regulations;
 
 /// macOS 标准应用菜单：系统预定义项自带加速键（Cmd+Q 退出 / Cmd+W 关窗 /
 /// Cmd+M 最小化 / Cmd+H 隐藏 / Cmd+C·V·X·Z·A 编辑）。不配菜单时 macOS 落到
@@ -66,7 +67,11 @@ pub fn run() {
       announcements::copy_files_to_clipboard,
       pdf_sniff::scan_pdf_candidates,
       pdf_sniff::cancel_pdf_scan,
-      pdf_sniff::probe_downloads
+      pdf_sniff::probe_downloads,
+      regulations::read_regulation_sidecar,
+      regulations::write_regulation_sidecar,
+      regulations::scan_regulations,
+      regulations::extract_regulation_hints
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

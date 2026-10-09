@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 const ParameterWorkbench = React.lazy(() => import('./components/ParameterWorkbench/ParameterWorkbench'));
 const AnnouncementQuery = React.lazy(() => import('./components/AnnouncementQuery/AnnouncementQuery'));
+const RegulationLibrary = React.lazy(() => import('./components/RegulationLibrary/RegulationLibrary'));
 const ConfigManagerView = React.lazy(() => import('./components/SmartFiller/ConfigManagerView'));
 
 type WorkbenchTab = 'pool' | 'compare' | 'fill' | 'purify';
@@ -31,6 +32,7 @@ const MemoWorkbench: React.FC<{
 const MemoAnnouncement: React.FC<{ onOpenWorkbench?: () => void }> = ({ onOpenWorkbench }) => (
   <AnnouncementQuery onOpenWorkbench={onOpenWorkbench} />
 );
+const MemoRegulationLibrary = React.memo(() => <RegulationLibrary />);
 const MemoConfigManager = React.memo(() => <ConfigManagerView />);
 
 const App: React.FC = () => {
@@ -108,6 +110,12 @@ const App: React.FC = () => {
           <React.Suspense fallback={<Skeleton active />}>
             <div className="vp-fade-in" style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
               <MemoAnnouncement onOpenWorkbench={() => handleTabChange('pool')} />
+            </div>
+          </React.Suspense>
+
+          <React.Suspense fallback={<Skeleton active />}>
+            <div className="vp-fade-in" style={{ display: activeTab === 'regulation' ? undefined : 'none' }}>
+              <MemoRegulationLibrary />
             </div>
           </React.Suspense>
 
