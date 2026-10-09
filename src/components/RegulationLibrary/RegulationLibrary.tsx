@@ -377,7 +377,7 @@ const RegulationLibrary: React.FC = () => {
             >
                 <Space direction="vertical" size={10} style={{ width: '100%' }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                        主题域是受控属性，可多值。词表跟着库走（写在库目录的旁路文件里），换机器也生效。
+                        主题域是受控词表主题（不是受控属性——层级才是），可多值。词表跟着库走（写在库目录的旁路文件里），换机器也生效。
                     </Text>
                     <Space wrap>
                         {sidecar.vocab.domains.map(d => (

@@ -14,8 +14,8 @@ interface Props {
 }
 
 /**
- * 筛选面板：受控属性横切（层级 × 主题域 × 状态）+ 关键词（设计 Q10/Q13/Q17）。
- * 维度之间是「与」，同一维度内多值是「或」——与资产受控属性一致。
+ * 筛选面板：横切筛选（层级 × 主题域 × 状态）+ 关键词（设计 Q10/Q13/Q17）。
+ * 维度之间是「与」，同一维度内多值是「或」——与资产受控属性的筛选语义一致。
  */
 const RegulationFilterPanel: React.FC<Props> = ({ filters, vocab, statusCounts, onChange, onReset }) => {
     const statusOptions = Object.keys(statusCounts)

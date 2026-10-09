@@ -16,9 +16,9 @@ export interface RegulationRecord {
     /** 版本：发布年份；无年份为 null */
     year: string | null;
     title: string;
-    /** 受控属性①：标准层级（单值） */
+    /** 受控属性：标准层级（单值，由标准号前缀推导——数据决定的事实） */
     level: string;
-    /** 受控属性②：主题域（多值） */
+    /** 受控词表主题：主题域（多值，人工从词表选定——非受控属性，见 CONTEXT.md） */
     domains: string[];
     publishedAt: string | null;
     effectiveAt: string | null;
