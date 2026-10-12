@@ -13,7 +13,7 @@ mod regulations;
 fn setup_macos_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
   use tauri::menu::{MenuBuilder, SubmenuBuilder};
 
-  let app_menu = SubmenuBuilder::new(app, "整车产品工作台")
+  let app_menu = SubmenuBuilder::new(app, "整车产品工作台 VPW")
     .about(None)
     .separator()
     .hide()
