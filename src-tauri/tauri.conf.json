@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "整车产品工作台",
+  "productName": "整车产品工作台 VPW",
   "version": "../package.json",
   "identifier": "com.vehicle.parameter",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "整车产品工作台",
+        "title": "整车产品工作台 VPW",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
