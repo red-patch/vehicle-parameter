@@ -190,7 +190,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
     // ---- 保存 --------------------------------------------------------------
     const handleSave = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先在「资产管理」中选择资产库目录，方案将保存在该目录下');
+            message.warning('请先在「车型资产」中选择资产库目录，方案将保存在该目录下');
             return;
         }
         const now = new Date().toISOString();

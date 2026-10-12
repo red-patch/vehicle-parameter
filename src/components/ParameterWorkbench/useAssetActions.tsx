@@ -347,7 +347,7 @@ export function useAssetActions({ focusedFile, onFocusFile }: UseAssetActionsOpt
         Modal.confirm({
             title: '彻底删除该资产？',
             icon: <ExclamationCircleOutlined className="text-danger" />,
-            content: `「${info.fileName}」将移入归档目录 _archive/（文件保留但退出资产管理），标签与治理标注一并清除。此操作不可在界面内撤销。`,
+            content: `「${info.fileName}」将移入归档目录 _archive/（文件保留但退出车型资产），标签与治理标注一并清除。此操作不可在界面内撤销。`,
             okText: '彻底删除',
             okType: 'danger',
             cancelText: '取消',
