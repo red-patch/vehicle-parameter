@@ -104,14 +104,25 @@ export interface MatchResult {
     alternatives?: MatchAlternative[];
 }
 
-// Fuse 实例缓存：同一 candidates 引用只构建一次索引
-const fuseCache = new WeakMap<VehicleParameter[], Fuse<VehicleParameter>>();
+// Fuse 实例缓存：同一 candidates 引用 + 同一 threshold 只构建一次索引。
+// 必须按 threshold 分键——Fuse 的 threshold 不只是事后过滤，它参与 Bitap 搜索的
+// 早期剪枝上界（fuse.js 以 min(精确匹配得分, threshold) 作为放弃条件），因此不同
+// 阈值会得出不同的结果集。早前只按数组身份缓存、却把首次构造时的 threshold 一并
+// 复用，导致缺陷：数组被窄阈值（填报流 0.3）先建索引后，宽阈值（对比流 0.4）
+// 调用时候选已在剪枝阶段被丢弃，findBestMatch 事后的阈值复检无从施展。
+// 反向（先宽后窄）被那道复检兜住，所以缺陷只在「先窄后宽」时显形。
+const fuseCache = new WeakMap<VehicleParameter[], Map<number, Fuse<VehicleParameter>>>();
 
 // 规范化名称索引缓存：避免重复 normalizeName 调用
 const normalizedMapCache = new WeakMap<VehicleParameter[], Map<string, VehicleParameter>>();
 
 const getOrCreateFuse = (candidates: VehicleParameter[], threshold: number): Fuse<VehicleParameter> => {
-    let fuse = fuseCache.get(candidates);
+    let byThreshold = fuseCache.get(candidates);
+    if (!byThreshold) {
+        byThreshold = new Map();
+        fuseCache.set(candidates, byThreshold);
+    }
+    let fuse = byThreshold.get(threshold);
     if (!fuse) {
         fuse = new Fuse(candidates, {
             keys: ['name'],
@@ -120,7 +131,7 @@ const getOrCreateFuse = (candidates: VehicleParameter[], threshold: number): Fus
             ignoreLocation: true,
             useExtendedSearch: true
         });
-        fuseCache.set(candidates, fuse);
+        byThreshold.set(threshold, fuse);
     }
     return fuse;
 };
