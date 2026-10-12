@@ -1,7 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { version } from '../../../package.json';
 import { Layout as AntLayout, Menu, Tooltip, Button } from 'antd';
-import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, BookOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, BookOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined, CarOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { reloadCustomFields } from '../../utils/fieldLists';
@@ -54,6 +54,11 @@ const items = [
         key: 'dict',
         icon: <SettingOutlined />,
         label: '字段与词表',
+    },
+    {
+        key: 'designer',
+        icon: <CarOutlined />,
+        label: '整车设计',
     },
 ];
 
