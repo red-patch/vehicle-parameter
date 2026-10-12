@@ -218,9 +218,15 @@ export const readFirstSheetObjectsAsync = async (buffer: ArrayBuffer): Promise<S
 
 ### 8.3 未验证项（重要）
 
-- **worker 真实分支未经真机验证**。jsdom 无 `Worker`，所有测试只覆盖主线程 fallback 分支。已验证的只有：`npm run build` 成功打包 worker（含新消息类型）、协议逻辑由 fallback 测试覆盖、「主线程必定 settled 不得挂起」有假 Worker 测试守护。**在真实 Tauri/浏览器环境下跑一次导入（预览 → 确认）仍是待办。**
-- **真实应用 RSS 复测未做**（同 P0–P1 的缺口）：本环境无法驱动 Tauri 应用。上表为 Node 侧口径。
-- **Rust 侧改动无端到端真机验证**：`cargo test` 覆盖了单元格→行数组的转换与列对齐，但 `read_workbook` 命令在真实 Tauri 运行时返回给前端的链路未验证。
+> 2026-10-12 更新：原列的三项中，前两项已在真实浏览器（Playwright + Chromium，`Worker` 真实存在）验证通过；第三项仍未做。
+
+- **~~worker 真实分支未经真机验证~~ → 已验证**（2026-10-12）。jsdom 无 `Worker`，单测只覆盖 fallback；但用真实浏览器驱动完整 UI 流程验证了 worker 分支：
+  - 浏览器确实**加载并执行**了 `assets/excelParser.worker-*.js`（网络请求 200）——jsdom 下不会发生；
+  - 上传 `.xlsx` → 预览弹窗正常（走 worker 的 `openWorkbook`）；
+  - 点「确认解析」→ 车型确认弹窗列出车型与参数（走 worker 的 `parseHandle`）——`readWorkbookAsync` 已删除，参数只能来自 worker 持有的 workbook。
+  - 结论：两条 worker 分支均跑通，Console 无相关报错。
+- **~~真实应用 RSS 复测未做~~ → 已复测**（2026-10-12，Tauri release 构建）：见下方实测记录。
+- **Rust `read_workbook` 命令的真机链路仍未端到端验证**：`cargo test` 覆盖了单元格→行数组的转换与列对齐，但该命令在真实 Tauri 运行时返回给前端的链路（唯一消费者 `EnumImportModal`）未在真机上跑过。**这是当前唯一遗留的验证缺口。**
 
 ### 8.4 遗留与建议
 
