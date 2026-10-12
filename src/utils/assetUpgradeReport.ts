@@ -2,6 +2,7 @@
  * 资产升级审查单（资产库 · 升级流程）的 HTML / Markdown 构建与导出。
  */
 import type { AssetUpgradeDraft } from '../types';
+import { APP_NAME } from '../constants/app';
 import type { AssetUpgradePreview } from './assetUpgrade';
 import {
     buildMarkdownTable,
@@ -122,7 +123,7 @@ export const buildAssetUpgradeReviewMarkdown = ({
         `- 车型：${draft.assetProductName}`,
         `- 导入新版：${draft.importedFileName}`,
         `- 生成时间：${formatReportTimestamp(generatedAt)}`,
-        `- 工具：DST 车型参数管理工具`,
+        `- 工具：${APP_NAME}`,
         '',
         `## 统计`,
         '',

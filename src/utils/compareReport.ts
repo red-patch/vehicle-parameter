@@ -3,6 +3,7 @@
  * 纯函数，方便测试；文件保存走 reportExport.saveTextReport。
  */
 import { isFieldRequired } from '../assets/requiredFields';
+import { APP_NAME } from '../constants/app';
 import {
     buildMarkdownTable,
     buildReportFileBase,
@@ -141,7 +142,7 @@ export const buildCompareReportMarkdown = ({ rows, columns, generatedAt = new Da
             .map((c, i) => (numbered[i] ? `  - ${numbered[i]}：${c.label}` : ''))
             .filter(Boolean),
         `- 生成时间：${formatReportTimestamp(generatedAt)}`,
-        `- 工具：DST 车型参数管理工具`,
+        `- 工具：${APP_NAME}`,
         '',
         `## 统计`,
         '',

@@ -66,7 +66,7 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                 <Select
                     mode={mode === 'multiple' ? 'multiple' : undefined}
                     style={{ flex: 1 }}
-                    placeholder={productOptions.length > 0 ? placeholder : "请先在资产管理中激活车型"}
+                    placeholder={productOptions.length > 0 ? placeholder : "请先在「车型资产」中激活车型"}
                     options={productOptions}
                     value={value ?? undefined}
                     onChange={v => onChange(v as string | string[] | null)}

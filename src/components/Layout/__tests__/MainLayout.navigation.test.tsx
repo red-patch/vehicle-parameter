@@ -34,12 +34,12 @@ describe('MainLayout navigation', () => {
       </MainLayout>
     );
 
-    expect(screen.getByRole('menuitem', { name: /资产管理/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /车型资产/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /版本对比/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /智能填报/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /数据体检与修复/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /公告中心/ })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /系统配置/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /字段与词表/ })).toBeInTheDocument();
     expect(screen.queryByText('参数工作台')).not.toBeInTheDocument();
     expect(screen.queryByText('属性去重')).not.toBeInTheDocument();
     // 多车型管理已并入「智能填报」的自由多车整理模式，不再是顶级入口

@@ -1,11 +1,11 @@
-# AGENTS.md — 车辆参数配置工具
+# AGENTS.md — 整车产品工作台
 
 > 本文件是所有 AI coding agent（Codex / Claude / Alma 等）的项目入口。改代码前必读。
 
 ## 项目简介
 
-车辆整车参数配置与管理桌面工具：参数导入（Excel/CSV）、智能填报、属性去重、数据净化、版本对比、导出。
-技术栈：**Tauri 2 + React 19 + TypeScript + Vite 7 + Tailwind 3**，后端逻辑在 Rust（src-tauri）。
+面向整车产品工作的桌面工具（产品名 **整车产品工作台**）：车型资产治理与筛选、公告记录归档与比对、法规标准库、参数导入（Excel/CSV）、智能填报、属性去重、数据体检与修复、版本对比、导出。名称刻意中性，不绑定单一品牌或单一角色。
+技术栈：**Tauri 2 + React 19 + TypeScript + Vite 7 + Tailwind 3 + Ant Design v6**，状态用 Zustand，后端逻辑在 Rust（src-tauri）。
 
 ## 验证命令（改完代码必须跑）
 
@@ -53,9 +53,9 @@ npm run build      # tsc -b + vite build
 
 | 文件 | 行数 | 改动后必跑 |
 |---|---|---|
-| `src/components/SmartFiller/ConfigManagerView.tsx` | ~1260 | lint + test + build |
-| `src/components/ParameterWorkbench/DataSourcePanel.tsx` | ~1680 | lint + test + build |
-| `src/components/DiffViewer/DiffResultView.tsx` | ~730 | lint + test |
+| `src/components/SmartFiller/ConfigManagerView.tsx` | ~1270 | lint + test + build |
+| `src/components/ParameterWorkbench/DataSourcePanel.tsx` | ~1280 | lint + test + build |
+| `src/components/DiffViewer/DiffResultView.tsx` | ~520 | lint + test |
 
 原则：这些文件已经超过需要拆分的阈值，**新增逻辑优先写到独立文件/子组件，不要再往里面堆**。资产对象级动作（重命名/激活/删除/标签/公告关联）已抽到 `src/components/ParameterWorkbench/useAssetActions.tsx`，新动作加在那里，别堆回 DataSourcePanel。
 
@@ -68,10 +68,23 @@ npm run build      # tsc -b + vite build
 - `verify_export.csv` 一类根目录验证产物是临时的，可清理
 - Excel 临时锁文件（`~$*.xlsx`）直接删除即可
 
+### 产品名落点（改名时逐条执行）
+
+产品名 **整车产品工作台** 有 10 处落点，TS 侧 6 处共享常量 `src/constants/app.ts` 的 `APP_NAME`（改一处即可），剩下 4 处因跨语言/跨构建配置无法共享，须手工同步：
+
+| 落点 | 说明 |
+|---|---|
+| `src-tauri/tauri.conf.json` `productName` | .app 名、安装包名、Dock 名 |
+| `src-tauri/tauri.conf.json` `windows[0].title` | 窗口标题 |
+| `src-tauri/src/lib.rs` `setup_macos_menu` | macOS 应用菜单标题 |
+| `index.html` `<title>` | 浏览器标签页标题 |
+
+**不要改** `tauri.conf.json` 的 `identifier`（`com.vehicle.parameter`）——它决定用户数据目录，改动会让老用户配置/资产路径/令牌全部失联。产品名与包标识解耦是刻意的。
+
 ## 已知坑
 
 - README.md 还是 Vite 模板原文，不代表项目实际内容（以本文件和 docs/PRD.md 为准）
-- `docs/交互优化设计方案.md` 里有 3 个 TODO，属于待定的设计方案，不是代码债
+- `docs/交互优化设计方案.md`（2026-07-17）**部分内容已陈旧**：原文称有 3 个 TODO，实测 `TODO|待定|TBD` 零命中；其「删除 diff/search 死代码、App.tsx 243→120 行」未执行（现 134 行、`LegacyDiffPanel` 仍挂载）。该文档属待定设计方案，不是代码债，引用前先核对现状
 - `tauri dev` 旧二进制：改图标/版本号后 tauri dev 仍跑旧 app，`touch src-tauri/tauri.conf.json` 强制重链
 - dev 模式性能放大百倍：页面切换 dev 下 2-3s、生产构建仅 17-70ms；性能测量必须用生产构建（vite preview）
 - 测试里的 mock 数组/对象不要在每次渲染时新建（会拖垮 jsdom 甚至 OOM），用共享可变状态
