@@ -426,7 +426,7 @@ const ConfigManagerView: React.FC = () => {
                 <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
                         <SettingOutlined className="text-brand" />
-                        <span>系统配置中控台</span>
+                        <span>字段与词表</span>
                     </div>
                     <Button icon={<FileExcelOutlined />} onClick={() => setEnumImportVisible(true)}>
                         从 Excel 导入枚举

@@ -5,6 +5,7 @@
  * 三份报告共用本模块，报告本体见 compareReport.ts / diffReport.ts / assetUpgradeReport.ts。
  * 色值来源：docs/design-v4-obsidian-blue/tailwind.tokens.js（勿随意改）。
  */
+import { APP_NAME } from '../constants/app';
 
 export type ReportFormat = 'html' | 'md';
 
@@ -256,7 +257,7 @@ export const buildReportHtmlDocument = (options: ReportDocOptions): string => {
 <body>
 <article class="rp-page">
     <header class="rp-header">
-        <div class="rp-brand">DST 车型参数管理工具</div>
+        <div class="rp-brand">${escapeHtml(APP_NAME)}</div>
         <h1 class="rp-title">${escapeHtml(options.title)}</h1>
         ${options.subtitle ? `<p class="rp-subtitle">${escapeHtml(options.subtitle)}</p>` : ''}
         <div class="rp-meta">${meta}</div>
@@ -264,7 +265,7 @@ export const buildReportHtmlDocument = (options: ReportDocOptions): string => {
     ${buildReportStatCards(options.stats ?? [])}
     ${options.content}
     <footer class="rp-footer">
-        <span>${escapeHtml(options.footerNote ?? 'DST 车型参数管理工具')}</span>
+        <span>${escapeHtml(options.footerNote ?? APP_NAME)}</span>
         <span>生成时间 ${escapeHtml(options.generatedAt)} · 自包含单文件，可直接用浏览器打开或打印为 PDF</span>
     </footer>
 </article>
