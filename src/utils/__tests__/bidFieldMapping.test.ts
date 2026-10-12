@@ -3,6 +3,7 @@ import {
     composeRuleValue,
     createDefaultBidScheme,
     defaultTemplateFor,
+    moveRuleToFront,
     normalizeBidMappingsConfig,
     renderCombineTemplate,
     resolveRuleSources,
@@ -185,6 +186,45 @@ describe('normalizeBidMappingsConfig', () => {
         expect(scheme.rules[0].sources).toEqual(['长', '宽']);
         expect(scheme.rules[0].template).toBe('{0}×{1}×{2}');
         expect(scheme.rules[1].sources).toEqual([]);
+    });
+});
+
+describe('moveRuleToFront', () => {
+    const rules = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+
+    it('moves a middle rule to the front, keeping the rest in order', () => {
+        expect(moveRuleToFront(rules, 'b').map((r) => r.id)).toEqual(['b', 'a', 'c']);
+    });
+
+    it('moves the last rule to the front', () => {
+        expect(moveRuleToFront(rules, 'c').map((r) => r.id)).toEqual(['c', 'a', 'b']);
+    });
+
+    it('returns the same reference when the rule is already first', () => {
+        expect(moveRuleToFront(rules, 'a')).toBe(rules);
+    });
+
+    it('returns the same reference when the id is unknown', () => {
+        expect(moveRuleToFront(rules, 'nope')).toBe(rules);
+    });
+
+    it('handles an empty list', () => {
+        const empty: { id: string }[] = [];
+        expect(moveRuleToFront(empty, 'a')).toBe(empty);
+    });
+
+    it('does not mutate the input array', () => {
+        const input = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+        moveRuleToFront(input, 'c');
+        expect(input.map((r) => r.id)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('keeps rule objects (sources/template) attached to their position', () => {
+        const scheme = createDefaultBidScheme();
+        const moved = moveRuleToFront(scheme.rules, scheme.rules[4].id);
+        expect(moved[0].target).toBe('电机额定功率(kw)');
+        expect(moved[1].target).toBe('外扩尺寸');
+        expect(moved[1].sources).toEqual(['外形尺寸长', '外形尺寸宽', '外形尺寸高']);
     });
 });
 

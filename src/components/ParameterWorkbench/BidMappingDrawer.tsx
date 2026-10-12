@@ -5,13 +5,15 @@ import React, { useMemo, useState } from 'react';
 import { AutoComplete, Button, Drawer, Empty, Input, message, Popconfirm, Select, Space } from 'antd';
 import {
     CopyOutlined, DeleteOutlined, DownOutlined, PlusOutlined, ThunderboltOutlined, UpOutlined,
+    VerticalAlignTopOutlined,
 } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { buildFieldSearchResults, parseFieldBatchInput } from '../SmartFiller/coreFieldRules';
 import { findBestMatch } from '../../utils/matchingEngine';
 import {
-    createBidRuleId, defaultTemplateFor, getBidSchemesSync, reloadBidMappings, saveBidMappingsConfig,
+    createBidRuleId, defaultTemplateFor, getBidSchemesSync, moveRuleToFront, reloadBidMappings,
+    saveBidMappingsConfig,
 } from '../../utils/bidFieldMapping';
 import type { BidFieldRule, BidMappingScheme } from '../../utils/bidFieldMapping';
 import type { VehicleParameter } from '../../types';
@@ -40,18 +42,26 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
     onClose,
     onSaved,
 }) => {
-    const { uploadedFiles, assetFiles, activeAssets, assetLibraryPath, bumpBidMappingsVersion } =
-        useVehicleStore(useShallow((state) => ({
-            uploadedFiles: state.uploadedFiles,
-            assetFiles: state.assetFiles,
-            activeAssets: state.activeAssets,
-            assetLibraryPath: state.assetLibraryPath,
-            bumpBidMappingsVersion: state.bumpBidMappingsVersion,
-        })));
+    const {
+        uploadedFiles, assetFiles, activeAssets, assetLibraryPath, bumpBidMappingsVersion,
+        bidPullSchemeId, setBidPullSchemeId,
+    } = useVehicleStore(useShallow((state) => ({
+        uploadedFiles: state.uploadedFiles,
+        assetFiles: state.assetFiles,
+        activeAssets: state.activeAssets,
+        assetLibraryPath: state.assetLibraryPath,
+        bumpBidMappingsVersion: state.bumpBidMappingsVersion,
+        bidPullSchemeId: state.bidPullSchemeId,
+        setBidPullSchemeId: state.setBidPullSchemeId,
+    })));
 
     const [schemes, setSchemes] = useState<BidMappingScheme[]>(() => cloneSchemes(getBidSchemesSync()));
-    const [activeSchemeId, setActiveSchemeId] = useState<string | null>(() => getBidSchemesSync()[0]?.id ?? null);
     const [batchInput, setBatchInput] = useState('');
+
+    // 当前方案与外部取数面板共用 store 状态（双向联动）：外面选好 → 这里直接落在该方案；
+    // 这里切换 → 外部取数矩阵同步跟随。为空（首次使用 / 原方案已删）时读取时回退首个，
+    // 不回写 store——回写交给 BidPullView 的兜底 effect，避免两处同时回写。
+    const activeSchemeId = bidPullSchemeId ?? schemes[0]?.id ?? null;
 
     // 系统字段候选全集：Excel 池 + 已激活资产，Map 保证同名去重并携带示例值
     const unionParams = useMemo(() => {
@@ -95,7 +105,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
             rules: [],
         };
         setSchemes((prev) => [...prev, scheme]);
-        setActiveSchemeId(scheme.id);
+        setBidPullSchemeId(scheme.id);
     };
 
     const handleDuplicateScheme = () => {
@@ -108,7 +118,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
             rules: activeScheme.rules.map((rule) => ({ ...rule, id: createBidRuleId(), sources: [...rule.sources] })),
         };
         setSchemes((prev) => [...prev, copy]);
-        setActiveSchemeId(copy.id);
+        setBidPullSchemeId(copy.id);
     };
 
     const handleRemoveScheme = () => {
@@ -116,11 +126,10 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
             message.warning('至少保留一个方案');
             return;
         }
-        setSchemes((prev) => {
-            const next = prev.filter((s) => s.id !== activeSchemeId);
-            setActiveSchemeId(next[0]?.id ?? null);
-            return next;
-        });
+        // 副作用放在 setSchemes 之外：严格模式下 updater 会被调用两次
+        const next = schemes.filter((s) => s.id !== activeSchemeId);
+        setSchemes(next);
+        setBidPullSchemeId(next[0]?.id ?? null);
     };
 
     // ---- 规则级操作 --------------------------------------------------------
@@ -144,6 +153,10 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
         });
 
     const setRuleSources = (ruleId: string, sources: string[]) => updateRule(ruleId, { sources });
+
+    /** 一键置顶：字段多时逐格上移太慢（规则顺序即取数矩阵与导出文件的行序） */
+    const moveRuleToTop = (ruleId: string) =>
+        updateSchemes((scheme) => ({ ...scheme, rules: moveRuleToFront(scheme.rules, ruleId) }));
 
     const handleAutoSuggest = (rule: BidFieldRule) => {
         if (!rule.target.trim()) {
@@ -231,6 +244,14 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
                             onChange={(e) => updateRule(rule.id, { template: e.target.value })}
                         />
                     )}
+                    <Button
+                        size="small"
+                        type="text"
+                        title="置顶"
+                        icon={<VerticalAlignTopOutlined />}
+                        disabled={index === 0}
+                        onClick={() => moveRuleToTop(rule.id)}
+                    />
                     <Button size="small" type="text" icon={<UpOutlined />} disabled={index === 0} onClick={() => moveRule(rule.id, -1)} />
                     <Button size="small" type="text" icon={<DownOutlined />} disabled={index === total - 1} onClick={() => moveRule(rule.id, 1)} />
                     <Popconfirm title="删除该字段规则？" onConfirm={() => removeRule(rule.id)}>
@@ -283,7 +304,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
                 <Select
                     className="flex-1"
                     value={activeSchemeId}
-                    onChange={setActiveSchemeId}
+                    onChange={setBidPullSchemeId}
                     options={schemes.map((scheme) => ({
                         value: scheme.id,
                         label: `${scheme.name}（${scheme.rules.length} 项）`,
