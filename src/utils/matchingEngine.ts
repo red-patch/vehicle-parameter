@@ -219,3 +219,94 @@ export const findBestMatch = (
 
     return { matchedParam: undefined, score: 1, matchType: 'none' };
 };
+
+/**
+ * 同义词分组倒排索引：归一化后的名字 → 它所属的全部同义词组 key。
+ * 一个名字可能落在多个组里（如「状态」同时是「停产日期」「停售日期」的别名，
+ * 「乘员数」同时属于「驾驶室准乘人数」「额定载客(含驾驶员)」），这类名字**不唯一**。
+ */
+const buildAliasGroupIndex = (): Map<string, string[]> => {
+    const index = new Map<string, string[]>();
+    const add = (name: string, groupKey: string) => {
+        const key = normalizeName(name);
+        if (!key) return;
+        const groups = index.get(key);
+        if (groups) {
+            if (!groups.includes(groupKey)) groups.push(groupKey);
+        } else {
+            index.set(key, [groupKey]);
+        }
+    };
+    for (const [standardName, aliases] of Object.entries(PARAMETER_ALIASES)) {
+        add(standardName, standardName);
+        aliases.forEach((alias) => add(alias, standardName));
+    }
+    return index;
+};
+
+/**
+ * 归一化的候选名 → **全部**同名候选（不是首个）。
+ * findUniqueMatch 需要看见撞名的全部候选才能判「不唯一」，
+ * 而 getOrCreateNormalizedMap 对同名只留首个，所以这里另建一份。
+ */
+const candidatesByNormalizedName = (candidates: VehicleParameter[]): Map<string, VehicleParameter[]> => {
+    const map = new Map<string, VehicleParameter[]>();
+    for (const p of candidates) {
+        const key = normalizeName(p.name);
+        if (!key) continue;
+        const list = map.get(key);
+        if (list) list.push(p);
+        else map.set(key, [p]);
+    }
+    return map;
+};
+
+/**
+ * 只有「唯一确定」时才返回候选，供批量自动绑定来源用；否则返回 undefined 让用户手选。
+ *
+ * 判定标准：
+ * - 候选名与查询**完全一致** → 直接采用（最强信号，与 findBestMatch 的优先级一致）；
+ * - 否则看归一化后同名的候选：恰好一个才算确定，撞名（如 `轴距(mm)` 与 `轴距(cm)`）判不确定；
+ * - 同义词命中要求查询名只属于**一个**同义词组（跨组别名如「状态」「乘员数」直接判不确定），
+ *   且该组内能被命中的候选恰好一个；
+ * - 模糊相近不算命定，与 findBestMatch 一致（模糊交给用户手选）。
+ */
+export const findUniqueMatch = (
+    queryName: string,
+    candidates: VehicleParameter[]
+): VehicleParameter | undefined => {
+    const query = queryName.trim();
+    if (!query || candidates.length === 0) return undefined;
+
+    // 1. 完全一致：名字一模一样，无需再判唯一性
+    const exact = candidates.find((p) => p.name === query);
+    if (exact) return exact;
+
+    const normalizedKey = normalizeName(query);
+    if (!normalizedKey) return undefined;
+    const byNormalized = candidatesByNormalizedName(candidates);
+
+    // 2. 归一化同名：必须恰好一个
+    const sameNormalized = byNormalized.get(normalizedKey);
+    if (sameNormalized) return sameNormalized.length === 1 ? sameNormalized[0] : undefined;
+
+    // 3. 同义词：跨组即不确定
+    const groups = buildAliasGroupIndex().get(normalizedKey);
+    if (!groups || groups.length !== 1) return undefined;
+
+    // 组内所有可能命中的名字（标准名 + 全部别名）→ 汇总候选并去重
+    const groupKey = groups[0];
+    const namesInGroup = [groupKey, ...(PARAMETER_ALIASES[groupKey] ?? [])];
+    const hits: VehicleParameter[] = [];
+    const seen = new Set<string>();
+    for (const name of namesInGroup) {
+        for (const hit of byNormalized.get(normalizeName(name)) ?? []) {
+            if (!seen.has(hit.name)) {
+                seen.add(hit.name);
+                hits.push(hit);
+            }
+        }
+    }
+
+    return hits.length === 1 ? hits[0] : undefined;
+};
