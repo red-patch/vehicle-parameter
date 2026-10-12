@@ -10,7 +10,7 @@ import {
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { buildFieldSearchResults, parseFieldBatchInput } from '../SmartFiller/coreFieldRules';
-import { findBestMatch } from '../../utils/matchingEngine';
+import { findBestMatch, findUniqueMatch } from '../../utils/matchingEngine';
 import {
     createBidRuleId, defaultTemplateFor, getBidSchemesSync, moveRuleToFront, reloadBidMappings,
     saveBidMappingsConfig,
@@ -192,16 +192,27 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
 
     const handleBatchAdd = () => {
         const names = parseFieldBatchInput(batchInput);
-        if (names.length === 0) return;
-        updateSchemes((scheme) => {
-            const existing = new Set(scheme.rules.map((rule) => rule.target.trim()));
-            const additions = names
-                .filter((name) => !existing.has(name))
-                .map((name) => ({ id: createBidRuleId(), target: name, sources: [] as string[] }));
-            if (additions.length === 0) return scheme;
-            return { ...scheme, rules: [...scheme.rules, ...additions] };
+        if (names.length === 0 || !activeScheme) return;
+        // 在 updater 外算好：updater 在严格模式下会被调用两次，往里塞副作用会重复计数
+        const existing = new Set(activeScheme.rules.map((rule) => rule.target.trim()));
+        const toAdd = names.filter((name) => !existing.has(name));
+        if (toAdd.length === 0) {
+            message.info('没有新增字段（与现有字段重名）');
+            return;
+        }
+        // 批量添加时顺手做确定性匹配：只在唯一命中时自动绑来源，模糊/歧义留给用户手选
+        const candidates = Array.from(unionParams.values());
+        const additions: BidFieldRule[] = toAdd.map((name) => {
+            const hit = findUniqueMatch(name, candidates);
+            return { id: createBidRuleId(), target: name, sources: hit ? [hit.name] : [] };
         });
-        message.success(`已添加 ${names.length} 个目标字段（重名已跳过）`);
+        const autoBound = additions.filter((rule) => rule.sources.length > 0).length;
+        updateSchemes((scheme) => ({ ...scheme, rules: [...scheme.rules, ...additions] }));
+        message.success(
+            autoBound > 0
+                ? `已添加 ${additions.length} 个目标字段，其中 ${autoBound} 个已自动匹配来源`
+                : `已添加 ${additions.length} 个目标字段`
+        );
         setBatchInput('');
     };
 
