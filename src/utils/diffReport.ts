@@ -3,6 +3,7 @@
  * 纯函数；同时收敛了 DiffResultView 使用的去重计数助手。
  */
 import type { DiffResult, VehicleParameter } from '../types';
+import { APP_NAME } from '../constants/app';
 import { isFieldRequired } from '../assets/requiredFields';
 import {
     buildMarkdownTable,
@@ -176,7 +177,7 @@ export const buildDiffReportMarkdown = ({
         `- 对比文件：${targetFileName}`,
         ...(modeLabel ? [`- 对比模式：${modeLabel}`] : []),
         `- 生成时间：${formatReportTimestamp(generatedAt)}`,
-        `- 工具：DST 车型参数管理工具`,
+        `- 工具：${APP_NAME}`,
         '',
         `## 统计`,
         '',

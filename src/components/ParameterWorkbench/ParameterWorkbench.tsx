@@ -166,7 +166,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
     const items: { key: WorkbenchTabKey; label: React.ReactNode; children: React.ReactNode }[] = useMemo(() => [
         {
             key: 'pool',
-            label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 资产管理</span>,
+            label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 车型资产</span>,
             children: (
                 <PoolPane
                     focusedFile={focusedFile}

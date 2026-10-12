@@ -9,6 +9,7 @@ import { reloadBidMappings } from '../../utils/bidFieldMapping';
 import { preloadEnumData } from '../../utils/attributeEnums';
 import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import { Modal } from 'antd';
+import { APP_NAME } from '../../constants/app';
 
 const { Header, Content, Footer } = AntLayout;
 
@@ -22,7 +23,7 @@ const items = [
     {
         key: 'pool',
         icon: <DatabaseOutlined />,
-        label: '资产管理',
+        label: '车型资产',
     },
     {
         key: 'compare',
@@ -52,7 +53,7 @@ const items = [
     {
         key: 'dict',
         icon: <SettingOutlined />,
-        label: '系统配置',
+        label: '字段与词表',
     },
 ];
 
@@ -120,7 +121,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
 
     const handleClearCache = () => {
         Modal.confirm({
-            title: '确认清除系统缓存？',
+            title: '确认重置本地数据？',
             icon: <DeleteOutlined style={{ color: 'var(--danger)' }} />,
             content: (
                 <div className="text-sm">
@@ -160,7 +161,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                         data-tauri-drag-region
                         className={`max-w-[180px] truncate font-semibold text-sm md:max-w-[260px] lg:max-w-none text-1`}
                     >
-                        DST车型参数管理工具
+                        {APP_NAME}
                     </span>
                     <span data-tauri-drag-region className="font-mono text-xs text-3 tabular-nums whitespace-nowrap">v{version}</span>
                 </div>
@@ -183,7 +184,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                             icon={isDarkMode ? <SunOutlined className="text-2" /> : <MoonOutlined className="text-2" />}
                         />
                     </Tooltip>
-                    <Tooltip title="清除缓存并重置系统">
+                    <Tooltip title="重置本地数据">
                         <Button
                             type="text"
                             size="small"
