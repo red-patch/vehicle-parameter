@@ -58,10 +58,28 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
     const [schemes, setSchemes] = useState<BidMappingScheme[]>(() => cloneSchemes(getBidSchemesSync()));
     const [batchInput, setBatchInput] = useState('');
 
-    // 当前方案与外部取数面板共用 store 状态（双向联动）：外面选好 → 这里直接落在该方案；
-    // 这里切换 → 外部取数矩阵同步跟随。为空（首次使用 / 原方案已删）时读取时回退首个，
-    // 不回写 store——回写交给 BidPullView 的兜底 effect，避免两处同时回写。
-    const activeSchemeId = bidPullSchemeId ?? schemes[0]?.id ?? null;
+    /** 挂载时已在磁盘上的方案 id（本组件每次打开重新挂载，故不会过期） */
+    const persistedIds = useMemo(() => new Set(getBidSchemesSync().map((s) => s.id)), []);
+
+    /**
+     * 当前方案：本地选中态 + 与外部取数面板的双向联动。
+     * 外面选好 → 打开抽屉落在该方案（初始值取 bidPullSchemeId）。
+     * 抽屉里切到「已保存」方案 → 同步给外部；新建/复制出来的草稿方案**不同步**——
+     * BidPullView 有个兜底 effect 会把不在已保存列表里的 id 改回首个方案，草稿 id
+     * 写过去会被它立刻弹回（这正是「新建后切不动」的原因）。草稿在保存后由
+     * BidPullView 的 onSaved 聚焦，不需要走这里的同步。
+     */
+    const [localSchemeId, setLocalSchemeId] = useState<string | null>(() => bidPullSchemeId);
+    const activeSchemeId = useMemo(
+        () => (localSchemeId && schemes.some((s) => s.id === localSchemeId) ? localSchemeId : schemes[0]?.id ?? null),
+        [localSchemeId, schemes]
+    );
+
+    /** 切换当前方案；仅当目标已在磁盘上时才同步给外部 */
+    const selectScheme = (id: string | null) => {
+        setLocalSchemeId(id);
+        if (id && persistedIds.has(id)) setBidPullSchemeId(id);
+    };
 
     // 系统字段候选全集：Excel 池 + 已激活资产，Map 保证同名去重并携带示例值
     const unionParams = useMemo(() => {
@@ -105,7 +123,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
             rules: [],
         };
         setSchemes((prev) => [...prev, scheme]);
-        setBidPullSchemeId(scheme.id);
+        selectScheme(scheme.id);
     };
 
     const handleDuplicateScheme = () => {
@@ -118,7 +136,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
             rules: activeScheme.rules.map((rule) => ({ ...rule, id: createBidRuleId(), sources: [...rule.sources] })),
         };
         setSchemes((prev) => [...prev, copy]);
-        setBidPullSchemeId(copy.id);
+        selectScheme(copy.id);
     };
 
     const handleRemoveScheme = () => {
@@ -129,7 +147,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
         // 副作用放在 setSchemes 之外：严格模式下 updater 会被调用两次
         const next = schemes.filter((s) => s.id !== activeSchemeId);
         setSchemes(next);
-        setBidPullSchemeId(next[0]?.id ?? null);
+        selectScheme(next[0]?.id ?? null);
     };
 
     // ---- 规则级操作 --------------------------------------------------------
@@ -304,7 +322,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
                 <Select
                     className="flex-1"
                     value={activeSchemeId}
-                    onChange={setBidPullSchemeId}
+                    onChange={selectScheme}
                     options={schemes.map((scheme) => ({
                         value: scheme.id,
                         label: `${scheme.name}（${scheme.rules.length} 项）`,

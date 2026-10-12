@@ -121,3 +121,34 @@ const activeSchemeId = bidPullSchemeId ?? schemes[0]?.id ?? null;
 
 - 抽屉里切换方案会**立即改变外部取数矩阵**。这正是本轮要的效率，代价是误点下拉会当场换掉外面正在看的取数结果——不丢数据（切回即恢复），但属于「操作即时可见」而非「保存后生效」。
 - 置顶按钮使每行多一个按钮（现在每行 4 个图标），在 720px 宽的抽屉里仍有余量。
+
+## 6. 实施后回归：新建/复制方案后下拉弹回（已修）
+
+第一版把「当前方案」整体上移为 store 的 `bidPullSchemeId`，漏了 `BidPullView` 的一条既有兜底 effect（[BidPullView.tsx:138](../../src/components/ParameterWorkbench/BidPullView.tsx:138)）：
+
+```ts
+const activeScheme = schemes.find((s) => s.id === bidPullSchemeId) ?? schemes[0] ?? null;
+useEffect(() => {
+    if (activeScheme && activeScheme.id !== bidPullSchemeId) setBidPullSchemeId(activeScheme.id);
+}, [activeScheme, bidPullSchemeId, setBidPullSchemeId]);
+```
+
+它假设 `bidPullSchemeId` **必然存在于已保存的方案列表**里（原意是「记住的方案被删了就退回首个」）。但新建/复制的方案只活在抽屉的草稿列表里，尚未保存——把它的 id 写进 store，兜底 effect 立刻判为「已删除」并改回 `schemes[0]`，于是下拉切换被弹回（截图现象：新建后仍是「常用投标字段（13 项）」）。
+
+**修法**：抽屉侧区分「已保存方案」与「草稿方案」。挂载时把磁盘上的 id 收进 `persistedIds`，切换时只在目标是已保存方案时才写 store：
+
+```ts
+const selectScheme = (id: string | null) => {
+    setLocalSchemeId(id);
+    if (id && persistedIds.has(id)) setBidPullSchemeId(id);
+};
+```
+
+新建/复制仍用 `selectScheme`，但因为是草稿 id 所以不外写；保存后由 `BidPullView` 的 `onSaved` 聚焦新方案（现有逻辑）。这样选了外层 effect 的假设，不去跟它对抗。
+
+**教训（为什么第一版没发现）**：第一版联动测试 `vi.mock` 掉了整个 `vehicleStore`，`bidPullSchemeId` 只是个不会回声的 spy，所以看不到「外部 effect 把它改回去」这条回路。本轮的回归测试 `BidMappingDrawer.newScheme.test.tsx` 用**真实 store** + 渲染整个 `BidPullView`，才复现出来。凡是要验证「与外部组件通过 store 往返」的行为，mock 掉 store 就等于把被验证的回路本身挖掉了。
+
+**测试环境的两个坑**（与产品行为无关，记下备查）：
+
+1. 本机 Node 带 `--localstorage-file`，jsdom 里 `localStorage` 是个**没有 `setItem` 的空壳**，真实 store 的 persist 一写就抛 `storage.setItem is not a function`。`createJSONStorage(() => localStorage)` 在 store 创建时就解析并存下了该对象，所以补丁必须写在 `vi.hoisted()` 里（先于 import 执行）。
+2. antd v6 的方案下拉选中文本类名是 `.ant-select-content-value`（不是 v5 的 `.ant-select-selection-item`）。
