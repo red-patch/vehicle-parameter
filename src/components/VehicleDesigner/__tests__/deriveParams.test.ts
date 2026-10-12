@@ -23,9 +23,8 @@ describe('deriveParams', () => {
     expect(p.innerCargoHeight).toBe(1440);
     expect(p.innerCargoLength).toBe(4050 - 60);
     expect(p.innerCargoWidth).toBe(1600 - 60);
-    // 体积 (3990 * 1540 * 1440) / 1e9，四舍五入两位
-    const vol = (3990 * 1540 * 1440) / 1e9;
-    expect(p.innerCargoVolume).toBe(parseFloat(vol.toFixed(2)));
+    // 体积 (3990 * 1540 * 1440) / 1e9 ≈ 8.848224，四舍五入两位 → 8.85（字面量钉死，不循环推导）
+    expect(p.innerCargoVolume).toBe(8.85);
   });
 
   it('整车长 = max(底盘端, 货厢端)', () => {
