@@ -145,6 +145,16 @@ export const composeRuleValue = (
     };
 };
 
+/**
+ * 把指定 id 的规则移到首位（规则顺序决定取数矩阵的行序与导出文件的行序）
+ * @returns 新数组；id 不存在或已在首位时返回原引用，避免无意义重渲染
+ */
+export const moveRuleToFront = <T extends { id: string }>(rules: T[], ruleId: string): T[] => {
+    const index = rules.findIndex((rule) => rule.id === ruleId);
+    if (index <= 0) return rules;
+    return [rules[index], ...rules.slice(0, index), ...rules.slice(index + 1)];
+};
+
 // ---------------------------------------------------------------------------
 // 默认方案：投标常用 13 项（来源留空的由用户在抽屉里绑定）
 // ---------------------------------------------------------------------------
