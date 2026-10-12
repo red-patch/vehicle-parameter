@@ -99,7 +99,7 @@ export const parseConfigText = (text: string): { updates: Partial<VehicleParams>
   }
 
   if (Object.keys(updates).length === 0) {
-    const dimsMatch = text.match(/(\d{3,5})\s*[\*xX]\s*(\d{3,5})\s*[\*xX]\s*(\d{3,5})/);
+    const dimsMatch = text.match(/(\d{3,5})\s*[*xX]\s*(\d{3,5})\s*[*xX]\s*(\d{3,5})/);
     if (dimsMatch) {
       updates.chassisLength = parseFloat(dimsMatch[1]);
       updates.cargoWidth = parseFloat(dimsMatch[2]);
