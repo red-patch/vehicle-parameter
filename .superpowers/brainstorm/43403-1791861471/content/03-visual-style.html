@@ -1,0 +1,132 @@
+<style>
+.style-showcase { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; }
+
+/* ===== 方向 A：精致曜蓝（深色，当前主题强化） ===== */
+.style-a { background: #0a0e1a; color: #e2e8f0; }
+.style-a .demo-panel { background: #0f1729; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
+.style-a .demo-chip { display: inline-block; padding: 4px 10px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-radius: 6px; font-size: 10px; font-weight: 600; margin-right: 6px; border: 1px solid rgba(59, 130, 246, 0.3); }
+.style-a .demo-card { background: #1a2332; border: 1px solid #2d3f5a; border-radius: 8px; padding: 12px; margin-top: 12px; transition: all 0.2s; }
+.style-a .demo-card:hover { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2); transform: translateY(-1px); }
+.style-a .demo-title { font-weight: 600; color: #f1f5f9; font-size: 13px; margin-bottom: 4px; }
+.style-a .demo-meta { font-size: 10px; color: #94a3b8; }
+.style-a .accent { color: #60a5fa; }
+
+/* ===== 方向 B：清爽浅色（极简专业） ===== */
+.style-b { background: #f8fafc; color: #0f172a; }
+.style-b .demo-panel { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); }
+.style-b .demo-chip { display: inline-block; padding: 4px 10px; background: #eff6ff; color: #2563eb; border-radius: 6px; font-size: 10px; font-weight: 600; margin-right: 6px; border: 1px solid #bfdbfe; }
+.style-b .demo-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 12px; transition: all 0.2s; }
+.style-b .demo-card:hover { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1); transform: translateY(-1px); }
+.style-b .demo-title { font-weight: 600; color: #0f172a; font-size: 13px; margin-bottom: 4px; }
+.style-b .demo-meta { font-size: 10px; color: #64748b; }
+.style-b .accent { color: #2563eb; }
+
+/* ===== 方向 C：现代渐变（玻璃拟态） ===== */
+.style-c { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+.style-c .demo-panel { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 16px; padding: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); }
+.style-c .demo-chip { display: inline-block; padding: 4px 10px; background: rgba(255, 255, 255, 0.2); color: white; border-radius: 6px; font-size: 10px; font-weight: 600; margin-right: 6px; border: 1px solid rgba(255, 255, 255, 0.3); }
+.style-c .demo-card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 12px; padding: 12px; margin-top: 12px; transition: all 0.3s; }
+.style-c .demo-card:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.4); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); transform: translateY(-2px); }
+.style-c .demo-title { font-weight: 600; color: white; font-size: 13px; margin-bottom: 4px; }
+.style-c .demo-meta { font-size: 10px; color: rgba(255, 255, 255, 0.8); }
+.style-c .accent { color: #fbbf24; }
+
+.style-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; }
+.style-demo { padding: 20px; border-radius: 12px; }
+.style-label { font-size: 11px; font-weight: 600; margin-bottom: 12px; text-align: center; opacity: 0.9; }
+</style>
+
+<h2>视觉风格方向</h2>
+<p class="subtitle">三个方向都是「漂亮」，但调性不同。选一个你最有感觉的</p>
+
+<div class="style-grid">
+  <!-- 方向 A -->
+  <div class="style-demo style-a">
+    <div class="style-label">A. 精致曜蓝（深色）</div>
+    <div class="demo-panel">
+      <div>
+        <span class="demo-chip">最新版</span>
+        <span class="demo-chip">⭐ 关键</span>
+      </div>
+      <div class="demo-card">
+        <div class="demo-title">帝豪EV 450</div>
+        <div class="demo-meta">📊 完成率 <span class="accent">92%</span> · 缺必填 2</div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-title">星越L Hi·P</div>
+        <div class="demo-meta">📊 完成率 <span class="accent">95%</span></div>
+      </div>
+    </div>
+    <div style="margin-top: 12px; font-size: 10px; text-align: center; color: #94a3b8;">
+      当前主题的强化版：更深邃 + 微阴影 + 悬浮感
+    </div>
+  </div>
+
+  <!-- 方向 B -->
+  <div class="style-demo style-b">
+    <div class="style-label" style="color: #64748b;">B. 清爽浅色（极简）</div>
+    <div class="demo-panel">
+      <div>
+        <span class="demo-chip">最新版</span>
+        <span class="demo-chip">⭐ 关键</span>
+      </div>
+      <div class="demo-card">
+        <div class="demo-title">帝豪EV 450</div>
+        <div class="demo-meta">📊 完成率 <span class="accent">92%</span> · 缺必填 2</div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-title">星越L Hi·P</div>
+        <div class="demo-meta">📊 完成率 <span class="accent">95%</span></div>
+      </div>
+    </div>
+    <div style="margin-top: 12px; font-size: 10px; text-align: center; color: #64748b;">
+      类似 Notion / Linear：干净、专业、高可读性
+    </div>
+  </div>
+
+  <!-- 方向 C -->
+  <div class="style-demo style-c">
+    <div class="style-label">C. 现代渐变（玻璃拟态）</div>
+    <div class="demo-panel">
+      <div>
+        <span class="demo-chip">最新版</span>
+        <span class="demo-chip">⭐ 关键</span>
+      </div>
+      <div class="demo-card">
+        <div class="demo-title">帝豪EV 450</div>
+        <div class="demo-meta">📊 完成率 <span class="accent">92%</span> · 缺必填 2</div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-title">星越L Hi·P</div>
+        <div class="demo-meta">📊 完成率 <span class="accent">95%</span></div>
+      </div>
+    </div>
+    <div style="margin-top: 12px; font-size: 10px; text-align: center; color: rgba(255,255,255,0.7);">
+      类似 macOS Big Sur：毛玻璃 + 渐变 + 年轻活力
+    </div>
+  </div>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="style-a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>精致曜蓝（深色）</h3>
+      <p>在现有深色主题基础上做精修：更深的底色、更细腻的边框、微阴影、悬浮动效。稳妥且与整车气质一致。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="style-b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>清爽浅色（极简）</h3>
+      <p>切到浅色主题，走 Notion / Linear 的极简专业路线。高可读性，长时间工作不眼疲劳。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="style-c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>现代渐变（玻璃拟态）</h3>
+      <p>毛玻璃效果 + 渐变背景，更年轻有活力。但对「工具型产品」可能过于花哨。</p>
+    </div>
+  </div>
+</div>

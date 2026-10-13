@@ -1,0 +1,181 @@
+<style>
+.filter-demo { font-size: 10px; }
+.filter-demo .pane3 { display: grid; grid-template-columns: 160px 1fr 180px; gap: 0; height: 320px; }
+.filter-demo .col { padding: 8px; border-right: 1px solid var(--border); }
+.filter-demo .col:last-child { border-right: none; }
+.filter-demo .col-left { background: var(--surface); }
+.filter-demo .col-mid { background: var(--bg); overflow-y: auto; }
+.filter-demo .col-right { background: var(--surface); }
+.filter-demo h6 { font-size: 9px; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 6px 0; font-weight: 600; letter-spacing: 0.5px; }
+.filter-demo .nav-item { padding: 4px 6px; border-radius: 4px; margin-bottom: 2px; color: var(--text); }
+.filter-demo .nav-item.active { background: var(--brand-weak); color: var(--brand); font-weight: 600; }
+.filter-demo .nav-item .count { float: right; color: var(--text-tertiary); font-size: 8px; }
+.filter-demo .search { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 10px; color: var(--text-tertiary); margin-bottom: 6px; }
+.filter-demo .vehicle-row { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; margin-bottom: 3px; color: var(--text); }
+.filter-demo .vehicle-row:hover { border-color: var(--brand); }
+.filter-demo .vehicle-row.selected { background: var(--brand-weak); border-color: var(--brand); }
+.filter-demo .cart-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 6px; margin-bottom: 4px; font-size: 9px; color: var(--text); }
+
+/* 方案1：顶部横条 */
+.filter-demo .top-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 6px 8px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.filter-demo .filter-chip { padding: 2px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; color: var(--text-secondary); cursor: pointer; }
+.filter-demo .filter-chip:hover { border-color: var(--brand); color: var(--brand); }
+.filter-demo .filter-chip.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
+.filter-demo .filter-chip .arrow { font-size: 7px; margin-left: 2px; }
+
+/* 方案2：左栏堆叠 */
+.filter-demo .facet-block { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.filter-demo .facet-block:last-child { border-bottom: none; }
+.filter-demo .facet-title { font-size: 9px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; cursor: pointer; }
+.filter-demo .facet-values { display: flex; flex-wrap: wrap; gap: 2px; }
+.filter-demo .facet-tag { padding: 2px 5px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; font-size: 8px; color: var(--text); cursor: pointer; }
+.filter-demo .facet-tag:hover { border-color: var(--brand); }
+.filter-demo .facet-tag.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
+.filter-demo .facet-more { font-size: 8px; color: var(--text-tertiary); cursor: pointer; margin-top: 2px; }
+
+/* 方案3：左栏二级tab */
+.filter-demo .tab-switch { display: flex; gap: 0; margin-bottom: 8px; background: var(--bg); border-radius: 4px; padding: 2px; }
+.filter-demo .tab-switch .tab { flex: 1; text-align: center; padding: 3px 4px; font-size: 9px; color: var(--text-secondary); cursor: pointer; border-radius: 3px; }
+.filter-demo .tab-switch .tab.active { background: var(--surface); color: var(--brand); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+.mockup-header { padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text); }
+</style>
+
+<h2>详细筛选（电量、准入公告、标签...）放哪？</h2>
+<p class="subtitle">三栏骨架已定，现在看筛选维度的三种摆法</p>
+
+<!-- 方案1：顶部横条 -->
+<div class="mockup" style="margin-bottom: 20px;">
+  <div class="mockup-header">方案 1：顶部横条（下拉式筛选）</div>
+  <div class="mockup-body filter-demo" style="padding: 0;">
+    <div class="top-bar">
+      <span class="filter-chip active">主机厂: 吉利 <span class="arrow">▾</span></span>
+      <span class="filter-chip">族群 <span class="arrow">▾</span></span>
+      <span class="filter-chip">电量 <span class="arrow">▾</span></span>
+      <span class="filter-chip">准入公告 <span class="arrow">▾</span></span>
+      <span class="filter-chip">标签 <span class="arrow">▾</span></span>
+      <span style="flex: 1;"></span>
+      <span class="filter-chip">清空</span>
+    </div>
+    <div class="pane3">
+      <div class="col col-left">
+        <h6>主机厂</h6>
+        <div class="nav-item active">吉利 <span class="count">12</span></div>
+        <div class="nav-item">比亚迪 <span class="count">8</span></div>
+        <h6 style="margin-top: 10px;">族群</h6>
+        <div class="nav-item">轿车 <span class="count">15</span></div>
+      </div>
+      <div class="col col-mid">
+        <div class="search">🔍 搜名字/公告号...</div>
+        <div class="vehicle-row selected">帝豪EV 450 ✓</div>
+        <div class="vehicle-row">帝豪EV Pro</div>
+        <div class="vehicle-row">星越L Hi·P</div>
+      </div>
+      <div class="col col-right">
+        <div class="cart-item">帝豪EV 450</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 方案2：左栏堆叠 -->
+<div class="mockup" style="margin-bottom: 20px;">
+  <div class="mockup-header">方案 2：左栏堆叠（筛选全部在左列）</div>
+  <div class="mockup-body filter-demo" style="padding: 0;">
+    <div class="pane3">
+      <div class="col col-left">
+        <div class="facet-block">
+          <div class="facet-title">主机厂 ▾</div>
+          <div class="facet-values">
+            <span class="facet-tag active">吉利 12</span>
+            <span class="facet-tag">比亚迪 8</span>
+            <span class="facet-tag">长安 5</span>
+          </div>
+        </div>
+        <div class="facet-block">
+          <div class="facet-title">族群 ▾</div>
+          <div class="facet-values">
+            <span class="facet-tag">轿车 15</span>
+            <span class="facet-tag">SUV 10</span>
+          </div>
+        </div>
+        <div class="facet-block">
+          <div class="facet-title">电量 (kWh) ▾</div>
+          <div class="facet-values">
+            <span class="facet-tag">50-60</span>
+            <span class="facet-tag">60-80</span>
+            <span class="facet-tag">>80</span>
+          </div>
+        </div>
+        <div class="facet-block">
+          <div class="facet-title">准入公告 ▾</div>
+          <div class="facet-values">
+            <span class="facet-tag">2024年批次</span>
+            <span class="facet-tag">2025年批次</span>
+          </div>
+        </div>
+        <div class="facet-more">+ 更多维度</div>
+      </div>
+      <div class="col col-mid">
+        <div class="search">🔍 搜名字/公告号...</div>
+        <div class="vehicle-row selected">帝豪EV 450 ✓</div>
+        <div class="vehicle-row">帝豪EV Pro</div>
+      </div>
+      <div class="col col-right">
+        <div class="cart-item">帝豪EV 450</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 方案3：左栏二级tab -->
+<div class="mockup">
+  <div class="mockup-header">方案 3：左栏二级 Tab（快速导航 / 详细筛选 切换）</div>
+  <div class="mockup-body filter-demo" style="padding: 0;">
+    <div class="pane3">
+      <div class="col col-left">
+        <div class="tab-switch">
+          <div class="tab active">快速导航</div>
+          <div class="tab">详细筛选</div>
+        </div>
+        <h6>主机厂</h6>
+        <div class="nav-item active">吉利 <span class="count">12</span></div>
+        <div class="nav-item">比亚迪 <span class="count">8</span></div>
+        <h6 style="margin-top: 10px;">族群</h6>
+        <div class="nav-item">轿车 <span class="count">15</span></div>
+      </div>
+      <div class="col col-mid">
+        <div class="search">🔍 搜名字/公告号...</div>
+        <div class="vehicle-row selected">帝豪EV 450 ✓</div>
+        <div class="vehicle-row">帝豪EV Pro</div>
+      </div>
+      <div class="col col-right">
+        <div class="cart-item">帝豪EV 450</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="top-bar" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>顶部横条</h3>
+      <p>筛选维度以 chip 形式横排在顶部，点击下拉选值。类似 Linear / Notion。左栏保留快速导航。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="left-stack" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>左栏堆叠</h3>
+      <p>所有筛选维度（含电量/准入公告/标签）纵向堆在左栏。一列搞定，但栏会很长。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="left-tabs" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>左栏二级 Tab</h3>
+      <p>左栏分两个 tab：快速导航（主机厂/族群树）vs 详细筛选（电量/公告/标签）。切换后内容全换。</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,162 @@
+<style>
+/* ========== 单栏方案 ========== */
+.mockup .two-pane { display: grid; grid-template-columns: 240px 1fr; gap: 0; height: 340px; font-size: 10px; }
+.mockup .two-pane .sidebar { border-right: 1px solid var(--border); padding: 8px; background: var(--surface); }
+.mockup .two-pane .sidebar h6 { font-size: 9px; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 6px 0; font-weight: 600; letter-spacing: 0.5px; }
+.mockup .two-pane .sidebar .nav-item { padding: 4px 8px; border-radius: 4px; margin-bottom: 2px; cursor: pointer; color: var(--text); }
+.mockup .two-pane .sidebar .nav-item:hover { background: var(--hover); }
+.mockup .two-pane .sidebar .nav-item.active { background: var(--brand-weak); color: var(--brand); font-weight: 600; }
+.mockup .two-pane .sidebar .nav-item .count { float: right; color: var(--text-tertiary); font-size: 9px; }
+.mockup .two-pane .main { padding: 8px; overflow-y: auto; background: var(--bg); }
+.mockup .two-pane .toolbar { display: flex; gap: 4px; margin-bottom: 8px; align-items: center; }
+.mockup .two-pane .toolbar .search { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 10px; color: var(--text-tertiary); }
+.mockup .two-pane .toolbar .btn { padding: 3px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); font-size: 9px; color: var(--text-secondary); }
+.mockup .two-pane .vehicle-row { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.mockup .two-pane .vehicle-row:hover { border-color: var(--brand); }
+.mockup .two-pane .vehicle-row.selected { border-color: var(--brand); background: var(--brand-weak); }
+.mockup .two-pane .vehicle-row .name { flex: 1; font-weight: 600; color: var(--text); font-size: 11px; }
+.mockup .two-pane .vehicle-row .meta { font-size: 9px; color: var(--text-tertiary); }
+.mockup .two-pane .vehicle-row .tag { padding: 1px 5px; background: var(--brand-weak); color: var(--brand); border-radius: 3px; font-size: 8px; }
+.mockup .two-pane .vehicle-row .add-btn { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--brand); color: var(--brand); background: transparent; font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
+.mockup .two-pane .vehicle-row .add-btn.in { background: var(--brand); color: white; }
+.mockup .two-pane .cart-strip { position: sticky; bottom: 0; background: var(--surface); border-top: 2px solid var(--brand); padding: 8px; margin: 0 -8px -8px; }
+.mockup .two-pane .cart-strip .cart-header { font-size: 10px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.mockup .two-pane .cart-strip .cart-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.mockup .two-pane .cart-strip .chip { padding: 3px 8px; background: var(--brand-weak); color: var(--brand); border-radius: 10px; font-size: 9px; display: flex; align-items: center; gap: 3px; }
+.mockup .two-pane .cart-strip .chip .x { cursor: pointer; opacity: 0.6; }
+
+/* ========== 三栏方案 ========== */
+.mockup .three-pane { display: grid; grid-template-columns: 160px 1fr 180px; gap: 0; height: 340px; font-size: 10px; }
+.mockup .three-pane .col-left { border-right: 1px solid var(--border); padding: 8px; background: var(--surface); }
+.mockup .three-pane .col-left h6 { font-size: 9px; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 6px 0; font-weight: 600; letter-spacing: 0.5px; }
+.mockup .three-pane .col-left .nav-item { padding: 4px 6px; border-radius: 4px; margin-bottom: 2px; font-size: 10px; color: var(--text); }
+.mockup .three-pane .col-left .nav-item.active { background: var(--brand-weak); color: var(--brand); font-weight: 600; }
+.mockup .three-pane .col-left .nav-item .count { float: right; color: var(--text-tertiary); font-size: 8px; }
+.mockup .three-pane .col-mid { padding: 8px; overflow-y: auto; background: var(--bg); border-right: 1px solid var(--border); }
+.mockup .three-pane .col-mid .search { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 10px; color: var(--text-tertiary); margin-bottom: 6px; }
+.mockup .three-pane .col-mid .vehicle-row { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; margin-bottom: 3px; font-size: 10px; color: var(--text); }
+.mockup .three-pane .col-mid .vehicle-row:hover { border-color: var(--brand); }
+.mockup .three-pane .col-mid .vehicle-row.selected { background: var(--brand-weak); border-color: var(--brand); }
+.mockup .three-pane .col-right { padding: 8px; background: var(--surface); }
+.mockup .three-pane .col-right .cart-title { font-size: 10px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.mockup .three-pane .col-right .cart-item { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 5px 6px; margin-bottom: 4px; font-size: 9px; color: var(--text); }
+.mockup .three-pane .col-right .cart-item .remove { float: right; color: var(--text-tertiary); cursor: pointer; }
+
+.mockup-header { padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text); }
+</style>
+
+<h2>整体框架：选哪一版？</h2>
+<p class="subtitle">两栏（单栏+底部购物车）vs 三栏（筛选+列表+购物车上侧），看哪个骨架更顺手</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">A. 单栏 + 底部购物车</div>
+    <div class="mockup-body" style="padding: 0;">
+      <div class="two-pane">
+        <div class="sidebar">
+          <h6>主机厂</h6>
+          <div class="nav-item active">吉利 <span class="count">12</span></div>
+          <div class="nav-item">比亚迪 <span class="count">8</span></div>
+          <div class="nav-item">长安 <span class="count">5</span></div>
+          <h6 style="margin-top: 12px;">族群</h6>
+          <div class="nav-item">轿车 <span class="count">15</span></div>
+          <div class="nav-item">SUV <span class="count">10</span></div>
+        </div>
+        <div class="main">
+          <div class="toolbar">
+            <div class="search">🔍 搜名字/公告号...</div>
+            <div class="btn">筛选 ▾</div>
+          </div>
+          <div class="vehicle-row selected">
+            <div style="flex:1;">
+              <div class="name">帝豪EV 450</div>
+              <div class="meta">参数完成率 92% · 缺必填 2</div>
+            </div>
+            <span class="tag">最新版</span>
+            <button class="add-btn in">✓</button>
+          </div>
+          <div class="vehicle-row">
+            <div style="flex:1;">
+              <div class="name">帝豪EV Pro</div>
+              <div class="meta">参数完成率 88% · 历史</div>
+            </div>
+            <span class="tag">历史</span>
+            <button class="add-btn">+</button>
+          </div>
+          <div class="vehicle-row">
+            <div style="flex:1;">
+              <div class="name">星越L Hi·P</div>
+              <div class="meta">参数完成率 95% · 缺必填 0</div>
+            </div>
+            <span class="tag">最新版</span>
+            <button class="add-btn">+</button>
+          </div>
+          <div class="vehicle-row selected">
+            <div style="flex:1;">
+              <div class="name">星越L Hi·F</div>
+              <div class="meta">参数完成率 91% · 缺必填 1</div>
+            </div>
+            <span class="tag">最新版</span>
+            <button class="add-btn in">✓</button>
+          </div>
+          <div class="cart-strip">
+            <div class="cart-header">已选工作集 (2)</div>
+            <div class="cart-chips">
+              <span class="chip">帝豪EV 450 <span class="x">×</span></span>
+              <span class="chip">星越L Hi·F <span class="x">×</span></span>
+              <button class="mock-button" style="font-size: 9px; padding: 4px 10px;">去对比 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">B. 三栏（现在的强化版）</div>
+    <div class="mockup-body" style="padding: 0;">
+      <div class="three-pane">
+        <div class="col-left">
+          <h6>主机厂</h6>
+          <div class="nav-item active">吉利 <span class="count">12</span></div>
+          <div class="nav-item">比亚迪 <span class="count">8</span></div>
+          <h6 style="margin-top: 10px;">族群</h6>
+          <div class="nav-item">轿车 <span class="count">15</span></div>
+          <div class="nav-item">SUV <span class="count">10</span></div>
+        </div>
+        <div class="col-mid">
+          <div class="search">🔍 搜索...</div>
+          <div class="vehicle-row selected">帝豪EV 450 <span style="float:right; color: var(--brand);">✓</span></div>
+          <div class="vehicle-row">帝豪EV Pro</div>
+          <div class="vehicle-row">星越L Hi·P</div>
+          <div class="vehicle-row selected">星越L Hi·F <span style="float:right; color: var(--brand);">✓</span></div>
+          <div class="vehicle-row">星瑞</div>
+          <div class="vehicle-row">博越L</div>
+        </div>
+        <div class="col-right">
+          <div class="cart-title">已选 (2)</div>
+          <div class="cart-item">帝豪EV 450 <span class="remove">×</span></div>
+          <div class="cart-item">星越L Hi·F <span class="remove">×</span></div>
+          <button class="mock-button" style="width: 100%; margin-top: 8px; font-size: 10px; padding: 6px;">去对比</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options" style="margin-top: 24px;">
+  <div class="option" data-choice="single-pane" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>单栏 + 底部购物车</h3>
+      <p>左导航窄 + 主区宽，购物车在底部条。视野宽，适合列表快速扫。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="three-pane" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>三栏（强化版）</h3>
+      <p>筛选+列表+购物车各自一列。结构稳，适合频繁切换筛选。</p>
+    </div>
+  </div>
+</div>
