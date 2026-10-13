@@ -153,7 +153,7 @@ const AssetPoolLayout: React.FC = () => {
         }
 
         return result;
-    }, [governanceFilteredInfos, facetSelection, searchKeyword, snapshot]);
+    }, [governanceFilteredInfos, facetSelection, searchKeyword, fileFacets, snapshot.tags]);
 
     // ===== 已激活文件名集合 =====
     const activeFileNames = useMemo(() => new Set(activeAssets), [activeAssets]);

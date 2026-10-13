@@ -573,3 +573,40 @@ img, a { -webkit-user-drag: none; }
 .vp-locate-flash {
   animation: vp-locate-flash 1.6s ease-out;
 }
+
+/* ===== V2 资产池：浅色极简补充（2026-10-13-asset-panel-redesign-v2） ===== */
+:root {
+  /* 阴影（浅色极简：只在需要时出现） */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+
+  /* V2 浅色微调（与现有变量兼容，仅 AssetPool 使用） */
+  --surface-hover: #f8fafc;
+}
+
+/* V2 卡片 hover 微动效 */
+.vp-card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.vp-card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* V2 按钮 hover 缩放 */
+.vp-btn-scale {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.vp-btn-scale:hover {
+  transform: scale(1.05);
+}
+
+/* V2 选中态蓝条滑入 */
+@keyframes vp-slide-in-left {
+  from { width: 0; }
+  to { width: 3px; }
+}
+.vp-slide-in-left {
+  animation: vp-slide-in-left 0.2s ease-out;
+}

@@ -55,10 +55,10 @@ const AssetCard: React.FC<AssetCardProps> = ({
         <div
             className={`
                 relative bg-[var(--surface)] border rounded-[10px] px-4 py-3.5 mb-2.5 cursor-pointer
-                transition-all duration-200 overflow-hidden
+                transition-all duration-200 overflow-hidden vp-card-hover
                 ${isFocused
                     ? 'bg-[var(--brand-weak)] border-[var(--brand)] shadow-[0_0_0_1px_var(--brand),var(--shadow-sm)]'
-                    : 'border-[var(--border)] hover:border-[var(--brand)] hover:shadow-[var(--shadow-md)] hover:translate-y-[-1px]'
+                    : 'border-[var(--border)] hover:border-[var(--brand)]'
                 }
             `}
             onClick={onFocus}
@@ -67,7 +67,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
         >
             {/* 左侧 3px 蓝条（选中态） */}
             {isFocused && (
-                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--brand)]" />
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--brand)] vp-slide-in-left" />
             )}
 
             {/* 第一行：名称 + 徽章 + 激活按钮 */}
@@ -115,10 +115,10 @@ const AssetCard: React.FC<AssetCardProps> = ({
                     <button
                         className={`
                             w-7 h-7 rounded-full border-[1.5px] flex items-center justify-center flex-shrink-0
-                            transition-all duration-200 text-[16px] leading-none
+                            transition-all duration-200 text-[16px] leading-none vp-btn-scale
                             ${isActive
-                                ? 'bg-[var(--brand)] border-[var(--brand)] text-white hover:bg-[var(--brand-hover)] hover:scale-105'
-                                : 'bg-[var(--surface)] border-[var(--border-strong)] text-2 hover:border-[var(--brand)] hover:text-[var(--brand)] hover:bg-[var(--brand-weak)] hover:scale-105'
+                                ? 'bg-[var(--brand)] border-[var(--brand)] text-white hover:bg-[var(--brand-hover)]'
+                                : 'bg-[var(--surface)] border-[var(--border-strong)] text-2 hover:border-[var(--brand)] hover:text-[var(--brand)] hover:bg-[var(--brand-weak)]'
                             }
                         `}
                         onClick={e => {

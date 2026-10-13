@@ -1,5 +1,5 @@
 import React from 'react';
-import { CloseOutlined } from '@ant-design/icons';
+import { CloseOutlined, BarChartOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
 /**
  * 购物车里的车卡（设计文档 2026-10-13-asset-panel-redesign-v2 §4.3）：
@@ -49,10 +49,14 @@ const AssetCartCard: React.FC<AssetCartCardProps> = ({ vehicle, onRemove, onClic
                 </span>
             </div>
             <div className="flex items-center gap-2.5 text-[11px] text-3">
-                <span>📊 <span className="text-2 font-semibold">{fillRate}%</span></span>
+                <span className="flex items-center gap-1">
+                    <BarChartOutlined className="text-[11px]" />
+                    <span className="text-2 font-semibold">{fillRate}%</span>
+                </span>
                 {vehicle.requiredMissing > 0 && (
-                    <span className="text-[var(--danger)]">
-                        ⚠️ 缺必填 <span className="font-semibold">{vehicle.requiredMissing}</span>
+                    <span className="flex items-center gap-1 text-[var(--danger)]">
+                        <ExclamationCircleOutlined className="text-[11px]" />
+                        缺必填 <span className="font-semibold">{vehicle.requiredMissing}</span>
                     </span>
                 )}
             </div>
