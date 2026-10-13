@@ -8,6 +8,7 @@ import { isFieldRequired } from '../../assets/requiredFields';
 import { buildVehicleDisplayLabels, buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../../utils/vehicleInstance';
 import AssetStatsBadge from './AssetStatsBadge';
 import type { AssetLibrarySnapshot } from '../../hooks/useAssetLibrarySnapshot';
+import { useAssetAliasResolver } from '../../hooks/useAssetAliasResolver';
 
 interface VehicleSummary {
     key: string;
@@ -101,9 +102,10 @@ const VehicleListPanel: React.FC<VehicleListPanelProps> = ({ onLocateAsset, onOp
     const activeVehicles = useMemo(() => vehicles.filter(vehicle =>
         selectedProductNames.includes(vehicle.key)
     ), [vehicles, selectedProductNames]);
+    const { resolver: aliasResolver } = useAssetAliasResolver();
     const vehicleDisplayLabels = useMemo(
-        () => buildVehicleDisplayLabels(vehicles.map((vehicle) => vehicle.key)),
-        [vehicles]
+        () => buildVehicleDisplayLabels(vehicles.map((vehicle) => vehicle.key), aliasResolver),
+        [vehicles, aliasResolver]
     );
 
     const vehicleDetails = useMemo(() => {

@@ -15,6 +15,7 @@ import { ASSET_SOURCE_TAGS } from '../../utils/assetSourceTags';
 import { getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
 import type { RepairSourceModule } from '../../types';
 import { buildVehicleDisplayLabels, buildVehicleInstanceKey, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
+import { useAssetAliasResolver } from '../../hooks/useAssetAliasResolver';
 import { getVehicleSelectionState } from '../../utils/vehicleSelectionState';
 
 interface DataPurifyViewProps {
@@ -98,9 +99,10 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
     const targetFieldName = repairContext?.productName === selectedProduct ? repairContext.fieldName : undefined;
     const selectedProductName = selectedProduct ? getVehicleProductName(selectedProduct) : '未知车型';
+    const { resolver: aliasResolver } = useAssetAliasResolver();
     const selectedProductDisplayLabels = useMemo(
-        () => buildVehicleDisplayLabels(selectedProductNames),
-        [selectedProductNames]
+        () => buildVehicleDisplayLabels(selectedProductNames, aliasResolver),
+        [selectedProductNames, aliasResolver]
     );
     const selectedProductState = useMemo(
         () => selectedProduct ? getVehicleSelectionState(uploadedFiles, selectedProduct, assetFiles, activeAssets) : null,

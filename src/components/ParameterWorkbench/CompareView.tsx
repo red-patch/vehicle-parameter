@@ -15,6 +15,7 @@ import { exportCompareReport } from '../../utils/compareReport';
 import type { ReportFormat } from '../../utils/reportExport';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { buildVehicleDisplayLabels, getVehicleProductName } from '../../utils/vehicleInstance';
+import { useAssetAliasResolver } from '../../hooks/useAssetAliasResolver';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
 import { buildCompareRows } from '../../utils/compareMatrix';
 import type { CompareRow } from '../../utils/compareMatrix';
@@ -37,6 +38,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     })));
     // 过滤状态
     const [diffFilter, setDiffFilter] = useState<'all' | 'diff' | 'same' | 'required'>('all');
+    // 资产别名解析（只影响显示文案：表头/导出；不参与实例键与身份）
+    const { resolver: aliasResolver } = useAssetAliasResolver();
     const [searchText, setSearchText] = useState('');
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
     const [hideEmpty, setHideEmpty] = useState(true);
@@ -136,8 +139,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
         return map;
     }, [assetFiles, localSelection]);
     const selectionDisplayLabels = useMemo(
-        () => buildVehicleDisplayLabels(localSelection),
-        [localSelection]
+        () => buildVehicleDisplayLabels(localSelection, aliasResolver),
+        [localSelection, aliasResolver]
     );
 
     const triggerRepair = (instanceKey: string, fieldName: string) => {

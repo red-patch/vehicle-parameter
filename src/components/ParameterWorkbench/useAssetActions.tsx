@@ -10,11 +10,13 @@ import {
     loadAssetTags,
     renameAssetIdentity,
     saveAssetMeta,
+    setAssetAlias,
     setAssetFileTags,
     type AssetFileInfo,
     type AssetMetaMap,
 } from '../../utils/assetManager';
-import { buildDeprecateMeta, KEY_VEHICLE_TAG } from '../../utils/assetGovernance';
+import { buildDeprecateMeta, deriveVehicleGroupKey, KEY_VEHICLE_TAG } from '../../utils/assetGovernance';
+import { suggestAssetAlias } from '../../utils/assetAlias';
 import { ensureTagsInDefaultGroup } from '../../utils/assetTagGroups';
 import { getAssetDisplayName } from '../../utils/assetNaming';
 import { downloadCsv } from '../../utils/downloadCsv';
@@ -41,6 +43,8 @@ import AnnouncementDiffDrawer from './AnnouncementDiffDrawer';
 export interface AssetActions {
     toggleActive: (info: AssetFileInfo, currentlyActive: boolean) => void;
     startRename: (info: AssetFileInfo) => void;
+    /** 打开别名设置弹窗（仅改显示，不动文件名/JSON；与「重命名」区分） */
+    startSetAlias: (info: AssetFileInfo) => void;
     /** 直接改名（快捷修复命名用）；displayName 不含扩展名 */
     renameTo: (info: AssetFileInfo, displayName: string, successMessage?: string | ((result: { fileName: string; productName: string }) => string)) => Promise<void>;
     toggleKeyVehicle: (info: AssetFileInfo) => Promise<void>;
@@ -83,6 +87,9 @@ export function useAssetActions({ focusedFile, onFocusFile }: UseAssetActionsOpt
     // ===== 弹层状态 =====
     const [renameTarget, setRenameTarget] = useState<{ info: AssetFileInfo } | null>(null);
     const [editName, setEditName] = useState('');
+    const [aliasTarget, setAliasTarget] = useState<{ info: AssetFileInfo } | null>(null);
+    const [editAlias, setEditAlias] = useState('');
+    const [aliasPrefill, setAliasPrefill] = useState('');
     const [upgradeTarget, setUpgradeTarget] = useState<{ info: AssetFileInfo; tags: string[] } | null>(null);
     const [announcePdfPick, setAnnouncePdfPick] = useState<{
         open: boolean;
@@ -146,6 +153,30 @@ export function useAssetActions({ focusedFile, onFocusFile }: UseAssetActionsOpt
     const startRename = (info: AssetFileInfo) => {
         setEditName(getAssetDisplayName(info.fileName, info.productName));
         setRenameTarget({ info });
+    };
+
+    // ===== 别名（仅改显示；设计 docs/plans/2026-10-13-asset-alias-design.md §D9）=====
+    const saveAlias = async (info: AssetFileInfo, alias: string) => {
+        if (!assetLibraryPath) return;
+        const trimmed = alias.trim();
+        try {
+            await setAssetAlias(assetLibraryPath, info.fileName, trimmed);
+            message.success(trimmed ? `已设置别名：${trimmed}` : '已清除别名，恢复原始名称');
+            bumpAssetVersion();
+        } catch {
+            message.error('别名保存失败');
+        }
+    };
+
+    const startSetAlias = async (info: AssetFileInfo) => {
+        if (!assetLibraryPath) return;
+        const meta = await loadAssetMeta(assetLibraryPath);
+        const existing = (meta[info.fileName]?.alias || '').trim();
+        // 未设时预填派生建议（车型组 + 电量），降低手工成本；已设则回填现值
+        const prefill = existing || suggestAssetAlias(deriveVehicleGroupKey(info.fileName, info.productName), info.capacityRaw) || '';
+        setEditAlias(prefill);
+        setAliasPrefill(prefill);
+        setAliasTarget({ info });
     };
 
     // ===== 标注（标签 / 关键车型 / 历史 / 废弃）=====
@@ -419,6 +450,50 @@ export function useAssetActions({ focusedFile, onFocusFile }: UseAssetActionsOpt
                     />
                 </div>
             </Modal>
+            <Modal
+                title="设置别名"
+                open={Boolean(aliasTarget)}
+                onOk={() => {
+                    if (!aliasTarget) return;
+                    const info = aliasTarget.info;
+                    const next = editAlias.trim();
+                    setAliasTarget(null);
+                    setEditAlias('');
+                    void saveAlias(info, next);
+                }}
+                onCancel={() => { setAliasTarget(null); setEditAlias(''); }}
+                okText="保存"
+                cancelText="取消"
+                destroyOnClose
+            >
+                <div className="py-3">
+                    <div className="text-[13px] text-2 mb-2">
+                        别名<b>只改变显示</b>，不改文件名，也不影响导入识别与归组。留空即恢复原始名称。
+                    </div>
+                    <input
+                        className="ant-input"
+                        value={editAlias}
+                        maxLength={24}
+                        onChange={e => setEditAlias(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter' && aliasTarget) {
+                                const info = aliasTarget.info;
+                                const next = editAlias.trim();
+                                setAliasTarget(null);
+                                setEditAlias('');
+                                void saveAlias(info, next);
+                            }
+                        }}
+                        placeholder="如：V8E 50.23"
+                        autoFocus
+                    />
+                    {aliasPrefill && (
+                        <div className="mt-2 text-[12px] text-3">
+                            建议：<span className="text-2">{aliasPrefill}</span>
+                        </div>
+                    )}
+                </div>
+            </Modal>
             <AssetUpgradeModal
                 open={Boolean(upgradeTarget)}
                 assetInfo={upgradeTarget?.info ?? null}
@@ -463,6 +538,7 @@ export function useAssetActions({ focusedFile, onFocusFile }: UseAssetActionsOpt
     return {
         toggleActive,
         startRename,
+        startSetAlias,
         renameTo,
         toggleKeyVehicle,
         setStatus,

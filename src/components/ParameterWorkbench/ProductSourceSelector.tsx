@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { getProductOptions } from '../../store/vehicleSelectors';
 import { SelectOutlined, ClearOutlined } from '@ant-design/icons';
 import { buildVehicleDisplayLabels, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
+import { useAssetAliasResolver } from '../../hooks/useAssetAliasResolver';
 
 interface ProductSourceSelectorProps {
     value: string | string[] | null;
@@ -45,9 +46,10 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
         return getProductOptions(uploadedFiles, selectedProductNames, assetFiles);
     }, [uploadedFiles, selectedProductNames, assetFiles]);
 
+    const { resolver: aliasResolver } = useAssetAliasResolver();
     const selectedTagLabels = useMemo(() => {
-        return buildVehicleDisplayLabels(Array.isArray(value) ? value : []);
-    }, [value]);
+        return buildVehicleDisplayLabels(Array.isArray(value) ? value : [], aliasResolver);
+    }, [value, aliasResolver]);
 
     const handleSelectAll = () => {
         if (mode === 'multiple') {

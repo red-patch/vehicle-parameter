@@ -96,7 +96,25 @@ const compareVehicleInstanceMeta = (left: VehicleInstanceMeta, right: VehicleIns
     return left.key.localeCompare(right.key, 'zh-Hans-CN', { numeric: true, sensitivity: 'base' });
 };
 
-export const buildVehicleDisplayLabels = (instanceKeys: string[]): Map<string, VehicleDisplayLabel> => {
+/**
+ * 计算某实例键的显示基名。资产实例（source='asset'）且提供解析器时走别名解析
+ * （设计 docs/plans/2026-10-13-asset-alias-design.md）；其余回落产品名。
+ * 注意：别名只影响这个**显示基名**，实例键本身仍是 fileName+productName，身份不受影响。
+ */
+const resolveInstanceBaseName = (
+    meta: VehicleInstanceMeta,
+    aliasResolver?: (fileName: string, productName: string) => string | null,
+): string => {
+    if (meta.source === 'asset' && aliasResolver) {
+        return aliasResolver(meta.fileName, meta.productName) || meta.productName;
+    }
+    return meta.productName;
+};
+
+export const buildVehicleDisplayLabels = (
+    instanceKeys: string[],
+    aliasResolver?: (fileName: string, productName: string) => string | null,
+): Map<string, VehicleDisplayLabel> => {
     const labels = new Map<string, VehicleDisplayLabel>();
     const metas = Array.from(new Set(instanceKeys))
         .map((instanceKey) => parseVehicleInstanceKey(instanceKey))
@@ -115,8 +133,9 @@ export const buildVehicleDisplayLabels = (instanceKeys: string[]): Map<string, V
     grouped.forEach((group) => {
         const sorted = [...group].sort(compareVehicleInstanceMeta);
         sorted.forEach((meta, index) => {
+            const baseName = resolveInstanceBaseName(meta, aliasResolver);
             labels.set(meta.key, {
-                shortLabel: sorted.length > 1 ? `${meta.productName}（${index + 1}）` : meta.productName,
+                shortLabel: sorted.length > 1 ? `${baseName}（${index + 1}）` : baseName,
                 fullLabel: buildVehicleOptionLabel(meta.key),
             });
         });

@@ -12,6 +12,7 @@ import { useVehicleParams } from '../../hooks/useVehicleParams';
 import { buildVehicleStats } from '../../utils/vehicleStats';
 import { buildVehicleDisplayLabels, parseVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { getAssetDisplayName } from '../../utils/assetNaming';
+import { buildAliasSource, resolveAssetDisplayName } from '../../utils/assetAlias';
 import { getAssetSourceMeta } from '../../utils/assetSourceTags';
 import { KEY_VEHICLE_TAG } from '../../utils/assetGovernance';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
@@ -75,9 +76,16 @@ const AssetInspector: React.FC<AssetInspectorProps> = ({ open, instanceKey, snap
         return Array.from(set).sort();
     }, [snapshot.tags]);
 
+    // 别名解析：检查器标题用短名，原名单独一行展示（设计 §D4：原名可追溯）
+    const aliasSource = useMemo(
+        () => buildAliasSource(snapshot.infos, snapshot.meta, snapshot.latestSet),
+        [snapshot.infos, snapshot.meta, snapshot.latestSet],
+    );
+    const originalName = info ? getAssetDisplayName(info.fileName, info.productName) : null;
     const displayName = info
-        ? getAssetDisplayName(info.fileName, info.productName)
+        ? resolveAssetDisplayName(info, aliasSource)
         : (displayLabels?.shortLabel || parsed?.productName || '—');
+    const showOriginalName = Boolean(originalName && displayName !== originalName);
     const sourceMeta = (isAsset ? getAssetSourceMeta(tags) : null) ?? (isAsset
         ? { label: '资产库', icon: DatabaseOutlined, tone: 'asset' }
         : { label: '工作区 Excel', icon: FileOutlined, tone: 'excel' });
@@ -110,6 +118,11 @@ const AssetInspector: React.FC<AssetInspectorProps> = ({ open, instanceKey, snap
                         <div className="text-page text-1 leading-tight" title={displayLabels?.fullLabel || displayName}>
                             {displayName}
                         </div>
+                        {showOriginalName && (
+                            <div className="mt-0.5 text-[12px] text-3 truncate" title={originalName || undefined}>
+                                原始名称：{originalName}
+                            </div>
+                        )}
                         <div className="mt-2 text-[12px] text-3">来源文件：@{parsed.fileName}</div>
                         {isAsset && (info?.announceNos?.length ?? 0) > 0 && (
                             <div
@@ -155,6 +168,7 @@ const AssetInspector: React.FC<AssetInspectorProps> = ({ open, instanceKey, snap
                                             onChange={next => void actions.saveTags(info.fileName, next)}
                                         />
                                         <Button size="small" icon={<EditOutlined />} onClick={() => actions.startRename(info)}>重命名</Button>
+                                        <Button size="small" onClick={() => void actions.startSetAlias(info)}>设置别名</Button>
                                         <Button
                                             size="small"
                                             icon={<KeyOutlined className={tags.includes(KEY_VEHICLE_TAG) ? 'text-brand' : undefined} />}

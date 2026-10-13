@@ -10,6 +10,7 @@ import { useVehicleParams } from '../../hooks/useVehicleParams';
 import { buildVehicleStats } from '../../utils/vehicleStats';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { getAssetDisplayName } from '../../utils/assetNaming';
+import { buildAliasSource, resolveAssetDisplayName } from '../../utils/assetAlias';
 import { getAssetSourceMeta } from '../../utils/assetSourceTags';
 import { KEY_VEHICLE_TAG } from '../../utils/assetGovernance';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
@@ -51,7 +52,11 @@ const AssetSummaryCard: React.FC<AssetSummaryCardProps> = ({ fileName, snapshot,
     }, [snapshot.tags]);
 
     if (!info) return null;
-    const displayName = getAssetDisplayName(info.fileName, info.productName);
+    const originalName = getAssetDisplayName(info.fileName, info.productName);
+    // 别名优先显示（设计 §D4）；原名作为副行保留
+    const aliasSource = buildAliasSource(snapshot.infos, snapshot.meta, snapshot.latestSet);
+    const displayName = resolveAssetDisplayName(info, aliasSource);
+    const showOriginalName = displayName !== originalName;
     const sourceMeta = getAssetSourceMeta(tags) ?? { label: '资产库', icon: DatabaseOutlined, tone: 'asset' };
 
     return (
@@ -67,6 +72,9 @@ const AssetSummaryCard: React.FC<AssetSummaryCardProps> = ({ fileName, snapshot,
                 {metaStatus === 'deprecated' && <Tag icon={<StopOutlined className="text-[10px]" />} className="m-0 text-[11px]">废弃</Tag>}
                 {info.approvalStatus === '驳回' && <Tag icon={<CloseCircleOutlined className="text-[10px]" />} className="m-0 text-[11px] text-warning-text border-warning">驳回</Tag>}
             </div>
+            {showOriginalName && (
+                <div className="mt-1 text-[11px] text-3 truncate" title={originalName}>{originalName}</div>
+            )}
             <div className="mt-1 text-[12px] text-3 truncate" title={info.fileName}>@{info.fileName}</div>
             <div className="mt-1 text-[12px] text-2 tabular-nums">
                 {(info.announceNos?.length ?? 0) > 0 && (

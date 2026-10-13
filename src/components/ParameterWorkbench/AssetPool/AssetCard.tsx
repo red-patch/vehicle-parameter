@@ -52,6 +52,8 @@ const AssetCard: React.FC<AssetCardProps> = ({
     displayName: displayNameProp,
 }) => {
     const displayName = displayNameProp ?? getAssetDisplayName(info.fileName, info.productName);
+    // 原名：别名生效时 tooltip 仍回落到原名，保证原名可追溯（设计 §D4 与检查器口径一致）
+    const originalName = getAssetDisplayName(info.fileName, info.productName);
     const namingValidation = validateAssetName(info.fileName, info.announceNos || []);
     const isKeyVehicle = tags.includes(KEY_VEHICLE_TAG);
 
@@ -96,7 +98,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
                 )}
                 <div
                     className={`flex-1 min-w-0 truncate text-title ${isFocused ? 'font-semibold' : 'font-medium'} text-1`}
-                    title={displayName}
+                    title={displayName === originalName ? displayName : `${displayName}\n${originalName}`}
                 >
                     {displayName}
                 </div>
@@ -154,6 +156,13 @@ const AssetCard: React.FC<AssetCardProps> = ({
                     </button>
                 </Tooltip>
             </div>
+
+            {/* 别名生效时原名副行（设计 §D4：别名只改显示，原名可追溯） */}
+            {displayName !== originalName && (
+                <div className="mt-0.5 text-caption text-3 truncate" title={originalName}>
+                    {originalName}
+                </div>
+            )}
 
             {/* 第二行：元信息（aux 字号，三级文字） */}
             <div className="flex items-center gap-3 mt-1 text-aux text-3">
