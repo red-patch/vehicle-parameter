@@ -1,7 +1,7 @@
 {
   "name": "shining-lagoon",
   "private": true,
-  "version": "4.11.3",
+  "version": "4.12.0",
   "type": "module",
   "scripts": {
     "stats": "node scripts/stats.js",
