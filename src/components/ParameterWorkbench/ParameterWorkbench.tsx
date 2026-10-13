@@ -1,16 +1,8 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
-import { useShallow } from 'zustand/react/shallow';
-import DataSourcePanel from './DataSourcePanel';
-import VehicleListPanel from './VehicleListPanel';
-import AssetSummaryCard from './AssetSummaryCard';
-import AssetInspector from './AssetInspector';
-import { useAssetActions } from './useAssetActions';
+import AssetPoolLayout from './AssetPool/AssetPoolLayout';
 import AssetDataSynchronizer from './AssetDataSynchronizer';
-import { useAssetLibrarySnapshot } from '../../hooks/useAssetLibrarySnapshot';
-import { useViewportPaneHeight } from '../../hooks/useViewportPaneHeight';
-import { useVehicleStore } from '../../store/vehicleStore';
 import type { RepairSourceModule } from '../../types';
 
 const CompareView = React.lazy(() => import('./CompareView'));
@@ -32,86 +24,11 @@ interface ParameterWorkbenchProps {
 }
 
 /**
- * 四个视图 pane 各自 memo 化：items 因焦点状态（focusedFile）重建时，
- * 未受影响的重组件（CompareView/SmartFillView/DataPurifyView）不再被连带重渲染。
+ * 资产管理三栏（设计文档 2026-10-13-asset-panel-redesign-v2）：
+ * 左导航（240px）+ 中列表（弹性）+ 右购物车（300px）。
  */
-interface PoolPaneProps {
-    focusedFile: string | null;
-    onFocusFile: (fileName: string | null) => void;
-    onGoCompare: () => void;
-}
-
-/**
- * 资产管理两栏（设计文档 2026-10-01-asset-panel-layout-redesign）：
- * - 视口锁定：面板高度钉在视口内，两栏各自内部滚动，购物车常驻可见；
- * - 右栏双段式：选中资产摘要卡（点选即刷新）+ 待分析车型购物车；
- * - 资产检查器抽屉与对象级动作弹层在此统一挂载（actions.modals）。
- */
-const PoolPane: React.FC<PoolPaneProps> = React.memo(({ focusedFile, onFocusFile, onGoCompare }) => {
-    const paneRef = useRef<HTMLDivElement>(null);
-    const paneHeight = useViewportPaneHeight(paneRef);
-    const snapshot = useAssetLibrarySnapshot();
-    const actions = useAssetActions({ focusedFile, onFocusFile });
-    const setCompareProducts = useVehicleStore(useShallow(state => state.setCompareProducts));
-
-    const [inspectorTarget, setInspectorTarget] = useState<string | null>(null);
-    const [locateRequest, setLocateRequest] = useState<{ fileName: string; nonce: number } | null>(null);
-
-    const handleOpenInspector = useCallback((instanceKey: string) => {
-        setInspectorTarget(instanceKey);
-    }, []);
-
-    // 购物车反向定位：左栏滚动定位 + 摘要卡切换（设计文档 §3.5）
-    const handleLocateAsset = useCallback((fileName: string) => {
-        setLocateRequest(prev => ({ fileName, nonce: (prev?.nonce ?? 0) + 1 }));
-        onFocusFile(fileName);
-    }, [onFocusFile]);
-
-    const handleInspectorGoCompare = useCallback((instanceKey: string) => {
-        setCompareProducts([instanceKey]);
-        onGoCompare();
-    }, [setCompareProducts, onGoCompare]);
-
-    return (
-        <div ref={paneRef} className="flex gap-3" style={paneHeight ? { height: paneHeight } : undefined}>
-            <div className="flex-1 min-w-0 surface-container border border-default rounded-xl overflow-hidden">
-                <DataSourcePanel
-                    focusedFile={focusedFile}
-                    onFocusFile={onFocusFile}
-                    onOpenInspector={handleOpenInspector}
-                    locateRequest={locateRequest}
-                    actions={actions}
-                />
-            </div>
-            <div className="flex-1 min-w-0 surface-container border border-default rounded-xl overflow-hidden flex flex-col">
-                {focusedFile && (
-                    <AssetSummaryCard
-                        fileName={focusedFile}
-                        snapshot={snapshot}
-                        actions={actions}
-                        onOpenInspector={handleOpenInspector}
-                    />
-                )}
-                <div className="flex-1 min-h-0">
-                    <VehicleListPanel
-                        onLocateAsset={handleLocateAsset}
-                        onOpenInspector={handleOpenInspector}
-                        onGoCompare={onGoCompare}
-                        snapshot={snapshot}
-                    />
-                </div>
-            </div>
-            <AssetInspector
-                open={Boolean(inspectorTarget)}
-                instanceKey={inspectorTarget}
-                snapshot={snapshot}
-                actions={actions}
-                onClose={() => setInspectorTarget(null)}
-                onGoCompare={handleInspectorGoCompare}
-            />
-            {actions.modals}
-        </div>
-    );
+const PoolPane: React.FC<{ onGoCompare: () => void }> = React.memo(({ onGoCompare }) => {
+    return <AssetPoolLayout onGoCompare={onGoCompare} />;
 });
 
 const ComparePane: React.FC<{ onGoRepair: () => void }> = React.memo(({ onGoRepair }) => (
@@ -138,12 +55,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
     showTabs = true,
 }) => {
     const [innerActiveTab, setInnerActiveTab] = useState<WorkbenchTabKey>('pool');
-    const [focusedFile, setFocusedFile] = useState<string | null>(null);
     const [mountedTabs, setMountedTabs] = useState<Set<string>>(new Set(['pool'])); // 懒挂载：只渲染激活过的 tab
-
-    const handleFocusFile = useCallback((fileName: string | null) => {
-        setFocusedFile(fileName);
-    }, []);
 
     const activeTab = controlledActiveTab ?? innerActiveTab;
     // useCallback 稳定引用：下游 items/pane 的 memo 依赖链才不会每次 render 失效
@@ -167,13 +79,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         {
             key: 'pool',
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 车型资产</span>,
-            children: (
-                <PoolPane
-                    focusedFile={focusedFile}
-                    onFocusFile={handleFocusFile}
-                    onGoCompare={handleGoCompare}
-                />
-            )
+            children: <PoolPane onGoCompare={handleGoCompare} />
         },
         {
             key: 'compare',
@@ -191,7 +97,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             children: <PurifyPane onReturnToSource={handleReturnToModule} />
         }
         // 注意：不依赖 activeTab——切换 tab 不应重建任何 pane 的元素树
-    ], [handleGoRepair, handleReturnToModule, handleFocusFile, handleGoCompare, focusedFile]);
+    ], [handleGoRepair, handleReturnToModule, handleGoCompare]);
 
     // 懒挂载：激活过的 tab 才渲染，之后保活
     React.useEffect(() => {

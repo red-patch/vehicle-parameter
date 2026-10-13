@@ -52,6 +52,8 @@ interface AssetGroupedViewProps {
     onRenameGroup: (group: VehicleGroup & { displayName: string }) => void;
     /** 组属性编辑（主机厂/车型族群，组级受控属性） */
     onEditGroupFacets?: (group: VehicleGroup & { displayName: string }) => void;
+    /** 批量维护本组资产字段（组头 hover 按钮入口） */
+    onBulkEditFields?: (group: VehicleGroup & { displayName: string }) => void;
 }
 
 const fillPercent = (info: AssetFileInfo) =>
@@ -77,11 +79,12 @@ interface GroupHeaderProps {
     onHeaderContextMenu: (group: VehicleGroup & { displayName: string }) => (e: React.MouseEvent) => void;
     onRenameGroup: (group: VehicleGroup & { displayName: string }) => void;
     onEditGroupFacets?: (group: VehicleGroup & { displayName: string }) => void;
+    onBulkEditFields?: (group: VehicleGroup & { displayName: string }) => void;
 }
 
 /** 组头：车型名 + 车辆数 + 状态角标 + ⚡激活每车最新版 + 组属性/重命名入口 */
 const GroupHeaderImpl: React.FC<GroupHeaderProps> = ({
-    group, expanded, activeCount, latestCount, onToggleGroup, onActivateLatest, onHeaderContextMenu, onRenameGroup, onEditGroupFacets,
+    group, expanded, activeCount, latestCount, onToggleGroup, onActivateLatest, onHeaderContextMenu, onRenameGroup, onEditGroupFacets, onBulkEditFields,
     // hasActive 仅参与 memo 比较（⚡激活判断依赖它），不参与渲染
 }) => {
     const nRejected = group.files.filter(f => f.info.approvalStatus === '驳回').length;
@@ -122,6 +125,14 @@ const GroupHeaderImpl: React.FC<GroupHeaderProps> = ({
                 </span>
             )}
             <span className="flex-1" />
+            {onBulkEditFields && (
+                <Button
+                    type="text" size="small" title="批量维护本组资产的字段值"
+                    icon={<EditOutlined className="!text-[12px] text-2 hover:text-brand" />}
+                    onClick={(e) => { e.stopPropagation(); onBulkEditFields(group); }}
+                    className="w-6 h-6 p-0 min-w-0 flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+                />
+            )}
             {onEditGroupFacets && (
                 <Button
                     type="text" size="small" title="组属性（主机厂 / 车型族群）"
@@ -155,7 +166,8 @@ const GroupHeader = React.memo(GroupHeaderImpl, (a, b) =>
     && a.hasActive === b.hasActive
     && a.activeCount === b.activeCount
     && a.latestCount === b.latestCount
-    && Boolean(a.onEditGroupFacets) === Boolean(b.onEditGroupFacets));
+    && Boolean(a.onEditGroupFacets) === Boolean(b.onEditGroupFacets)
+    && Boolean(a.onBulkEditFields) === Boolean(b.onBulkEditFields));
 
 interface GroupFileRowProps {
     entry: GovernanceFileEntry;
@@ -275,7 +287,7 @@ const AssetGroupedView: React.FC<AssetGroupedViewProps> = ({
     groups, focusedFile, activeFileNames, assetTags, batchMode, selectedFileNames,
     expandedKeys, filtersActive, latestFileNames, onToggleGroup, onFocusFile, onToggleAsset,
     onActivateLatest, onOpenInspector, onToggleBatchSelected, onRowContextMenu,
-    onHeaderContextMenu, onRenameGroup, onEditGroupFacets,
+    onHeaderContextMenu, onRenameGroup, onEditGroupFacets, onBulkEditFields,
 }) => {
     return (
         <div className="space-y-1.5">
@@ -302,6 +314,7 @@ const AssetGroupedView: React.FC<AssetGroupedViewProps> = ({
                             onHeaderContextMenu={onHeaderContextMenu}
                             onRenameGroup={onRenameGroup}
                             onEditGroupFacets={onEditGroupFacets}
+                            onBulkEditFields={onBulkEditFields}
                         />
                         {/* 仅展开时挂载行：收起态的组曾用 grid-rows-[0fr] 视觉折叠，
                             行仍全部常驻（实测 158 组 × 均 3.3 行 = 677 行）。

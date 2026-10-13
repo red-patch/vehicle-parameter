@@ -9,10 +9,13 @@ import AssetGroupedView from './AssetGroupedView';
 import AssetFacetSections, { type FacetSection } from './AssetFacetSections';
 import AssetFilterPanel, { type FilterTagGroupRow } from '../AssetLibrary/AssetFilterPanel';
 import GroupFacetEditor from '../AssetLibrary/GroupFacetEditor';
-import AssetBatchFacetEditor, { type BatchFacetRow } from '../AssetLibrary/AssetBatchFacetEditor';
+import AssetBatchFieldEditor, { type ParamFieldOption } from '../AssetLibrary/AssetBatchFieldEditor';
+import { getAssetFilesWithInfo, loadAssetFile, saveAssetFile, loadAssetTags, saveAssetTags, batchAddAssetTags, loadAssetMeta, saveAssetMeta, type AssetFileInfo, type AssetMetaMap } from '../../utils/assetManager';
+import { getAllAttributeNames, getEnumValuesSync } from '../../utils/attributeEnums';
+import { applyParamFieldEdit, FACET_DIM_LABELS, type FieldEditRow, type FieldEditSourceRow, type FieldTarget } from '../../utils/assetFieldEdit';
+import type { VehicleParameter } from '../../types';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getAssetFilesWithInfo, loadAssetTags, saveAssetTags, batchAddAssetTags, loadAssetMeta, saveAssetMeta, type AssetFileInfo, type AssetMetaMap } from '../../utils/assetManager';
 import { useLongPress } from '../../hooks/useLongPress';
 import { getAssetSourceMeta } from '../../utils/assetSourceTags';
 import { getAssetDisplayName, validateAssetName, fixAssetName } from '../../utils/assetNaming';
@@ -22,7 +25,7 @@ import { buildGovernanceReport, buildSupersedeMeta, collectPrimaryMeta, extractB
 import {
     DEFAULT_FACET_VOCAB, EMPTY_FACET_VALUES, loadFacetVocab, loadFacetValues, saveFacetValues, saveFacetVocab,
     resolveAssetFacets, setGroupFacetValue, setAssetFacetOverride, collectUnmappedValues, addVocabValue,
-    type FacetVocab, type FacetValues, type GroupFacetValue, type ResolvedFacets, type AssetFacetOverride, type FacetDimKey,
+    type FacetVocab, type FacetValues, type GroupFacetValue, type ResolvedFacets, type AssetFacetOverride,
 } from '../../utils/assetFacets';
 import { EMPTY_FACET_SELECTION, isFacetSelectionActive, matchFacets, type FacetSelection } from '../../utils/facetFilters';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
@@ -58,6 +61,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         assetVersion,
         setAssetLibraryPath,
         bumpAssetTagGroupsVersion,
+        bumpAssetVersion,
     } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         uploadedFiles: state.uploadedFiles,
@@ -67,6 +71,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         assetVersion: state.assetVersion,
         setAssetLibraryPath: state.setAssetLibraryPath,
         bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
+        bumpAssetVersion: state.bumpAssetVersion,
     })));
     const panelRef = useRef<HTMLDivElement>(null);
     
@@ -93,7 +98,13 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
     const [facetValues, setFacetValues] = useState<FacetValues>(EMPTY_FACET_VALUES);
     const [facetSelection, setFacetSelection] = useState<FacetSelection>(EMPTY_FACET_SELECTION);
     const [groupFacetEditor, setGroupFacetEditor] = useState<{ open: boolean; groupKey: string | null; groupName: string }>({ open: false, groupKey: null, groupName: '' });
-    const [batchEditorOpen, setBatchEditorOpen] = useState(false);
+
+    // ===== 批量字段维护（参数行 + 受控属性统一批量改值） =====
+    const [fieldEditorOpen, setFieldEditorOpen] = useState(false);
+    const [fieldEditorSeed, setFieldEditorSeed] = useState<{ fileNames: string[]; groupName?: string } | null>(null);
+    /** 打开时按需加载的资产参数行（fileName → 参数），键为「批次签名」 */
+    const [fieldEditorData, setFieldEditorData] = useState<{ key: string; params: Record<string, VehicleParameter[]> } | null>(null);
+    const [fieldEditorDataVersion, setFieldEditorDataVersion] = useState(0);
 
     // 视图模式（车型分组默认 / 主机厂 / 车型族群 / 平铺）与分组展开记忆
     const [viewMode, setViewMode] = useState<'grouped' | 'mfr' | 'family' | 'flat'>(() => {
@@ -360,6 +371,9 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         [assets, assetMeta, brandNames, effectiveAnnounceNos]
     );
 
+    // 每车链头文件名集合（⚡激活、最新版徽章、批量字段维护共用）
+    const latestSet = useMemo(() => new Set(governanceReport.latestFileNames), [governanceReport]);
+
     // 逐资产受控属性解析（人工修正 > 派生 > 组级 > 标签兜底）
     const fileFacets = useMemo(() => {
         const map = new Map<string, ResolvedFacets>();
@@ -403,40 +417,136 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         };
     }, [assets, fileFacets, facetVocab]);
 
-    /** 批量补录表格的行（废弃除外） */
-    const batchEditorRows = useMemo<BatchFacetRow[]>(() => assets
-        .filter(a => assetMeta[a.fileName]?.status !== 'deprecated')
-        .flatMap(a => {
-            const facets = fileFacets.get(a.fileName);
-            return facets ? [{ fileName: a.fileName, productName: a.productName, facets }] : [];
-        }), [assets, assetMeta, fileFacets]);
+    // ===== 批量字段维护：入口 / 数据加载 / 落盘 =====
 
-    const handleSaveFacetOverrides = async (updates: Record<string, AssetFacetOverride>) => {
-        if (!assetLibraryPath) return;
-        // 就地收词：修正里出现的词表外新值一并进词表
-        let vocab = facetVocab;
-        let next = facetValues;
-        Object.entries(updates).forEach(([fileName, patch]) => {
-            const finalPatch: AssetFacetOverride = { ...patch };
-            (['manufacturer', 'batteryBrand', 'admissionLevel'] as FacetDimKey[]).forEach(dim => {
-                const v = finalPatch[dim as keyof AssetFacetOverride];
-                if (typeof v === 'string' && v.trim()) {
-                    const r = addVocabValue(vocab, dim, v);
-                    vocab = r.vocab;
-                    (finalPatch as Record<string, unknown>)[dim] = r.value;
-                }
-            });
-            next = setAssetFacetOverride(next, fileName, finalPatch);
-        });
-        if (vocab !== facetVocab) {
-            setFacetVocab(vocab);
-            await saveFacetVocab(assetLibraryPath, vocab);
+    /** 打开批量字段维护抽屉（seed 决定候选资产：批量勾选集 或 某个车型组） */
+    const openFieldEditor = useCallback((seed: { fileNames: string[]; groupName?: string }) => {
+        if (seed.fileNames.length === 0) {
+            message.warning('请先勾选要维护的资产');
+            return;
         }
-        setFacetValues(next);
-        await saveFacetValues(assetLibraryPath, next);
-        message.success(`已保存 ${Object.keys(updates).length} 个资产的属性修正`);
-        setBatchEditorOpen(false);
-    };
+        setFieldEditorSeed(seed);
+        setFieldEditorOpen(true);
+        setFieldEditorDataVersion(v => v + 1);
+    }, []);
+
+    const closeFieldEditor = useCallback(() => {
+        setFieldEditorOpen(false);
+        setFieldEditorSeed(null);
+    }, []);
+
+    // 候选资产（按 seed 取行；废弃默认排除）
+    const fieldEditorRows = useMemo<FieldEditSourceRow[]>(() => {
+        if (!fieldEditorSeed) return [];
+        const byName = new Map(assets.map(a => [a.fileName, a]));
+        return fieldEditorSeed.fileNames
+            .map(fileName => byName.get(fileName))
+            .filter((info): info is AssetFileInfo => !!info && assetMeta[info.fileName]?.status !== 'deprecated')
+            .map(info => ({
+                fileName: info.fileName,
+                productName: info.productName,
+                isLatest: latestSet.has(info.fileName),
+                params: fieldEditorData?.params[info.fileName] ?? [],
+                facets: fileFacets.get(info.fileName),
+            }));
+    }, [fieldEditorSeed, assets, assetMeta, fieldEditorData, latestSet, fileFacets]);
+
+    // 打开时按需读盘：只加载候选资产的参数行（含受控属性层时也可省）
+    useEffect(() => {
+        if (!fieldEditorOpen || !fieldEditorSeed || !assetLibraryPath) return;
+        const key = `${assetLibraryPath}\u0000${fieldEditorDataVersion}\u0000${fieldEditorSeed.fileNames.join(',')}`;
+        if (fieldEditorData?.key === key) return;
+        let cancelled = false;
+        (async () => {
+            const pairs = await Promise.all(fieldEditorSeed.fileNames.map(async fileName => {
+                const sheet = await loadAssetFile(assetLibraryPath, fileName);
+                return [fileName, sheet?.data ?? []] as const;
+            }));
+            if (cancelled) return;
+            setFieldEditorData({ key, params: Object.fromEntries(pairs) });
+        })();
+        return () => { cancelled = true; };
+    }, [fieldEditorOpen, fieldEditorSeed, assetLibraryPath, fieldEditorDataVersion, fieldEditorData]);
+
+    /** 参数字段候选（受控词表）；fieldEditorDataVersion 每次打开递增，用于刷新词表缓存 */
+    const paramFieldOptions = useMemo<ParamFieldOption[]>(
+        () => getAllAttributeNames().map(name => ({ name })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [fieldEditorDataVersion],
+    );
+
+    const handleFieldEditorSave = useCallback(async (payload: {
+        target: FieldTarget;
+        value: string | number;
+        rows: FieldEditRow[];
+    }) => {
+        if (!assetLibraryPath) return;
+        const { target, value, rows } = payload;
+
+        if (target.layer === 'facet') {
+            if (target.dim === 'capacityKwh') {
+                if (typeof value !== 'number' || !Number.isFinite(value)) {
+                    message.warning('电量需为数值');
+                    return;
+                }
+            } else if (typeof value !== 'string' || !value.trim()) {
+                message.warning('请填写要设置的值');
+                return;
+            }
+            let vocab = facetVocab;
+            let next = facetValues;
+            for (const row of rows) {
+                let v: string | number = value;
+                if (target.dim !== 'capacityKwh') {
+                    const r = addVocabValue(vocab, target.dim, String(value));
+                    vocab = r.vocab;
+                    v = r.value;
+                }
+                next = setAssetFacetOverride(next, row.fileName, { [target.dim]: v } as AssetFacetOverride);
+            }
+            if (vocab !== facetVocab) {
+                setFacetVocab(vocab);
+                await saveFacetVocab(assetLibraryPath, vocab);
+            }
+            setFacetValues(next);
+            await saveFacetValues(assetLibraryPath, next);
+            bumpAssetVersion();
+            message.success(`已更新 ${rows.length} 个资产的${FACET_DIM_LABELS[target.dim]}`);
+            closeFieldEditor();
+            return;
+        }
+
+        if (typeof value !== 'string') { message.warning('参数值需为文本'); return; }
+        const nowIso = new Date().toISOString();
+        const failed: string[] = [];
+        let saved = 0;
+        for (const row of rows) {
+            try {
+                const sheet = await loadAssetFile(assetLibraryPath, row.fileName);
+                if (!sheet) { failed.push(row.fileName); continue; }
+                const params = applyParamFieldEdit(sheet.data, target, value, nowIso);
+                if (params === sheet.data) continue;   // 无实际改动
+                await saveAssetFile(
+                    assetLibraryPath,
+                    row.fileName,
+                    sheet.productName || row.fileName.replace(/\.json$/i, ''),
+                    params,
+                    sheet.createdAt,
+                );
+                saved += 1;
+            } catch (err) {
+                console.error('批量写入参数失败', row.fileName, err);
+                failed.push(row.fileName);
+            }
+        }
+        bumpAssetVersion();
+        if (failed.length > 0) {
+            message.warning(`已更新 ${saved} 个资产，${failed.length} 个失败：${failed.slice(0, 3).join('、')}${failed.length > 3 ? ' 等' : ''}`);
+        } else {
+            message.success(`已更新 ${saved} 个资产的「${target.name}」`);
+        }
+        closeFieldEditor();
+    }, [assetLibraryPath, facetVocab, facetValues, bumpAssetVersion, closeFieldEditor]);
 
     const writeMetaMap = useCallback(async (next: AssetMetaMap) => {
         if (!assetLibraryPath) return;
@@ -558,9 +668,6 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         || isFacetSelectionActive(facetSelection)
         || Object.values(selectedGroupTag).some(Boolean)
         || selectedOtherFilterTags.length > 0;
-
-    // 每车链头文件名集合（⚡激活、最新版徽章共用）
-    const latestSet = useMemo(() => new Set(governanceReport.latestFileNames), [governanceReport]);
 
     // ⚡ 一键激活：激活组内每辆车的最新版本（ADR-0003，一组几辆车就进几辆）
     const handleActivateLatest = (group: VehicleGroup) => {
@@ -819,6 +926,13 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
         ]),
         onRenameGroup: openGroupRename,
         onEditGroupFacets: openGroupFacetEditor,
+        onBulkEditFields: (group: VehicleGroup & { displayName: string }) =>
+            openFieldEditor({
+                fileNames: group.files
+                    .filter(f => f.meta.status !== 'deprecated')
+                    .map(f => f.info.fileName),
+                groupName: group.displayName,
+            }),
     };
 
     // 一键清除全部筛选（受控属性 + 公告号 + 标签）
@@ -1008,6 +1122,7 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                             onExit={exitBatchMode}
                             groups={tagGroupRows}
                             onApplyTags={handleBatchAddTags}
+                            onOpenFieldEditor={() => openFieldEditor({ fileNames: [...selectedFileNames] })}
                         />
                     </div>
                 )}
@@ -1265,14 +1380,24 @@ const DataSourcePanel: React.FC<DataSourcePanelProps> = ({ focusedFile, onFocusF
                 report={governanceReport}
                 onConvergeCars={handleConvergeCars}
                 facetIssues={facetIssues}
-                onOpenBatchEditor={() => { setGovernanceOpen(false); setBatchEditorOpen(true); }}
+                onOpenBatchEditor={() => {
+                    setGovernanceOpen(false);
+                    openFieldEditor({
+                        fileNames: assets
+                            .filter(a => assetMeta[a.fileName]?.status !== 'deprecated')
+                            .map(a => a.fileName),
+                    });
+                }}
             />
-            <AssetBatchFacetEditor
-                open={batchEditorOpen}
-                rows={batchEditorRows}
+            <AssetBatchFieldEditor
+                open={fieldEditorOpen}
+                title={fieldEditorSeed?.groupName ? `批量字段维护 · ${fieldEditorSeed.groupName}` : '批量字段维护'}
+                rows={fieldEditorRows}
+                paramFields={paramFieldOptions}
                 vocab={facetVocab}
-                onClose={() => setBatchEditorOpen(false)}
-                onSaveOverrides={handleSaveFacetOverrides}
+                getParamEnumValues={getEnumValuesSync}
+                onClose={closeFieldEditor}
+                onSave={handleFieldEditorSave}
             />
             {ContextMenuPortal}
         </div>

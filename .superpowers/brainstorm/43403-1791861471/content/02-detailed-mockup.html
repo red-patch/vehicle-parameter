@@ -1,0 +1,297 @@
+<style>
+.detailed-mockup { font-size: 11px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; }
+.detailed-mockup * { box-sizing: border-box; }
+.detailed-mockup .app-shell { display: grid; grid-template-rows: 44px 1fr; height: 600px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.detailed-mockup .topbar { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; font-size: 13px; font-weight: 600; color: var(--text); }
+.detailed-mockup .main-area { display: grid; grid-template-columns: 220px 1fr 280px; height: 100%; overflow: hidden; }
+
+/* 左栏 */
+.detailed-mockup .sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 0; }
+.detailed-mockup .sidebar-section { margin-bottom: 16px; }
+.detailed-mockup .sidebar-title { padding: 0 16px 8px; font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.detailed-mockup .nav-item { padding: 6px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; color: var(--text); transition: background 0.1s; }
+.detailed-mockup .nav-item:hover { background: var(--hover); }
+.detailed-mockup .nav-item.active { background: var(--brand-weak); color: var(--brand); font-weight: 600; border-left: 2px solid var(--brand); padding-left: 14px; }
+.detailed-mockup .nav-item .icon { margin-right: 8px; font-size: 12px; }
+.detailed-mockup .nav-item .count { font-size: 10px; color: var(--text-tertiary); }
+.detailed-mockup .nav-subitem { padding-left: 32px; font-size: 10px; }
+.detailed-mockup .sidebar-divider { height: 1px; background: var(--border); margin: 12px 16px; }
+
+/* 中间主区 */
+.detailed-mockup .content { display: flex; flex-direction: column; overflow: hidden; }
+.detailed-mockup .filter-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.detailed-mockup .search-box { flex: 1; min-width: 180px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 11px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.detailed-mockup .search-box input { border: none; background: none; outline: none; flex: 1; font-size: 11px; color: var(--text); }
+.detailed-mockup .filter-chip { padding: 4px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; font-size: 10px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+.detailed-mockup .filter-chip:hover { border-color: var(--brand); color: var(--brand); }
+.detailed-mockup .filter-chip.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); font-weight: 600; }
+.detailed-mockup .filter-chip .arrow { font-size: 7px; }
+.detailed-mockup .filter-chip .close { margin-left: 2px; opacity: 0.6; }
+
+.detailed-mockup .list-area { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.detailed-mockup .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 11px; color: var(--text-secondary); }
+.detailed-mockup .vehicle-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+.detailed-mockup .vehicle-card:hover { border-color: var(--brand); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.detailed-mockup .vehicle-card.selected { background: var(--brand-weak); border-color: var(--brand); }
+.detailed-mockup .vehicle-row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.detailed-mockup .vehicle-name { font-weight: 600; color: var(--text); font-size: 12px; flex: 1; }
+.detailed-mockup .vehicle-badge { padding: 1px 5px; background: var(--brand-weak); color: var(--brand); border-radius: 3px; font-size: 8px; font-weight: 600; }
+.detailed-mockup .vehicle-badge.warn { background: #fef3c7; color: #92400e; }
+.detailed-mockup .vehicle-badge.error { background: #fee2e2; color: #991b1b; }
+.detailed-mockup .vehicle-badge.gray { background: var(--bg); color: var(--text-secondary); }
+.detailed-mockup .vehicle-row2 { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-tertiary); }
+.detailed-mockup .vehicle-stat { display: flex; align-items: center; gap: 3px; }
+.detailed-mockup .vehicle-add { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--brand); color: var(--brand); background: transparent; font-size: 13px; line-height: 1; cursor: pointer; padding: 0; flex-shrink: 0; }
+.detailed-mockup .vehicle-add.in { background: var(--brand); color: white; }
+
+/* 右栏 */
+.detailed-mockup .cart { background: var(--surface); border-left: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
+.detailed-mockup .cart-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text); display: flex; justify-content: space-between; align-items: center; }
+.detailed-mockup .cart-count { font-size: 10px; color: var(--text-secondary); font-weight: normal; }
+.detailed-mockup .cart-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.detailed-mockup .cart-item { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 8px 10px; margin-bottom: 6px; font-size: 11px; }
+.detailed-mockup .cart-item .item-name { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.detailed-mockup .cart-item .item-meta { font-size: 9px; color: var(--text-tertiary); display: flex; justify-content: space-between; }
+.detailed-mockup .cart-item .remove { cursor: pointer; color: var(--text-tertiary); }
+.detailed-mockup .cart-item .remove:hover { color: var(--danger); }
+.detailed-mockup .cart-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+.detailed-mockup .cart-btn { width: 100%; padding: 8px; background: var(--brand); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+/* 标注 */
+.detailed-mockup .annotation { position: absolute; background: rgba(59, 130, 246, 0.1); border: 1px dashed var(--brand); border-radius: 4px; padding: 4px 8px; font-size: 9px; color: var(--brand); font-weight: 600; pointer-events: none; }
+</style>
+
+<h2>完整布局（含治理视角）</h2>
+<p class="subtitle">左栏 = 快速导航 + 治理视角；顶部 = 搜索 + facet 精筛；右栏 = 购物车</p>
+
+<div class="mockup">
+  <div class="mockup-header" style="position: relative;">
+    车型资产库 — 完整版
+    <div style="position: absolute; top: 8px; right: 12px; font-size: 9px; color: var(--text-tertiary); font-weight: normal;">可交互区域已标注</div>
+  </div>
+  <div class="mockup-body detailed-mockup" style="padding: 0;">
+    <div class="app-shell">
+      <div class="topbar">
+        <span style="margin-right: 16px;">🚗 整车产品工作台 VPW</span>
+        <span style="color: var(--text-tertiary); font-weight: normal; font-size: 11px;">资产管理 / 车型资产库</span>
+      </div>
+      <div class="main-area">
+        <!-- 左栏 -->
+        <div class="sidebar">
+          <div class="sidebar-section">
+            <div class="sidebar-title">快速导航</div>
+            <div class="nav-item">
+              <span><span class="icon">🏭</span>主机厂</span>
+              <span class="count">▾</span>
+            </div>
+            <div class="nav-item nav-subitem active">
+              <span>吉利</span>
+              <span class="count">12</span>
+            </div>
+            <div class="nav-item nav-subitem">
+              <span>比亚迪</span>
+              <span class="count">8</span>
+            </div>
+            <div class="nav-item nav-subitem">
+              <span>长安</span>
+              <span class="count">5</span>
+            </div>
+            <div class="nav-item">
+              <span><span class="icon">🚙</span>车型族群</span>
+              <span class="count">▾</span>
+            </div>
+            <div class="nav-item nav-subitem">
+              <span>轿车</span>
+              <span class="count">15</span>
+            </div>
+            <div class="nav-item nav-subitem">
+              <span>SUV</span>
+              <span class="count">10</span>
+            </div>
+          </div>
+
+          <div class="sidebar-divider"></div>
+
+          <div class="sidebar-section">
+            <div class="sidebar-title">治理视角</div>
+            <div class="nav-item">
+              <span><span class="icon">⭐</span>关键车型</span>
+              <span class="count">23</span>
+            </div>
+            <div class="nav-item">
+              <span><span class="icon">⚠️</span>命名问题</span>
+              <span class="count" style="color: #f59e0b;">7</span>
+            </div>
+            <div class="nav-item">
+              <span><span class="icon">🔀</span>版本问题</span>
+              <span class="count" style="color: #f59e0b;">3</span>
+            </div>
+            <div class="nav-item">
+              <span><span class="icon">📝</span>待补全</span>
+              <span class="count" style="color: var(--text-tertiary);">12</span>
+            </div>
+            <div class="nav-item">
+              <span><span class="icon">🕘</span>历史版本</span>
+              <span class="count">45</span>
+            </div>
+            <div class="nav-item">
+              <span><span class="icon">🚫</span>已废弃</span>
+              <span class="count">8</span>
+            </div>
+          </div>
+
+          <div class="sidebar-divider"></div>
+
+          <div class="sidebar-section">
+            <div class="sidebar-title">工具</div>
+            <div class="nav-item">
+              <span><span class="icon">📋</span>治理体检</span>
+            </div>
+            <div class="nav-item">
+              <span><span class="icon">⚙️</span>设置</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 中间主区 -->
+        <div class="content">
+          <div class="filter-bar">
+            <div class="search-box">
+              <span>🔍</span>
+              <input placeholder="搜名字/公告号/标签..." />
+            </div>
+            <div class="filter-chip">
+              电量 <span class="arrow">▾</span>
+            </div>
+            <div class="filter-chip">
+              准入公告 <span class="arrow">▾</span>
+            </div>
+            <div class="filter-chip">
+              电池品牌 <span class="arrow">▾</span>
+            </div>
+            <div class="filter-chip">
+              标签 <span class="arrow">▾</span>
+            </div>
+            <div class="filter-chip">
+              状态 <span class="arrow">▾</span>
+            </div>
+          </div>
+
+          <div class="list-area">
+            <div class="list-header">
+              <span>共 25 个资产 · 已选 2</span>
+              <span style="color: var(--brand); cursor: pointer;">将筛选结果加入工作区 →</span>
+            </div>
+
+            <div class="vehicle-card selected">
+              <div class="vehicle-row1">
+                <div class="vehicle-name">帝豪EV 450</div>
+                <span class="vehicle-badge">最新版</span>
+                <span class="vehicle-badge">⭐ 关键</span>
+                <button class="vehicle-add in">✓</button>
+              </div>
+              <div class="vehicle-row2">
+                <span class="vehicle-stat">📊 完成率 92%</span>
+                <span class="vehicle-stat" style="color: #ef4444;">⚠ 缺必填 2</span>
+                <span style="margin-left: auto;">更新于 2024-03-15</span>
+              </div>
+            </div>
+
+            <div class="vehicle-card">
+              <div class="vehicle-row1">
+                <div class="vehicle-name">帝豪EV Pro</div>
+                <span class="vehicle-badge gray">历史</span>
+                <button class="vehicle-add">+</button>
+              </div>
+              <div class="vehicle-row2">
+                <span class="vehicle-stat">📊 完成率 88%</span>
+                <span style="margin-left: auto;">更新于 2023-11-20</span>
+              </div>
+            </div>
+
+            <div class="vehicle-card selected">
+              <div class="vehicle-row1">
+                <div class="vehicle-name">星越L Hi·P</div>
+                <span class="vehicle-badge">最新版</span>
+                <span class="vehicle-badge">⭐ 关键</span>
+                <button class="vehicle-add in">✓</button>
+              </div>
+              <div class="vehicle-row2">
+                <span class="vehicle-stat">📊 完成率 95%</span>
+                <span style="margin-left: auto;">更新于 2024-04-02</span>
+              </div>
+            </div>
+
+            <div class="vehicle-card">
+              <div class="vehicle-row1">
+                <div class="vehicle-name">星越L Hi·F</div>
+                <span class="vehicle-badge">最新版</span>
+                <span class="vehicle-badge warn">⚠ 命名不规范</span>
+                <button class="vehicle-add">+</button>
+              </div>
+              <div class="vehicle-row2">
+                <span class="vehicle-stat">📊 完成率 91%</span>
+                <span class="vehicle-stat" style="color: #ef4444;">⚠ 缺必填 1</span>
+                <span style="margin-left: auto;">更新于 2024-03-28</span>
+              </div>
+            </div>
+
+            <div class="vehicle-card">
+              <div class="vehicle-row1">
+                <div class="vehicle-name">星瑞</div>
+                <span class="vehicle-badge">最新版</span>
+                <button class="vehicle-add">+</button>
+              </div>
+              <div class="vehicle-row2">
+                <span class="vehicle-stat">📊 完成率 89%</span>
+                <span style="margin-left: auto;">更新于 2024-02-14</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右栏购物车 -->
+        <div class="cart">
+          <div class="cart-header">
+            <span>已选工作集</span>
+            <span class="cart-count">2 台车</span>
+          </div>
+          <div class="cart-body">
+            <div class="cart-item">
+              <div class="item-name">
+                帝豪EV 450
+                <span class="remove" style="float: right;">×</span>
+              </div>
+              <div class="item-meta">
+                <span>完成率 92%</span>
+                <span style="color: #ef4444;">缺必填 2</span>
+              </div>
+            </div>
+            <div class="cart-item">
+              <div class="item-name">
+                星越L Hi·P
+                <span class="remove" style="float: right;">×</span>
+              </div>
+              <div class="item-meta">
+                <span>完成率 95%</span>
+              </div>
+            </div>
+          </div>
+          <div class="cart-footer">
+            <button class="cart-btn">去对比 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;">
+  <h3 style="margin-top: 0;">关键改进点</h3>
+  <ul style="line-height: 1.8; color: var(--text-secondary);">
+    <li><strong>左栏分两段</strong>：快速导航（主机厂/族群）+ 治理视角（关键车型/命名问题/版本问题/待补全/历史/废弃），治理场景一键切入</li>
+    <li><strong>顶部筛选条</strong>：搜索框 + facet 精筛（电量/准入公告/电池品牌/标签/状态），不挤占左栏空间</li>
+    <li><strong>车型卡片信息浓缩</strong>：名称 + 徽章（最新版/关键/命名问题）+ 完成率 + 缺必填 + 更新时间 + 快捷激活按钮，一屏扫更多信息</li>
+    <li><strong>右栏购物车固定</strong>：永远可见，已选车辆带元信息（完成率/缺必填），底部「去对比」CTA</li>
+  </ul>
+</div>
