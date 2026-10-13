@@ -1,50 +1,106 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Button } from 'antd';
 import { ArrowRightOutlined, InboxOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../../store/vehicleStore';
 import { useAssetLibrarySnapshot } from '../../../hooks/useAssetLibrarySnapshot';
 import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
+import { isFieldRequired } from '../../../assets/requiredFields';
+import { getProductData } from '../../../store/vehicleSelectors';
 import AssetCartCard from './AssetCartCard';
 
 /**
  * 右栏购物车（设计文档 2026-10-13-asset-panel-redesign-v2 §4.3）：
  * 已选工作集列表 + 去对比 CTA
  *
- * M1 静态骨架：渲染结构与空态，交互（反向定位/移出/去对比）在 M3 接入。
+ * M3：接入交互 — 点车卡反向定位、移出工作集、去对比跳转。
  */
 export interface AssetCartProps {
     focusedFile: string | null;
     onFocusFile: (fileName: string | null) => void;
+    onLocateAsset?: (fileName: string) => void;
+    onGoCompare?: () => void;
 }
 
-const AssetCart: React.FC<AssetCartProps> = ({ focusedFile: _focusedFile, onFocusFile: _onFocusFile }) => {
-    const { activeAssets } = useVehicleStore(useShallow(state => ({
+const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoCompare }) => {
+    const {
+        activeAssets,
+        removeActiveAsset,
+        setCompareProducts,
+        uploadedFiles,
+        assetFiles,
+    } = useVehicleStore(useShallow(state => ({
         activeAssets: state.activeAssets,
+        removeActiveAsset: state.removeActiveAsset,
+        setCompareProducts: state.setCompareProducts,
+        uploadedFiles: state.uploadedFiles,
+        assetFiles: state.assetFiles,
     })));
     const snapshot = useAssetLibrarySnapshot();
 
-    // 已激活的资产（M3 接入完整数据：完成率/缺必填）
+    // 已激活的资产（含完成率/缺必填）
     const activeVehicles = useMemo(() => {
         return snapshot.infos
             .filter(info => activeAssets.includes(info.fileName))
-            .map(info => ({
-                key: buildVehicleInstanceKey('asset', info.fileName, info.productName),
-                fileName: info.fileName,
-                productName: info.productName,
-                totalParams: info.totalParams,
-                filledParams: info.filledParams,
-            }));
-    }, [snapshot.infos, activeAssets]);
+            .map(info => {
+                const instanceKey = buildVehicleInstanceKey('asset', info.fileName, info.productName);
+                const params = getProductData(uploadedFiles, instanceKey, assetFiles);
+                const requiredMissing = params.filter(p => {
+                    const value = String(p.value ?? '').trim();
+                    return isFieldRequired(p.name) && value === '';
+                }).length;
+
+                return {
+                    key: instanceKey,
+                    fileName: info.fileName,
+                    productName: info.productName,
+                    totalParams: info.totalParams,
+                    filledParams: info.filledParams,
+                    requiredMissing,
+                };
+            });
+    }, [snapshot.infos, activeAssets, uploadedFiles, assetFiles]);
+
+    // 点车卡：反向定位 + 选中
+    const handleCardClick = useCallback((fileName: string) => {
+        onFocusFile(fileName);
+        onLocateAsset?.(fileName);
+    }, [onFocusFile, onLocateAsset]);
+
+    // 移出工作集
+    const handleRemove = useCallback((fileName: string, productName: string) => {
+        removeActiveAsset(fileName, productName);
+    }, [removeActiveAsset]);
+
+    // 去对比
+    const handleGoCompare = useCallback(() => {
+        const keys = activeVehicles.map(v => v.key);
+        if (keys.length > 0) {
+            setCompareProducts(keys);
+            onGoCompare?.();
+        }
+    }, [activeVehicles, setCompareProducts, onGoCompare]);
+
+    // 清空工作区
+    const handleClearAll = useCallback(() => {
+        activeVehicles.forEach(v => removeActiveAsset(v.fileName, v.productName));
+    }, [activeVehicles, removeActiveAsset]);
 
     return (
         <div className="h-full flex flex-col bg-[var(--surface)]">
             {/* 头部 */}
             <div className="flex-none px-5 py-4 border-b border-[var(--border)] bg-[var(--bg)] flex items-center justify-between">
                 <span className="text-[14px] font-semibold text-1">已选工作集</span>
-                <span className="text-[11px] text-2 bg-[var(--surface)] px-2 py-1 rounded-[10px] border border-[var(--border)]">
-                    {activeVehicles.length} 台车
-                </span>
+                <div className="flex items-center gap-2">
+                    {activeVehicles.length > 0 && (
+                        <Button size="small" onClick={handleClearAll}>
+                            清空
+                        </Button>
+                    )}
+                    <span className="text-[11px] text-2 bg-[var(--surface)] px-2 py-1 rounded-[10px] border border-[var(--border)]">
+                        {activeVehicles.length} 台车
+                    </span>
+                </div>
             </div>
 
             {/* 车卡列表 */}
@@ -55,8 +111,8 @@ const AssetCart: React.FC<AssetCartProps> = ({ focusedFile: _focusedFile, onFocu
                             <AssetCartCard
                                 key={vehicle.key}
                                 vehicle={vehicle}
-                                onRemove={() => { /* TODO M3: 移出工作集 */ }}
-                                onClick={() => { /* TODO M3: 反向定位 */ }}
+                                onRemove={() => handleRemove(vehicle.fileName, vehicle.productName)}
+                                onClick={() => handleCardClick(vehicle.fileName)}
                             />
                         ))}
                     </div>
@@ -76,7 +132,7 @@ const AssetCart: React.FC<AssetCartProps> = ({ focusedFile: _focusedFile, onFocu
                         type="primary"
                         icon={<ArrowRightOutlined />}
                         block
-                        onClick={() => { /* TODO M3: 去对比 */ }}
+                        onClick={handleGoCompare}
                     >
                         去对比
                     </Button>

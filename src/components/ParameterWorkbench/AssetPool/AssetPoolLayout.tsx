@@ -48,6 +48,7 @@ const AssetPoolLayout: React.FC = () => {
 
     // ===== 选中态 =====
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
+    const [locateRequest, setLocateRequest] = useState<{ fileName: string; nonce: number } | null>(null);
 
     // ===== Facet 词表与取值（用于 fileFacets 计算） =====
     const [facetVocab, setFacetVocab] = useState<FacetVocab>(DEFAULT_FACET_VOCAB);
@@ -183,6 +184,34 @@ const AssetPoolLayout: React.FC = () => {
         toAdd.forEach(info => addActiveAsset(info.fileName, info.productName));
     }, [filteredInfos, activeFileNames, addActiveAsset]);
 
+    // ===== 购物车反向定位 =====
+    const listRef = React.useRef<HTMLDivElement>(null);
+    const locateRanRef = React.useRef(0);
+
+    React.useEffect(() => {
+        if (!locateRequest || locateRanRef.current === locateRequest.nonce) return;
+        locateRanRef.current = locateRequest.nonce;
+        const { fileName } = locateRequest;
+        window.setTimeout(() => {
+            const el = listRef.current?.querySelector(`[data-asset-file="${CSS.escape(fileName)}"]`);
+            if (el) {
+                el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                el.classList.add('vp-locate-flash');
+                window.setTimeout(() => el.classList.remove('vp-locate-flash'), 1800);
+            }
+        }, 0);
+    }, [locateRequest]);
+
+    const handleLocateAsset = useCallback((fileName: string) => {
+        setLocateRequest(prev => ({ fileName, nonce: (prev?.nonce ?? 0) + 1 }));
+    }, []);
+
+    // ===== 去对比（由 ParameterWorkbench 注入） =====
+    const handleGoCompare = useCallback(() => {
+        // TODO: 需要 ParameterWorkbench 提供 onGoCompare 回调
+        console.log('去对比', activeFileNames);
+    }, [activeFileNames]);
+
     return (
         <div className="flex h-full gap-3">
             {/* 左栏：240px 固定 */}
@@ -222,21 +251,22 @@ const AssetPoolLayout: React.FC = () => {
                 </div>
 
                 {/* 车型卡片列表 */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+                <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar p-4">
                     {filteredInfos.length > 0 ? (
                         filteredInfos.map(info => (
-                            <AssetCard
-                                key={info.fileName}
-                                info={info}
-                                tags={snapshot.tags[info.fileName] || []}
-                                metaStatus={snapshot.meta[info.fileName]?.status}
-                                isLatest={snapshot.latestSet.has(info.fileName)}
-                                isActive={activeFileNames.has(info.fileName)}
-                                isFocused={focusedFile === info.fileName}
-                                requiredMissingCount={getRequiredMissingCount(info)}
-                                onFocus={() => setFocusedFile(info.fileName)}
-                                onToggleActive={() => handleToggleActive(info)}
-                            />
+                            <div key={info.fileName} data-asset-file={info.fileName}>
+                                <AssetCard
+                                    info={info}
+                                    tags={snapshot.tags[info.fileName] || []}
+                                    metaStatus={snapshot.meta[info.fileName]?.status}
+                                    isLatest={snapshot.latestSet.has(info.fileName)}
+                                    isActive={activeFileNames.has(info.fileName)}
+                                    isFocused={focusedFile === info.fileName}
+                                    requiredMissingCount={getRequiredMissingCount(info)}
+                                    onFocus={() => setFocusedFile(info.fileName)}
+                                    onToggleActive={() => handleToggleActive(info)}
+                                />
+                            </div>
                         ))
                     ) : (
                         <div className="text-center text-3 py-12">
@@ -248,7 +278,12 @@ const AssetPoolLayout: React.FC = () => {
 
             {/* 右栏购物车：300px 固定 */}
             <div className="w-[300px] flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden">
-                <AssetCart focusedFile={focusedFile} onFocusFile={setFocusedFile} />
+                <AssetCart
+                    focusedFile={focusedFile}
+                    onFocusFile={setFocusedFile}
+                    onLocateAsset={handleLocateAsset}
+                    onGoCompare={handleGoCompare}
+                />
             </div>
         </div>
     );

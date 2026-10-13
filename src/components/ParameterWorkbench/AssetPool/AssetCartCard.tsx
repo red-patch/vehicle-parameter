@@ -12,6 +12,7 @@ export interface AssetCartCardProps {
         productName: string;
         totalParams: number;
         filledParams: number;
+        requiredMissing: number;
     };
     onRemove: () => void;
     onClick: () => void;
@@ -49,7 +50,11 @@ const AssetCartCard: React.FC<AssetCartCardProps> = ({ vehicle, onRemove, onClic
             </div>
             <div className="flex items-center gap-2.5 text-[11px] text-3">
                 <span>📊 <span className="text-2 font-semibold">{fillRate}%</span></span>
-                {/* TODO M3: 缺必填计数 */}
+                {vehicle.requiredMissing > 0 && (
+                    <span className="text-[var(--danger)]">
+                        ⚠️ 缺必填 <span className="font-semibold">{vehicle.requiredMissing}</span>
+                    </span>
+                )}
             </div>
         </div>
     );
