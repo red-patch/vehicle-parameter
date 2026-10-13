@@ -1,6 +1,6 @@
 # 车型资产库面板交互与视觉重设计（V2）
 
-> 日期：2026-10-13 ｜ 状态：**待实施**
+> 日期：2026-10-13 ｜ 状态：**已实施**（M1–M5 + 功能补全，同日落地）
 > 来源：2026-10-13 brainstorming 会话（用户反馈"还是不太好用"+"界面太丑"）。
 > 前置文档：`2026-10-01-asset-panel-layout-redesign.md`（V1 布局重设计，已实施）、`2026-09-28-asset-governance-primary-design.md`（治理模型）、`2026-09-30-asset-facets-lifecycle-design.md`（受控属性与生命周期）。
 > 领域术语见 `CONTEXT.md`，关键决策见 `docs/adr/0001`（受控属性分层）、`docs/adr/0002`（永不静默覆盖）、`docs/adr/0003`（关键车型替代主文件）。
