@@ -36,6 +36,13 @@ src-tauri/Cargo.lock
 .alma-snapshots
 .claude/
 
+# 真实数据文件——不入库（示例数据请放 docs/test_data 并先脱敏）
+*.xlsx
+*.xls
+docs/字段数据/
+docs/test_data/
+verify_export*.csv
+
 # AI agent local state
 .workbuddy/
 .workbuddy-ai/
