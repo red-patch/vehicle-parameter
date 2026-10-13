@@ -14,6 +14,7 @@ const ParameterWorkbench = React.lazy(() => import('./components/ParameterWorkbe
 const AnnouncementQuery = React.lazy(() => import('./components/AnnouncementQuery/AnnouncementQuery'));
 const RegulationLibrary = React.lazy(() => import('./components/RegulationLibrary/RegulationLibrary'));
 const ConfigManagerView = React.lazy(() => import('./components/SmartFiller/ConfigManagerView'));
+const VehicleDesigner = React.lazy(() => import('./components/VehicleDesigner/VehicleDesigner'));
 
 type WorkbenchTab = 'pool' | 'compare' | 'fill' | 'purify';
 const WORKBENCH_TABS: WorkbenchTab[] = ['pool', 'compare', 'fill', 'purify'];
@@ -122,6 +123,12 @@ const App: React.FC = () => {
           <React.Suspense fallback={<Skeleton active />}>
             <div className="vp-fade-in" style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
               <MemoConfigManager />
+            </div>
+          </React.Suspense>
+
+          <React.Suspense fallback={<Skeleton active />}>
+            <div className="vp-fade-in" style={{ display: activeTab === 'designer' ? undefined : 'none' }}>
+              <VehicleDesigner />
             </div>
           </React.Suspense>
 
