@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tag, Tooltip } from 'antd';
+import { Tag, Tooltip, Checkbox } from 'antd';
 import {
     PlusOutlined, CheckOutlined, StarOutlined,
     WarningOutlined, HistoryOutlined, StopOutlined, CloseCircleOutlined,
@@ -28,6 +28,15 @@ export interface AssetCardProps {
     onToggleActive: () => void;
     onOpenInspector?: () => void;
     onContextMenu?: (e: React.MouseEvent) => void;
+    /** 批量模式：显示勾选框 */
+    batchMode?: boolean;
+    batchChecked?: boolean;
+    onBatchCheck?: (checked: boolean) => void;
+    /**
+     * 生效显示名（别名 → 组名 → 派生名），由调用方用 resolveAssetDisplayName 解析。
+     * 省略时回落 getAssetDisplayName（保持既有调用点不变）。
+     */
+    displayName?: string;
 }
 
 const AssetCard: React.FC<AssetCardProps> = ({
@@ -42,8 +51,15 @@ const AssetCard: React.FC<AssetCardProps> = ({
     onToggleActive,
     onOpenInspector,
     onContextMenu,
+    batchMode,
+    batchChecked,
+    onBatchCheck,
+    displayName,
 }) => {
-    const displayName = getAssetDisplayName(info.fileName, info.productName);
+    const originalName = getAssetDisplayName(info.fileName, info.productName);
+    const effectiveName = displayName || originalName;
+    // 别名/组名覆盖生效时，原名作为副行保留（设计 §D4：原名可追溯，别名只改显示）
+    const showOriginal = effectiveName !== originalName;
     const namingValidation = validateAssetName(info.fileName, info.announceNos || []);
     const isKeyVehicle = tags.includes(KEY_VEHICLE_TAG);
 
@@ -72,8 +88,16 @@ const AssetCard: React.FC<AssetCardProps> = ({
 
             {/* 第一行：名称 + 徽章 + 激活按钮 */}
             <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="flex-1 min-w-0 font-semibold text-[14px] text-1 truncate" title={displayName}>
-                    {displayName}
+                {batchMode && (
+                    <span onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                        <Checkbox
+                            checked={batchChecked}
+                            onChange={e => onBatchCheck?.(e.target.checked)}
+                        />
+                    </span>
+                )}
+                <div className="flex-1 min-w-0 font-semibold text-[14px] text-1 truncate" title={originalName}>
+                    {effectiveName}
                 </div>
 
                 {/* 徽章 */}
@@ -130,6 +154,13 @@ const AssetCard: React.FC<AssetCardProps> = ({
                     </button>
                 </Tooltip>
             </div>
+
+            {/* 别名生效时：原名副行（设计 §D4：别名只改显示，原名可追溯） */}
+            {showOriginal && (
+                <div className="text-[11px] text-3 truncate mb-1.5 pl-0.5" title={originalName}>
+                    {originalName}
+                </div>
+            )}
 
             {/* 第二行：元信息 */}
             <div className="flex items-center gap-3 text-[11px] text-3">

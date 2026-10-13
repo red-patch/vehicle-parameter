@@ -26,10 +26,9 @@ interface ParameterWorkbenchProps {
 /**
  * 资产管理三栏（设计文档 2026-10-13-asset-panel-redesign-v2）：
  * 左导航（240px）+ 中列表（弹性）+ 右购物车（300px）。
- * M1 骨架：三栏布局渲染，筛选/列表/交互在 M2/M3 接入。
  */
-const PoolPane: React.FC = React.memo(() => {
-    return <AssetPoolLayout />;
+const PoolPane: React.FC<{ onGoCompare: () => void }> = React.memo(({ onGoCompare }) => {
+    return <AssetPoolLayout onGoCompare={onGoCompare} />;
 });
 
 const ComparePane: React.FC<{ onGoRepair: () => void }> = React.memo(({ onGoRepair }) => (
@@ -74,12 +73,13 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         },
         [setActiveTab],
     );
+    const handleGoCompare = useCallback(() => setActiveTab('compare'), [setActiveTab]);
 
     const items: { key: WorkbenchTabKey; label: React.ReactNode; children: React.ReactNode }[] = useMemo(() => [
         {
             key: 'pool',
             label: <span className="flex items-center gap-1.5"><DatabaseOutlined /> 车型资产</span>,
-            children: <PoolPane />
+            children: <PoolPane onGoCompare={handleGoCompare} />
         },
         {
             key: 'compare',
@@ -97,7 +97,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
             children: <PurifyPane onReturnToSource={handleReturnToModule} />
         }
         // 注意：不依赖 activeTab——切换 tab 不应重建任何 pane 的元素树
-    ], [handleGoRepair, handleReturnToModule]);
+    ], [handleGoRepair, handleReturnToModule, handleGoCompare]);
 
     // 懒挂载：激活过的 tab 才渲染，之后保活
     React.useEffect(() => {
