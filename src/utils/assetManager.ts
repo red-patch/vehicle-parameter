@@ -27,7 +27,8 @@ export const saveAssetFile = async (
     libraryPath: string,
     fileName: string,
     productName: string,
-    parameters: VehicleParameter[]
+    parameters: VehicleParameter[],
+    createdAt?: string
 ): Promise<string> => {
     // 确保有后缀
     const finalFileName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
@@ -36,7 +37,8 @@ export const saveAssetFile = async (
     const data: AssetFileFormat = {
         version: '1.0',
         productName,
-        createdAt: new Date().toISOString(),
+        // 覆盖式写入会丢原创建时间；调用方（读-改-写）应传入旧值保真，未传则按新建处理
+        createdAt: createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         parameters
     };
@@ -384,7 +386,10 @@ export const loadAssetFile = async (libraryPath: string, fileName: string): Prom
         return {
             fileName: fileName,
             data: normalizedData,
-            rawHeaders: ['参数分组', '参数名称', '参数值']
+            rawHeaders: ['参数分组', '参数名称', '参数值'],
+            // 文件级元数据（读-改-写保真：saveAssetFile 需要 productName，且不应重置 createdAt）
+            productName: parsed.productName,
+            createdAt: parsed.createdAt,
         };
     } catch (error) {
         console.error("Failed to load asset file", error);
@@ -710,6 +715,12 @@ export interface AssetGovernanceMeta {
     status?: 'superseded' | 'deprecated';
     /** 分组显示名覆盖：文件名正确但推导会剥离品牌前缀时（白犀牛R3→R3），仅影响组头展示，不影响归组 */
     groupName?: string;
+    /**
+     * 实例级显示别名（见 docs/plans/2026-10-13-asset-alias-design.md）：
+     * 仅覆盖展示，**不参与归组**（与 groupName 正交）、**不参与身份键**（ADR-0002）、不改文件名与 JSON 本体。
+     * 自身无别名时，显示层沿身份键从同车其他版本继承（读取时解析，不落盘）。
+     */
+    alias?: string;
     note?: string;
 }
 
@@ -752,6 +763,33 @@ export const setAssetFileMeta = async (
         delete meta[fileName];
     } else {
         meta[fileName] = { ...(meta[fileName] || {}), ...patch };
+    }
+    await saveAssetMeta(libraryPath, meta);
+};
+
+/**
+ * 设置/清除实例级显示别名（见 docs/plans/2026-10-13-asset-alias-design.md）。
+ * 空串/null → 清除该字段（回落继承/组名/派生名）；不传其它 meta 字段则不触碰（patch 合并）。
+ * 仅改显示，不动文件名与资产 JSON 本体，不参与归组与身份键。
+ */
+export const setAssetAlias = async (
+    libraryPath: string,
+    fileName: string,
+    alias: string | null | undefined
+): Promise<void> => {
+    const meta = await loadAssetMeta(libraryPath);
+    const existing = meta[fileName];
+    const trimmed = (alias ?? '').trim();
+
+    if (!trimmed) {
+        // 清除：无其他标注则整条删除，否则仅摘掉 alias 字段
+        if (!existing) return;
+        const { alias: _drop, ...rest } = existing;
+        void _drop;
+        if (Object.keys(rest).length === 0) delete meta[fileName];
+        else meta[fileName] = rest;
+    } else {
+        meta[fileName] = { ...(existing || {}), alias: trimmed };
     }
     await saveAssetMeta(libraryPath, meta);
 };

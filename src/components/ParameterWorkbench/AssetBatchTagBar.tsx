@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Checkbox, Input, Tag, Tooltip } from 'antd';
-import { CloseOutlined, TagsOutlined } from '@ant-design/icons';
+import { CloseOutlined, EditOutlined, TagsOutlined } from '@ant-design/icons';
 import { parseBatchTagInput } from '../../utils/assetTagBatch';
 
 export interface BatchTagGroup {
@@ -24,6 +24,8 @@ interface AssetBatchTagBarProps {
     groups: BatchTagGroup[];
     /** 应用标签到已选资产（合并语义，不覆盖已有标签） */
     onApplyTags: (tags: string[]) => void;
+    /** 打开批量字段维护抽屉（参数行 + 受控属性统一批量改值） */
+    onOpenFieldEditor?: () => void;
 }
 
 /**
@@ -41,6 +43,7 @@ const AssetBatchTagBar: React.FC<AssetBatchTagBarProps> = ({
     onExit,
     groups,
     onApplyTags,
+    onOpenFieldEditor,
 }) => {
     const [batchTagInput, setBatchTagInput] = useState('');
     const noSelection = selectedCount === 0;
@@ -76,6 +79,18 @@ const AssetBatchTagBar: React.FC<AssetBatchTagBarProps> = ({
                     </span>
                 </Tooltip>
                 <div className="flex-1" />
+                {onOpenFieldEditor && (
+                    <Tooltip title="对已勾选的资产批量维护参数值或受控属性">
+                        <Button
+                            size="small"
+                            icon={<EditOutlined className="!text-[12px]" />}
+                            onClick={onOpenFieldEditor}
+                            disabled={noSelection}
+                        >
+                            批量改字段
+                        </Button>
+                    </Tooltip>
+                )}
                 <Button
                     size="small"
                     type="text"

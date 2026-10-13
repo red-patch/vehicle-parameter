@@ -14,6 +14,10 @@ export interface SheetData {
     fileName: string;
     data: VehicleParameter[];
     rawHeaders: string[];
+    /** 文件级产品名（资产 JSON 的 productName；读-改-写保真用，非资产文件可省） */
+    productName?: string;
+    /** 文件创建时间（读-改-写保真用） */
+    createdAt?: string;
 }
 
 export type UpgradeDecision = 'keep_old' | 'use_new' | 'pending';

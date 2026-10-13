@@ -1,6 +1,6 @@
 # 批量字段维护（参数行 + 受控属性）— 设计方案
 
-> 日期：2026-10-13 ｜ 状态：待实施
+> 日期：2026-10-13 ｜ 状态：已实施（同日落地；旧 AssetBatchFacetEditor 在 DataSourcePanel 侧退役，组件文件因 V2 面板（AssetPoolLayout）仍引用而暂留待其迁移后删除）
 > 前置文档：`2026-09-30-asset-facets-lifecycle-design.md`（受控属性分层与批量补录出处）、`2026-10-01-asset-panel-layout-redesign.md`（V1 布局）、`2026-10-13-asset-panel-redesign-v2-design.md`（V2 面板重设计，同分支待实施）
 > 领域术语见 `CONTEXT.md`，关键决策见 `docs/adr/0001`（受控属性与标签分层）、`docs/adr/0002`（身份键与永不静默覆盖）、`docs/adr/0003`（每车最新版替代主文件）。
 
