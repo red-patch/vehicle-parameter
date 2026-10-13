@@ -4,6 +4,9 @@ import AssetSidebar from './AssetSidebar';
 import AssetFilterBar from './AssetFilterBar';
 import AssetCart from './AssetCart';
 import AssetCard from './AssetCard';
+import AssetInspector from '../AssetInspector';
+import { useAssetActions } from '../useAssetActions';
+import { useContextMenu } from '../../../hooks/useContextMenu';
 import { useVehicleStore } from '../../../store/vehicleStore';
 import { useAssetLibrarySnapshot } from '../../../hooks/useAssetLibrarySnapshot';
 import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
@@ -49,6 +52,11 @@ const AssetPoolLayout: React.FC = () => {
     // ===== 选中态 =====
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
     const [locateRequest, setLocateRequest] = useState<{ fileName: string; nonce: number } | null>(null);
+
+    // ===== 资产检查器 =====
+    const [inspectorTarget, setInspectorTarget] = useState<string | null>(null);
+    const actions = useAssetActions({ focusedFile, onFocusFile: setFocusedFile });
+    const { onContextMenu, ContextMenuPortal } = useContextMenu();
 
     // ===== Facet 词表与取值（用于 fileFacets 计算） =====
     const [facetVocab, setFacetVocab] = useState<FacetVocab>(DEFAULT_FACET_VOCAB);
@@ -212,6 +220,40 @@ const AssetPoolLayout: React.FC = () => {
         console.log('去对比', activeFileNames);
     }, [activeFileNames]);
 
+    // ===== 打开资产检查器 =====
+    const handleOpenInspector = useCallback((info: AssetFileInfo) => {
+        setInspectorTarget(buildVehicleInstanceKey('asset', info.fileName, info.productName));
+    }, []);
+
+    // ===== 检查器去对比 =====
+    const setCompareProducts = useVehicleStore(useShallow(state => state.setCompareProducts));
+    const handleInspectorGoCompare = useCallback((instanceKey: string) => {
+        setCompareProducts([instanceKey]);
+        // TODO: 跳转对比 tab（需要 ParameterWorkbench 提供回调）
+    }, [setCompareProducts]);
+
+    // ===== 右键菜单 =====
+    const buildAssetContextMenu = useCallback((info: AssetFileInfo) => {
+        const isActive = activeFileNames.has(info.fileName);
+        return [
+            {
+                key: 'active',
+                label: isActive ? '移出工作集' : '激活进工作集',
+                onClick: () => handleToggleActive(info),
+            },
+            { key: 'copy-announce', label: '复制公告号', onClick: () => actions.copyAnnounceNo(info) },
+            { key: 'finder', label: '在 Finder 中显示', onClick: () => void actions.revealInFinder(info) },
+            { key: 'rename', label: '重命名', onClick: () => actions.startRename(info) },
+            { key: 'batch', label: '批量选择', onClick: () => { /* TODO: 批量模式 */ } },
+            { key: 'divider1', divider: true, onClick: () => {} },
+            {
+                key: 'inspector',
+                label: '打开检查器…',
+                onClick: () => handleOpenInspector(info),
+            },
+        ];
+    }, [activeFileNames, handleToggleActive, actions, handleOpenInspector]);
+
     return (
         <div className="flex h-full gap-3">
             {/* 左栏：240px 固定 */}
@@ -265,6 +307,8 @@ const AssetPoolLayout: React.FC = () => {
                                     requiredMissingCount={getRequiredMissingCount(info)}
                                     onFocus={() => setFocusedFile(info.fileName)}
                                     onToggleActive={() => handleToggleActive(info)}
+                                    onOpenInspector={() => handleOpenInspector(info)}
+                                    onContextMenu={onContextMenu(buildAssetContextMenu(info))}
                                 />
                             </div>
                         ))
@@ -285,6 +329,18 @@ const AssetPoolLayout: React.FC = () => {
                     onGoCompare={handleGoCompare}
                 />
             </div>
+
+            {/* 资产检查器 */}
+            <AssetInspector
+                open={Boolean(inspectorTarget)}
+                instanceKey={inspectorTarget}
+                snapshot={snapshot}
+                actions={actions}
+                onClose={() => setInspectorTarget(null)}
+                onGoCompare={handleInspectorGoCompare}
+            />
+            {actions.modals}
+            {ContextMenuPortal}
         </div>
     );
 };
