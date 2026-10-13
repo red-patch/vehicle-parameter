@@ -617,16 +617,16 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 )}
 
                 {/* 列表头 */}
-                <div className="flex-none px-5 py-3 border-b border-[var(--border)] flex items-center justify-between text-[13px] text-2">
+                <div className="flex-none px-4 py-2 border-b border-default flex items-center justify-between text-aux text-2">
                     <span>
-                        共 <span className="font-semibold text-1">{filteredInfos.length}</span> 个资产
+                        共 <span className="font-medium text-1 tabular-nums">{filteredInfos.length}</span> 个资产
                         {activeFileNames.size > 0 && (
-                            <> · 已选 <span className="font-semibold text-1">{activeFileNames.size}</span></>
+                            <> · 已选 <span className="font-medium text-1 tabular-nums">{activeFileNames.size}</span></>
                         )}
                     </span>
                     {filteredInfos.length > 0 && filteredInfos.some(info => !activeFileNames.has(info.fileName)) && (
                         <span
-                            className="text-[var(--brand)] cursor-pointer font-semibold hover:underline"
+                            className="text-brand cursor-pointer font-medium hover:underline"
                             onClick={handleAddFilteredToWorkspace}
                         >
                             将筛选结果加入工作区 →
@@ -635,7 +635,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 </div>
 
                 {/* 车型卡片列表 */}
-                <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar p-4">
+                <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar surface-layout p-3">
                     {filteredInfos.length > 0 ? (
                         filteredInfos.map(info => (
                             <div key={info.fileName} data-asset-file={info.fileName}>
@@ -659,7 +659,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             </div>
                         ))
                     ) : (
-                        <div className="text-center text-3 py-12">
+                        <div className="text-center text-3 py-12 text-body">
                             {searchKeyword || governanceView ? '没有匹配的资产' : '资产库空空如也'}
                         </div>
                     )}

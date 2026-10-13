@@ -42,17 +42,18 @@ const ChipShell: React.FC<ChipShellProps> = ({ label, activeCount, content }) =>
     >
         <div
             className={`
-                px-3 py-1.5 rounded-lg border text-[12px] font-medium cursor-pointer select-none
-                flex items-center gap-1.5 whitespace-nowrap transition-all
+                px-2.5 py-1 rounded-md border text-aux cursor-pointer select-none
+                flex items-center gap-1 whitespace-nowrap transition-colors duration-150
                 ${activeCount > 0
-                    ? 'bg-[var(--brand-weak)] border-[var(--brand)] text-[var(--brand)] font-semibold shadow-[0_0_0_1px_var(--brand)]'
-                    : 'bg-[var(--surface)] border-[var(--border)] text-2 hover:border-[var(--brand)] hover:text-[var(--brand)] hover:bg-[var(--brand-weak)]'
+                    ? 'bg-brand-weak border-brand text-brand font-medium'
+                    : 'surface-container border-line text-2 hover:border-brand hover:text-brand'
                 }
             `}
+            style={{ transitionTimingFunction: 'var(--ease-ui)' }}
         >
             {label}
-            {activeCount > 0 && <span>({activeCount})</span>}
-            <span className="text-[8px]">▾</span>
+            {activeCount > 0 && <span className="tabular-nums">({activeCount})</span>}
+            <span className="text-[8px] opacity-60">▾</span>
         </div>
     </Popover>
 );
@@ -165,7 +166,7 @@ const AssetFilterBar: React.FC<AssetFilterBarProps> = ({
     const capacityActive = (facetSelection.capacityMin !== null || facetSelection.capacityMax !== null || facetSelection.capacityNone) ? 1 : 0;
 
     return (
-        <div className="flex-none bg-[var(--surface)] border-b border-[var(--border)] px-5 py-3.5 flex items-center gap-2 flex-wrap shadow-[var(--shadow-sm)]">
+        <div className="flex-none surface-container border-b border-default px-4 py-2.5 flex items-center gap-2 flex-wrap">
             <Input
                 className="flex-1 min-w-[180px]"
                 placeholder="搜名字/公告号/标签..."

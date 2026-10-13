@@ -15,8 +15,8 @@ import type { FacetVocab, ResolvedFacets } from '../../../utils/assetFacets';
  * 左栏：快速导航（主机厂/族群树）+ 治理视角（预置筛选）+ 工具
  * （设计文档 2026-10-13-asset-panel-redesign-v2 §4.1）
  *
- * 导航树与 facet 筛选共用同一份 FacetSelection 状态：
- * 点「主机厂 · 吉利」= facetSelection.manufacturers 勾选「吉利」（单选语义：点其他厂替换，再点取消）。
+ * 导航树与 facet 筛选共用同一份 FacetSelection 状态（单选语义）。
+ * 视觉遵守曜蓝 v4.1：三层表面、文字四级、选中=品牌弱底+左缘条。
  */
 export interface AssetSidebarProps {
     governanceView: string | null;
@@ -33,7 +33,6 @@ export interface AssetSidebarProps {
     onFacetSelectionChange: (sel: FacetSelection) => void;
     facetVocab: FacetVocab;
     facetItems: { facets: ResolvedFacets }[];
-    /** 打开治理体检弹窗（由 Layout 统一挂载，含 report/收敛/批量补录） */
     onOpenGovernance: () => void;
 }
 
@@ -45,34 +44,38 @@ interface NavItemProps {
     warn?: boolean;
     onClick?: () => void;
     indent?: boolean;
-    expandArrow?: boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, count, active, warn, onClick, indent, expandArrow }) => (
+const NavItem: React.FC<NavItemProps> = ({ icon, label, count, active, warn, onClick, indent }) => (
     <div
         className={`
-            flex items-center justify-between px-5 py-2 cursor-pointer transition-all text-[13px]
-            ${indent ? 'pl-12' : ''}
+            relative flex items-center justify-between px-4 py-1.5 mx-2 rounded-md cursor-pointer
+            transition-colors duration-150 text-body
+            ${indent ? 'ml-6' : ''}
             ${active
-                ? 'bg-[var(--brand-weak)] text-[var(--brand)] font-semibold border-l-[3px] border-[var(--brand)] pl-[calc(1.25rem-3px)]'
-                : 'text-2 hover:bg-[var(--surface-hover)]'
+                ? 'bg-brand-weak text-brand font-medium'
+                : 'text-2 hover:surface-inset hover:text-1'
             }
         `}
+        style={{ transitionTimingFunction: 'var(--ease-ui)' }}
         onClick={onClick}
     >
-        <span className="flex items-center gap-2.5 min-w-0">
-            <span className="text-[14px] w-[18px] flex items-center justify-center flex-shrink-0">{icon}</span>
+        {active && <div className="absolute left-[-8px] top-1.5 bottom-1.5 w-[3px] rounded-full bg-brand" />}
+        <span className="flex items-center gap-2 min-w-0">
+            <span className="text-[13px] w-4 flex items-center justify-center flex-shrink-0 opacity-80">{icon}</span>
             <span className="truncate">{label}</span>
         </span>
         {count !== undefined && (
-            <span className={`
-                text-[11px] px-1.5 py-0.5 rounded-[10px] min-w-[24px] text-center flex-shrink-0
-                ${warn ? 'bg-[#fef3c7] text-[#92400e]' : active ? 'bg-white text-[var(--brand)] font-semibold' : 'bg-[var(--bg)] text-3'}
-            `}>
+            <span className={`text-caption tabular-nums flex-shrink-0 ${warn ? 'text-warning-text font-medium' : active ? 'text-brand' : 'text-3'}`}>
                 {count}
             </span>
         )}
-        {expandArrow && <span className="text-[9px] text-3 flex-shrink-0">▾</span>}
+    </div>
+);
+
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div className="px-4 pb-1.5 pt-1 text-caption text-3 font-medium tracking-wide">
+        {children}
     </div>
 );
 
@@ -95,29 +98,26 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
     const [mfrExpanded, setMfrExpanded] = useState(true);
     const [familyExpanded, setFamilyExpanded] = useState(true);
 
-    // 主机厂候选（带级联计数）
     const manufacturerRows = useMemo(() => {
-        const counts = countFacetValues(facetItems, facetSelection, 'manufacturer');
+        const countsMap = countFacetValues(facetItems, facetSelection, 'manufacturer');
         const names = new Set<string>();
         facetVocab.manufacturer.forEach(e => names.add(e.name));
-        counts.forEach((_v, k) => { if (k !== FACET_NONE) names.add(k); });
+        countsMap.forEach((_v, k) => { if (k !== FACET_NONE) names.add(k); });
         return Array.from(names)
-            .map(name => ({ name, count: counts.get(name) || 0 }))
+            .map(name => ({ name, count: countsMap.get(name) || 0 }))
             .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-Hans-CN'));
     }, [facetItems, facetSelection, facetVocab]);
 
-    // 车型族群候选（带级联计数）
     const familyRows = useMemo(() => {
-        const counts = countFacetValues(facetItems, facetSelection, 'vehicleFamily');
+        const countsMap = countFacetValues(facetItems, facetSelection, 'vehicleFamily');
         const names = new Set<string>();
         facetVocab.vehicleFamily.forEach(name => names.add(name));
-        counts.forEach((_v, k) => { if (k !== FACET_NONE) names.add(k); });
+        countsMap.forEach((_v, k) => { if (k !== FACET_NONE) names.add(k); });
         return Array.from(names)
-            .map(name => ({ name, count: counts.get(name) || 0 }))
+            .map(name => ({ name, count: countsMap.get(name) || 0 }))
             .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-Hans-CN'));
     }, [facetItems, facetSelection, facetVocab]);
 
-    /** 导航树点击 = facet 单选切换（再点取消） */
     const handleDimClick = (dim: FacetDim, value: string) => {
         const key = dim === 'manufacturer' ? 'manufacturers' : 'families';
         const current = facetSelection[key];
@@ -132,11 +132,7 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
     const handleSetAssetLibrary = async () => {
         try {
             const { open } = await import('@tauri-apps/plugin-dialog');
-            const selected = await open({
-                directory: true,
-                multiple: false,
-                title: '选择资产库目录',
-            });
+            const selected = await open({ directory: true, multiple: false, title: '选择资产库目录' });
             if (selected && typeof selected === 'string') {
                 setAssetLibraryPath(selected);
                 message.success(`已设置资产库目录: ${selected}`);
@@ -147,24 +143,16 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
         }
     };
 
-    const handleRefresh = () => {
-        bumpAssetVersion();
-        message.success('正在刷新资产库…');
-    };
-
     return (
-        <div className="h-full overflow-y-auto custom-scrollbar py-4">
+        <div className="h-full overflow-y-auto custom-scrollbar py-3">
             {/* 快速导航 */}
-            <div className="mb-6">
-                <div className="px-5 pb-2.5 text-[11px] font-semibold text-3 uppercase tracking-[0.8px]">
-                    快速导航
-                </div>
+            <div className="mb-4">
+                <SectionTitle>快速导航</SectionTitle>
                 <NavItem
                     icon={<HomeOutlined />}
                     label="主机厂"
                     count={manufacturerRows.length}
                     onClick={() => setMfrExpanded(!mfrExpanded)}
-                    expandArrow={mfrExpanded}
                 />
                 {mfrExpanded && manufacturerRows.map(m => (
                     <NavItem
@@ -182,7 +170,6 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                     label="车型族群"
                     count={familyRows.length}
                     onClick={() => setFamilyExpanded(!familyExpanded)}
-                    expandArrow={familyExpanded}
                 />
                 {familyExpanded && familyRows.map(f => (
                     <NavItem
@@ -197,13 +184,11 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                 ))}
             </div>
 
-            <div className="h-px bg-[var(--border)] mx-5 my-4" />
+            <div className="h-px bg-[var(--border-default)] mx-4 my-3" />
 
             {/* 治理视角 */}
-            <div className="mb-6">
-                <div className="px-5 pb-2.5 text-[11px] font-semibold text-3 uppercase tracking-[0.8px]">
-                    治理视角
-                </div>
+            <div className="mb-4">
+                <SectionTitle>治理视角</SectionTitle>
                 <NavItem
                     icon={<StarOutlined />}
                     label="关键车型"
@@ -250,20 +235,18 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                 />
             </div>
 
-            <div className="h-px bg-[var(--border)] mx-5 my-4" />
+            <div className="h-px bg-[var(--border-default)] mx-4 my-3" />
 
             {/* 工具 */}
             <div>
-                <div className="px-5 pb-2.5 text-[11px] font-semibold text-3 uppercase tracking-[0.8px]">
-                    工具
-                </div>
-                <div className="px-5 py-1.5">
+                <SectionTitle>工具</SectionTitle>
+                <div className="px-4 py-1">
                     <FileManager />
                 </div>
                 <NavItem
                     icon={<ReloadOutlined />}
                     label="刷新资产库"
-                    onClick={handleRefresh}
+                    onClick={() => { bumpAssetVersion(); message.success('正在刷新资产库…'); }}
                 />
                 <NavItem
                     icon={<AuditOutlined />}

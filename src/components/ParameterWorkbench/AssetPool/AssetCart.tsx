@@ -7,6 +7,7 @@ import { useAssetLibrarySnapshot } from '../../../hooks/useAssetLibrarySnapshot'
 import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
 import { isFieldRequired } from '../../../assets/requiredFields';
 import { getProductData } from '../../../store/vehicleSelectors';
+import { buildAliasSource, resolveAssetDisplayName } from '../../../utils/assetAlias';
 import AssetCartCard from './AssetCartCard';
 
 /**
@@ -39,6 +40,10 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
     const snapshot = useAssetLibrarySnapshot();
 
     // 已激活的资产（含完成率/缺必填）
+    const aliasSource = useMemo(
+        () => buildAliasSource(snapshot.infos, snapshot.meta, snapshot.latestSet),
+        [snapshot.infos, snapshot.meta, snapshot.latestSet],
+    );
     const activeVehicles = useMemo(() => {
         return snapshot.infos
             .filter(info => activeAssets.includes(info.fileName))
@@ -54,12 +59,14 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
                     key: instanceKey,
                     fileName: info.fileName,
                     productName: info.productName,
+                    // 别名只改显示；instanceKey 仍用原 productName，身份/去重不受影响（设计 §5）
+                    displayName: resolveAssetDisplayName(info, aliasSource),
                     totalParams: info.totalParams,
                     filledParams: info.filledParams,
                     requiredMissing,
                 };
             });
-    }, [snapshot.infos, activeAssets, uploadedFiles, assetFiles]);
+    }, [snapshot.infos, snapshot.meta, snapshot.latestSet, aliasSource, activeAssets, uploadedFiles, assetFiles]);
 
     // 点车卡：反向定位 + 选中
     const handleCardClick = useCallback((fileName: string) => {
@@ -87,24 +94,24 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
     }, [activeVehicles, removeActiveAsset]);
 
     return (
-        <div className="h-full flex flex-col bg-[var(--surface)]">
+        <div className="h-full flex flex-col surface-container">
             {/* 头部 */}
-            <div className="flex-none px-5 py-4 border-b border-[var(--border)] bg-[var(--bg)] flex items-center justify-between">
-                <span className="text-[14px] font-semibold text-1">已选工作集</span>
+            <div className="flex-none px-4 py-3 border-b border-default flex items-center justify-between">
+                <span className="text-title text-1">已选工作集</span>
                 <div className="flex items-center gap-2">
                     {activeVehicles.length > 0 && (
                         <Button size="small" onClick={handleClearAll}>
                             清空
                         </Button>
                     )}
-                    <span className="text-[11px] text-2 bg-[var(--surface)] px-2 py-1 rounded-[10px] border border-[var(--border)]">
+                    <span className="text-caption text-3 tabular-nums">
                         {activeVehicles.length} 台车
                     </span>
                 </div>
             </div>
 
             {/* 车卡列表 */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3">
                 {activeVehicles.length > 0 ? (
                     <div className="space-y-2">
                         {activeVehicles.map(vehicle => (
@@ -117,17 +124,17 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
                         ))}
                     </div>
                 ) : (
-                    <div className="py-10 text-center border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--surface-inset)] flex flex-col items-center justify-center min-h-[220px]">
+                    <div className="py-10 text-center border border-dashed border-default rounded-lg surface-inset flex flex-col items-center justify-center min-h-[200px]">
                         <InboxOutlined className="text-3xl text-4 mb-3" />
-                        <span className="text-2 text-[13px]">当前没有激活的车型工作集</span>
-                        <span className="text-3 text-xs mt-1.5">在左侧资产卡上点 ＋，把车型加入工作集</span>
+                        <span className="text-2 text-body">当前没有激活的车型工作集</span>
+                        <span className="text-3 text-caption mt-1.5">在左侧资产卡上点 ＋，把车型加入工作集</span>
                     </div>
                 )}
             </div>
 
             {/* 底部 CTA */}
             {activeVehicles.length > 0 && (
-                <div className="flex-none px-5 py-4 border-t border-[var(--border)] bg-[var(--bg)]">
+                <div className="flex-none px-3 py-3 border-t border-default">
                     <Button
                         type="primary"
                         icon={<ArrowRightOutlined />}
