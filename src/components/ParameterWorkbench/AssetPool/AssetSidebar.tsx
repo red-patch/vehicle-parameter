@@ -4,7 +4,7 @@ import {
     BranchesOutlined, EditOutlined, HistoryOutlined, DeleteOutlined,
     AuditOutlined, SettingOutlined, ReloadOutlined,
 } from '@ant-design/icons';
-import { message } from 'antd';
+import { message, Tooltip } from 'antd';
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../../store/vehicleStore';
 import FileManager from '../FileManager';
@@ -34,6 +34,8 @@ export interface AssetSidebarProps {
     facetVocab: FacetVocab;
     facetItems: { facets: ResolvedFacets }[];
     onOpenGovernance: () => void;
+    /** 折叠左栏（⌘S / 顶部折叠按钮） */
+    onCollapse: () => void;
 }
 
 interface NavItemProps {
@@ -88,6 +90,7 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
     facetVocab,
     facetItems,
     onOpenGovernance,
+    onCollapse,
 }) => {
     const { assetLibraryPath, setAssetLibraryPath, bumpAssetVersion } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
@@ -145,6 +148,18 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
 
     return (
         <div className="h-full overflow-y-auto custom-scrollbar py-3">
+            {/* 折叠按钮（⌘S） */}
+            <div className="flex justify-end px-3 pb-1">
+                <Tooltip title="折叠导航（⌘S）">
+                    <button
+                        className="w-6 h-6 rounded flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak transition-colors duration-150"
+                        style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                        onClick={onCollapse}
+                    >
+                        <span className="text-[10px]">◂</span>
+                    </button>
+                </Tooltip>
+            </div>
             {/* 快速导航 */}
             <div className="mb-4">
                 <SectionTitle>快速导航</SectionTitle>

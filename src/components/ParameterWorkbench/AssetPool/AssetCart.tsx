@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { Button } from 'antd';
-import { ArrowRightOutlined, InboxOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, InboxOutlined, CloseOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../../store/vehicleStore';
 import { useAssetLibrarySnapshot } from '../../../hooks/useAssetLibrarySnapshot';
@@ -21,9 +21,11 @@ export interface AssetCartProps {
     onFocusFile: (fileName: string | null) => void;
     onLocateAsset?: (fileName: string) => void;
     onGoCompare?: () => void;
+    /** 收起浮层（浮动购物车模式） */
+    onClose?: () => void;
 }
 
-const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoCompare }) => {
+const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoCompare, onClose }) => {
     const {
         activeAssets,
         removeActiveAsset,
@@ -107,6 +109,16 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
                     <span className="text-caption text-3 tabular-nums">
                         {activeVehicles.length} 台车
                     </span>
+                    {onClose && (
+                        <button
+                            className="w-5 h-5 rounded flex items-center justify-center text-3 hover:text-1 hover:surface-inset transition-colors duration-150"
+                            style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                            onClick={onClose}
+                            title="收起"
+                        >
+                            <CloseOutlined className="text-[11px]" />
+                        </button>
+                    )}
                 </div>
             </div>
 

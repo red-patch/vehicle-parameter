@@ -539,6 +539,11 @@ img, a { -webkit-user-drag: none; }
 .vp-context-menu__item--disabled { color: var(--text-4); pointer-events: none; }
 .vp-context-menu__divider { height: 1px; margin: 4px 0; background: var(--border-default); }
 .vp-context-menu__icon { font-size: 14px; width: 16px; text-align: center; }
+/* 二级子菜单：hover 展开，右缘空间不足时 hook 已翻转 left */
+.vp-context-menu--sub { min-width: 160px; }
+.vp-context-menu__label { flex: 1; }
+.vp-context-menu__item--has-sub { justify-content: space-between; }
+.vp-context-menu__caret { font-size: 10px; color: var(--text-3); margin-left: auto; }
 
 /* message 提示条点击穿透：它固定在顶部居中，会盖住工作台 Tab（版本对比等），
    而 antd v6 给内容块显式加了 pointer-events: all，存在期内挡住下层控件点击。

@@ -6,6 +6,8 @@ import AssetFilterBar from './AssetFilterBar';
 import AssetCart from './AssetCart';
 import AssetCard from './AssetCard';
 import AssetAliasBatchModal from './AssetAliasBatchModal';
+import AssetHotkeyCheatsheet from './AssetHotkeyCheatsheet';
+import { useAssetPoolHotkeys } from './useAssetPoolHotkeys';
 import AssetInspector from '../AssetInspector';
 import AssetBatchTagBar from '../AssetBatchTagBar';
 import GovernanceReportModal from '../GovernanceReportModal';
@@ -82,6 +84,19 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     const [inspectorTarget, setInspectorTarget] = useState<string | null>(null);
     const [batchMode, setBatchMode] = useState(false);
     const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set());
+
+    // ===== 左栏折叠 + 购物车浮层 =====
+    const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+        try { return localStorage.getItem('asset-panel-sidebar-collapsed') === '1'; } catch { return false; }
+    });
+    const toggleSidebar = useCallback(() => {
+        setSidebarCollapsed(prev => {
+            const next = !prev;
+            try { localStorage.setItem('asset-panel-sidebar-collapsed', next ? '1' : '0'); } catch (e) { console.warn(e); }
+            return next;
+        });
+    }, []);
+    const [cartExpanded, setCartExpanded] = useState(false);
     const [aliasBatchOpen, setAliasBatchOpen] = useState(false);
 
     const actions = useAssetActions({ focusedFile, onFocusFile: setFocusedFile });
@@ -496,6 +511,59 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         }
     }, [assetLibraryPath, batchSelection, bumpAssetTagGroupsVersion]);
 
+    // ===== 快捷键（设计文档 §3.6） =====
+    // 依赖 enterBatchMode/exitBatchMode/handleOpenInspector，故置于其后。
+    const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
+    const searchSectionRef = useRef<HTMLDivElement>(null);
+
+    // 网格列数（与 auto-fill minmax(260px) 一致：容器宽 ÷ 260 向下取整，至少 1）
+    const columnsInGrid = useCallback(() => {
+        const w = listRef.current?.clientWidth ?? 0;
+        const gap = 10, minCol = 260;
+        return Math.max(1, Math.floor((w + gap) / (minCol + gap)));
+    }, []);
+
+    const moveFocus = useCallback(({ dx, dy }: { dx: number; dy: number }) => {
+        if (filteredInfos.length === 0) return;
+        const cur = focusedFile ? filteredInfos.findIndex(i => i.fileName === focusedFile) : -1;
+        const cols = columnsInGrid();
+        let next = cur === -1 ? 0 : cur + dx + dy * cols;
+        next = Math.max(0, Math.min(filteredInfos.length - 1, next));
+        const target = filteredInfos[next];
+        if (target) {
+            setFocusedFile(target.fileName);
+            setLocateRequest(prev => ({ fileName: target.fileName, nonce: (prev?.nonce ?? 0) + 1 }));
+        }
+    }, [filteredInfos, focusedFile, columnsInGrid]);
+
+    const focusSearch = useCallback(() => {
+        const input = searchSectionRef.current?.querySelector('input');
+        input?.focus();
+    }, []);
+
+    const focusedInfo = useCallback(() => (
+        focusedFile ? snapshot.infos.find(i => i.fileName === focusedFile) ?? null : null
+    ), [focusedFile, snapshot.infos]);
+
+    useAssetPoolHotkeys({
+        enabled: true,
+        onToggleSidebar: toggleSidebar,
+        onFocusSearch: focusSearch,
+        onMoveFocus: moveFocus,
+        onOpenInspector: () => { const i = focusedInfo(); if (i) handleOpenInspector(i); },
+        onToggleActive: () => { const i = focusedInfo(); if (i) handleToggleActive(i); },
+        onEnterBatch: () => { if (focusedFile) enterBatchMode(focusedFile); },
+        onToggleCart: () => { if (activeFileNames.size > 0) setCartExpanded(v => !v); },
+        onGoCompare: () => { if (activeFileNames.size > 0) handleGoCompare(); },
+        onRefresh: () => { bumpAssetVersion(); message.success('正在刷新资产库…'); },
+        onShowCheatsheet: () => setCheatsheetOpen(true),
+        onEscape: () => {
+            if (cartExpanded) { setCartExpanded(false); return; }
+            if (batchMode) { exitBatchMode(); return; }
+            setFocusedFile(null);
+        },
+    });
+
     // ===== 批量建议别名（设计 §D6）：仅对勾选资产生效；逐条 writeMeta，避免并发覆盖 =====
     const aliasBatchTargets = useMemo(
         () => snapshot.infos.filter(i => batchSelection.has(i.fileName)),
@@ -529,25 +597,70 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     // ===== 右键菜单 =====
     const buildAssetContextMenu = useCallback((info: AssetFileInfo) => {
         const isActive = activeFileNames.has(info.fileName);
+        const tags = snapshot.tags[info.fileName] || [];
+        const isKey = tags.includes(KEY_VEHICLE_TAG);
+        const metaStatus = snapshot.meta[info.fileName]?.status;
         return [
+            // ── 高频：一级平铺 ──
             {
                 key: 'active',
                 label: isActive ? '移出工作集' : '激活进工作集',
                 onClick: () => handleToggleActive(info),
             },
             { key: 'copy-announce', label: '复制公告号', onClick: () => actions.copyAnnounceNo(info) },
-            { key: 'finder', label: '在 Finder 中显示', onClick: () => void actions.revealInFinder(info) },
-            { key: 'rename', label: '重命名', onClick: () => actions.startRename(info) },
+            { key: 'divider-1', divider: true },
+            // ── 治理：二级子菜单收纳 ──
+            {
+                key: 'key-vehicle',
+                label: isKey ? '取消关键车型' : '标记为关键车型',
+                onClick: () => void actions.toggleKeyVehicle(info),
+            },
+            {
+                key: 'status',
+                label: '状态',
+                children: [
+                    metaStatus === 'superseded'
+                        ? { key: 'un-superseded', label: '取消历史版本标记', onClick: () => void actions.setStatus(info, 'superseded') }
+                        : { key: 'superseded', label: '标记为历史版本', onClick: () => void actions.setStatus(info, 'superseded') },
+                    metaStatus === 'deprecated'
+                        ? { key: 'un-deprecated', label: '清除废弃标记', onClick: () => void actions.setStatus(info, 'deprecated') }
+                        : { key: 'deprecated', label: '标记为废弃', onClick: () => void actions.setStatus(info, 'deprecated') },
+                ],
+            },
+            { key: 'rename', label: '重命名…', onClick: () => actions.startRename(info) },
             { key: 'alias', label: '设置别名…', onClick: () => void actions.startSetAlias(info) },
+            { key: 'divider-2', divider: true },
+            // ── 公告与导出 ──
+            {
+                key: 'announce',
+                label: '公告',
+                children: [
+                    { key: 'pdf', label: '查看公告 PDF', onClick: () => actions.viewAnnouncementPdf(info) },
+                    { key: 'compare', label: '与公告对比', onClick: () => actions.compareWithAnnouncement(info) },
+                ],
+            },
+            { key: 'export', label: '导出 CSV', onClick: () => void actions.exportCsv(info) },
+            { key: 'upgrade', label: '升级导入…', onClick: () => void actions.openUpgrade(info) },
+            { key: 'divider-3', divider: true },
+            // ── 文件与选择 ──
+            { key: 'finder', label: '在 Finder 中显示', onClick: () => void actions.revealInFinder(info) },
+            { key: 'open', label: '打开文件', onClick: () => void actions.openInEditor(info) },
             { key: 'batch', label: '批量选择', onClick: () => enterBatchMode(info.fileName) },
-            { key: 'divider1', divider: true, onClick: () => {} },
+            { key: 'divider-4', divider: true },
+            // ── 检查器入口 ──
             {
                 key: 'inspector',
                 label: '打开检查器…',
                 onClick: () => handleOpenInspector(info),
             },
+            { key: 'divider-5', divider: true },
+            // ── 删除类：压底、危险色 ──
+            { key: 'delete', label: '删除（可恢复）', danger: true, onClick: () => actions.deleteAsset(info) },
+            ...(metaStatus === 'deprecated'
+                ? [{ key: 'hard-delete', label: '彻底删除（归档）', danger: true, onClick: () => void actions.hardDelete(info) }]
+                : []),
         ];
-    }, [activeFileNames, handleToggleActive, actions, handleOpenInspector, enterBatchMode]);
+    }, [activeFileNames, handleToggleActive, actions, handleOpenInspector, enterBatchMode, snapshot.tags, snapshot.meta]);
 
     const batchSelectionStats = useMemo(() => {
         const inFiltered = filteredInfos.filter(a => batchSelection.has(a.fileName)).length;
@@ -559,22 +672,36 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
 
     return (
         <div className="flex h-full gap-3">
-            {/* 左栏：240px 固定 */}
-            <div className="w-[240px] flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden">
-                <AssetSidebar
-                    governanceView={governanceView}
-                    onGovernanceViewChange={setGovernanceView}
-                    counts={governanceCounts}
-                    facetSelection={facetSelection}
-                    onFacetSelectionChange={setFacetSelection}
-                    facetVocab={facetVocab}
-                    facetItems={facetItems}
-                    onOpenGovernance={() => setGovernanceOpen(true)}
-                />
+            {/* 左栏：可折叠（展开 240px / 折叠 24px 细条） */}
+            <div className={`flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden transition-all duration-200 ${sidebarCollapsed ? 'w-6' : 'w-[240px]'}`} style={{ transitionTimingFunction: 'var(--ease-ui)' }}>
+                {sidebarCollapsed ? (
+                    <div className="h-full flex flex-col items-center py-3 gap-3">
+                        <button
+                            className="w-5 h-5 rounded flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak"
+                            onClick={toggleSidebar}
+                            title="展开导航（⌘S）"
+                        >
+                            <span className="text-[10px]">▸</span>
+                        </button>
+                    </div>
+                ) : (
+                    <AssetSidebar
+                        governanceView={governanceView}
+                        onGovernanceViewChange={setGovernanceView}
+                        counts={governanceCounts}
+                        facetSelection={facetSelection}
+                        onFacetSelectionChange={setFacetSelection}
+                        facetVocab={facetVocab}
+                        facetItems={facetItems}
+                        onOpenGovernance={() => setGovernanceOpen(true)}
+                        onCollapse={toggleSidebar}
+                    />
+                )}
             </div>
 
             {/* 中间主区：弹性 */}
             <div className="flex-1 min-w-0 flex flex-col surface-container border border-default rounded-xl overflow-hidden">
+                <div ref={searchSectionRef}>
                 <AssetFilterBar
                     searchKeyword={searchKeyword}
                     onSearchKeywordChange={setSearchKeyword}
@@ -589,6 +716,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     onStatusSelectionChange={setStatusSelection}
                     onClearAll={handleClearFilters}
                 />
+                </div>
 
                 {/* 批量打标签操作栏 */}
                 {batchMode && (
@@ -634,13 +762,15 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     )}
                 </div>
 
-                {/* 车型卡片列表 */}
+                {/* 车型卡片列表：流体多列（auto-fill, minmax 260px） */}
                 <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar surface-layout p-3">
                     {filteredInfos.length > 0 ? (
-                        filteredInfos.map(info => (
-                            <div key={info.fileName} data-asset-file={info.fileName}>
+                        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                            {filteredInfos.map(info => (
                                 <AssetCard
+                                    key={info.fileName}
                                     info={info}
+                                    fileName={info.fileName}
                                     tags={snapshot.tags[info.fileName] || []}
                                     metaStatus={snapshot.meta[info.fileName]?.status}
                                     isLatest={snapshot.latestSet.has(info.fileName)}
@@ -656,8 +786,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                                     onOpenInspector={() => handleOpenInspector(info)}
                                     onContextMenu={onContextMenu(buildAssetContextMenu(info))}
                                 />
-                            </div>
-                        ))
+                            ))}
+                        </div>
                     ) : (
                         <div className="text-center text-3 py-12 text-body">
                             {searchKeyword || governanceView ? '没有匹配的资产' : '资产库空空如也'}
@@ -666,15 +796,36 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 </div>
             </div>
 
-            {/* 右栏购物车：300px 固定 */}
-            <div className="w-[300px] flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden">
-                <AssetCart
-                    focusedFile={focusedFile}
-                    onFocusFile={setFocusedFile}
-                    onLocateAsset={handleLocateAsset}
-                    onGoCompare={handleGoCompare}
-                />
-            </div>
+            {/* 浮动购物车：空态消失 / 有已选=右下角胶囊 / 点胶囊展开浮层 */}
+            {activeFileNames.size > 0 && (
+                <div className="fixed bottom-6 right-6 z-50">
+                    {!cartExpanded ? (
+                        <button
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-brand text-white shadow-popover hover:opacity-90 transition-opacity"
+                            onClick={() => setCartExpanded(true)}
+                        >
+                            <span className="w-2 h-2 rounded-full bg-white opacity-80" />
+                            <span className="text-body font-medium">{activeFileNames.size} 台车</span>
+                            <span className="text-caption opacity-80">· 去对比 →</span>
+                        </button>
+                    ) : (
+                        <div className="relative">
+                            {/* 透明点击层（点面板外收起；不用深色遮罩，保持列表可见=浮动本意） */}
+                            <div className="fixed inset-0" onClick={() => setCartExpanded(false)} />
+                            {/* 浮层面板 */}
+                            <div className="relative w-[320px] max-h-[70vh] surface-container border border-popover rounded-xl shadow-popover overflow-hidden flex flex-col">
+                                <AssetCart
+                                    focusedFile={focusedFile}
+                                    onFocusFile={setFocusedFile}
+                                    onLocateAsset={handleLocateAsset}
+                                    onGoCompare={() => { setCartExpanded(false); handleGoCompare(); }}
+                                    onClose={() => setCartExpanded(false)}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* 资产检查器 */}
             <AssetInspector
@@ -695,6 +846,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 onConfirm={handleAliasBatchConfirm}
             />
             {ContextMenuPortal}
+            <AssetHotkeyCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
 
             {/* 治理体检弹窗 */}
             <GovernanceReportModal

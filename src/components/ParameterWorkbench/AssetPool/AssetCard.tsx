@@ -10,10 +10,12 @@ import { getAssetDisplayName, validateAssetName } from '../../../utils/assetNami
 import { KEY_VEHICLE_TAG } from '../../../utils/assetGovernance';
 
 /**
- * 车型卡片（设计文档 2026-10-13-asset-panel-redesign-v2 §4.2.4）：
- * - 点卡片 = 选中（左侧 3px 品牌条 + inset 底）
- * - 点激活按钮 = 激活/移出购物车
- * 视觉遵守曜蓝 v4.1 纪律：色彩是信号不是填充；三层表面；文字四级；--ease-ui。
+ * 车型卡片（设计文档 2026-10-13-asset-pool-fluid-iter-design §3.3）：
+ * - 行1：状态点（最新版=品牌色圆点）+ 名称 + 信号图标 + 激活按钮
+ * - 行2：指标带（参数总数/完成率/空值，@container 自适应简化）+ 缺必填 chip
+ * - 行3：标签 chips（3+N，左）+ 更新日期（右）
+ * 视觉遵守曜蓝 v4.1：色彩是信号不是填充；三层表面；文字四级；--ease-ui。
+ * 根节点挂 @container：窄卡（多列/窄窗）时指标带去文字标签只留数字。
  */
 export interface AssetCardProps {
     info: AssetFileInfo;
@@ -24,6 +26,8 @@ export interface AssetCardProps {
     isFocused: boolean;
     /** 显示名（别名解析后的卡片标题；缺省回退 getAssetDisplayName） */
     displayName?: string;
+    /** 反向定位锚点（data-asset-file；Grid 化后挂在卡片根节点） */
+    fileName: string;
     requiredMissingCount: number;
     onFocus: () => void;
     onToggleActive: () => void;
@@ -34,6 +38,12 @@ export interface AssetCardProps {
     onBatchCheck?: (checked: boolean) => void;
 }
 
+const MAX_VISIBLE_TAGS = 3;
+
+/** 完成率按档着色（口径同 AssetStatsBadge.fillRateTone） */
+const fillRateTone = (rate: number) =>
+    rate >= 95 ? 'text-success-text' : rate >= 60 ? 'text-warning-text' : 'text-danger-text';
+
 const AssetCard: React.FC<AssetCardProps> = ({
     info,
     tags,
@@ -41,6 +51,8 @@ const AssetCard: React.FC<AssetCardProps> = ({
     isLatest,
     isActive,
     isFocused,
+    displayName: displayNameProp,
+    fileName,
     requiredMissingCount,
     onFocus,
     onToggleActive,
@@ -49,22 +61,26 @@ const AssetCard: React.FC<AssetCardProps> = ({
     batchMode,
     batchChecked,
     onBatchCheck,
-    displayName: displayNameProp,
 }) => {
     const displayName = displayNameProp ?? getAssetDisplayName(info.fileName, info.productName);
-    // 原名：别名生效时 tooltip 仍回落到原名，保证原名可追溯（设计 §D4 与检查器口径一致）
-    const originalName = getAssetDisplayName(info.fileName, info.productName);
     const namingValidation = validateAssetName(info.fileName, info.announceNos || []);
     const isKeyVehicle = tags.includes(KEY_VEHICLE_TAG);
 
+    const emptyParams = info.totalParams - info.filledParams;
     const fillRate = info.totalParams > 0
         ? Math.round((info.filledParams / info.totalParams) * 100)
         : 0;
 
+    // 标签 chips：关键车型已用星标表达，标签行里不重复
+    const nonKeyTags = tags.filter(t => t !== KEY_VEHICLE_TAG);
+    const visibleTags = nonKeyTags.slice(0, MAX_VISIBLE_TAGS);
+    const extraTagCount = nonKeyTags.length - visibleTags.length;
+
     return (
         <div
+            data-asset-file={fileName}
             className={`
-                relative rounded-lg border px-3.5 py-2.5 mb-1.5 cursor-pointer
+                @container relative rounded-lg border px-3 py-2.5 cursor-pointer h-full
                 transition-colors duration-150 overflow-hidden
                 ${isFocused
                     ? 'surface-inset border-brand'
@@ -81,12 +97,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-brand" />
             )}
 
-            {/* 已激活常驻弱信号：右缘成功色条（沿用 --asset-active-bar 纪律） */}
-            {isActive && !isFocused && (
-                <div className="absolute right-0 top-0 bottom-0 w-[3px] bg-success opacity-60" />
-            )}
-
-            {/* 第一行：名称 + 徽章 + 激活按钮 */}
+            {/* 第一行：状态点 + 名称 + 信号图标 + 激活按钮 */}
             <div className="flex items-center gap-2">
                 {batchMode && (
                     <span onClick={e => e.stopPropagation()} className="flex-shrink-0">
@@ -96,43 +107,46 @@ const AssetCard: React.FC<AssetCardProps> = ({
                         />
                     </span>
                 )}
+
+                {/* 状态点：最新版 = 品牌色圆点（v4.1 信号纪律：点，不是块） */}
+                {isLatest && (
+                    <Tooltip title="最新版">
+                        <span className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />
+                    </Tooltip>
+                )}
+
                 <div
                     className={`flex-1 min-w-0 truncate text-title ${isFocused ? 'font-semibold' : 'font-medium'} text-1`}
-                    title={displayName === originalName ? displayName : `${displayName}\n${originalName}`}
+                    title={displayName}
                 >
                     {displayName}
                 </div>
 
-                {/* 徽章：信号色只上文字/边/点 */}
-                {isLatest && (
-                    <Tag className="m-0 text-[11px] leading-[18px] px-1.5 rounded font-medium text-brand border-brand bg-brand-weak">
-                        最新版
-                    </Tag>
-                )}
+                {/* 信号图标（关键/命名问题/驳回/历史/废弃） */}
                 {isKeyVehicle && (
                     <Tooltip title="关键车型">
-                        <StarOutlined className="text-[13px] text-warning flex-shrink-0" />
+                        <StarOutlined className="text-[12px] text-warning flex-shrink-0" />
                     </Tooltip>
                 )}
                 {!namingValidation.valid && (
                     <Tooltip title={namingValidation.errors.join('；')}>
-                        <WarningOutlined className="text-[13px] text-warning-text flex-shrink-0 cursor-help" />
+                        <WarningOutlined className="text-[12px] text-warning-text flex-shrink-0 cursor-help" />
                     </Tooltip>
                 )}
                 {info.approvalStatus === '驳回' && (
-                    <Tag icon={<CloseCircleOutlined className="text-[10px]" />} className="m-0 text-[11px] leading-[18px] px-1.5 rounded font-medium text-warning-text border-warning">
-                        驳回
-                    </Tag>
+                    <Tooltip title="准入审批驳回">
+                        <CloseCircleOutlined className="text-[12px] text-danger-text flex-shrink-0" />
+                    </Tooltip>
                 )}
                 {metaStatus === 'superseded' && (
-                    <Tag icon={<HistoryOutlined className="text-[10px]" />} className="m-0 text-[11px] leading-[18px] px-1.5 rounded text-3 border-default">
-                        历史
-                    </Tag>
+                    <Tooltip title="历史版本">
+                        <HistoryOutlined className="text-[12px] text-3 flex-shrink-0" />
+                    </Tooltip>
                 )}
                 {metaStatus === 'deprecated' && (
-                    <Tag icon={<StopOutlined className="text-[10px]" />} className="m-0 text-[11px] leading-[18px] px-1.5 rounded text-3 border-default">
-                        废弃
-                    </Tag>
+                    <Tooltip title="已废弃">
+                        <StopOutlined className="text-[12px] text-3 flex-shrink-0" />
+                    </Tooltip>
                 )}
 
                 {/* 激活按钮 */}
@@ -157,30 +171,51 @@ const AssetCard: React.FC<AssetCardProps> = ({
                 </Tooltip>
             </div>
 
-            {/* 别名生效时原名副行（设计 §D4：别名只改显示，原名可追溯） */}
-            {displayName !== originalName && (
-                <div className="mt-0.5 text-caption text-3 truncate" title={originalName}>
-                    {originalName}
-                </div>
-            )}
-
-            {/* 第二行：元信息（aux 字号，三级文字） */}
-            <div className="flex items-center gap-3 mt-1 text-aux text-3">
-                <span className="tabular-nums">
-                    完成率 <span className="text-2 font-medium">{fillRate}%</span>
-                </span>
+            {/* 第二行：指标带（参数总数/完成率/空值）+ 缺必填 chip（行动信号） */}
+            <div className="flex items-center gap-2 mt-1.5 text-aux text-3 flex-wrap">
+                <Tooltip title="完成率 = 非空值参数 ÷ 参数总数（与待分析列表口径一致）">
+                    <span className="tabular-nums cursor-help">
+                        <span className="hidden @[300px]:inline mr-1">参数</span>
+                        <span className="text-1 font-medium">{info.totalParams}</span>
+                        <span className="mx-1 opacity-40">·</span>
+                        <span className="hidden @[300px]:inline mr-1">完成率</span>
+                        <span className={`font-medium ${fillRateTone(fillRate)}`}>{fillRate}%</span>
+                        <span className="mx-1 opacity-40">·</span>
+                        <span className="hidden @[300px]:inline mr-1">空值</span>
+                        <span className="text-2 font-medium">{emptyParams}</span>
+                    </span>
+                </Tooltip>
                 {requiredMissingCount > 0 && (
-                    <span className="flex items-center gap-1 text-danger-text">
-                        <ExclamationCircleOutlined className="text-[11px]" />
-                        缺必填 <span className="font-medium">{requiredMissingCount}</span>
-                    </span>
-                )}
-                {info.updatedAt && (
-                    <span className="ml-auto tabular-nums">
-                        {new Date(info.updatedAt).toLocaleDateString('zh-CN')}
-                    </span>
+                    <Tag
+                        icon={<ExclamationCircleOutlined className="text-[10px]" />}
+                        className="m-0 text-caption leading-[16px] px-1.5 rounded font-medium text-danger-text border-danger"
+                    >
+                        缺必填 {requiredMissingCount}
+                    </Tag>
                 )}
             </div>
+
+            {/* 第三行：标签 chips（左）+ 日期（右）；两者皆无则整行不渲染 */}
+            {(visibleTags.length > 0 || info.updatedAt) && (
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                    {visibleTags.map(tag => (
+                        <Tag
+                            key={tag}
+                            className="m-0 text-caption leading-[16px] px-1.5 rounded surface-inset border-default text-3"
+                        >
+                            {tag}
+                        </Tag>
+                    ))}
+                    {extraTagCount > 0 && (
+                        <span className="text-caption text-4">+{extraTagCount}</span>
+                    )}
+                    {info.updatedAt && (
+                        <span className="ml-auto tabular-nums text-caption text-4">
+                            {new Date(info.updatedAt).toLocaleDateString('zh-CN')}
+                        </span>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

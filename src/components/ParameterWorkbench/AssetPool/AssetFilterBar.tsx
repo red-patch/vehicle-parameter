@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Input, Button, Popover, Tag, InputNumber } from 'antd';
-import { SearchOutlined, ClearOutlined } from '@ant-design/icons';
+import { SearchOutlined, ClearOutlined, CaretDownOutlined } from '@ant-design/icons';
 import {
     FACET_NONE, collectFacetValues, countFacetValues, toggleFacetValue,
     isFacetSelectionActive, type FacetSelection, type FacetDim,
@@ -53,7 +53,7 @@ const ChipShell: React.FC<ChipShellProps> = ({ label, activeCount, content }) =>
         >
             {label}
             {activeCount > 0 && <span className="tabular-nums">({activeCount})</span>}
-            <span className="text-[8px] opacity-60">▾</span>
+            <CaretDownOutlined className="text-[10px] opacity-60" />
         </div>
     </Popover>
 );

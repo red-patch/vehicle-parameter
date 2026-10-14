@@ -117,7 +117,7 @@ const AssetAliasBatchModal: React.FC<AssetAliasBatchModalProps> = ({
                                         />
                                         {!s.derivable && !valueOf(s.fileName) && (
                                             <Tooltip title="无法从车型组+电量派生（电量缺失或名称过长）">
-                                                <WarningOutlined className="text-[#d97706]" />
+                                                <WarningOutlined className="text-warning-text" />
                                             </Tooltip>
                                         )}
                                     </div>
