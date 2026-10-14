@@ -20,6 +20,10 @@ export interface AssetPoolHotkeyHandlers {
     onRefresh: () => void;
     onShowCheatsheet: () => void;
     onEscape: () => void;
+    /** ⌘⇧S：保存当前视图 */
+    onSaveView: () => void;
+    /** ⌘1/2/3：切换到第 N 个视图（index 0 起） */
+    onSwitchView: (index: number) => void;
 }
 
 export interface UseAssetPoolHotkeysOptions extends AssetPoolHotkeyHandlers {
@@ -40,6 +44,7 @@ export function useAssetPoolHotkeys(opts: UseAssetPoolHotkeysOptions): void {
         enabled,
         onToggleSidebar, onFocusSearch, onMoveFocus, onOpenInspector, onToggleActive,
         onEnterBatch, onToggleCart, onGoCompare, onRefresh, onShowCheatsheet, onEscape,
+        onSaveView, onSwitchView,
     } = opts;
 
     useEffect(() => {
@@ -62,10 +67,22 @@ export function useAssetPoolHotkeys(opts: UseAssetPoolHotkeysOptions): void {
             // 其余快捷键：输入态一律不拦截（不影响弹窗保存/表单输入）
             if (editable) return;
 
-            // ⌘S / ⌘B：隐藏/显示左栏
+            // ⌘⇧S：保存当前视图（须在 ⌘S 前判断——同为 s 键）
+            if (mod && e.shiftKey && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                onSaveView();
+                return;
+            }
+            // ⌘S / ⌘B：隐藏/显示左栏（⌘B 为惯用别名）
             if (mod && !e.shiftKey && (e.key === 's' || e.key === 'S' || e.key === 'b' || e.key === 'B')) {
                 e.preventDefault();
                 onToggleSidebar();
+                return;
+            }
+            // ⌘1/2/3：切换到第 N 个视图
+            if (mod && !e.shiftKey && (e.key === '1' || e.key === '2' || e.key === '3')) {
+                e.preventDefault();
+                onSwitchView(Number(e.key) - 1);
                 return;
             }
             // ⌘K：聚焦搜索框
@@ -131,5 +148,6 @@ export function useAssetPoolHotkeys(opts: UseAssetPoolHotkeysOptions): void {
     }, [
         enabled, onToggleSidebar, onFocusSearch, onMoveFocus, onOpenInspector, onToggleActive,
         onEnterBatch, onToggleCart, onGoCompare, onRefresh, onShowCheatsheet, onEscape,
+        onSaveView, onSwitchView,
     ]);
 }

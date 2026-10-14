@@ -27,12 +27,20 @@ import {
     type AssetSortSpec, type AssetSortDim,
 } from '../../../utils/assetSort';
 import {
-    buildAssetGroups, ASSET_GROUP_LABELS, DEFAULT_ASSET_GROUP, type AssetGroupDim,
+    buildAssetGroupsMulti, ASSET_GROUP_LABELS, DEFAULT_ASSET_GROUP, MAX_GROUP_LEVELS,
+    type AssetGroupDim, type AssetGroupDimContext,
 } from '../../../utils/assetGrouping';
-import AssetGroupHeader from './AssetGroupHeader';
+import AssetGroupTree from './AssetGroupTree';
+import ViewDropdown from './ViewDropdown';
+import { Modal, Input } from 'antd';
+import {
+    loadAssetViews, saveAssetViews, newViewId, BUILTIN_VIEWS,
+    type AssetView, type AssetViewState,
+} from '../../../utils/assetViews';
 import {
     KEY_VEHICLE_TAG, extractBrandNames, resolveVehicleGroupKey, buildGovernanceReport,
-    buildSupersedeMeta, type UnconvergedCar, type VehicleGroup,
+    buildSupersedeMeta, pickGroupAlias, sanitizeGroupName, normalizeGroupKey,
+    type UnconvergedCar, type VehicleGroup,
 } from '../../../utils/assetGovernance';
 import { isFieldRequired } from '../../../assets/requiredFields';
 import { getProductData } from '../../../store/vehicleSelectors';
@@ -45,7 +53,7 @@ import {
 } from '../../../utils/assetFacets';
 import { loadAssetTags, saveAssetTags, batchAddAssetTags, saveAssetMeta, setAssetAlias } from '../../../utils/assetManager';
 import { getAssetTagGroupsSync, ensureTagsInDefaultGroup, getExclusiveGroupTagSets } from '../../../utils/assetTagGroups';
-import type { AssetFileInfo } from '../../../utils/assetManager';
+import type { AssetFileInfo, AssetMetaMap } from '../../../utils/assetManager';
 
 /**
  * 资产池三栏布局（设计文档 2026-10-13-asset-panel-redesign-v2 §3.1）：
@@ -65,6 +73,34 @@ export type ColumnMode = 'auto' | 1 | 2 | 3 | 4;
 
 const COLUMN_MODE_LABELS: Record<string, string> = {
     auto: '自动', '1': '1 列（列表）', '2': '2 列', '3': '3 列', '4': '4 列',
+};
+
+/** 保存视图小弹窗 */
+const SaveViewModal: React.FC<{
+    open: boolean;
+    seedName: string;
+    onCancel: () => void;
+    onConfirm: (name: string) => void;
+}> = ({ open, seedName, onCancel, onConfirm }) => {
+    const [name, setName] = React.useState('');
+    React.useEffect(() => { if (open) setName(seedName); }, [open, seedName]);
+    return (
+        <Modal
+            title="保存当前视图"
+            open={open}
+            onCancel={onCancel}
+            onOk={() => { if (name.trim()) onConfirm(name.trim()); }}
+            okText="保存"
+            cancelText="取消"
+            destroyOnClose
+        >
+            <div className="py-1">
+                <div className="text-body text-2 mb-1.5">视图名称</div>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="如：吉利大面待办" autoFocus onPressEnter={() => { if (name.trim()) onConfirm(name.trim()); }} />
+                <div className="text-caption text-3 mt-1.5">保存当前的筛选、分组、排序与列数设置</div>
+            </div>
+        </Modal>
+    );
 };
 
 const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
@@ -94,6 +130,14 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [statusSelection, setStatusSelection] = useState<StatusFilter[]>([]);
 
+    // ===== 视图库（设计文档 2026-10-14-asset-pool-multigroup-views-design §3.2） =====
+    const [views, setViews] = useState<AssetView[]>(BUILTIN_VIEWS);
+    const [activeViewId, setActiveViewId] = useState<string | null>(() => {
+        try { return localStorage.getItem('asset-pool-active-view'); } catch { return null; }
+    });
+    const [saveViewOpen, setSaveViewOpen] = useState(false);
+    const [saveViewSeed, setSaveViewSeed] = useState<AssetView | null>(null);
+
     // ===== 选中态 / 定位 / 检查器 / 批量模式 =====
     const [focusedFile, setFocusedFile] = useState<string | null>(null);
     const [locateRequest, setLocateRequest] = useState<{ fileName: string; nonce: number } | null>(null);
@@ -114,6 +158,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     }, []);
     const [cartExpanded, setCartExpanded] = useState(false);
     const [aliasBatchOpen, setAliasBatchOpen] = useState(false);
+    // 车型组重命名（写 meta.groupName；只改组头显示名，不改文件名）
+    const [groupRename, setGroupRename] = useState<{ open: boolean; groupKey: string | null; name: string }>({ open: false, groupKey: null, name: '' });
 
     const actions = useAssetActions({ focusedFile, onFocusFile: setFocusedFile });
     const { onContextMenu, ContextMenuPortal } = useContextMenu();
@@ -406,20 +452,28 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         } catch (e) { console.warn(e); }
         return DEFAULT_ASSET_SORT;
     });
-    const [groupDim, setGroupDim] = useState<AssetGroupDim>(() => {
+    const [groupDims, setGroupDims] = useState<AssetGroupDim[]>(() => {
         try {
-            const raw = localStorage.getItem('asset-pool-group-dim');
-            if (raw && raw in ASSET_GROUP_LABELS) return raw as AssetGroupDim;
+            const raw = localStorage.getItem('asset-pool-group-dims');
+            if (raw) {
+                const arr = JSON.parse(raw) as string[];
+                const valid = arr.filter(d => d in ASSET_GROUP_LABELS && d !== 'none') as AssetGroupDim[];
+                if (valid.length > 0) return valid;
+                if (Array.isArray(arr)) return []; // 显式空 = 不分组
+            }
+            // 迁移旧键（单维度）
+            const legacy = localStorage.getItem('asset-pool-group-dim');
+            if (legacy && legacy in ASSET_GROUP_LABELS && legacy !== 'none') return [legacy as AssetGroupDim];
         } catch (e) { console.warn(e); }
-        return DEFAULT_ASSET_GROUP;
+        return [DEFAULT_ASSET_GROUP];
     });
     const updateSort = useCallback((next: AssetSortSpec) => {
         setSortSpec(next);
         try { localStorage.setItem('asset-pool-sort', JSON.stringify(next)); } catch (e) { console.warn(e); }
     }, []);
-    const updateGroupDim = useCallback((next: AssetGroupDim) => {
-        setGroupDim(next);
-        try { localStorage.setItem('asset-pool-group-dim', next); } catch (e) { console.warn(e); }
+    const updateGroupDims = useCallback((next: AssetGroupDim[]) => {
+        setGroupDims(next);
+        try { localStorage.setItem('asset-pool-group-dims', JSON.stringify(next)); } catch (e) { console.warn(e); }
     }, []);
 
     // ===== 列数模式（自动 / 固定 1-4；设计文档 2026-10-14-asset-pool-column-mode-design） =====
@@ -443,31 +497,112 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     /** 单列模式用横向列表行；其余用竖排卡片 */
     const cardLayout: 'card' | 'row' = columnMode === 1 ? 'row' : 'card';
 
-    /** 每维度的折叠记忆（展开集合 = Set of groupKey） */
+    /** 折叠记忆：按「分组维度链」存（换维度链后旧键自然失效）。键 = 层级路径键。 */
+    const groupDimsKey = groupDims.join('>') || 'none';
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
         try {
-            const raw = localStorage.getItem(`asset-pool-collapsed-groups-${groupDim}`);
+            const raw = localStorage.getItem(`asset-pool-collapsed-groups-${groupDimsKey}`);
             return new Set(raw ? (JSON.parse(raw) as string[]) : []);
         } catch { return new Set(); }
     });
-    const collapsedKeyRef = useRef(groupDim);
-    // 切换维度时载入该维度的折叠记忆
+    const collapsedKeyRef = useRef(groupDimsKey);
+    // 切换分组维度链时载入该链的折叠记忆
     useEffect(() => {
-        if (collapsedKeyRef.current === groupDim) return;
-        collapsedKeyRef.current = groupDim;
+        if (collapsedKeyRef.current === groupDimsKey) return;
+        collapsedKeyRef.current = groupDimsKey;
         try {
-            const raw = localStorage.getItem(`asset-pool-collapsed-groups-${groupDim}`);
+            const raw = localStorage.getItem(`asset-pool-collapsed-groups-${groupDimsKey}`);
             setCollapsedGroups(new Set(raw ? (JSON.parse(raw) as string[]) : []));
         } catch { setCollapsedGroups(new Set()); }
-    }, [groupDim]);
+    }, [groupDimsKey]);
     const toggleGroupCollapsed = useCallback((key: string) => {
         setCollapsedGroups(prev => {
             const next = new Set(prev);
             if (next.has(key)) next.delete(key); else next.add(key);
-            try { localStorage.setItem(`asset-pool-collapsed-groups-${groupDim}`, JSON.stringify([...next])); } catch (e) { console.warn(e); }
+            try { localStorage.setItem(`asset-pool-collapsed-groups-${groupDimsKey}`, JSON.stringify([...next])); } catch (e) { console.warn(e); }
             return next;
         });
-    }, [groupDim]);
+    }, [groupDimsKey]);
+
+    // ===== 视图：加载 / 套用 / 保存 / 管理 =====
+    // 加载视图库（库文件优先，失败回退内置）
+    useEffect(() => {
+        if (!assetLibraryPath) return;
+        let cancelled = false;
+        (async () => {
+            const loaded = await loadAssetViews(assetLibraryPath);
+            if (!cancelled) setViews(loaded);
+        })();
+        return () => { cancelled = true; };
+    }, [assetLibraryPath]);
+
+    // 当前面板状态快照（用于「已修改」判定与保存）
+    const currentViewState = useMemo<AssetViewState>(() => ({
+        searchKeyword, facetSelection, selectedTags, statusSelection,
+        governanceView, groupDims, sortSpec, columnMode,
+    }), [searchKeyword, facetSelection, selectedTags, statusSelection, governanceView, groupDims, sortSpec, columnMode]);
+
+    const viewStateEqual = (a: AssetViewState, b: AssetViewState): boolean =>
+        JSON.stringify(a) === JSON.stringify(b);
+
+    const activeView = useMemo(() => views.find(v => v.id === activeViewId) ?? null, [views, activeViewId]);
+    const viewModified = Boolean(activeView && !viewStateEqual(activeView.state, currentViewState));
+
+    /** 套用视图：一次写入全部面板状态（批量 setState，不做 reducer 重构） */
+    const applyView = useCallback((view: AssetView) => {
+        const s = view.state;
+        setSearchKeyword(s.searchKeyword);
+        setFacetSelection(s.facetSelection);
+        setSelectedTags(s.selectedTags);
+        setStatusSelection(s.statusSelection);
+        setGovernanceView(s.governanceView);
+        setGroupDims(s.groupDims);
+        setSortSpec(s.sortSpec);
+        setColumnMode(s.columnMode);
+        setActiveViewId(view.id);
+        try { localStorage.setItem('asset-pool-active-view', view.id); } catch (e) { console.warn(e); }
+    }, []);
+
+    /** 保存当前状态为视图（seed 有值 = 另存为；否则新建或用 activeView 名） */
+    const saveView = useCallback(async (name: string) => {
+        if (!assetLibraryPath) return;
+        const seed = saveViewSeed;
+        const next = seed
+            ? [...views, { ...seed, id: newViewId(), name, builtin: false, state: currentViewState }]
+            : [...views, { id: newViewId(), name, state: currentViewState }];
+        setViews(next);
+        await saveAssetViews(assetLibraryPath, next);
+        const created = next[next.length - 1];
+        setActiveViewId(created.id);
+        try { localStorage.setItem('asset-pool-active-view', created.id); } catch (e) { console.warn(e); }
+        setSaveViewSeed(null);
+        setSaveViewOpen(false);
+        message.success(`已保存视图「${name}」`);
+    }, [assetLibraryPath, saveViewSeed, views, currentViewState]);
+
+    /** 覆盖保存当前 activeView */
+    const overwriteView = useCallback(async () => {
+        if (!assetLibraryPath || !activeView || activeView.builtin) return;
+        const next = views.map(v => v.id === activeView.id ? { ...v, state: currentViewState } : v);
+        setViews(next);
+        await saveAssetViews(assetLibraryPath, next);
+        message.success(`已更新视图「${activeView.name}」`);
+    }, [assetLibraryPath, activeView, views, currentViewState]);
+
+    const renameView = useCallback(async (id: string, name: string) => {
+        if (!assetLibraryPath) return;
+        const next = views.map(v => v.id === id ? { ...v, name } : v);
+        setViews(next);
+        await saveAssetViews(assetLibraryPath, next);
+    }, [assetLibraryPath, views]);
+
+    const deleteView = useCallback(async (id: string) => {
+        if (!assetLibraryPath) return;
+        const next = views.filter(v => v.id !== id || v.builtin);
+        setViews(next);
+        await saveAssetViews(assetLibraryPath, next);
+        if (activeViewId === id) { setActiveViewId(null); try { localStorage.removeItem('asset-pool-active-view'); } catch (e) { console.warn(e); } }
+    }, [assetLibraryPath, views, activeViewId]);
 
     /** 排序后的展示序列（渲染、方向键导航、批量全选均用它） */
     const displayInfos = useMemo(() => {
@@ -476,31 +611,34 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
             displayName: cardDisplayName(info),
             groupKey: resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames),
         }));
-        return sortAssetRowsByMode(rows, sortSpec, groupDim !== 'none').map(r => r.info);
-    }, [filteredInfos, sortSpec, groupDim, cardDisplayName, snapshot.meta, brandNames]);
+        return sortAssetRowsByMode(rows, sortSpec, groupDims.length > 0).map(r => r.info);
+    }, [filteredInfos, sortSpec, groupDims, cardDisplayName, snapshot.meta, brandNames]);
 
-    /** 分组结果（分组键 + 组序；组内保留排序后的顺序）。dim='none' 时单组平铺 */
-    const assetGroups = useMemo(() => {
+    /** 分组上下文（多层分组复用） */
+    const groupCtx = useMemo<AssetGroupDimContext>(() => ({
+        vehicleGroupKey: fn => resolveVehicleGroupKey(
+            snapshot.infos.find(i => i.fileName === fn) ?? { fileName: fn, productName: fn },
+            snapshot.meta[fn], brandNames),
+        vehicleGroupLabel: fn => {
+            const meta = snapshot.meta[fn];
+            if (meta?.groupName) return meta.groupName;
+            const info = snapshot.infos.find(i => i.fileName === fn);
+            return resolveVehicleGroupKey(info ?? { fileName: fn, productName: fn }, meta, brandNames);
+        },
+        facets: fileFacets,
+        metaStatus: fn => snapshot.meta[fn]?.status,
+        isRejected: info => info.approvalStatus === '驳回',
+    }), [snapshot.infos, snapshot.meta, brandNames, fileFacets]);
+
+    /** 多层分组树（groupDims 为空 = 单层平铺节点） */
+    const assetGroupNodes = useMemo(() => {
         const rows = displayInfos.map(info => ({
             info,
             displayName: cardDisplayName(info),
             groupKey: resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames),
         }));
-        return buildAssetGroups(rows, groupDim, {
-            vehicleGroupKey: fn => resolveVehicleGroupKey(
-                snapshot.infos.find(i => i.fileName === fn) ?? { fileName: fn, productName: fn },
-                snapshot.meta[fn], brandNames),
-            vehicleGroupLabel: fn => {
-                const meta = snapshot.meta[fn];
-                if (meta?.groupName) return meta.groupName;
-                const info = snapshot.infos.find(i => i.fileName === fn);
-                return resolveVehicleGroupKey(info ?? { fileName: fn, productName: fn }, meta, brandNames);
-            },
-            facets: fileFacets,
-            metaStatus: fn => snapshot.meta[fn]?.status,
-            isRejected: info => info.approvalStatus === '驳回',
-        });
-    }, [displayInfos, groupDim, cardDisplayName, snapshot.infos, snapshot.meta, brandNames, fileFacets]);
+        return buildAssetGroupsMulti(rows, groupDims, groupCtx);
+    }, [displayInfos, groupDims, groupCtx, cardDisplayName, snapshot.meta, brandNames]);
 
     const filtersActive = Boolean(
         searchKeyword.trim() || governanceView || selectedTags.length > 0 || statusSelection.length > 0
@@ -546,6 +684,55 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         if (toAdd.length > 0) message.success(`已激活 ${toAdd.length} 辆车的最新版本`);
         else message.info('该车型组的最新版均已在工作区');
     }, [snapshot.infos, snapshot.meta, snapshot.latestSet, brandNames, activeFileNames, addActiveAsset]);
+
+    // ===== 车型组重命名（写 meta.groupName；与资产别名分层，见设计 §3）=====
+    // 用未筛选的全量组（体检报告口径）确定作用范围，避免筛选态下漏写
+    const groupRenameTarget = useMemo(
+        () => governanceReport.groups.find(g => g.groupKey === groupRename.groupKey) ?? null,
+        [governanceReport, groupRename.groupKey],
+    );
+    const sanitizedGroupName = useMemo(() => sanitizeGroupName(groupRename.name), [groupRename.name]);
+    // 新显示名规范化后与既有组同键 → 保存后两组自动合并
+    const groupMergeTarget = useMemo(() => {
+        if (!groupRenameTarget || !sanitizedGroupName) return null;
+        const newKey = normalizeGroupKey(sanitizedGroupName);
+        if (newKey === groupRenameTarget.groupKey) return null;
+        return governanceReport.groups.find(g => g.groupKey === newKey) ?? null;
+    }, [governanceReport, groupRenameTarget, sanitizedGroupName]);
+
+    const openGroupRename = useCallback((group: VehicleGroup) => {
+        // 传入的组可能只有 groupKey（分组树只带键），故从治理报告取真实组以拿别名
+        const real = governanceReport.groups.find(g => g.groupKey === group.groupKey) ?? group;
+        const current = pickGroupAlias(real.files, real.groupKey);
+        setGroupRename({ open: true, groupKey: group.groupKey, name: current });
+    }, [governanceReport]);
+
+    const handleGroupRenameConfirm = useCallback(async () => {
+        if (!assetLibraryPath || !groupRenameTarget) return;
+        const newKey = sanitizeGroupName(groupRename.name);
+        if (!newKey) { message.warning('请输入有效的车型名'); return; }
+        if (newKey === pickGroupAlias(groupRenameTarget.files, groupRenameTarget.groupKey)) {
+            setGroupRename({ open: false, groupKey: null, name: '' });
+            return;
+        }
+        const next: AssetMetaMap = { ...snapshot.meta };
+        groupRenameTarget.files.forEach(f => {
+            next[f.info.fileName] = { ...(next[f.info.fileName] || {}), groupName: newKey };
+        });
+        try {
+            await saveAssetMeta(assetLibraryPath, next);
+        } catch {
+            message.error('保存失败');
+            return;
+        }
+        const merged = groupMergeTarget;
+        const mergedCount = merged ? groupRenameTarget.files.length + merged.files.length : 0;
+        message.success(merged
+            ? `已保存显示名并入组「${newKey}」（合并后共 ${mergedCount} 个文件，文件名保持不变）`
+            : `分组显示名已更新为「${newKey}」（文件名保持不变）`);
+        setGroupRename({ open: false, groupKey: null, name: '' });
+        bumpAssetVersion();
+    }, [assetLibraryPath, groupRenameTarget, groupRename.name, groupMergeTarget, snapshot.meta, bumpAssetVersion]);
 
     // ===== 将筛选结果加入工作区 =====
     const handleAddFilteredToWorkspace = useCallback(() => {
@@ -703,6 +890,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
             if (batchMode) { exitBatchMode(); return; }
             setFocusedFile(null);
         },
+        onSaveView: () => { setSaveViewSeed(null); setSaveViewOpen(true); },
+        onSwitchView: (index) => { if (views[index]) applyView(views[index]); },
     });
 
     // ===== 批量建议别名（设计 §D6）：仅对勾选资产生效；逐条 writeMeta，避免并发覆盖 =====
@@ -895,40 +1084,92 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     </span>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* 分组维度 */}
+                        {/* 视图 */}
+                        <ViewDropdown
+                            views={views}
+                            activeViewId={activeViewId}
+                            modified={viewModified}
+                            onApply={applyView}
+                            onSaveCurrent={() => { setSaveViewSeed(null); setSaveViewOpen(true); }}
+                            onRename={renameView}
+                            onDelete={deleteView}
+                            onSaveAs={(v) => { setSaveViewSeed(v); setSaveViewOpen(true); }}
+                            onOverwrite={overwriteView}
+                        />
+
+                        {/* 分组维度（多层：最多 3 层） */}
                         <Popover
                             trigger="click"
                             placement="bottomRight"
                             content={
-                                <div className="min-w-[140px] py-1">
-                                    {(Object.keys(ASSET_GROUP_LABELS) as AssetGroupDim[]).map(dim => {
-                                        const active = groupDim === dim;
-                                        return (
-                                            <div
-                                                key={dim}
-                                                className="flex items-center justify-between px-2 py-1 rounded cursor-pointer text-body hover:surface-inset"
-                                                onClick={() => updateGroupDim(dim)}
+                                <div className="min-w-[240px] py-1">
+                                    <div className="px-2 py-1 text-caption text-3">
+                                        分组层级（最多 {MAX_GROUP_LEVELS} 层）
+                                    </div>
+                                    {groupDims.map((dim, i) => (
+                                        <div key={i} className="flex items-center gap-2 px-2 py-1">
+                                            <span className="text-caption text-3 w-4">{i + 1}</span>
+                                            <select
+                                                className="flex-1 bg-[var(--surface-2)] border border-[var(--border-default)] rounded px-1 py-0.5 text-body text-1"
+                                                value={dim}
+                                                onChange={e => {
+                                                    const next = [...groupDims];
+                                                    next[i] = e.target.value as AssetGroupDim;
+                                                    updateGroupDims(next);
+                                                }}
                                             >
-                                                <span className={active ? 'text-brand font-medium' : 'text-1'}>
-                                                    {ASSET_GROUP_LABELS[dim]}
-                                                </span>
-                                                {active && <span className="text-brand text-caption">✓</span>}
-                                            </div>
-                                        );
-                                    })}
+                                                {/* 同级不重复：已在本链其他位置选的维度置灰 */}
+                                                {(Object.keys(ASSET_GROUP_LABELS) as AssetGroupDim[])
+                                                    .filter(d => d !== 'none')
+                                                    .map(d => (
+                                                        <option key={d} value={d} disabled={groupDims.includes(d) && groupDims[i] !== d}>
+                                                            {ASSET_GROUP_LABELS[d]}
+                                                        </option>
+                                                    ))}
+                                            </select>
+                                            <span
+                                                className="text-3 hover:text-danger cursor-pointer text-caption"
+                                                onClick={() => updateGroupDims(groupDims.filter((_, j) => j !== i))}
+                                                title="移除该层"
+                                            >
+                                                ✕
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {groupDims.length < MAX_GROUP_LEVELS && (
+                                        <div
+                                            className="px-2 py-1 mt-1 text-body text-brand cursor-pointer hover:surface-inset rounded"
+                                            onClick={() => {
+                                                const used = new Set(groupDims);
+                                                const nextDim = (Object.keys(ASSET_GROUP_LABELS) as AssetGroupDim[])
+                                                    .find(d => d !== 'none' && !used.has(d));
+                                                if (nextDim) updateGroupDims([...groupDims, nextDim]);
+                                            }}
+                                        >
+                                            ＋ 添加分组层级
+                                        </div>
+                                    )}
+                                    {groupDims.length > 0 && (
+                                        <div
+                                            className="px-2 py-1 text-body text-3 cursor-pointer hover:surface-inset rounded border-t border-[var(--border-default)] mt-1"
+                                            onClick={() => updateGroupDims([])}
+                                        >
+                                            不分组
+                                        </div>
+                                    )}
                                 </div>
                             }
                         >
                             <div
                                 className={`flex items-center gap-1 px-2 py-1 rounded-md border cursor-pointer transition-colors duration-150 ${
-                                    groupDim !== 'none'
+                                    groupDims.length > 0
                                         ? 'bg-brand-weak border-brand text-brand font-medium'
                                         : 'surface-container border-line text-2 hover:border-brand hover:text-brand'
                                 }`}
                                 style={{ transitionTimingFunction: 'var(--ease-ui)' }}
                             >
                                 <ClusterOutlined className="text-[11px]" />
-                                分组：{ASSET_GROUP_LABELS[groupDim]}
+                                分组：{groupDims.length === 0 ? '不分组' : groupDims.map(d => ASSET_GROUP_LABELS[d]).join(' › ')}
                             </div>
                         </Popover>
 
@@ -1017,58 +1258,41 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     </div>
                 </div>
 
-                {/* 车型卡片列表：按分组维度分 section，组内流体多列 */}
+                {/* 车型卡片列表：多层分组（递归树），叶子组内流体多列 */}
                 <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar surface-layout p-3">
                     {displayInfos.length > 0 ? (
-                        <div className="space-y-3">
-                            {assetGroups.map(group => {
-                                // 有筛选/搜索时命中组强制展开（沿用旧分组视图行为）
-                                const expanded = filtersActive || !collapsedGroups.has(group.key);
-                                return (
-                                    <div key={group.key}>
-                                        {groupDim !== 'none' && (
-                                            <AssetGroupHeader
-                                                label={group.label}
-                                                count={group.rows.length}
-                                                expanded={expanded}
-                                                onToggle={() => toggleGroupCollapsed(group.key)}
-                                                dimLabel={ASSET_GROUP_LABELS[groupDim]}
-                                                vehicleGroup={group.vehicleGroupKey
-                                                    ? { groupKey: group.vehicleGroupKey, files: [] }
-                                                    : undefined}
-                                                onActivateLatest={group.vehicleGroupKey ? handleActivateLatest : undefined}
-                                            />
-                                        )}
-                                        {expanded && (
-                                            <div className="grid gap-2.5 mt-1.5" style={{ gridTemplateColumns }}>
-                                                {group.rows.map(({ info }) => (
-                                                    <AssetCard
-                                                        key={info.fileName}
-                                                        info={info}
-                                                        fileName={info.fileName}
-                                                        tags={snapshot.tags[info.fileName] || []}
-                                                        metaStatus={snapshot.meta[info.fileName]?.status}
-                                                        isLatest={snapshot.latestSet.has(info.fileName)}
-                                                        isActive={activeFileNames.has(info.fileName)}
-                                                        isFocused={focusedFile === info.fileName}
-                                                        batchMode={batchMode}
-                                                        batchChecked={batchSelection.has(info.fileName)}
-                                                        onBatchCheck={checked => toggleBatchSelected(info.fileName, checked)}
-                                                        displayName={cardDisplayName(info)}
-                                                        requiredMissingCount={getRequiredMissingCount(info)}
-                                                        onFocus={() => setFocusedFile(info.fileName)}
-                                                        onToggleActive={() => handleToggleActive(info)}
-                                                        onOpenInspector={() => handleOpenInspector(info)}
-                                                        onContextMenu={onContextMenu(buildAssetContextMenu(info))}
-                                                        layout={cardLayout}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+                        <AssetGroupTree
+                            nodes={assetGroupNodes}
+                            level={0}
+                            forceExpand={filtersActive}
+                            isCollapsed={key => collapsedGroups.has(key)}
+                            onToggle={toggleGroupCollapsed}
+                            onActivateLatest={handleActivateLatest}
+                            onRenameGroup={openGroupRename}
+                            gridTemplateColumns={gridTemplateColumns}
+                            renderCard={info => (
+                                <AssetCard
+                                    key={info.fileName}
+                                    info={info}
+                                    fileName={info.fileName}
+                                    tags={snapshot.tags[info.fileName] || []}
+                                    metaStatus={snapshot.meta[info.fileName]?.status}
+                                    isLatest={snapshot.latestSet.has(info.fileName)}
+                                    isActive={activeFileNames.has(info.fileName)}
+                                    isFocused={focusedFile === info.fileName}
+                                    batchMode={batchMode}
+                                    batchChecked={batchSelection.has(info.fileName)}
+                                    onBatchCheck={checked => toggleBatchSelected(info.fileName, checked)}
+                                    displayName={cardDisplayName(info)}
+                                    requiredMissingCount={getRequiredMissingCount(info)}
+                                    onFocus={() => setFocusedFile(info.fileName)}
+                                    onToggleActive={() => handleToggleActive(info)}
+                                    onOpenInspector={() => handleOpenInspector(info)}
+                                    onContextMenu={onContextMenu(buildAssetContextMenu(info))}
+                                    layout={cardLayout}
+                                />
+                            )}
+                        />
                     ) : (
                         <div className="text-center text-3 py-12 text-body">
                             {searchKeyword || governanceView ? '没有匹配的资产' : '资产库空空如也'}
@@ -1127,7 +1351,44 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 onConfirm={handleAliasBatchConfirm}
             />
             {ContextMenuPortal}
+            {/* 车型组重命名（写 meta.groupName；只改组头显示名，不改文件名） */}
+            <Modal
+                title="重命名车型组"
+                open={groupRename.open}
+                onOk={() => void handleGroupRenameConfirm()}
+                onCancel={() => setGroupRename({ open: false, groupKey: null, name: '' })}
+                okText="保存显示名"
+                cancelText="取消"
+                destroyOnClose
+                width={520}
+            >
+                <div className="py-2">
+                    <div className="text-[13px] text-2 mb-2">
+                        分组显示名<b>只改变组头展示</b>，不改文件名，也不改资产内容。留空不会保存。
+                    </div>
+                    <Input
+                        value={groupRename.name}
+                        onChange={e => setGroupRename(s => ({ ...s, name: e.target.value }))}
+                        onPressEnter={() => void handleGroupRenameConfirm()}
+                        placeholder="如：白犀牛 R3"
+                        autoFocus
+                    />
+                    {groupMergeTarget && (
+                        <div className="mt-2 text-[12px] text-warning-text">
+                            已有车型组「{pickGroupAlias(groupMergeTarget.files, groupMergeTarget.groupKey)}」使用同名——保存后两组将自动合并。
+                        </div>
+                    )}
+                </div>
+            </Modal>
             <AssetHotkeyCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
+
+            {/* 保存视图弹窗 */}
+            <SaveViewModal
+                open={saveViewOpen}
+                seedName={saveViewSeed?.name ? `${saveViewSeed.name} 副本` : ''}
+                onCancel={() => { setSaveViewOpen(false); setSaveViewSeed(null); }}
+                onConfirm={saveView}
+            />
 
             {/* 治理体检弹窗 */}
             <GovernanceReportModal

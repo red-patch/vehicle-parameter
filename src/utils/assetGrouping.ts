@@ -153,3 +153,76 @@ export const ASSET_GROUP_LABELS: Record<AssetGroupDim, string> = {
 
 /** 默认分组维度（车型，等价于迭代 3 的聚拢） */
 export const DEFAULT_ASSET_GROUP: AssetGroupDim = 'vehicle';
+
+/** 多层分组上限（设计文档 2026-10-14-asset-pool-multigroup-views-design §3.1） */
+export const MAX_GROUP_LEVELS = 3;
+
+/** 嵌套分组节点 */
+export interface AssetGroupNode {
+    /** 层级路径键（父键 + '\u0000' + 本键），用于折叠记忆与 React key */
+    pathKey: string;
+    dim: AssetGroupDim;
+    /** 本层组名（如「吉利」「（无）」） */
+    label: string;
+    /** 本层原始键（不含父路径） */
+    key: string;
+    /** 叶子节点：本组资产行（已按 sortSpec 排好） */
+    rows?: AssetSortRow[];
+    /** 非叶子节点：下一层分组 */
+    children?: AssetGroupNode[];
+    /** 车型维度：组实体键（供组头 ⚡/重命名） */
+    vehicleGroupKey?: string;
+}
+
+/**
+ * 多层分组：dims 逐层嵌套（最多 MAX_GROUP_LEVELS 层）。
+ * - dims 为空或含单个 'none' → 单层"全部"节点（rows 直接挂在根）。
+ * - 每层内部组序 = compareGroups（数量降序 / 等级序 / 状态优先级；缺值垫底）。
+ * - 叶子节点 rows 的组内顺序 = 入参顺序（调用方已排序）。
+ */
+export const buildAssetGroupsMulti = (
+    rows: AssetSortRow[],
+    dims: AssetGroupDim[],
+    ctx: AssetGroupDimContext,
+): AssetGroupNode[] => {
+    // 过滤 'none'，截断到上限
+    const activeDims = dims.filter(d => d !== 'none').slice(0, MAX_GROUP_LEVELS);
+    if (activeDims.length === 0 || rows.length === 0) {
+        return rows.length === 0 ? [] : [{ pathKey: '__all__', dim: 'none', key: '__all__', label: '', rows }];
+    }
+
+    const buildLevel = (
+        levelRows: AssetSortRow[],
+        level: number,
+        parentPath: string,
+    ): AssetGroupNode[] => {
+        const dim = activeDims[level];
+        const buckets = new Map<string, { key: string; label: string; rows: AssetSortRow[]; vehicleGroupKey?: string }>();
+        levelRows.forEach(row => {
+            const { key, label, vehicleGroupKey } = keyOf(row, dim, ctx);
+            const bucket = buckets.get(key);
+            if (bucket) bucket.rows.push(row);
+            else buckets.set(key, { key, label, rows: [row], vehicleGroupKey });
+        });
+
+        const sorted = Array.from(buckets.values()).sort((a, b) =>
+            compareGroups({ key: a.key, label: a.label, rows: a.rows }, { key: b.key, label: b.label, rows: b.rows }, dim));
+
+        const isLeaf = level === activeDims.length - 1;
+        return sorted.map(bucket => {
+            const pathKey = parentPath ? `${parentPath}\u0000${bucket.key}` : bucket.key;
+            return {
+                pathKey,
+                dim,
+                key: bucket.key,
+                label: bucket.label,
+                ...(isLeaf
+                    ? { rows: bucket.rows }
+                    : { children: buildLevel(bucket.rows, level + 1, pathKey) }),
+                ...(bucket.vehicleGroupKey ? { vehicleGroupKey: bucket.vehicleGroupKey } : {}),
+            };
+        });
+    };
+
+    return buildLevel(rows, 0, '');
+};
