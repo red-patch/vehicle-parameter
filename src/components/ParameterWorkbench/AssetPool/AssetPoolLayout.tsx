@@ -60,6 +60,13 @@ export interface AssetPoolLayoutProps {
 /** 状态筛选的维度值 */
 export type StatusFilter = 'latest' | 'keyVehicle' | 'selected' | 'superseded' | 'deprecated' | 'rejected';
 
+/** 列数模式：自动（按容器宽）/ 固定 1-4 列（1 列 = 横向列表行） */
+export type ColumnMode = 'auto' | 1 | 2 | 3 | 4;
+
+const COLUMN_MODE_LABELS: Record<string, string> = {
+    auto: '自动', '1': '1 列（列表）', '2': '2 列', '3': '3 列', '4': '4 列',
+};
+
 const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     const {
         assetLibraryPath,
@@ -415,6 +422,27 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         try { localStorage.setItem('asset-pool-group-dim', next); } catch (e) { console.warn(e); }
     }, []);
 
+    // ===== 列数模式（自动 / 固定 1-4；设计文档 2026-10-14-asset-pool-column-mode-design） =====
+    const [columnMode, setColumnMode] = useState<ColumnMode>(() => {
+        try {
+            const raw = localStorage.getItem('asset-pool-column-mode');
+            if (raw === 'auto') return 'auto';
+            const n = Number(raw);
+            if (n === 1 || n === 2 || n === 3 || n === 4) return n as ColumnMode;
+        } catch (e) { console.warn(e); }
+        return 'auto';
+    });
+    const updateColumnMode = useCallback((next: ColumnMode) => {
+        setColumnMode(next);
+        try { localStorage.setItem('asset-pool-column-mode', String(next)); } catch (e) { console.warn(e); }
+    }, []);
+    /** 网格列模板：自动=按容器宽铺（最小 320px）；固定=N 等分 */
+    const gridTemplateColumns = columnMode === 'auto'
+        ? 'repeat(auto-fill, minmax(320px, 1fr))'
+        : `repeat(${columnMode}, minmax(0, 1fr))`;
+    /** 单列模式用横向列表行；其余用竖排卡片 */
+    const cardLayout: 'card' | 'row' = columnMode === 1 ? 'row' : 'card';
+
     /** 每维度的折叠记忆（展开集合 = Set of groupKey） */
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
         try {
@@ -628,12 +656,13 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
     const searchSectionRef = useRef<HTMLDivElement>(null);
 
-    // 网格列数（与 auto-fill minmax(260px) 一致：容器宽 ÷ 260 向下取整，至少 1）
+    // 网格列数：固定列数直接用；自动=按容器宽 ÷ 320 向下取整（与 minmax(320px) 一致）
     const columnsInGrid = useCallback(() => {
+        if (columnMode !== 'auto') return columnMode;
         const w = listRef.current?.clientWidth ?? 0;
-        const gap = 10, minCol = 260;
+        const gap = 10, minCol = 320;
         return Math.max(1, Math.floor((w + gap) / (minCol + gap)));
-    }, []);
+    }, [columnMode]);
 
     const moveFocus = useCallback(({ dx, dy }: { dx: number; dy: number }) => {
         if (displayInfos.length === 0) return;
@@ -944,6 +973,39 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             </div>
                         </Popover>
 
+                        {/* 列数模式 */}
+                        <Popover
+                            trigger="click"
+                            placement="bottomRight"
+                            content={
+                                <div className="min-w-[130px] py-1">
+                                    {(['auto', 1, 2, 3, 4] as ColumnMode[]).map(mode => {
+                                        const active = columnMode === mode;
+                                        return (
+                                            <div
+                                                key={String(mode)}
+                                                className="flex items-center justify-between px-2 py-1 rounded cursor-pointer text-body hover:surface-inset"
+                                                onClick={() => updateColumnMode(mode)}
+                                            >
+                                                <span className={active ? 'text-brand font-medium' : 'text-1'}>
+                                                    {COLUMN_MODE_LABELS[String(mode)]}
+                                                </span>
+                                                {active && <span className="text-brand text-caption">✓</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            }
+                        >
+                            <div
+                                className="flex items-center gap-1 px-2 py-1 rounded-md border surface-container border-line text-2 hover:border-brand hover:text-brand cursor-pointer transition-colors duration-150"
+                                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                            >
+                                <span className="text-[11px]">▦</span>
+                                列：{COLUMN_MODE_LABELS[String(columnMode)]}
+                            </div>
+                        </Popover>
+
                         {filteredInfos.length > 0 && filteredInfos.some(info => !activeFileNames.has(info.fileName)) && (
                             <span
                                 className="text-brand cursor-pointer font-medium hover:underline whitespace-nowrap"
@@ -978,7 +1040,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                                             />
                                         )}
                                         {expanded && (
-                                            <div className="grid gap-2.5 mt-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                                            <div className="grid gap-2.5 mt-1.5" style={{ gridTemplateColumns }}>
                                                 {group.rows.map(({ info }) => (
                                                     <AssetCard
                                                         key={info.fileName}
@@ -998,6 +1060,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                                                         onToggleActive={() => handleToggleActive(info)}
                                                         onOpenInspector={() => handleOpenInspector(info)}
                                                         onContextMenu={onContextMenu(buildAssetContextMenu(info))}
+                                                        layout={cardLayout}
                                                     />
                                                 ))}
                                             </div>

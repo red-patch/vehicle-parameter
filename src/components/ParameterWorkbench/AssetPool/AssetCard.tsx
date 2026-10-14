@@ -36,6 +36,8 @@ export interface AssetCardProps {
     batchMode?: boolean;
     batchChecked?: boolean;
     onBatchCheck?: (checked: boolean) => void;
+    /** 布局：card=竖排卡片（默认）；row=横向列表行（1 列模式） */
+    layout?: 'card' | 'row';
 }
 
 const MAX_VISIBLE_TAGS = 3;
@@ -61,6 +63,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
     batchMode,
     batchChecked,
     onBatchCheck,
+    layout = 'card',
 }) => {
     const displayName = displayNameProp ?? getAssetDisplayName(info.fileName, info.productName);
     const namingValidation = validateAssetName(info.fileName, info.announceNos || []);
@@ -75,6 +78,125 @@ const AssetCard: React.FC<AssetCardProps> = ({
     const nonKeyTags = tags.filter(t => t !== KEY_VEHICLE_TAG);
     const visibleTags = nonKeyTags.slice(0, MAX_VISIBLE_TAGS);
     const extraTagCount = nonKeyTags.length - visibleTags.length;
+
+    // 共用：激活按钮
+    const activateButton = (
+        <Tooltip title={isActive ? '移出工作集' : '激活进工作集'}>
+            <button
+                className={`
+                    w-6 h-6 rounded-md border flex items-center justify-center flex-shrink-0
+                    transition-colors duration-150
+                    ${isActive
+                        ? 'bg-brand border-brand text-white hover:opacity-90'
+                        : 'surface-container border-line-strong text-3 hover:border-brand hover:text-brand'
+                    }
+                `}
+                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                onClick={e => { e.stopPropagation(); onToggleActive(); }}
+            >
+                {isActive ? <CheckOutlined className="text-[11px]" /> : <PlusOutlined className="text-[11px]" />}
+            </button>
+        </Tooltip>
+    );
+
+    // 共用：状态点 + 信号图标
+    const signals = (
+        <>
+            {isLatest && (
+                <Tooltip title="最新版">
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />
+                </Tooltip>
+            )}
+            {isKeyVehicle && (
+                <Tooltip title="关键车型">
+                    <StarOutlined className="text-[12px] text-warning flex-shrink-0" />
+                </Tooltip>
+            )}
+            {!namingValidation.valid && (
+                <Tooltip title={namingValidation.errors.join('；')}>
+                    <WarningOutlined className="text-[12px] text-warning-text flex-shrink-0 cursor-help" />
+                </Tooltip>
+            )}
+            {info.approvalStatus === '驳回' && (
+                <Tooltip title="准入审批驳回">
+                    <CloseCircleOutlined className="text-[12px] text-danger-text flex-shrink-0" />
+                </Tooltip>
+            )}
+            {metaStatus === 'superseded' && (
+                <Tooltip title="历史版本">
+                    <HistoryOutlined className="text-[12px] text-3 flex-shrink-0" />
+                </Tooltip>
+            )}
+            {metaStatus === 'deprecated' && (
+                <Tooltip title="已废弃">
+                    <StopOutlined className="text-[12px] text-3 flex-shrink-0" />
+                </Tooltip>
+            )}
+        </>
+    );
+
+    // ===== 横向列表行布局（1 列模式） =====
+    if (layout === 'row') {
+        return (
+            <div
+                data-asset-file={fileName}
+                className={`
+                    @container relative rounded-lg border px-3 py-1.5 cursor-pointer
+                    transition-colors duration-150 overflow-hidden flex items-center gap-3
+                    ${isFocused
+                        ? 'surface-inset border-brand'
+                        : 'surface-container border-default hover:border-line-strong'
+                    }
+                `}
+                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                onClick={onFocus}
+                onDoubleClick={onOpenInspector}
+                onContextMenu={onContextMenu}
+            >
+                {isFocused && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-brand" />}
+                {batchMode && (
+                    <span onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                        <Checkbox checked={batchChecked} onChange={e => onBatchCheck?.(e.target.checked)} />
+                    </span>
+                )}
+                <div className="flex items-center gap-2 flex-shrink-0 max-w-[36%]">
+                    {signals}
+                    <span className={`truncate text-title ${isFocused ? 'font-semibold' : 'font-medium'} text-1`} title={displayName}>
+                        {displayName}
+                    </span>
+                </div>
+                {/* 指标（行内） */}
+                <span className="text-aux text-3 tabular-nums flex-shrink-0">
+                    参数 <span className="text-1 font-medium">{info.totalParams}</span>
+                    <span className="mx-1 opacity-40">·</span>
+                    完成率 <span className={`font-medium ${fillRateTone(fillRate)}`}>{fillRate}%</span>
+                    <span className="mx-1 opacity-40">·</span>
+                    空值 <span className="text-2 font-medium">{emptyParams}</span>
+                </span>
+                {requiredMissingCount > 0 && (
+                    <Tag icon={<ExclamationCircleOutlined className="text-[10px]" />}
+                        className="m-0 text-caption leading-[16px] px-1.5 rounded font-medium text-danger-text border-danger flex-shrink-0">
+                        缺必填 {requiredMissingCount}
+                    </Tag>
+                )}
+                {/* 标签（空间够时显示） */}
+                <span className="hidden @[640px]:flex items-center gap-1 flex-shrink-0">
+                    {visibleTags.map(tag => (
+                        <Tag key={tag} className="m-0 text-caption leading-[16px] px-1.5 rounded surface-inset border-default text-3">{tag}</Tag>
+                    ))}
+                    {extraTagCount > 0 && <span className="text-caption text-4">+{extraTagCount}</span>}
+                </span>
+                <span className="ml-auto flex items-center gap-2 flex-shrink-0">
+                    {info.updatedAt && (
+                        <span className="hidden @[520px]:inline text-caption text-4 tabular-nums">
+                            {new Date(info.updatedAt).toLocaleDateString('zh-CN')}
+                        </span>
+                    )}
+                    {activateButton}
+                </span>
+            </div>
+        );
+    }
 
     return (
         <div
