@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 /**
- * 批量补录受控属性：词表归一 + 就地收词回归。
+ * 批量字段维护（治理体检入口）写受控属性：词表归一 + 就地收词回归。
  *
- * 缺陷：V2 面板（AssetPoolLayout）的 handleSaveFacetOverrides 直接把编辑器给的原文
- * 写进 _facet_values.json，没走 addVocabValue 归一/收词（设计文档
- * docs/plans/2026-10-13-batch-field-maintenance-design.md §6.2 要求）：
- *   1. 输入词表别名（如「上汽大通」）会原样落盘，而不是规范名「上汽大通汽车有限公司」
- *      → 侧栏/筛选里同一主机厂裂成两行（规范名 + 裸别名）；
- *   2. 编辑器占位符承诺「可输入新增」，但词表外新值从不写进 _facet_vocab.json。
+ * 不变量：facet 目标经统一抽屉落盘时，词表维度必须走 addVocabValue
+ * （设计 docs/plans/2026-10-13-batch-field-maintenance-design.md §6.2）：
+ *   1. 输入词表别名（如「上汽大通」）落盘的是规范名「上汽大通汽车有限公司」，
+ *      不是原文 → 否则侧栏/筛选里同一主机厂裂成规范名 + 裸别名两行；
+ *   2. 词表外新值就地收进 _facet_vocab.json。
+ * 该不变量原由 AssetBatchFacetEditor 承载；旧编辑器退役后，回归改用新抽屉驱动
+ * （入口：治理体检 →「打开批量字段维护」）。
  */
 
 // zustand persist 依赖 localStorage；本环境 Node 的 --localstorage-file 桩缺 setItem，
@@ -63,27 +64,38 @@ const seed = () => {
     files.set(`${LIB}/_asset_tags.json`, JSON.stringify({}));
 };
 
-/** 打开治理体检 → 批量补录抽屉 */
-const openBatchEditor = async () => {
+/** 打开治理体检 → 批量字段维护抽屉，选「主机厂」字段并填值，点保存 */
+const openFieldEditor = async () => {
     render(<AssetPoolLayout />);
     await waitFor(() => expect(document.querySelector('[data-asset-file="a.json"]')).toBeTruthy());
     fireEvent.click(screen.getByText('治理体检'));
-    await waitFor(() => expect(screen.getByText(/打开批量补录/)).toBeInTheDocument());
-    fireEvent.click(screen.getByText(/打开批量补录/));
-    await waitFor(() => expect(document.querySelector('.ant-drawer .ant-table-tbody')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/打开批量字段维护/)).toBeInTheDocument());
+    fireEvent.click(screen.getByText(/打开批量字段维护/));
+    // 抽屉内锚定：字段选择器 + 预览表（.ant-table）已出现
+    await waitFor(() => expect(document.querySelector('.ant-drawer .ant-table')).toBeTruthy());
+    // 参数字段需按需读盘后才有行；facet 目标不依赖参数，但等一拍让状态稳定
     await new Promise(r => setTimeout(r, 100));
 };
 
-/** 在第一行「主机厂」单元格输入并回车，再点保存 */
+/** 选受控属性「主机厂」→ 填值 → 保存 */
 const enterManufacturerAndSave = async (value: string) => {
-    const combos = document.querySelectorAll('.ant-drawer .ant-table-tbody [role="combobox"]');
-    const cell = combos[0] as HTMLInputElement;
-    fireEvent.change(cell, { target: { value } });
-    fireEvent.keyDown(cell, { key: 'Enter' });
+    const drawer = document.querySelector('.ant-drawer') as HTMLElement;
+    // 字段选择器是抽屉内第一个 .ant-select（facet 选项在「受控属性」分组）
+    const fieldSelect = drawer.querySelector('.ant-select') as HTMLElement;
+    fireEvent.mouseDown(within(fieldSelect).getByRole('combobox'));
+    const opt = Array.from(document.querySelectorAll('.ant-select-item-option'))
+        .find(o => o.textContent === '主机厂');
+    expect(opt).toBeTruthy();
+    fireEvent.click(opt!);
+
+    // 值输入器是抽屉内第二个 .ant-select（AutoComplete），placeholder 渲染为 div
+    const valueCombo = drawer.querySelectorAll('.ant-select')[1];
+    const valueInput = valueCombo.querySelector('input') as HTMLInputElement;
+    fireEvent.change(valueInput, { target: { value } });
     await new Promise(r => setTimeout(r, 50));
 
-    const saveBtn = Array.from(document.querySelectorAll('.ant-drawer button'))
-        .find(b => (b.textContent || '').includes('保存修正')) as HTMLButtonElement | undefined;
+    const saveBtn = Array.from(drawer.querySelectorAll('button'))
+        .find(b => (b.textContent || '').includes('预览并保存')) as HTMLButtonElement | undefined;
     expect(saveBtn?.disabled).toBe(false);
     fireEvent.click(saveBtn!);
     await waitFor(() => expect(files.get(`${LIB}/_facet_values.json`)).toBeTruthy());
@@ -95,7 +107,7 @@ const savedManufacturer = () =>
 const vocabManufacturers = () =>
     JSON.parse(files.get(`${LIB}/_facet_vocab.json`)!).manufacturer as { name: string }[];
 
-describe('批量补录受控属性：词表归一与就地收词', () => {
+describe('批量字段维护写受控属性：词表归一与就地收词', () => {
     beforeEach(() => {
         seed();
         vi.clearAllMocks();
@@ -106,13 +118,13 @@ describe('批量补录受控属性：词表归一与就地收词', () => {
     afterEach(() => { cleanup(); });
 
     it('输入词表别名时落盘的是规范名，不是原文', async () => {
-        await openBatchEditor();
+        await openFieldEditor();
         await enterManufacturerAndSave('上汽大通');
         expect(savedManufacturer()).toBe('上汽大通汽车有限公司');
     });
 
     it('输入词表外新值时就地收词', async () => {
-        await openBatchEditor();
+        await openFieldEditor();
         await enterManufacturerAndSave('新主机厂XYZ');
         expect(savedManufacturer()).toBe('新主机厂XYZ');
         expect(vocabManufacturers().some(e => e.name === '新主机厂XYZ')).toBe(true);

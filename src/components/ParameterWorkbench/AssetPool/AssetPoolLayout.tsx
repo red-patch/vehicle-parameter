@@ -12,7 +12,6 @@ import { useAssetPoolHotkeys } from './useAssetPoolHotkeys';
 import AssetInspector from '../AssetInspector';
 import AssetBatchTagBar from '../AssetBatchTagBar';
 import GovernanceReportModal from '../GovernanceReportModal';
-import AssetBatchFacetEditor, { type BatchFacetRow } from '../../AssetLibrary/AssetBatchFacetEditor';
 import AssetBatchFieldEditor, { type ParamFieldOption } from '../../AssetLibrary/AssetBatchFieldEditor';
 import { getAllAttributeNames, getEnumValuesSync } from '../../../utils/attributeEnums';
 import { applyParamFieldEdit, FACET_DIM_LABELS, type FieldEditRow, type FieldEditSourceRow, type FieldTarget } from '../../../utils/assetFieldEdit';
@@ -255,9 +254,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
             .map(facets => ({ facets }));
     }, [snapshot.infos, snapshot.meta, fileFacets]);
 
-    // ===== 治理体检弹窗 + 批量补录 =====
+    // ===== 治理体检弹窗 =====
     const [governanceOpen, setGovernanceOpen] = useState(false);
-    const [batchEditorOpen, setBatchEditorOpen] = useState(false);
     const bumpAssetVersion = useVehicleStore(state => state.bumpAssetVersion);
 
     // ===== 批量字段维护（参数行 + 受控属性统一批量改值） =====
@@ -281,13 +279,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         };
     }, [snapshot.infos, fileFacets, facetVocab]);
 
-    const batchEditorRows = useMemo<BatchFacetRow[]>(() => snapshot.infos
-        .filter(a => snapshot.meta[a.fileName]?.status !== 'deprecated')
-        .flatMap(a => {
-            const facets = fileFacets.get(a.fileName);
-            return facets ? [{ fileName: a.fileName, productName: a.productName, facets }] : [];
-        }), [snapshot.infos, snapshot.meta, fileFacets]);
-
     const handleConvergeCars = useCallback(async (cars: UnconvergedCar[]) => {
         if (!assetLibraryPath || cars.length === 0) return;
         const pairs = cars.flatMap(car => car.files
@@ -301,34 +292,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         bumpAssetVersion();
         message.success(`已收敛 ${cars.length} 辆车的版本链（${pairs.length} 个旧版本标记为历史）`);
     }, [assetLibraryPath, snapshot.meta, bumpAssetVersion]);
-
-    const handleSaveFacetOverrides = useCallback(async (updates: Record<string, AssetFacetOverride>) => {
-        if (!assetLibraryPath) return;
-        // 词表维度走 addVocabValue 归一：别名命中归一到规范名，词表外新值就地收词
-        // （设计 docs/plans/2026-10-13-batch-field-maintenance-design.md §6.2）。
-        // 不归一 → 输入「上汽大通」会原样落盘，侧栏同一主机厂裂成规范名 + 裸别名两行。
-        // capacityKwh 为数值、announceNos 为多值列表，均不受词表约束，原样透传。
-        const VOCAB_DIMS = ['manufacturer', 'batteryBrand', 'admissionLevel'] as const;
-        let vocab = facetVocab;
-        let next = facetValues;
-        Object.entries(updates).forEach(([fileName, patch]) => {
-            const normalized: AssetFacetOverride = { ...patch };
-            VOCAB_DIMS.forEach(dim => {
-                const raw = patch[dim];
-                if (typeof raw !== 'string' || !raw.trim()) return;
-                const r = addVocabValue(vocab, dim, raw);
-                vocab = r.vocab;
-                normalized[dim] = r.value;
-            });
-            next = setAssetFacetOverride(next, fileName, normalized);
-        });
-        if (vocab !== facetVocab) setFacetVocab(vocab);
-        setFacetValues(next);
-        await saveFacetValues(assetLibraryPath, next);
-        if (vocab !== facetVocab) await saveFacetVocab(assetLibraryPath, vocab);
-        message.success(`已保存 ${Object.keys(updates).length} 个资产的属性修正`);
-        setBatchEditorOpen(false);
-    }, [assetLibraryPath, facetVocab, facetValues]);
 
     // ===== 批量字段维护：入口 / 数据加载 / 落盘 =====
     const openFieldEditor = useCallback((seed: { fileNames: string[]; groupName?: string }) => {
@@ -1557,14 +1520,14 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 report={governanceReport}
                 onConvergeCars={handleConvergeCars}
                 facetIssues={facetIssues}
-                onOpenBatchEditor={() => { setGovernanceOpen(false); setBatchEditorOpen(true); }}
-            />
-            <AssetBatchFacetEditor
-                open={batchEditorOpen}
-                rows={batchEditorRows}
-                vocab={facetVocab}
-                onClose={() => setBatchEditorOpen(false)}
-                onSaveOverrides={handleSaveFacetOverrides}
+                onOpenBatchEditor={() => {
+                    setGovernanceOpen(false);
+                    openFieldEditor({
+                        fileNames: snapshot.infos
+                            .filter(a => snapshot.meta[a.fileName]?.status !== 'deprecated')
+                            .map(a => a.fileName),
+                    });
+                }}
             />
             <AssetBatchFieldEditor
                 open={fieldEditorOpen}

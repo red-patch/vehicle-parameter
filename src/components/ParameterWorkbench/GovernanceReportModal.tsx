@@ -158,14 +158,14 @@ const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({
                     {facetIssues && <StatChip label="受控属性待补全" value={facetIssues.missingCount} tone="warn" />}
                 </div>
 
-                {/* 受控属性待补全 / 待归类（批量补录入口） */}
+                {/* 受控属性待补全 / 待归类（批量字段维护入口） */}
                 {facetIssues && (facetIssues.missingCount > 0 || facetIssues.unmapped.some(u => u.values.length > 0)) && (
                     <div className="space-y-1.5">
                         <div className="text-[13px] font-semibold text-1 flex items-center gap-2">
                             受控属性待补全 / 待归类
                             {onOpenBatchEditor && (
                                 <Button size="small" type="link" className="!text-[12px] !p-0 ml-auto" onClick={onOpenBatchEditor}>
-                                    打开批量补录 →
+                                    打开批量字段维护 →
                                 </Button>
                             )}
                         </div>
