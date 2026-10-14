@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { message, Button, Popover, Tooltip } from 'antd';
+import { message, Button, Popover } from 'antd';
 import { ClusterOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import AssetSidebar from './AssetSidebar';
@@ -27,8 +27,12 @@ import {
     type AssetSortSpec, type AssetSortDim,
 } from '../../../utils/assetSort';
 import {
+    buildAssetGroups, ASSET_GROUP_LABELS, DEFAULT_ASSET_GROUP, type AssetGroupDim,
+} from '../../../utils/assetGrouping';
+import AssetGroupHeader from './AssetGroupHeader';
+import {
     KEY_VEHICLE_TAG, extractBrandNames, resolveVehicleGroupKey, buildGovernanceReport,
-    buildSupersedeMeta, type UnconvergedCar,
+    buildSupersedeMeta, type UnconvergedCar, type VehicleGroup,
 } from '../../../utils/assetGovernance';
 import { isFieldRequired } from '../../../assets/requiredFields';
 import { getProductData } from '../../../store/vehicleSelectors';
@@ -395,27 +399,85 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         } catch (e) { console.warn(e); }
         return DEFAULT_ASSET_SORT;
     });
-    const [groupAdjacent, setGroupAdjacent] = useState<boolean>(() => {
-        try { return localStorage.getItem('asset-pool-group-adjacent') !== '0'; } catch { return true; }
+    const [groupDim, setGroupDim] = useState<AssetGroupDim>(() => {
+        try {
+            const raw = localStorage.getItem('asset-pool-group-dim');
+            if (raw && raw in ASSET_GROUP_LABELS) return raw as AssetGroupDim;
+        } catch (e) { console.warn(e); }
+        return DEFAULT_ASSET_GROUP;
     });
     const updateSort = useCallback((next: AssetSortSpec) => {
         setSortSpec(next);
         try { localStorage.setItem('asset-pool-sort', JSON.stringify(next)); } catch (e) { console.warn(e); }
     }, []);
-    const updateGroupAdjacent = useCallback((next: boolean) => {
-        setGroupAdjacent(next);
-        try { localStorage.setItem('asset-pool-group-adjacent', next ? '1' : '0'); } catch (e) { console.warn(e); }
+    const updateGroupDim = useCallback((next: AssetGroupDim) => {
+        setGroupDim(next);
+        try { localStorage.setItem('asset-pool-group-dim', next); } catch (e) { console.warn(e); }
     }, []);
 
-    /** 排序 + 聚拢后的展示序列（渲染、方向键导航、批量全选均用它） */
+    /** 每维度的折叠记忆（展开集合 = Set of groupKey） */
+    const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+        try {
+            const raw = localStorage.getItem(`asset-pool-collapsed-groups-${groupDim}`);
+            return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+        } catch { return new Set(); }
+    });
+    const collapsedKeyRef = useRef(groupDim);
+    // 切换维度时载入该维度的折叠记忆
+    useEffect(() => {
+        if (collapsedKeyRef.current === groupDim) return;
+        collapsedKeyRef.current = groupDim;
+        try {
+            const raw = localStorage.getItem(`asset-pool-collapsed-groups-${groupDim}`);
+            setCollapsedGroups(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+        } catch { setCollapsedGroups(new Set()); }
+    }, [groupDim]);
+    const toggleGroupCollapsed = useCallback((key: string) => {
+        setCollapsedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key); else next.add(key);
+            try { localStorage.setItem(`asset-pool-collapsed-groups-${groupDim}`, JSON.stringify([...next])); } catch (e) { console.warn(e); }
+            return next;
+        });
+    }, [groupDim]);
+
+    /** 排序后的展示序列（渲染、方向键导航、批量全选均用它） */
     const displayInfos = useMemo(() => {
         const rows = filteredInfos.map(info => ({
             info,
             displayName: cardDisplayName(info),
             groupKey: resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames),
         }));
-        return sortAssetRowsByMode(rows, sortSpec, groupAdjacent).map(r => r.info);
-    }, [filteredInfos, sortSpec, groupAdjacent, cardDisplayName, snapshot.meta, brandNames]);
+        return sortAssetRowsByMode(rows, sortSpec, groupDim !== 'none').map(r => r.info);
+    }, [filteredInfos, sortSpec, groupDim, cardDisplayName, snapshot.meta, brandNames]);
+
+    /** 分组结果（分组键 + 组序；组内保留排序后的顺序）。dim='none' 时单组平铺 */
+    const assetGroups = useMemo(() => {
+        const rows = displayInfos.map(info => ({
+            info,
+            displayName: cardDisplayName(info),
+            groupKey: resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames),
+        }));
+        return buildAssetGroups(rows, groupDim, {
+            vehicleGroupKey: fn => resolveVehicleGroupKey(
+                snapshot.infos.find(i => i.fileName === fn) ?? { fileName: fn, productName: fn },
+                snapshot.meta[fn], brandNames),
+            vehicleGroupLabel: fn => {
+                const meta = snapshot.meta[fn];
+                if (meta?.groupName) return meta.groupName;
+                const info = snapshot.infos.find(i => i.fileName === fn);
+                return resolveVehicleGroupKey(info ?? { fileName: fn, productName: fn }, meta, brandNames);
+            },
+            facets: fileFacets,
+            metaStatus: fn => snapshot.meta[fn]?.status,
+            isRejected: info => info.approvalStatus === '驳回',
+        });
+    }, [displayInfos, groupDim, cardDisplayName, snapshot.infos, snapshot.meta, brandNames, fileFacets]);
+
+    const filtersActive = Boolean(
+        searchKeyword.trim() || governanceView || selectedTags.length > 0 || statusSelection.length > 0
+        || isFacetSelectionActive(facetSelection),
+    );
 
     const handleClearFilters = useCallback(() => {
         setSearchKeyword('');
@@ -444,6 +506,18 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
             addActiveAsset(info.fileName, info.productName);
         }
     }, [activeFileNames, addActiveAsset, removeActiveAsset]);
+
+    // ===== ⚡ 激活组内每辆车的最新版（组头操作） =====
+    const handleActivateLatest = useCallback((group: VehicleGroup) => {
+        // 该车型组内所有「最新版」资产（latestSet = 治理报告链头集合）
+        const targets = snapshot.infos.filter(info =>
+            resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames) === group.groupKey
+            && snapshot.latestSet.has(info.fileName));
+        const toAdd = targets.filter(info => !activeFileNames.has(info.fileName));
+        toAdd.forEach(info => addActiveAsset(info.fileName, info.productName));
+        if (toAdd.length > 0) message.success(`已激活 ${toAdd.length} 辆车的最新版本`);
+        else message.info('该车型组的最新版均已在工作区');
+    }, [snapshot.infos, snapshot.meta, snapshot.latestSet, brandNames, activeFileNames, addActiveAsset]);
 
     // ===== 将筛选结果加入工作区 =====
     const handleAddFilteredToWorkspace = useCallback(() => {
@@ -792,6 +866,43 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     </span>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* 分组维度 */}
+                        <Popover
+                            trigger="click"
+                            placement="bottomRight"
+                            content={
+                                <div className="min-w-[140px] py-1">
+                                    {(Object.keys(ASSET_GROUP_LABELS) as AssetGroupDim[]).map(dim => {
+                                        const active = groupDim === dim;
+                                        return (
+                                            <div
+                                                key={dim}
+                                                className="flex items-center justify-between px-2 py-1 rounded cursor-pointer text-body hover:surface-inset"
+                                                onClick={() => updateGroupDim(dim)}
+                                            >
+                                                <span className={active ? 'text-brand font-medium' : 'text-1'}>
+                                                    {ASSET_GROUP_LABELS[dim]}
+                                                </span>
+                                                {active && <span className="text-brand text-caption">✓</span>}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            }
+                        >
+                            <div
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md border cursor-pointer transition-colors duration-150 ${
+                                    groupDim !== 'none'
+                                        ? 'bg-brand-weak border-brand text-brand font-medium'
+                                        : 'surface-container border-line text-2 hover:border-brand hover:text-brand'
+                                }`}
+                                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                            >
+                                <ClusterOutlined className="text-[11px]" />
+                                分组：{ASSET_GROUP_LABELS[groupDim]}
+                            </div>
+                        </Popover>
+
                         {/* 排序维度 + 方向 */}
                         <Popover
                             trigger="click"
@@ -833,22 +944,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             </div>
                         </Popover>
 
-                        {/* 聚拢开关 */}
-                        <Tooltip title="同车型的多个版本相邻排列">
-                            <div
-                                className={`flex items-center gap-1 px-2 py-1 rounded-md border cursor-pointer transition-colors duration-150 ${
-                                    groupAdjacent
-                                        ? 'bg-brand-weak border-brand text-brand font-medium'
-                                        : 'surface-container border-line text-3 hover:border-brand'
-                                }`}
-                                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
-                                onClick={() => updateGroupAdjacent(!groupAdjacent)}
-                            >
-                                <ClusterOutlined className="text-[11px]" />
-                                聚拢
-                            </div>
-                        </Tooltip>
-
                         {filteredInfos.length > 0 && filteredInfos.some(info => !activeFileNames.has(info.fileName)) && (
                             <span
                                 className="text-brand cursor-pointer font-medium hover:underline whitespace-nowrap"
@@ -860,31 +955,56 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     </div>
                 </div>
 
-                {/* 车型卡片列表：流体多列（auto-fill, minmax 260px） */}
+                {/* 车型卡片列表：按分组维度分 section，组内流体多列 */}
                 <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar surface-layout p-3">
                     {displayInfos.length > 0 ? (
-                        <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
-                            {displayInfos.map(info => (
-                                <AssetCard
-                                    key={info.fileName}
-                                    info={info}
-                                    fileName={info.fileName}
-                                    tags={snapshot.tags[info.fileName] || []}
-                                    metaStatus={snapshot.meta[info.fileName]?.status}
-                                    isLatest={snapshot.latestSet.has(info.fileName)}
-                                    isActive={activeFileNames.has(info.fileName)}
-                                    isFocused={focusedFile === info.fileName}
-                                    batchMode={batchMode}
-                                    batchChecked={batchSelection.has(info.fileName)}
-                                    onBatchCheck={checked => toggleBatchSelected(info.fileName, checked)}
-                                    displayName={cardDisplayName(info)}
-                                    requiredMissingCount={getRequiredMissingCount(info)}
-                                    onFocus={() => setFocusedFile(info.fileName)}
-                                    onToggleActive={() => handleToggleActive(info)}
-                                    onOpenInspector={() => handleOpenInspector(info)}
-                                    onContextMenu={onContextMenu(buildAssetContextMenu(info))}
-                                />
-                            ))}
+                        <div className="space-y-3">
+                            {assetGroups.map(group => {
+                                // 有筛选/搜索时命中组强制展开（沿用旧分组视图行为）
+                                const expanded = filtersActive || !collapsedGroups.has(group.key);
+                                return (
+                                    <div key={group.key}>
+                                        {groupDim !== 'none' && (
+                                            <AssetGroupHeader
+                                                label={group.label}
+                                                count={group.rows.length}
+                                                expanded={expanded}
+                                                onToggle={() => toggleGroupCollapsed(group.key)}
+                                                dimLabel={ASSET_GROUP_LABELS[groupDim]}
+                                                vehicleGroup={group.vehicleGroupKey
+                                                    ? { groupKey: group.vehicleGroupKey, files: [] }
+                                                    : undefined}
+                                                onActivateLatest={group.vehicleGroupKey ? handleActivateLatest : undefined}
+                                            />
+                                        )}
+                                        {expanded && (
+                                            <div className="grid gap-2.5 mt-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                                                {group.rows.map(({ info }) => (
+                                                    <AssetCard
+                                                        key={info.fileName}
+                                                        info={info}
+                                                        fileName={info.fileName}
+                                                        tags={snapshot.tags[info.fileName] || []}
+                                                        metaStatus={snapshot.meta[info.fileName]?.status}
+                                                        isLatest={snapshot.latestSet.has(info.fileName)}
+                                                        isActive={activeFileNames.has(info.fileName)}
+                                                        isFocused={focusedFile === info.fileName}
+                                                        batchMode={batchMode}
+                                                        batchChecked={batchSelection.has(info.fileName)}
+                                                        onBatchCheck={checked => toggleBatchSelected(info.fileName, checked)}
+                                                        displayName={cardDisplayName(info)}
+                                                        requiredMissingCount={getRequiredMissingCount(info)}
+                                                        onFocus={() => setFocusedFile(info.fileName)}
+                                                        onToggleActive={() => handleToggleActive(info)}
+                                                        onOpenInspector={() => handleOpenInspector(info)}
+                                                        onContextMenu={onContextMenu(buildAssetContextMenu(info))}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="text-center text-3 py-12 text-body">
