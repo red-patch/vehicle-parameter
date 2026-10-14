@@ -44,6 +44,8 @@ vi.hoisted(() => {
 
 import AssetDataSynchronizer from '../AssetDataSynchronizer';
 import { useVehicleStore } from '../../../store/vehicleStore';
+import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
+import { getVehicleSelectionStates } from '../../../utils/vehicleSelectionState';
 
 const fileValue = (fileName: string): string | number | undefined =>
     useVehicleStore.getState().assetFiles.find(f => f.fileName === fileName)?.data[0]?.value;
@@ -77,5 +79,26 @@ describe('AssetDataSynchronizer 按 assetVersion 重读', () => {
 
         // 回归：修复前 assetVersion 不进依赖，Store 停在 '16'
         await waitFor(() => expect(fileValue('a.json')).toBe('11'));
+    });
+
+    it('版本对比读到的值随之更新（对比模块的数据路径）', async () => {
+        render(<AssetDataSynchronizer />);
+        const instanceKey = buildVehicleInstanceKey('asset', 'a.json', 'A 车型');
+
+        // 先把该资产「送去对比」（selectedProductNames 里放实例键）
+        useVehicleStore.setState({ selectedProductNames: [instanceKey], currentCompareProducts: [instanceKey] });
+        await waitFor(() => {
+            const st = getVehicleSelectionStates([], [instanceKey], useVehicleStore.getState().assetFiles, ['a.json']);
+            expect(String(st.get(instanceKey)?.data.find(p => p.name === '初速')?.value)).toBe('16');
+        });
+
+        // 就地改写 + bump → 对比取到新值（回归：修复前停在旧值）
+        disk.set('a.json', [{ id: 'g::初速', group: 'g', name: '初速', value: '11' }]);
+        useVehicleStore.getState().bumpAssetVersion();
+
+        await waitFor(() => {
+            const st = getVehicleSelectionStates([], [instanceKey], useVehicleStore.getState().assetFiles, ['a.json']);
+            expect(String(st.get(instanceKey)?.data.find(p => p.name === '初速')?.value)).toBe('11');
+        });
     });
 });
