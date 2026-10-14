@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { message, Button } from 'antd';
+import { message, Button, Popover, Tooltip } from 'antd';
+import { ClusterOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import AssetSidebar from './AssetSidebar';
 import AssetFilterBar from './AssetFilterBar';
@@ -21,6 +22,10 @@ import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
 import { matchFacets, isFacetSelectionActive, type FacetSelection, EMPTY_FACET_SELECTION } from '../../../utils/facetFilters';
 import { validateAssetName } from '../../../utils/assetNaming';
 import { buildAliasSource, resolveAssetDisplayName } from '../../../utils/assetAlias';
+import {
+    sortAssetRowsByMode, DEFAULT_ASSET_SORT, ASSET_SORT_LABELS, ASSET_SORT_DEFAULT_DIR,
+    type AssetSortSpec, type AssetSortDim,
+} from '../../../utils/assetSort';
 import {
     KEY_VEHICLE_TAG, extractBrandNames, resolveVehicleGroupKey, buildGovernanceReport,
     buildSupersedeMeta, type UnconvergedCar,
@@ -379,6 +384,39 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         return result;
     }, [governanceFilteredInfos, facetSelection, selectedTags, statusSelection, searchKeyword, fileFacets, snapshot, activeFileNames, cardDisplayName]);
 
+    // ===== 排序 + 同车型聚拢（设计文档 2026-10-14-asset-pool-sort-group-design） =====
+    const [sortSpec, setSortSpec] = useState<AssetSortSpec>(() => {
+        try {
+            const raw = localStorage.getItem('asset-pool-sort');
+            if (raw) {
+                const parsed = JSON.parse(raw) as AssetSortSpec;
+                if (parsed && parsed.dim && parsed.dir) return parsed;
+            }
+        } catch (e) { console.warn(e); }
+        return DEFAULT_ASSET_SORT;
+    });
+    const [groupAdjacent, setGroupAdjacent] = useState<boolean>(() => {
+        try { return localStorage.getItem('asset-pool-group-adjacent') !== '0'; } catch { return true; }
+    });
+    const updateSort = useCallback((next: AssetSortSpec) => {
+        setSortSpec(next);
+        try { localStorage.setItem('asset-pool-sort', JSON.stringify(next)); } catch (e) { console.warn(e); }
+    }, []);
+    const updateGroupAdjacent = useCallback((next: boolean) => {
+        setGroupAdjacent(next);
+        try { localStorage.setItem('asset-pool-group-adjacent', next ? '1' : '0'); } catch (e) { console.warn(e); }
+    }, []);
+
+    /** 排序 + 聚拢后的展示序列（渲染、方向键导航、批量全选均用它） */
+    const displayInfos = useMemo(() => {
+        const rows = filteredInfos.map(info => ({
+            info,
+            displayName: cardDisplayName(info),
+            groupKey: resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames),
+        }));
+        return sortAssetRowsByMode(rows, sortSpec, groupAdjacent).map(r => r.info);
+    }, [filteredInfos, sortSpec, groupAdjacent, cardDisplayName, snapshot.meta, brandNames]);
+
     const handleClearFilters = useCallback(() => {
         setSearchKeyword('');
         setFacetSelection(EMPTY_FACET_SELECTION);
@@ -524,17 +562,17 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     }, []);
 
     const moveFocus = useCallback(({ dx, dy }: { dx: number; dy: number }) => {
-        if (filteredInfos.length === 0) return;
-        const cur = focusedFile ? filteredInfos.findIndex(i => i.fileName === focusedFile) : -1;
+        if (displayInfos.length === 0) return;
+        const cur = focusedFile ? displayInfos.findIndex(i => i.fileName === focusedFile) : -1;
         const cols = columnsInGrid();
         let next = cur === -1 ? 0 : cur + dx + dy * cols;
-        next = Math.max(0, Math.min(filteredInfos.length - 1, next));
-        const target = filteredInfos[next];
+        next = Math.max(0, Math.min(displayInfos.length - 1, next));
+        const target = displayInfos[next];
         if (target) {
             setFocusedFile(target.fileName);
             setLocateRequest(prev => ({ fileName: target.fileName, nonce: (prev?.nonce ?? 0) + 1 }));
         }
-    }, [filteredInfos, focusedFile, columnsInGrid]);
+    }, [displayInfos, focusedFile, columnsInGrid]);
 
     const focusSearch = useCallback(() => {
         const input = searchSectionRef.current?.querySelector('input');
@@ -744,29 +782,89 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     </div>
                 )}
 
-                {/* 列表头 */}
-                <div className="flex-none px-4 py-2 border-b border-default flex items-center justify-between text-aux text-2">
-                    <span>
+                {/* 列表头：计数 + 排序 + 聚拢 + 批量加入 */}
+                <div className="flex-none px-4 py-2 border-b border-default flex items-center justify-between gap-3 text-aux text-2">
+                    <span className="flex-shrink-0">
                         共 <span className="font-medium text-1 tabular-nums">{filteredInfos.length}</span> 个资产
                         {activeFileNames.size > 0 && (
                             <> · 已选 <span className="font-medium text-1 tabular-nums">{activeFileNames.size}</span></>
                         )}
                     </span>
-                    {filteredInfos.length > 0 && filteredInfos.some(info => !activeFileNames.has(info.fileName)) && (
-                        <span
-                            className="text-brand cursor-pointer font-medium hover:underline"
-                            onClick={handleAddFilteredToWorkspace}
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* 排序维度 + 方向 */}
+                        <Popover
+                            trigger="click"
+                            placement="bottomRight"
+                            content={
+                                <div className="min-w-[180px] py-1">
+                                    {(Object.keys(ASSET_SORT_LABELS) as AssetSortDim[]).map(dim => {
+                                        const active = sortSpec.dim === dim;
+                                        return (
+                                            <div
+                                                key={dim}
+                                                className="flex items-center justify-between px-2 py-1 rounded cursor-pointer text-body hover:surface-inset"
+                                                onClick={() => updateSort(
+                                                    active
+                                                        ? { dim, dir: sortSpec.dir === 'asc' ? 'desc' : 'asc' }
+                                                        : { dim, dir: ASSET_SORT_DEFAULT_DIR[dim] }
+                                                )}
+                                            >
+                                                <span className={active ? 'text-brand font-medium' : 'text-1'}>
+                                                    {ASSET_SORT_LABELS[dim]}
+                                                </span>
+                                                {active && (
+                                                    <span className="text-brand text-caption">
+                                                        {sortSpec.dir === 'asc' ? '↑ 升序' : '↓ 降序'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            }
                         >
-                            将筛选结果加入工作区 →
-                        </span>
-                    )}
+                            <div
+                                className="flex items-center gap-1 px-2 py-1 rounded-md border surface-container border-line text-2 hover:border-brand hover:text-brand cursor-pointer transition-colors duration-150"
+                                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                            >
+                                排序：{ASSET_SORT_LABELS[sortSpec.dim]}
+                                <span className="text-caption text-3">{sortSpec.dir === 'asc' ? '↑' : '↓'}</span>
+                            </div>
+                        </Popover>
+
+                        {/* 聚拢开关 */}
+                        <Tooltip title="同车型的多个版本相邻排列">
+                            <div
+                                className={`flex items-center gap-1 px-2 py-1 rounded-md border cursor-pointer transition-colors duration-150 ${
+                                    groupAdjacent
+                                        ? 'bg-brand-weak border-brand text-brand font-medium'
+                                        : 'surface-container border-line text-3 hover:border-brand'
+                                }`}
+                                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                                onClick={() => updateGroupAdjacent(!groupAdjacent)}
+                            >
+                                <ClusterOutlined className="text-[11px]" />
+                                聚拢
+                            </div>
+                        </Tooltip>
+
+                        {filteredInfos.length > 0 && filteredInfos.some(info => !activeFileNames.has(info.fileName)) && (
+                            <span
+                                className="text-brand cursor-pointer font-medium hover:underline whitespace-nowrap"
+                                onClick={handleAddFilteredToWorkspace}
+                            >
+                                将筛选结果加入工作区 →
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* 车型卡片列表：流体多列（auto-fill, minmax 260px） */}
                 <div ref={listRef} className="flex-1 overflow-y-auto custom-scrollbar surface-layout p-3">
-                    {filteredInfos.length > 0 ? (
+                    {displayInfos.length > 0 ? (
                         <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
-                            {filteredInfos.map(info => (
+                            {displayInfos.map(info => (
                                 <AssetCard
                                     key={info.fileName}
                                     info={info}
