@@ -96,18 +96,20 @@ describe('assetAlias · resolveAssetAlias (自身 → 同身份键继承)', () =
     });
 });
 
-describe('assetAlias · resolveAssetDisplayName (别名 → 组名 → 派生名)', () => {
+describe('assetAlias · resolveAssetDisplayName (别名 → 派生名；组名不参与)', () => {
     it('uses the alias first', () => {
         const src = source(meta({ 'a.json': { alias: 'V8E', groupName: '组名' } }));
         expect(resolveAssetDisplayName({ fileName: 'a.json', productName: '超长产品名' }, src)).toBe('V8E');
     });
 
-    it('falls back to the group display name when no alias', () => {
+    // 回归：组名是组头的覆盖，绝不能盖住资产自己的名字——
+    // 否则组重命名会把组内每张卡都变成同一个组名（同组多车再也分不开）。
+    it('does NOT fall back to groupName — 组名只在组头生效', () => {
         const src = source(meta({ 'a.json': { groupName: '星享V6E' } }));
-        expect(resolveAssetDisplayName({ fileName: 'a.json', productName: '超长产品名' }, src)).toBe('星享V6E');
+        expect(resolveAssetDisplayName({ fileName: 'a.json', productName: '超长产品名' }, src)).toBe('超长产品名');
     });
 
-    it('falls back to the derived product name when neither is set', () => {
+    it('falls back to the derived product name when no alias', () => {
         const src = source(meta({ 'a.json': {} }));
         expect(resolveAssetDisplayName({ fileName: 'a.json', productName: '长名' }, src)).toBe('长名');
     });
@@ -117,9 +119,20 @@ describe('assetAlias · resolveAssetDisplayName (别名 → 组名 → 派生名
         expect(resolveAssetDisplayName({ fileName: 'V6E.json', productName: '' }, src)).toBe('V6E');
     });
 
-    it('treats a blank alias as unset and does not shadow the fallbacks', () => {
+    it('treats a blank alias as unset and does not shadow the fallback', () => {
         const src = source(meta({ 'a.json': { alias: '  ', groupName: '组名' } }));
-        expect(resolveAssetDisplayName({ fileName: 'a.json', productName: '长名' }, src)).toBe('组名');
+        expect(resolveAssetDisplayName({ fileName: 'a.json', productName: '长名' }, src)).toBe('长名');
+    });
+
+    it('同组多辆车各自显示自己的名字（组名不把它们抹平）', () => {
+        const src = source(meta({
+            'a.json': { groupName: '远程V6E' },
+            'b.json': { groupName: '远程V6E' },
+        }));
+        const a = resolveAssetDisplayName({ fileName: 'a.json', productName: '远程V6E 50.23 公告A' }, src);
+        const b = resolveAssetDisplayName({ fileName: 'b.json', productName: '远程V6E 41.86 公告B' }, src);
+        expect(a).not.toBe(b);
+        expect(a).not.toBe('远程V6E');
     });
 });
 

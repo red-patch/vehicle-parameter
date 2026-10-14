@@ -9,7 +9,8 @@ import type { AssetMetaMap, AssetFileInfo } from './assetManager';
  *
  * 存储：`_asset_meta.json` 的 `AssetGovernanceMeta.alias`（键 = fileName，与 status/groupName/note 同处）。
  *
- * 解析顺序：alias(自身) → alias(同身份键最新版) → groupName → 派生名(getAssetDisplayName)。
+ * 解析顺序：alias(自身) → alias(同身份键最新版) → 派生名(getAssetDisplayName)。
+ * 组名（meta.groupName）**不进资产级链路**，它只在组头生效（设计 §D10）。
  *
  * 三个硬约束：
  * 1. 别名只出现在**渲染文本**里——永不进 React key、永不进比较、永不进身份键
@@ -49,12 +50,6 @@ export const getOwnAlias = (fileName: string, metaMap: AssetMetaMap): string | n
     return alias || null;
 };
 
-/** 该文件的组级显示名覆盖；未设置/空白 → null */
-const getGroupAlias = (fileName: string, metaMap: AssetMetaMap): string | null => {
-    const name = normalizeAlias(metaMap[fileName]?.groupName);
-    return name || null;
-};
-
 /**
  * 解析生效别名：自身别名优先；否则沿身份键从同车**其他**版本继承（见 D7）。
  * 未提供身份回调、或无同车其他版本带别名 → null。
@@ -78,8 +73,12 @@ export const resolveAssetAlias = (fileName: string, source: AliasSource): string
 };
 
 /**
- * 全站唯一显示名入口：别名 → 组名 → 派生名(getAssetDisplayName)。
- * 别名与组名都未设时回落到 `productName || 文件名去后缀`。
+ * 资产级显示名入口：别名 → 派生名(getAssetDisplayName)。
+ *
+ * **刻意不含组名**（设计 §D10，只在对应层级生效）：`groupName` 是**组头**的显示覆盖，
+ * 由组头渲染处（AssetGroupedView / AssetPoolLayout 的 vehicleGroupLabel）单独读取。
+ * 若把它并进资产级链路，组重命名会把组内每张卡的名称全盖成同一个组名——
+ * 同组多辆车（差异在电量/公告号）彼此再也分不开。
  */
 export const resolveAssetDisplayName = (
     info: AliasLookupInfo,
@@ -87,9 +86,6 @@ export const resolveAssetDisplayName = (
 ): string => {
     const alias = resolveAssetAlias(info.fileName, source);
     if (alias) return alias;
-
-    const groupName = getGroupAlias(info.fileName, source.metaMap);
-    if (groupName) return groupName;
 
     return getAssetDisplayName(info.fileName, info.productName);
 };
