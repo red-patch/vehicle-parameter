@@ -1,6 +1,28 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import MainLayout from '../MainLayout';
+
+// localStorage 在测试环境是无 setItem 的空壳，settingsStore 的 persist 会抛错；
+// 必须在 import 之前替换（zustand 在 store 创建时就解析并存下该对象）。
+vi.hoisted(() => {
+  if (typeof (globalThis.localStorage as Storage | undefined)?.setItem !== 'function') {
+    const memory = new Map<string, string>();
+    const fakeStorage: Storage = {
+      getItem: (k) => memory.get(k) ?? null,
+      setItem: (k, v) => void memory.set(k, String(v)),
+      removeItem: (k) => void memory.delete(k),
+      clear: () => memory.clear(),
+      key: (i) => Array.from(memory.keys())[i] ?? null,
+      get length() {
+        return memory.size;
+      },
+    };
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: fakeStorage });
+    Object.defineProperty(window, 'localStorage', { configurable: true, writable: true, value: fakeStorage });
+  }
+});
+
+const { default: MainLayout } = await import('../MainLayout');
+const { useSettingsStore } = await import('../../../store/settingsStore');
 
 vi.mock('../../../store/themeStore', () => ({
   useThemeStore: () => ({ isDarkMode: false, toggleDarkMode: vi.fn() }),
@@ -8,6 +30,10 @@ vi.mock('../../../store/themeStore', () => ({
 
 vi.mock('../../../store/vehicleStore', () => ({
   useVehicleStore: () => ({ assetLibraryPath: '/tmp/assets', setAssetLibraryPath: vi.fn() }),
+}));
+
+vi.mock('../../../store/regulationStore', () => ({
+  useRegulationStore: () => ({ rootPath: '', setRootPath: vi.fn(), load: vi.fn() }),
 }));
 
 vi.mock('../../../utils/fieldLists', () => ({
@@ -24,6 +50,7 @@ vi.mock('../../../utils/assetTagGroups', () => ({
 
 afterEach(() => {
   cleanup();
+  useSettingsStore.setState({ isOpen: false, activeSection: 'appearance' });
 });
 
 describe('MainLayout navigation', () => {
@@ -61,5 +88,20 @@ describe('MainLayout navigation', () => {
     expect(title.className).toContain('max-w-');
     expect(navScroll.className).toContain('overflow-x-auto');
     expect(navScroll.className).toContain('min-w-0');
+  });
+
+  it('header 的齿轮按钮打开设置面板', () => {
+    render(
+      <MainLayout activeTab="pool">
+        <div>content</div>
+      </MainLayout>
+    );
+
+    expect(useSettingsStore.getState().isOpen).toBe(false);
+    fireEvent.click(screen.getByTestId('open-settings'));
+
+    expect(useSettingsStore.getState().isOpen).toBe(true);
+    // 设置面板的分类导航出现
+    expect(screen.getByRole('tab', { name: /外观/ })).toBeInTheDocument();
   });
 });

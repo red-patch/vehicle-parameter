@@ -139,6 +139,19 @@
   --asset-active-dot: var(--success);
 }
 
+/* ---- 界面字号三档（设置 → 外观 → 界面字号） ----
+   与 themeConfig.ts 的 token.fontSize 同源同步：small=12 / medium=13（默认）/ large=15。
+   medium 不设属性（即 :root 的默认值）；只覆盖字号 token，颜色/间距不动。
+   边界：src/ 中内联的 fontSize: N 不读这里，不随档位缩放（见设计文档 §4.1）。 */
+:root[data-font-scale='small'] {
+  --fs-caption: 10px;  --fs-aux: 11px;   --fs-body: 12px;  --fs-title: 13px;
+  --fs-section: 15px;  --fs-page: 18px;  --fs-stat: 24px;  --fs-hero: 30px;
+}
+:root[data-font-scale='large'] {
+  --fs-caption: 12px;  --fs-aux: 14px;   --fs-body: 15px;  --fs-title: 16px;
+  --fs-section: 18px;  --fs-page: 23px;  --fs-stat: 30px;  --fs-hero: 36px;
+}
+
 /* ====================================================================
    暗色 —— 非简单反色（另一套光照条件）
    ① 底不用纯黑，三层表面「越上层越亮」；② 主色抬阶且文字/填充拆名；

@@ -1,14 +1,15 @@
 import React, { type ReactNode } from 'react';
 import { version } from '../../../package.json';
 import { Layout as AntLayout, Menu, Tooltip, Button } from 'antd';
-import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, BookOutlined, SunOutlined, MoonOutlined, SettingOutlined, DeleteOutlined, CarOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, BookOutlined, SunOutlined, MoonOutlined, SettingOutlined, CarOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { reloadCustomFields } from '../../utils/fieldLists';
 import { reloadBidMappings } from '../../utils/bidFieldMapping';
 import { preloadEnumData } from '../../utils/attributeEnums';
 import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
-import { Modal } from 'antd';
+import SettingsModal from '../Settings/SettingsModal';
 import { APP_NAME } from '../../constants/app';
 
 const { Header, Content, Footer } = AntLayout;
@@ -65,6 +66,7 @@ const items = [
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbench', onTabChange }) => {
     const { isDarkMode, toggleDarkMode } = useThemeStore();
     const assetLibraryPath = useVehicleStore(state => state.assetLibraryPath);
+    const openSettings = useSettingsStore(state => state.open);
 
     // 监听本地资产路径挂载事件，触发字典与标准的超级同化机制
     React.useEffect(() => {
@@ -124,39 +126,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
         return () => window.removeEventListener('keydown', handler);
     }, []);
 
-    const handleClearCache = () => {
-        Modal.confirm({
-            title: '确认重置本地数据？',
-            icon: <DeleteOutlined style={{ color: 'var(--danger)' }} />,
-            content: (
-                <div className="text-sm">
-                    <p>这将执行以下操作：</p>
-                    <ul className="list-disc pl-4 mt-2 mb-4">
-                        <li>清空所有已上传的临时文件</li>
-                        <li>重置已选车型、对比历史及填报配置</li>
-                        <li>清除主题及界面状态偏好</li>
-                    </ul>
-                    <div className="surface-inset p-2 rounded border-default">
-                        <div className="font-bold mb-1">物理数据位置 (用于手动彻底删除):</div>
-                        <div className="select-all break-all">
-                            {window.navigator.platform.includes('Mac')
-                                ? '~/Library/Application Support/com.vehicle.parameter/'
-                                : '%LOCALAPPDATA%\\com.vehicle.parameter\\'}
-                        </div>
-                    </div>
-                    <p className="mt-4 font-bold text-warning-text">注意：此操作不可恢复，应用将自动重启。</p>
-                </div>
-            ),
-            okText: '立即重置',
-            okType: 'danger',
-            cancelText: '取消',
-            onOk: () => {
-                localStorage.clear();
-                window.location.reload();
-            }
-        });
-    };
-
     return (
         <AntLayout className="min-h-screen">
             <Header data-tauri-drag-region className={`app-header flex items-center gap-3 px-4 h-12 border-b sticky top-0 z-50 surface-container border-default`}>
@@ -189,12 +158,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                             icon={isDarkMode ? <SunOutlined className="text-2" /> : <MoonOutlined className="text-2" />}
                         />
                     </Tooltip>
-                    <Tooltip title="重置本地数据">
+                    <Tooltip title="设置">
                         <Button
                             type="text"
                             size="small"
-                            icon={<DeleteOutlined className="text-3 hover:text-danger" />}
-                            onClick={handleClearCache}
+                            data-testid="open-settings"
+                            aria-label="设置"
+                            onClick={() => openSettings()}
+                            icon={<SettingOutlined className="text-2" />}
                         />
                     </Tooltip>
                 </div>
@@ -205,6 +176,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
             <Footer className="text-center text-xs py-2.5 border-t border-default text-3 bg-transparent">
                 © {new Date().getFullYear()} 计皓琛
             </Footer>
+            {/* 设置面板常驻挂载：开合由 settingsStore.isOpen 单点驱动，
+                快捷键监听也随其生命周期驻留（见 useSettingsHotkey）。 */}
+            <SettingsModal />
         </AntLayout>
     );
 };

@@ -6,6 +6,7 @@ import MainLayout from './components/Layout/MainLayout';
 import LegacyDiffPanel from './components/DiffViewer/LegacyDiffPanel';
 import { useVehicleStore } from './store/vehicleStore';
 import { useThemeStore } from './store/themeStore';
+import { useSettingsStore, FONT_SCALE_PX } from './store/settingsStore';
 import { compareSheets } from './utils/comparator';
 import { getThemeConfig } from './theme/themeConfig';
 import { useShallow } from 'zustand/react/shallow';
@@ -44,6 +45,7 @@ const App: React.FC = () => {
     compareMode: state.compareMode,
   })));
   const { isDarkMode } = useThemeStore();
+  const fontSize = useSettingsStore(state => state.fontSize);
   const [activeTab, setActiveTab] = React.useState('pool');
   // 工作台停留的内部 tab：切到非工作台模块时保持不变，MemoWorkbench 的 props
   // 稳定（不重渲染），回到工作台时状态原样。所有切 tab 入口都走 handleTabChange。
@@ -65,6 +67,16 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
+  // 同步界面字号到 DOM：驱动 index.css 的 --fs-* 变量（medium 移除属性即回默认）
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (fontSize === 'medium') {
+      root.removeAttribute('data-font-scale');
+    } else {
+      root.setAttribute('data-font-scale', fontSize);
+    }
+  }, [fontSize]);
+
   // Auto-run diff when both files are present or mode changes
   React.useEffect(() => {
     if (baseFile && targetFile) {
@@ -81,10 +93,10 @@ const App: React.FC = () => {
   // theme 对象必须 memo：内联字面量会让 ConfigProvider 的 context 在每次
   // activeTab 切换时变化，绕过所有子树的 React.memo 触发全应用 antd 重渲染
   const themeConfig = React.useMemo(() => ({
-    ...getThemeConfig(isDarkMode),
+    ...getThemeConfig(isDarkMode, FONT_SCALE_PX[fontSize]),
     cssVar: {},
     algorithm: isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
-  }), [isDarkMode]);
+  }), [isDarkMode, fontSize]);
 
   return (
     <ConfigProvider

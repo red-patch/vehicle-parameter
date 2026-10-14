@@ -78,7 +78,7 @@ const DARK: Palette = {
   buttonFillHover: '#5569EB', // 白字 4.6:1
 };
 
-export const getThemeConfig = (isDark: boolean): ThemeConfig => {
+export const getThemeConfig = (isDark: boolean, fontSize: number = 13): ThemeConfig => {
   const p = isDark ? DARK : LIGHT;
   return {
     token: {
@@ -90,7 +90,9 @@ export const getThemeConfig = (isDark: boolean): ThemeConfig => {
       colorTextBase: p.textBase,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       borderRadius: 6,
-      fontSize: 13,
+      // 基础字号由「设置 → 外观 → 界面字号」驱动（12/13/15）。
+      // 注：`src/` 中内联的 fontSize: N 不读此 token，不随字号缩放——见设计文档 §4.1。
+      fontSize,
       colorBgLayout: p.bgLayout,
       colorBgContainer: p.bgContainer,
       colorBgElevated: p.bgElevated,
