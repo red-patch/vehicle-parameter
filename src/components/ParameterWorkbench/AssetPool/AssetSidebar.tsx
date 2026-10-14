@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import {
     HomeOutlined, AppstoreOutlined, StarOutlined, WarningOutlined,
     BranchesOutlined, EditOutlined, HistoryOutlined, DeleteOutlined,
-    AuditOutlined, SettingOutlined, ReloadOutlined,
+    AuditOutlined, SettingOutlined, ReloadOutlined, SearchOutlined,
 } from '@ant-design/icons';
-import { message, Tooltip } from 'antd';
+import { message, Tooltip, Input } from 'antd';
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../../store/vehicleStore';
 import FileManager from '../FileManager';
@@ -100,6 +100,8 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
 
     const [mfrExpanded, setMfrExpanded] = useState(true);
     const [familyExpanded, setFamilyExpanded] = useState(true);
+    // 导航搜索：过滤主机厂 + 族群两个列表（本地过滤，不改筛选状态）
+    const [navKeyword, setNavKeyword] = useState('');
 
     const manufacturerRows = useMemo(() => {
         const countsMap = countFacetValues(facetItems, facetSelection, 'manufacturer');
@@ -120,6 +122,16 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
             .map(name => ({ name, count: countsMap.get(name) || 0 }))
             .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-Hans-CN'));
     }, [facetItems, facetSelection, facetVocab]);
+
+    // 搜索词过滤（命中主机厂或族群名；空词 = 全量）
+    const navFiltered = useMemo(() => {
+        const kw = navKeyword.trim().toLowerCase();
+        if (!kw) return { manufacturers: manufacturerRows, families: familyRows };
+        return {
+            manufacturers: manufacturerRows.filter(r => r.name.toLowerCase().includes(kw)),
+            families: familyRows.filter(r => r.name.toLowerCase().includes(kw)),
+        };
+    }, [navKeyword, manufacturerRows, familyRows]);
 
     const handleDimClick = (dim: FacetDim, value: string) => {
         const key = dim === 'manufacturer' ? 'manufacturers' : 'families';
@@ -163,13 +175,24 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
             {/* 快速导航 */}
             <div className="mb-4">
                 <SectionTitle>快速导航</SectionTitle>
+                {/* 导航搜索：同时过滤主机厂 / 族群 */}
+                <div className="px-3 pb-1.5">
+                    <Input
+                        size="small"
+                        placeholder="搜索主机厂 / 族群…"
+                        prefix={<SearchOutlined className="text-3 text-[11px]" />}
+                        allowClear
+                        value={navKeyword}
+                        onChange={e => setNavKeyword(e.target.value)}
+                    />
+                </div>
                 <NavItem
                     icon={<HomeOutlined />}
                     label="主机厂"
-                    count={manufacturerRows.length}
+                    count={navFiltered.manufacturers.length}
                     onClick={() => setMfrExpanded(!mfrExpanded)}
                 />
-                {mfrExpanded && manufacturerRows.map(m => (
+                {(mfrExpanded || navKeyword.trim()) && navFiltered.manufacturers.map(m => (
                     <NavItem
                         key={m.name}
                         icon={<span />}
@@ -180,13 +203,16 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                         onClick={() => handleDimClick('manufacturer', m.name)}
                     />
                 ))}
+                {(mfrExpanded || navKeyword.trim()) && navKeyword.trim() && navFiltered.manufacturers.length === 0 && (
+                    <div className="pl-12 pr-3 py-1 text-caption text-4">无匹配主机厂</div>
+                )}
                 <NavItem
                     icon={<AppstoreOutlined />}
                     label="车型族群"
-                    count={familyRows.length}
+                    count={navFiltered.families.length}
                     onClick={() => setFamilyExpanded(!familyExpanded)}
                 />
-                {familyExpanded && familyRows.map(f => (
+                {(familyExpanded || navKeyword.trim()) && navFiltered.families.map(f => (
                     <NavItem
                         key={f.name}
                         icon={<span />}
@@ -197,6 +223,9 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                         onClick={() => handleDimClick('vehicleFamily', f.name)}
                     />
                 ))}
+                {(familyExpanded || navKeyword.trim()) && navKeyword.trim() && navFiltered.families.length === 0 && (
+                    <div className="pl-12 pr-3 py-1 text-caption text-4">无匹配族群</div>
+                )}
             </div>
 
             <div className="h-px bg-[var(--border-default)] mx-4 my-3" />
