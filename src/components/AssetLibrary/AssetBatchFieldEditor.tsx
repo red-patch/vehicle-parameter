@@ -86,22 +86,40 @@ const AssetBatchFieldEditor: React.FC<AssetBatchFieldEditorProps> = ({
         });
     }, [rows, target, onlyLatest, onlyEmpty]);
 
+    // 选中字段即出预览（当前值可见），新值未填时 verdict 为 null、不可勾选；
+    // 不能等新值才建计划，否则用户选完字段看到的是空表，误以为字段不存在。
     const plan = useMemo(
-        () => (target && value !== null ? buildFieldEditPlan(scopedRows, target, value) : []),
+        () => (target ? buildFieldEditPlan(scopedRows, target, value) : []),
         [scopedRows, target, value],
     );
 
-    // 勾选：默认勾上所有可动作行，随计划变化收敛（保留用户已取消的）
-    const planNames = plan.map(r => r.fileName).join(',');
+    // 勾选：行一旦变得「可动作」（补全/覆盖/新增行）就默认勾上；
+    // 用户手动取消过的行不再自动复活（touchedRef 记录用户的取舍）。
+    // 换字段/范围时先清 touchedRef，再按默认重勾（同一个 effect 内顺序执行，避免两个 effect 互相覆盖）。
+    const touchedRef = React.useRef<Set<string>>(new Set());
+    const scopeKey = `${encodeTarget(target ?? { layer: 'param', name: '' })}\u0000${onlyLatest}\u0000${onlyEmpty}`;
+    const planSig = `${scopeKey}\u0000${plan.map(r => `${r.fileName}:${r.verdict ?? ''}`).join(',')}`;
+    const scopeRef = React.useRef(scopeKey);
+
     React.useEffect(() => {
+        if (scopeRef.current !== scopeKey) {
+            scopeRef.current = scopeKey;
+            touchedRef.current = new Set();
+        }
         const actionable = new Set(plan.filter(isActionable).map(r => r.fileName));
         setChecked(prev => {
             const next = new Set<string>();
-            actionable.forEach(f => { if (prev.size === 0 || prev.has(f)) next.add(f); });
+            actionable.forEach(f => {
+                if (touchedRef.current.has(f)) {
+                    if (prev.has(f)) next.add(f);
+                } else {
+                    next.add(f);
+                }
+            });
             return next;
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [planNames]);
+    }, [planSig]);
 
     const actionableChecked = plan.filter(r => checked.has(r.fileName) && r.verdict && r.verdict !== 'same');
     const canSave = isWritableTarget(target) && value !== null && actionableChecked.length > 0;
@@ -121,19 +139,16 @@ const AssetBatchFieldEditor: React.FC<AssetBatchFieldEditorProps> = ({
     };
 
     const setPreset = (preset: 'latest' | 'empty' | 'all') => {
-        if (target) {
-            const next = buildFieldEditPlan(rows, target, value);
-            if (preset === 'all') {
-                setOnlyLatest(false); setOnlyEmpty(false);
-                setChecked(new Set(next.filter(isActionable).map(r => r.fileName)));
-                return;
-            }
-            if (preset === 'latest') { setOnlyLatest(true); setOnlyEmpty(false); return; }
-            setOnlyEmpty(true); setOnlyLatest(false);
+        if (!target) { message.info('请先选择字段'); return; }
+        // 重置勾选：清掉用户取舍，回到「可动作行全勾」
+        touchedRef.current = new Set();
+        if (preset === 'all') {
+            setOnlyLatest(false); setOnlyEmpty(false);
+            setChecked(new Set(buildFieldEditPlan(rows, target, value).filter(isActionable).map(r => r.fileName)));
             return;
         }
-        if (preset === 'all') setChecked(new Set(plan.filter(isActionable).map(r => r.fileName)));
-        else message.info('请先选择字段');
+        if (preset === 'latest') { setOnlyLatest(true); setOnlyEmpty(false); return; }
+        setOnlyEmpty(true); setOnlyLatest(false);
     };
 
     const renderValueInput = () => {
@@ -208,7 +223,10 @@ const AssetBatchFieldEditor: React.FC<AssetBatchFieldEditorProps> = ({
                 </div>
                 <div className="flex items-center gap-3 flex-wrap text-[12px] text-2">
                     <Checkbox checked={allChecked} disabled={plan.length === 0}
-                        onChange={e => setChecked(e.target.checked ? new Set(plan.map(r => r.fileName)) : new Set())}>
+                        onChange={e => {
+                            touchedRef.current = new Set(plan.map(r => r.fileName));
+                            setChecked(e.target.checked ? new Set(plan.map(r => r.fileName)) : new Set());
+                        }}>
                         全选（{checked.size}/{plan.length}）
                     </Checkbox>
                     <span className="w-px h-4 bg-[color:var(--border-default)]" />
@@ -226,11 +244,15 @@ const AssetBatchFieldEditor: React.FC<AssetBatchFieldEditorProps> = ({
                 pagination={plan.length > 50 ? { pageSize: 50, size: 'small' } : false}
                 rowSelection={{
                     selectedRowKeys: Array.from(checked),
-                    onChange: keys => setChecked(new Set(keys as string[])),
+                    onChange: keys => {
+                        // 用户逐行取舍：记为 touched，后续自动勾选不再复活被取消的行
+                        touchedRef.current = new Set([...touchedRef.current, ...plan.map(r => r.fileName)]);
+                        setChecked(new Set(keys as string[]));
+                    },
                     getCheckboxProps: r => ({ disabled: r.verdict === null || r.verdict === 'same' }),
                     columnWidth: 36,
                 }}
-                locale={{ emptyText: target ? '没有符合条件的资产' : '先选择字段并填写新值' }}
+                locale={{ emptyText: target ? '没有符合条件的资产' : '先选择要维护的字段' }}
                 columns={[
                     {
                         title: '资产', dataIndex: 'fileName', width: 260, ellipsis: true,

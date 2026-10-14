@@ -47,7 +47,19 @@ describe('AssetBatchFieldEditor', () => {
 
     it('未选字段时提示先选字段，保存禁用', () => {
         renderEditor();
-        expect(screen.getByText('先选择字段并填写新值')).toBeTruthy();
+        expect(screen.getByText('先选择要维护的字段')).toBeTruthy();
+        expect(screen.getByRole('button', { name: /预览并保存/ }).closest('button')).toBeDisabled();
+    });
+
+    it('选中字段即列出资产与当前值（尚未填新值时也如此）', () => {
+        renderEditor();
+        pickFieldOption('质量参数·整备质量');
+        // 回归：此前预览在填新值前不生成，选完字段看到空表，误判字段不存在
+        expect(screen.getByText('V6E 客运版')).toBeTruthy();
+        expect(screen.getByText('V6E 货运版')).toBeTruthy();
+        expect(screen.getByText('1980')).toBeTruthy();
+        expect(screen.queryByText('没有符合条件的资产')).toBeNull();
+        // 未填新值 → 无可动作行，保存仍禁用
         expect(screen.getByRole('button', { name: /预览并保存/ }).closest('button')).toBeDisabled();
     });
 
