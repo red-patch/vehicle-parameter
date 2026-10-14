@@ -1,12 +1,11 @@
 /**
  * 属性枚举值服务
- * 从 属性值统计.csv 加载枚举值字典，提供属性名到枚举值列表的查询
- * 并且支持通过注入 libraryPath 热替换为使用本地资产目录的 custom_enums.json
+ * 枚举值字典完全由用户自定义：由 UI 的「从 Excel 导入枚举」写入本地资产目录的
+ * custom_enums.json，应用启动后经注入的 libraryPath 载入。应用不内置任何默认字典。
  */
 import { loadCustomConfig } from './assetManager';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
-import defaultEnumCsv from '../assets/attribute_values.txt?raw';
 
 interface EnumFieldMeta {
     category?: string;
@@ -38,70 +37,6 @@ function normalizeName(name: string): string {
 }
 
 /**
- * 解析 CSV 行，处理引号包裹的字段
- */
-function parseCSVLine(line: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            result.push(current);
-            current = '';
-        } else {
-            current += char;
-        }
-    }
-    result.push(current);
-    return result;
-}
-
-/**
- * 将 CSV 文本解析并写入缓存。返回写入字段数。
- */
-function applyCsvToCache(csvText: string): number {
-    if (!enumCache || !normalizedNameMap) return 0;
-
-    const text = csvText.replace(/^\uFEFF/, ''); // 清除 UTF-8 BOM
-    const headSample = text.slice(0, 200).toLowerCase();
-    // 防止打包环境静态资源回退到 index.html 被误解析
-    if (headSample.includes('<html') || headSample.includes('<head') || headSample.includes('<body')) {
-        console.error('❌ 属性枚举 CSV 内容异常：检测到 HTML，已跳过加载。');
-        return 0;
-    }
-
-    const lines = text.split(/\r?\n/);
-    if (lines.length === 0) return 0;
-
-    let loaded = 0;
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const [name, valuesStr] = parseCSVLine(line);
-        if (!name) continue;
-
-        const trimmedName = name.trim();
-        if (!trimmedName) continue;
-        const normalizedName = normalizeName(trimmedName);
-        normalizedNameMap.set(normalizedName, trimmedName);
-
-        const values = valuesStr
-            ? valuesStr.split('|').map(v => v.trim()).filter(v => v.length > 0)
-            : [];
-
-        enumCache.set(trimmedName, values);
-        loaded++;
-    }
-
-    return loaded;
-}
-
-/**
  * 判断 custom_enums.json 是否疑似被 HTML 污染（如把 index.html 当成字典）
  */
 function isSuspiciousCustomEnum(config: Record<string, string[]>): boolean {
@@ -124,18 +59,8 @@ async function loadEnumData(libraryPath?: string): Promise<void> {
         enumCache = new Map();
         normalizedNameMap = new Map();
     }
-    
-    // 默认优先加载打包内置 CSV，避免运行时路径回退导致误读 index.html
-    if (enumCache.size === 0) {
-        try {
-            const loaded = applyCsvToCache(defaultEnumCsv);
-            console.log(`✅ 已加载 ${loaded} 个系统默认属性枚举（内置 CSV）`);
-        } catch (error) {
-            console.error('加载系统默认属性枚举失败:', error);
-        }
-    }
 
-    // 第二步：尝试通过传入的 libraryPath 挂载 custom_enums.json (它的优先级最高，将覆写对应键集)
+    // 从注入的资产目录挂载 custom_enums.json（唯一数据来源，应用不内置默认字典）
     if (libraryPath) {
         try {
             const customConfig = await loadCustomConfig<Record<string, string[]>>(libraryPath, 'custom_enums.json');
