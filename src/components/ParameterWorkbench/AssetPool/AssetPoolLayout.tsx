@@ -13,6 +13,10 @@ import AssetInspector from '../AssetInspector';
 import AssetBatchTagBar from '../AssetBatchTagBar';
 import GovernanceReportModal from '../GovernanceReportModal';
 import AssetBatchFacetEditor, { type BatchFacetRow } from '../../AssetLibrary/AssetBatchFacetEditor';
+import AssetBatchFieldEditor, { type ParamFieldOption } from '../../AssetLibrary/AssetBatchFieldEditor';
+import { getAllAttributeNames, getEnumValuesSync } from '../../../utils/attributeEnums';
+import { applyParamFieldEdit, FACET_DIM_LABELS, type FieldEditRow, type FieldEditSourceRow, type FieldTarget } from '../../../utils/assetFieldEdit';
+import type { VehicleParameter } from '../../../types';
 import { useAssetActions } from '../useAssetActions';
 import { useContextMenu } from '../../../hooks/useContextMenu';
 import { useVehicleStore } from '../../../store/vehicleStore';
@@ -46,12 +50,12 @@ import { isFieldRequired } from '../../../assets/requiredFields';
 import { getProductData } from '../../../store/vehicleSelectors';
 import {
     resolveAssetFacets, loadFacetVocab, loadFacetValues, saveFacetVocab, saveFacetValues,
-    collectUnmappedValues, setAssetFacetOverride,
+    collectUnmappedValues, setAssetFacetOverride, addVocabValue,
     DEFAULT_FACET_VOCAB, EMPTY_FACET_VALUES,
     type FacetVocab, type FacetValues, type ResolvedFacets,
     type AssetFacetOverride,
 } from '../../../utils/assetFacets';
-import { loadAssetTags, saveAssetTags, batchAddAssetTags, saveAssetMeta, setAssetAlias } from '../../../utils/assetManager';
+import { batchAddAssetTags, saveAssetMeta, setAssetAlias, loadAssetFile, saveAssetFile } from '../../../utils/assetManager';
 import { getAssetTagGroupsSync, ensureTagsInDefaultGroup, getExclusiveGroupTagSets } from '../../../utils/assetTagGroups';
 import type { AssetFileInfo } from '../../../utils/assetManager';
 
@@ -256,6 +260,12 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     const [batchEditorOpen, setBatchEditorOpen] = useState(false);
     const bumpAssetVersion = useVehicleStore(state => state.bumpAssetVersion);
 
+    // ===== 批量字段维护（参数行 + 受控属性统一批量改值） =====
+    const [fieldEditorOpen, setFieldEditorOpen] = useState(false);
+    const [fieldEditorSeed, setFieldEditorSeed] = useState<{ fileNames: string[]; groupName?: string } | null>(null);
+    const [fieldEditorData, setFieldEditorData] = useState<{ key: string; params: Record<string, VehicleParameter[]> } | null>(null);
+    const [fieldEditorDataVersion, setFieldEditorDataVersion] = useState(0);
+
     const facetIssues = useMemo(() => {
         const missingCount = Array.from(fileFacets.values()).filter(f =>
             f.manufacturer === null || f.batteryBrand === null || f.capacityKwh === null || f.admissionLevel === null
@@ -294,16 +304,157 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
 
     const handleSaveFacetOverrides = useCallback(async (updates: Record<string, AssetFacetOverride>) => {
         if (!assetLibraryPath) return;
+        // 词表维度走 addVocabValue 归一：别名命中归一到规范名，词表外新值就地收词
+        // （设计 docs/plans/2026-10-13-batch-field-maintenance-design.md §6.2）。
+        // 不归一 → 输入「上汽大通」会原样落盘，侧栏同一主机厂裂成规范名 + 裸别名两行。
+        // capacityKwh 为数值、announceNos 为多值列表，均不受词表约束，原样透传。
+        const VOCAB_DIMS = ['manufacturer', 'batteryBrand', 'admissionLevel'] as const;
+        let vocab = facetVocab;
         let next = facetValues;
         Object.entries(updates).forEach(([fileName, patch]) => {
-            next = setAssetFacetOverride(next, fileName, patch);
+            const normalized: AssetFacetOverride = { ...patch };
+            VOCAB_DIMS.forEach(dim => {
+                const raw = patch[dim];
+                if (typeof raw !== 'string' || !raw.trim()) return;
+                const r = addVocabValue(vocab, dim, raw);
+                vocab = r.vocab;
+                normalized[dim] = r.value;
+            });
+            next = setAssetFacetOverride(next, fileName, normalized);
         });
+        if (vocab !== facetVocab) setFacetVocab(vocab);
         setFacetValues(next);
         await saveFacetValues(assetLibraryPath, next);
-        await saveFacetVocab(assetLibraryPath, facetVocab);
+        if (vocab !== facetVocab) await saveFacetVocab(assetLibraryPath, vocab);
         message.success(`已保存 ${Object.keys(updates).length} 个资产的属性修正`);
         setBatchEditorOpen(false);
     }, [assetLibraryPath, facetVocab, facetValues]);
+
+    // ===== 批量字段维护：入口 / 数据加载 / 落盘 =====
+    const openFieldEditor = useCallback((seed: { fileNames: string[]; groupName?: string }) => {
+        if (seed.fileNames.length === 0) {
+            message.warning('请先勾选要维护的资产');
+            return;
+        }
+        setFieldEditorSeed(seed);
+        setFieldEditorOpen(true);
+        setFieldEditorDataVersion(v => v + 1);
+    }, []);
+
+    const closeFieldEditor = useCallback(() => {
+        setFieldEditorOpen(false);
+        setFieldEditorSeed(null);
+    }, []);
+
+    const fieldEditorRows = useMemo<FieldEditSourceRow[]>(() => {
+        if (!fieldEditorSeed) return [];
+        const byName = new Map(snapshot.infos.map(a => [a.fileName, a]));
+        return fieldEditorSeed.fileNames
+            .map(fileName => byName.get(fileName))
+            .filter((info): info is AssetFileInfo => !!info && snapshot.meta[info.fileName]?.status !== 'deprecated')
+            .map(info => ({
+                fileName: info.fileName,
+                productName: info.productName,
+                isLatest: snapshot.latestSet.has(info.fileName),
+                params: fieldEditorData?.params[info.fileName] ?? [],
+                facets: fileFacets.get(info.fileName),
+            }));
+    }, [fieldEditorSeed, snapshot.infos, snapshot.meta, snapshot.latestSet, fieldEditorData, fileFacets]);
+
+    // 打开时按需读盘：只加载候选资产的参数行
+    useEffect(() => {
+        if (!fieldEditorOpen || !fieldEditorSeed || !assetLibraryPath) return;
+        const key = `${assetLibraryPath}\u0000${fieldEditorDataVersion}\u0000${fieldEditorSeed.fileNames.join(',')}`;
+        if (fieldEditorData?.key === key) return;
+        let cancelled = false;
+        (async () => {
+            const pairs = await Promise.all(fieldEditorSeed.fileNames.map(async fileName => {
+                const sheet = await loadAssetFile(assetLibraryPath, fileName);
+                return [fileName, sheet?.data ?? []] as const;
+            }));
+            if (cancelled) return;
+            setFieldEditorData({ key, params: Object.fromEntries(pairs) });
+        })();
+        return () => { cancelled = true; };
+    }, [fieldEditorOpen, fieldEditorSeed, assetLibraryPath, fieldEditorDataVersion, fieldEditorData]);
+
+    /** 参数字段候选（受控词表）；fieldEditorDataVersion 每次打开递增，刷新词表缓存 */
+    const paramFieldOptions = useMemo<ParamFieldOption[]>(
+        () => getAllAttributeNames().map(name => ({ name })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [fieldEditorDataVersion],
+    );
+
+    const handleFieldEditorSave = useCallback(async (payload: {
+        target: FieldTarget;
+        value: string | number;
+        rows: FieldEditRow[];
+    }) => {
+        if (!assetLibraryPath) return;
+        const { target, value, rows } = payload;
+
+        if (target.layer === 'facet') {
+            if (target.dim === 'capacityKwh') {
+                if (typeof value !== 'number' || !Number.isFinite(value)) {
+                    message.warning('电量需为数值');
+                    return;
+                }
+            } else if (typeof value !== 'string' || !value.trim()) {
+                message.warning('请填写要设置的值');
+                return;
+            }
+            let vocab = facetVocab;
+            let next = facetValues;
+            for (const row of rows) {
+                let v: string | number = value;
+                if (target.dim !== 'capacityKwh') {
+                    const r = addVocabValue(vocab, target.dim, String(value));
+                    vocab = r.vocab;
+                    v = r.value;
+                }
+                next = setAssetFacetOverride(next, row.fileName, { [target.dim]: v } as AssetFacetOverride);
+            }
+            if (vocab !== facetVocab) setFacetVocab(vocab);
+            setFacetValues(next);
+            await saveFacetValues(assetLibraryPath, next);
+            if (vocab !== facetVocab) await saveFacetVocab(assetLibraryPath, vocab);
+            bumpAssetVersion();
+            message.success(`已更新 ${rows.length} 个资产的${FACET_DIM_LABELS[target.dim]}`);
+            closeFieldEditor();
+            return;
+        }
+
+        if (typeof value !== 'string') { message.warning('参数值需为文本'); return; }
+        const nowIso = new Date().toISOString();
+        const failed: string[] = [];
+        let saved = 0;
+        for (const row of rows) {
+            try {
+                const sheet = await loadAssetFile(assetLibraryPath, row.fileName);
+                if (!sheet) { failed.push(row.fileName); continue; }
+                const params = applyParamFieldEdit(sheet.data, target, value, nowIso);
+                if (params === sheet.data) continue;   // 无实际改动
+                await saveAssetFile(
+                    assetLibraryPath,
+                    row.fileName,
+                    sheet.productName || row.fileName.replace(/\.json$/i, ''),
+                    params,
+                    sheet.createdAt,
+                );
+                saved += 1;
+            } catch (err) {
+                console.error('批量写入参数失败', row.fileName, err);
+                failed.push(row.fileName);
+            }
+        }
+        bumpAssetVersion();
+        if (failed.length > 0) {
+            message.warning(`已更新 ${saved} 个资产，${failed.length} 个失败：${failed.slice(0, 3).join('、')}${failed.length > 3 ? ' 等' : ''}`);
+        } else {
+            message.success(`已更新 ${saved} 个资产的「${target.name}」`);
+        }
+        closeFieldEditor();
+    }, [assetLibraryPath, facetVocab, facetValues, bumpAssetVersion, closeFieldEditor]);
 
     // ===== 全部标签集合（筛选 chip 用） =====
     const allTags = useMemo(() => {
@@ -685,6 +836,14 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         else message.info('该车型组的最新版均已在工作区');
     }, [snapshot.infos, snapshot.meta, snapshot.latestSet, brandNames, activeFileNames, addActiveAsset]);
 
+    // ===== 批量维护本组字段（组头操作）：把该车型组全部资产交给批量字段维护抽屉 =====
+    const handleBulkEditGroup = useCallback((group: VehicleGroup) => {
+        const fileNames = snapshot.infos
+            .filter(info => resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames) === group.groupKey)
+            .map(info => info.fileName);
+        openFieldEditor({ fileNames, groupName: group.groupKey });
+    }, [snapshot.infos, snapshot.meta, brandNames, openFieldEditor]);
+
     // ===== 车型组重命名（写 meta.groupName；与资产别名分层，见设计 §3）=====
     // 用未筛选的全量组（体检报告口径）确定作用范围，避免筛选态下漏写
     const groupRenameTarget = useMemo(
@@ -822,20 +981,19 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         const exclusiveSets = getExclusiveGroupTagSets();
         const touchesExclusive = tags.some(t => exclusiveSets.some(set => set.includes(t)));
         try {
-            const currentTags = await loadAssetTags(assetLibraryPath);
-            const nextTags = { ...currentTags };
-            const updated = await batchAddAssetTags(assetLibraryPath, [...batchSelection], tags, exclusiveSets);
-            Object.assign(nextTags, updated);
-            await saveAssetTags(assetLibraryPath, nextTags);
+            // batchAddAssetTags 一次读盘一次写盘（普通标签合并、互斥组替换），无需在此重复读写
+            await batchAddAssetTags(assetLibraryPath, [...batchSelection], tags, exclusiveSets);
             const groupsUpdated = await ensureTagsInDefaultGroup(assetLibraryPath, tags);
             if (groupsUpdated) bumpAssetTagGroupsVersion();
+            // 快照按 assetVersion 重拉；不 bump 则标签已落盘、卡片仍显示旧标签
+            bumpAssetVersion();
             const suffix = touchesExclusive ? '（互斥组标签已替换组内原有标签）' : '';
             message.success(`已为 ${count} 个资产添加标签：${tags.join('、')}${suffix}`);
         } catch (err) {
             console.error('Batch add tags failed', err);
             message.error('批量添加标签失败');
         }
-    }, [assetLibraryPath, batchSelection, bumpAssetTagGroupsVersion]);
+    }, [assetLibraryPath, batchSelection, bumpAssetTagGroupsVersion, bumpAssetVersion]);
 
     // ===== 快捷键（设计文档 §3.6） =====
     // 依赖 enterBatchMode/exitBatchMode/handleOpenInspector，故置于其后。
@@ -1001,19 +1159,9 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
 
     return (
         <div className="flex h-full gap-3">
-            {/* 左栏：可折叠（展开 240px / 折叠 24px 细条） */}
-            <div className={`flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden transition-all duration-200 ${sidebarCollapsed ? 'w-6' : 'w-[240px]'}`} style={{ transitionTimingFunction: 'var(--ease-ui)' }}>
-                {sidebarCollapsed ? (
-                    <div className="h-full flex flex-col items-center py-3 gap-3">
-                        <button
-                            className="w-5 h-5 rounded flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak"
-                            onClick={toggleSidebar}
-                            title="展开导航（⌘S）"
-                        >
-                            <span className="text-[10px]">▸</span>
-                        </button>
-                    </div>
-                ) : (
+            {/* 左栏：可折叠（展开 240px / 折叠 0 = 完全隐藏；展开入口在筛选条左缘） */}
+            {!sidebarCollapsed && (
+                <div className="w-[240px] flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden">
                     <AssetSidebar
                         governanceView={governanceView}
                         onGovernanceViewChange={setGovernanceView}
@@ -1025,12 +1173,22 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                         onOpenGovernance={() => setGovernanceOpen(true)}
                         onCollapse={toggleSidebar}
                     />
-                )}
-            </div>
+                </div>
+            )}
 
             {/* 中间主区：弹性 */}
             <div className="flex-1 min-w-0 flex flex-col surface-container border border-default rounded-xl overflow-hidden">
-                <div ref={searchSectionRef}>
+                <div className="flex items-stretch">
+                    {/* 导航开关（常驻筛选条左缘；折叠后唯一展开入口，保证可达） */}
+                    <button
+                        className="flex-none px-1.5 flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak border-r border-default transition-colors duration-150"
+                        style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                        onClick={toggleSidebar}
+                        title={sidebarCollapsed ? '展开导航（⌘S）' : '隐藏导航（⌘S）'}
+                    >
+                        <span className="text-[11px]">{sidebarCollapsed ? '▸' : '◂'}</span>
+                    </button>
+                    <div ref={searchSectionRef} className="flex-1 min-w-0">
                 <AssetFilterBar
                     searchKeyword={searchKeyword}
                     onSearchKeywordChange={setSearchKeyword}
@@ -1045,6 +1203,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     onStatusSelectionChange={setStatusSelection}
                     onClearAll={handleClearFilters}
                 />
+                    </div>
                 </div>
 
                 {/* 批量打标签操作栏 */}
@@ -1060,6 +1219,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             onExit={exitBatchMode}
                             groups={batchTagGroups}
                             onApplyTags={handleBatchAddTags}
+                            onOpenFieldEditor={() => openFieldEditor({ fileNames: [...batchSelection] })}
                         />
                         <div className="mt-2">
                             <Button
@@ -1268,6 +1428,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             onToggle={toggleGroupCollapsed}
                             onActivateLatest={handleActivateLatest}
                             onRenameGroup={openGroupRename}
+                            onBulkEditFields={handleBulkEditGroup}
                             gridTemplateColumns={gridTemplateColumns}
                             renderCard={info => (
                                 <AssetCard
@@ -1404,6 +1565,16 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 vocab={facetVocab}
                 onClose={() => setBatchEditorOpen(false)}
                 onSaveOverrides={handleSaveFacetOverrides}
+            />
+            <AssetBatchFieldEditor
+                open={fieldEditorOpen}
+                title={fieldEditorSeed?.groupName ? `批量字段维护 · ${fieldEditorSeed.groupName}` : '批量字段维护'}
+                rows={fieldEditorRows}
+                paramFields={paramFieldOptions}
+                vocab={facetVocab}
+                getParamEnumValues={getEnumValuesSync}
+                onClose={closeFieldEditor}
+                onSave={handleFieldEditorSave}
             />
         </div>
     );

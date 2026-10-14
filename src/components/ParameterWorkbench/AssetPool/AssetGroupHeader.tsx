@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tooltip } from 'antd';
-import { CaretRightOutlined, CaretDownOutlined, EditOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, CaretDownOutlined, EditOutlined, FormOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import type { VehicleGroup } from '../../../utils/assetGovernance';
 
 /**
@@ -27,6 +27,8 @@ export interface AssetGroupHeaderProps {
     onActivateLatest?: (group: VehicleGroup) => void;
     /** 重命名车型组（仅车型维度；写 meta.groupName，不改文件名） */
     onRenameGroup?: (group: VehicleGroup) => void;
+    /** 批量维护本组资产字段值（仅车型维度；参数行 + 受控属性） */
+    onBulkEditFields?: (group: VehicleGroup) => void;
     onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -34,7 +36,7 @@ export interface AssetGroupHeaderProps {
 const LEVEL_INDENT = 16;
 
 const AssetGroupHeader: React.FC<AssetGroupHeaderProps> = ({
-    label, count, expanded, onToggle, level = 0, dimLabel, vehicleGroup, onActivateLatest, onRenameGroup, onContextMenu,
+    label, count, expanded, onToggle, level = 0, dimLabel, vehicleGroup, onActivateLatest, onRenameGroup, onBulkEditFields, onContextMenu,
 }) => (
     <div
         className="flex items-center gap-2 py-1.5 cursor-pointer select-none group/header rounded hover:surface-inset transition-colors duration-150"
@@ -74,6 +76,18 @@ const AssetGroupHeader: React.FC<AssetGroupHeaderProps> = ({
                     onClick={e => { e.stopPropagation(); onRenameGroup(vehicleGroup); }}
                 >
                     <EditOutlined />
+                </span>
+            </Tooltip>
+        )}
+
+        {/* 车型维度：批量维护本组资产字段（hover 渐显） */}
+        {vehicleGroup && onBulkEditFields && (
+            <Tooltip title="批量维护本组资产的字段值">
+                <span
+                    className="opacity-0 group-hover/header:opacity-100 text-[12px] text-3 hover:text-brand flex-shrink-0 transition-opacity duration-150"
+                    onClick={e => { e.stopPropagation(); onBulkEditFields(vehicleGroup); }}
+                >
+                    <FormOutlined />
                 </span>
             </Tooltip>
         )}

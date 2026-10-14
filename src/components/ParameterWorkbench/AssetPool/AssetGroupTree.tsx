@@ -19,6 +19,8 @@ export interface AssetGroupTreeProps {
     onActivateLatest: (group: VehicleGroup) => void;
     /** 重命名车型组（仅车型维度组头显示入口）；未传则组头不显示该入口 */
     onRenameGroup?: (group: VehicleGroup) => void;
+    /** 批量维护本组资产字段（仅车型维度组头显示入口）；未传则不显示 */
+    onBulkEditFields?: (group: VehicleGroup) => void;
     /** 单张卡片渲染（复用父组件既有的一整套 props 装配） */
     renderCard: (info: AssetFileInfo) => React.ReactNode;
     /** 网格列模板 */
@@ -26,7 +28,7 @@ export interface AssetGroupTreeProps {
 }
 
 const AssetGroupTree: React.FC<AssetGroupTreeProps> = ({
-    nodes, level, forceExpand, isCollapsed, onToggle, onActivateLatest, onRenameGroup, renderCard, gridTemplateColumns,
+    nodes, level, forceExpand, isCollapsed, onToggle, onActivateLatest, onRenameGroup, onBulkEditFields, renderCard, gridTemplateColumns,
 }) => (
     <div className={level === 0 ? 'space-y-3' : 'space-y-2'}>
         {nodes.map(node => {
@@ -49,6 +51,7 @@ const AssetGroupTree: React.FC<AssetGroupTreeProps> = ({
                         vehicleGroup={node.vehicleGroupKey ? { groupKey: node.vehicleGroupKey, files: [] } : undefined}
                         onActivateLatest={node.vehicleGroupKey ? onActivateLatest : undefined}
                         onRenameGroup={node.vehicleGroupKey ? onRenameGroup : undefined}
+                        onBulkEditFields={node.vehicleGroupKey ? onBulkEditFields : undefined}
                     />
                     {expanded && (
                         isLeaf ? (
@@ -65,6 +68,7 @@ const AssetGroupTree: React.FC<AssetGroupTreeProps> = ({
                                     onToggle={onToggle}
                                     onActivateLatest={onActivateLatest}
                                     onRenameGroup={onRenameGroup}
+                                    onBulkEditFields={onBulkEditFields}
                                     renderCard={renderCard}
                                     gridTemplateColumns={gridTemplateColumns}
                                 />
