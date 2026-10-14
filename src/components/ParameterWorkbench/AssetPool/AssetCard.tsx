@@ -136,12 +136,15 @@ const AssetCard: React.FC<AssetCardProps> = ({
     );
 
     // ===== 横向列表行布局（1 列模式） =====
+    // 单行 flex：名称列**定宽且按容器分档放大**（尽量容纳完整名称），超长才 truncate；
+    // 指标/缺必填定宽保证跨行对齐；标签弹性不换行（溢出裁切）；日期+激活右对齐。
+    // 定宽在每一档内一致 → 右列起点统一对齐（设计：名称优先显示全，右列不被挤）。
     if (layout === 'row') {
         return (
             <div
                 data-asset-file={fileName}
                 className={`
-                    @container relative rounded-lg border px-3 py-1.5 cursor-pointer
+                    @container relative rounded-lg border pl-3 pr-2 py-1.5 cursor-pointer
                     transition-colors duration-150 overflow-hidden flex items-center gap-3
                     ${isFocused
                         ? 'surface-inset border-brand'
@@ -154,41 +157,52 @@ const AssetCard: React.FC<AssetCardProps> = ({
                 onContextMenu={onContextMenu}
             >
                 {isFocused && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-brand" />}
-                {batchMode && (
-                    <span onClick={e => e.stopPropagation()} className="flex-shrink-0">
-                        <Checkbox checked={batchChecked} onChange={e => onBatchCheck?.(e.target.checked)} />
-                    </span>
-                )}
-                <div className="flex items-center gap-2 flex-shrink-0 max-w-[36%]">
+
+                {/* 名称（按容器比例自适应：45cqw，clamp 240~860px；超长才 truncate） */}
+                <div
+                    className="flex items-center gap-2 flex-shrink-0 min-w-0"
+                    style={{ width: 'clamp(240px, 45cqw, 860px)' }}
+                >
+                    {batchMode && (
+                        <span onClick={e => e.stopPropagation()} className="flex-shrink-0">
+                            <Checkbox checked={batchChecked} onChange={e => onBatchCheck?.(e.target.checked)} />
+                        </span>
+                    )}
                     {signals}
                     <span className={`truncate text-title ${isFocused ? 'font-semibold' : 'font-medium'} text-1`} title={displayName}>
                         {displayName}
                     </span>
                 </div>
-                {/* 指标（行内） */}
-                <span className="text-aux text-3 tabular-nums flex-shrink-0">
-                    参数 <span className="text-1 font-medium">{info.totalParams}</span>
-                    <span className="mx-1 opacity-40">·</span>
-                    完成率 <span className={`font-medium ${fillRateTone(fillRate)}`}>{fillRate}%</span>
-                    <span className="mx-1 opacity-40">·</span>
-                    空值 <span className="text-2 font-medium">{emptyParams}</span>
+
+                {/* 指标（定宽 240px：三段各定宽 + tabular-nums → 数字与分隔符跨行对齐） */}
+                <span className="text-aux text-3 tabular-nums whitespace-nowrap w-[240px] flex-shrink-0">
+                    <span className="inline-block w-[74px]">参数 <span className="text-1 font-medium">{info.totalParams}</span></span>
+                    <span className="inline-block w-[92px]">完成率 <span className={`font-medium ${fillRateTone(fillRate)}`}>{fillRate}%</span></span>
+                    <span className="inline-block w-[70px]">空值 <span className="text-2 font-medium">{emptyParams}</span></span>
                 </span>
-                {requiredMissingCount > 0 && (
-                    <Tag icon={<ExclamationCircleOutlined className="text-[10px]" />}
-                        className="m-0 text-caption leading-[16px] px-1.5 rounded font-medium text-danger-text border-danger flex-shrink-0">
-                        缺必填 {requiredMissingCount}
-                    </Tag>
-                )}
-                {/* 标签（空间够时显示） */}
-                <span className="hidden @[640px]:flex items-center gap-1 flex-shrink-0">
+
+                {/* 缺必填（定宽 88px：对齐起点，无则占位保持列宽） */}
+                <span className="w-[88px] flex-shrink-0 flex items-center">
+                    {requiredMissingCount > 0 && (
+                        <Tag icon={<ExclamationCircleOutlined className="text-[10px]" />}
+                            className="m-0 text-caption leading-[16px] px-1.5 rounded font-medium text-danger-text border-danger whitespace-nowrap">
+                            缺必填 {requiredMissingCount}
+                        </Tag>
+                    )}
+                </span>
+
+                {/* 标签（弹性，单行不换行，超出裁切；空间够就全显示） */}
+                <span className="flex-1 min-w-0 flex items-center gap-1 overflow-hidden">
                     {visibleTags.map(tag => (
-                        <Tag key={tag} className="m-0 text-caption leading-[16px] px-1.5 rounded surface-inset border-default text-3">{tag}</Tag>
+                        <Tag key={tag} className="m-0 text-caption leading-[16px] px-1.5 rounded surface-inset border-default text-3 whitespace-nowrap flex-shrink-0">{tag}</Tag>
                     ))}
-                    {extraTagCount > 0 && <span className="text-caption text-4">+{extraTagCount}</span>}
+                    {extraTagCount > 0 && <span className="text-caption text-4 flex-shrink-0">+{extraTagCount}</span>}
                 </span>
-                <span className="ml-auto flex items-center gap-2 flex-shrink-0">
+
+                {/* 日期 + 激活（右对齐，定宽不换行） */}
+                <span className="flex items-center gap-2 flex-shrink-0">
                     {info.updatedAt && (
-                        <span className="hidden @[520px]:inline text-caption text-4 tabular-nums">
+                        <span className="text-caption text-4 tabular-nums w-[72px] text-right">
                             {new Date(info.updatedAt).toLocaleDateString('zh-CN')}
                         </span>
                     )}

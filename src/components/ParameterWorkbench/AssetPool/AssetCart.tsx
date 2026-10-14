@@ -4,7 +4,7 @@ import { ArrowRightOutlined, InboxOutlined, CloseOutlined } from '@ant-design/ic
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../../store/vehicleStore';
 import { useAssetLibrarySnapshot } from '../../../hooks/useAssetLibrarySnapshot';
-import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
+import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../../../utils/vehicleInstance';
 import { isFieldRequired } from '../../../assets/requiredFields';
 import { getProductData } from '../../../store/vehicleSelectors';
 import { buildAliasSource, resolveAssetDisplayName } from '../../../utils/assetAlias';
@@ -27,59 +27,95 @@ export interface AssetCartProps {
 
 const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoCompare, onClose }) => {
     const {
-        activeAssets,
         removeActiveAsset,
         setCompareProducts,
+        setSelectedProductNames,
+        selectedProductNames,
         uploadedFiles,
         assetFiles,
     } = useVehicleStore(useShallow(state => ({
-        activeAssets: state.activeAssets,
         removeActiveAsset: state.removeActiveAsset,
         setCompareProducts: state.setCompareProducts,
+        setSelectedProductNames: state.setSelectedProductNames,
+        selectedProductNames: state.selectedProductNames,
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
     })));
     const snapshot = useAssetLibrarySnapshot();
 
-    // 已激活的资产（含完成率/缺必填）
+    // 工作集 = 本地 Excel 车 + 资产车，再按 selectedProductNames 过滤
+    // （与胶囊计数同口径；原 VehicleListPanel 语义）
     const aliasSource = useMemo(
         () => buildAliasSource(snapshot.infos, snapshot.meta, snapshot.latestSet),
         [snapshot.infos, snapshot.meta, snapshot.latestSet],
     );
     const activeVehicles = useMemo(() => {
-        return snapshot.infos
-            .filter(info => activeAssets.includes(info.fileName))
-            .map(info => {
-                const instanceKey = buildVehicleInstanceKey('asset', info.fileName, info.productName);
-                const params = getProductData(uploadedFiles, instanceKey, assetFiles);
-                const requiredMissing = params.filter(p => {
-                    const value = String(p.value ?? '').trim();
-                    return isFieldRequired(p.name) && value === '';
-                }).length;
+        type Row = {
+            key: string; fileName: string; productName: string; displayName: string;
+            totalParams: number; filledParams: number; requiredMissing: number;
+            source: 'asset' | 'excel';
+        };
+        const byKey = new Map<string, Row>();
 
-                return {
-                    key: instanceKey,
-                    fileName: info.fileName,
-                    productName: info.productName,
-                    // 别名只改显示；instanceKey 仍用原 productName，身份/去重不受影响（设计 §5）
-                    displayName: resolveAssetDisplayName(info, aliasSource),
-                    totalParams: info.totalParams,
-                    filledParams: info.filledParams,
-                    requiredMissing,
-                };
+        // 1) 本地 Excel 车
+        uploadedFiles.forEach(fileData => {
+            fileData.data.forEach(param => {
+                const identity = getVehicleInstanceMetaFromParam('excel', fileData, param);
+                let row = byKey.get(identity.key);
+                if (!row) {
+                    row = {
+                        key: identity.key, fileName: fileData.fileName, productName: identity.productName,
+                        displayName: identity.productName, totalParams: 0, filledParams: 0,
+                        requiredMissing: 0, source: 'excel',
+                    };
+                    byKey.set(identity.key, row);
+                }
+                row.totalParams += 1;
+                if (param.value !== undefined && param.value !== null && String(param.value).trim() !== '') {
+                    row.filledParams += 1;
+                }
+                if (isFieldRequired(param.name) && String(param.value ?? '').trim() === '') {
+                    row.requiredMissing += 1;
+                }
             });
-    }, [snapshot.infos, snapshot.meta, snapshot.latestSet, aliasSource, activeAssets, uploadedFiles, assetFiles]);
+        });
 
-    // 点车卡：反向定位 + 选中
-    const handleCardClick = useCallback((fileName: string) => {
-        onFocusFile(fileName);
-        onLocateAsset?.(fileName);
+        // 2) 资产车（资产版优先，不进同键覆盖本地车）
+        snapshot.infos.forEach(info => {
+            const instanceKey = buildVehicleInstanceKey('asset', info.fileName, info.productName);
+            if (!byKey.has(instanceKey)) {
+                const params = getProductData(uploadedFiles, instanceKey, assetFiles);
+                byKey.set(instanceKey, {
+                    key: instanceKey, fileName: info.fileName, productName: info.productName,
+                    displayName: resolveAssetDisplayName(info, aliasSource),
+                    totalParams: info.totalParams, filledParams: info.filledParams,
+                    requiredMissing: params.filter(p => isFieldRequired(p.name) && String(p.value ?? '').trim() === '').length,
+                    source: 'asset',
+                });
+            }
+        });
+
+        // 3) 只保留在工作集（selectedProductNames）中的
+        return Array.from(byKey.values()).filter(v => selectedProductNames.includes(v.key));
+    }, [snapshot.infos, aliasSource, uploadedFiles, assetFiles, selectedProductNames]);
+
+    // 点车卡：资产车反向定位；本地 Excel 车无左栏目标，仅选中
+    const handleCardClick = useCallback((source: 'asset' | 'excel', fileName: string) => {
+        if (source === 'asset') {
+            onFocusFile(fileName);
+            onLocateAsset?.(fileName);
+        }
     }, [onFocusFile, onLocateAsset]);
 
-    // 移出工作集
-    const handleRemove = useCallback((fileName: string, productName: string) => {
-        removeActiveAsset(fileName, productName);
-    }, [removeActiveAsset]);
+    // 移出工作集：资产车双删（activeAssets + 工作集），本地车只移出工作集
+    const handleRemove = useCallback((source: 'asset' | 'excel', fileName: string, productName: string) => {
+        if (source === 'asset') {
+            removeActiveAsset(fileName, productName);
+        } else {
+            const key = buildVehicleInstanceKey('excel', fileName, productName);
+            setSelectedProductNames(selectedProductNames.filter(k => k !== key));
+        }
+    }, [removeActiveAsset, setSelectedProductNames, selectedProductNames]);
 
     // 去对比
     const handleGoCompare = useCallback(() => {
@@ -90,10 +126,13 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
         }
     }, [activeVehicles, setCompareProducts, onGoCompare]);
 
-    // 清空工作区
+    // 清空工作区（资产车 + 本地车一起清）
     const handleClearAll = useCallback(() => {
-        activeVehicles.forEach(v => removeActiveAsset(v.fileName, v.productName));
-    }, [activeVehicles, removeActiveAsset]);
+        activeVehicles.forEach(v => {
+            if (v.source === 'asset') removeActiveAsset(v.fileName, v.productName);
+        });
+        setSelectedProductNames([]);
+    }, [activeVehicles, removeActiveAsset, setSelectedProductNames]);
 
     return (
         <div className="h-full flex flex-col surface-container">
@@ -130,8 +169,8 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
                             <AssetCartCard
                                 key={vehicle.key}
                                 vehicle={vehicle}
-                                onRemove={() => handleRemove(vehicle.fileName, vehicle.productName)}
-                                onClick={() => handleCardClick(vehicle.fileName)}
+                                onRemove={() => handleRemove(vehicle.source, vehicle.fileName, vehicle.productName)}
+                                onClick={() => handleCardClick(vehicle.source, vehicle.fileName)}
                             />
                         ))}
                     </div>

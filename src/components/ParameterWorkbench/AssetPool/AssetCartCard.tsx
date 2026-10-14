@@ -1,9 +1,10 @@
 import React from 'react';
 import { CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { Tag } from 'antd';
 
 /**
  * 购物车里的车卡（设计文档 2026-10-13-asset-panel-redesign-v2 §4.3）：
- * 车型名 + 元信息（完成率/缺必填）+ 移除按钮。曜蓝 v4.1 视觉。
+ * 车型名（+ 来源标签）+ 元信息（完成率/缺必填）+ 移除按钮。曜蓝 v4.1 视觉。
  */
 export interface AssetCartCardProps {
     vehicle: {
@@ -15,6 +16,8 @@ export interface AssetCartCardProps {
         totalParams: number;
         filledParams: number;
         requiredMissing: number;
+        /** 来源：资产库 / 本地 Excel */
+        source: 'asset' | 'excel';
     };
     onRemove: () => void;
     onClick: () => void;
@@ -36,8 +39,11 @@ const AssetCartCard: React.FC<AssetCartCardProps> = ({ vehicle, onRemove, onClic
             onClick={onClick}
         >
             <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-body text-1 truncate" title={vehicle.productName}>
-                    {vehicle.displayName || vehicle.productName}
+                <span className="font-medium text-body text-1 truncate flex items-center gap-1.5" title={vehicle.productName}>
+                    <span className="truncate">{vehicle.displayName || vehicle.productName}</span>
+                    <Tag className={`m-0 text-caption leading-[14px] px-1 border-0 flex-shrink-0 ${vehicle.source === 'asset' ? 'src-asset' : 'src-excel'}`}>
+                        {vehicle.source === 'asset' ? '资产库' : '本地'}
+                    </Tag>
                 </span>
                 <span
                     className="
