@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { AssetFileInfo } from '../assetManager';
 import {
   buildGovernanceReport,
+  buildGroupRenameMeta,
   collectPrimaryMeta,
   computeCarVersionGroups,
   deriveCarIdentityKey,
@@ -308,5 +309,60 @@ describe('collectPrimaryMeta（主文件 → 关键车型 迁移）', () => {
     const { primaryFileNames, cleaned } = collectPrimaryMeta(metaMap);
     expect(primaryFileNames).toEqual([]);
     expect(cleaned).toEqual(metaMap);
+  });
+});
+
+describe('buildGroupRenameMeta（组重命名落盘，2026-10-14 新界面入口）', () => {
+  const entry = (fileName: string, meta: Record<string, unknown> = {}): GovernanceFileEntry => ({
+    info: makeInfo({ fileName }),
+    meta: meta as GovernanceFileEntry['meta'],
+    groupKey: 'V6E',
+  });
+
+  it('把新显示名写进组内每个文件（pickGroupAlias 取任一，故需全写）', () => {
+    const files = [entry('a.json'), entry('b.json'), entry('c.json')];
+    const { next, newKey, skipped } = buildGroupRenameMeta(files, 'V6E', '远程V6E', {});
+    expect(skipped).toBe(false);
+    expect(newKey).toBe('远程V6E');
+    expect(next['a.json'].groupName).toBe('远程V6E');
+    expect(next['b.json'].groupName).toBe('远程V6E');
+    expect(next['c.json'].groupName).toBe('远程V6E');
+  });
+
+  it('保留既有标注（status/note/alias 不被清除）', () => {
+    const meta = { 'a.json': { status: 'superseded' as const, note: '备注', alias: '短名' } };
+    const files = [entry('a.json', meta['a.json'])];
+    const { next } = buildGroupRenameMeta(files, 'V6E', '新名', meta);
+    expect(next['a.json']).toEqual({ status: 'superseded', note: '备注', alias: '短名', groupName: '新名' });
+  });
+
+  it('空输入 / 纯空白 → skipped，不改 meta', () => {
+    const meta = { 'a.json': { groupName: 'V6E' } };
+    const { skipped, next } = buildGroupRenameMeta([entry('a.json')], 'V6E', '   ', meta);
+    expect(skipped).toBe(true);
+    expect(next).toBe(meta);
+  });
+
+  it('连续空格折叠、首尾去空（sanitizeGroupName 口径）', () => {
+    const { newKey } = buildGroupRenameMeta([entry('a.json')], 'V6E', '  白犀牛   R3  ', {});
+    expect(newKey).toBe('白犀牛 R3');
+  });
+
+  it('新名与原名规范化后同键（仅空白差异）→ skipped，不产生无意义落盘', () => {
+    const { skipped } = buildGroupRenameMeta([entry('a.json')], 'V6E', ' V6E ', {});
+    expect(skipped).toBe(true);
+  });
+
+  it('改名后归组键随之改变（组名参与归组，同名会与既有组合并）', () => {
+    const { newKey } = buildGroupRenameMeta([entry('a.json')], 'V6E', '远程V6E', {});
+    // 新键规范化 = 既有「远程V6E」组的归组键 → 触发合并
+    expect(normalizeGroupKey(newKey)).toBe(normalizeGroupKey('远程V6E'));
+  });
+
+  it('不修改入参 metaMap（纯函数，返回新表）', () => {
+    const meta = { 'a.json': { groupName: 'V6E' } };
+    const { next } = buildGroupRenameMeta([entry('a.json')], 'V6E', '新名', meta);
+    expect(meta['a.json'].groupName).toBe('V6E');
+    expect(next).not.toBe(meta);
   });
 });

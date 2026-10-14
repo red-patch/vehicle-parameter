@@ -375,6 +375,31 @@ export const pickGroupAlias = (entries: GovernanceFileEntry[], fallback: string)
 };
 
 /**
+ * 计算组重命名的落盘结果（纯函数，供资产池组头重命名复用）。
+ *
+ * 把新显示名写进**组内每个文件**的 meta.groupName（这是既有约定——pickGroupAlias 取任一），
+ * 其余标注（status/note/alias）原样保留。返回新 meta 表与规范化后的组键。
+ *
+ * 返回 skipped=true 表示无需落盘（名为空，或与原显示名规范化后同键）。
+ */
+export const buildGroupRenameMeta = (
+    files: GovernanceFileEntry[],
+    currentName: string,
+    input: string,
+    metaMap: AssetMetaMap,
+): { next: AssetMetaMap; newKey: string; skipped: boolean } => {
+    const newKey = sanitizeGroupName(input);
+    if (!newKey || normalizeGroupKey(newKey) === normalizeGroupKey(sanitizeGroupName(currentName))) {
+        return { next: metaMap, newKey, skipped: true };
+    }
+    const next: AssetMetaMap = { ...metaMap };
+    files.forEach(f => {
+        next[f.info.fileName] = { ...(next[f.info.fileName] || {}), groupName: newKey };
+    });
+    return { next, newKey, skipped: false };
+};
+
+/**
  * 主文件迁移（ADR-0003）：收集 meta 中的 isPrimary 标记并从 meta 清除。
  * 调用方把 primaryFileNames 转写为「关键车型」标签后落盘。
  */

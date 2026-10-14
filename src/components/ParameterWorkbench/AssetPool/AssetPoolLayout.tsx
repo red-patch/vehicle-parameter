@@ -39,7 +39,7 @@ import {
 } from '../../../utils/assetViews';
 import {
     KEY_VEHICLE_TAG, extractBrandNames, resolveVehicleGroupKey, buildGovernanceReport,
-    buildSupersedeMeta, pickGroupAlias, sanitizeGroupName, normalizeGroupKey,
+    buildSupersedeMeta, pickGroupAlias, sanitizeGroupName, normalizeGroupKey, buildGroupRenameMeta,
     type UnconvergedCar, type VehicleGroup,
 } from '../../../utils/assetGovernance';
 import { isFieldRequired } from '../../../assets/requiredFields';
@@ -53,7 +53,7 @@ import {
 } from '../../../utils/assetFacets';
 import { loadAssetTags, saveAssetTags, batchAddAssetTags, saveAssetMeta, setAssetAlias } from '../../../utils/assetManager';
 import { getAssetTagGroupsSync, ensureTagsInDefaultGroup, getExclusiveGroupTagSets } from '../../../utils/assetTagGroups';
-import type { AssetFileInfo, AssetMetaMap } from '../../../utils/assetManager';
+import type { AssetFileInfo } from '../../../utils/assetManager';
 
 /**
  * 资产池三栏布局（设计文档 2026-10-13-asset-panel-redesign-v2 §3.1）：
@@ -709,16 +709,15 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
 
     const handleGroupRenameConfirm = useCallback(async () => {
         if (!assetLibraryPath || !groupRenameTarget) return;
-        const newKey = sanitizeGroupName(groupRename.name);
-        if (!newKey) { message.warning('请输入有效的车型名'); return; }
-        if (newKey === pickGroupAlias(groupRenameTarget.files, groupRenameTarget.groupKey)) {
+        const current = pickGroupAlias(groupRenameTarget.files, groupRenameTarget.groupKey);
+        const { next, newKey, skipped } = buildGroupRenameMeta(
+            groupRenameTarget.files, current, groupRename.name, snapshot.meta,
+        );
+        if (skipped) {
+            if (!newKey) message.warning('请输入有效的车型名');
             setGroupRename({ open: false, groupKey: null, name: '' });
             return;
         }
-        const next: AssetMetaMap = { ...snapshot.meta };
-        groupRenameTarget.files.forEach(f => {
-            next[f.info.fileName] = { ...(next[f.info.fileName] || {}), groupName: newKey };
-        });
         try {
             await saveAssetMeta(assetLibraryPath, next);
         } catch {
