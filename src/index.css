@@ -299,6 +299,30 @@
 /* 状态边线：资产卡"已激活"左缘条（常驻弱信号，无填充） */
 .edge-success { border-left: 3px solid var(--asset-active-bar); }
 
+/* 单元格内联编辑：只读态是文本 + 悬停弱底（提示可点），进入编辑态换成输入控件 */
+.cell-edit-text {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: background-color 0.12s var(--ease-ui);
+}
+.cell-edit-text:hover { background-color: var(--surface-3); }
+.cell-edit-text:focus-visible { outline: 2px solid var(--brand-ring); outline-offset: 1px; }
+
+/* 表内纯文本展示列（参考值等）：与行内控件同一字号，避免大小不一 */
+.cell-plain {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 状态点：叠在 surface-inset 图标块上时的分离环 */
 .dot-ring { border: 2px solid var(--surface-2); }
 

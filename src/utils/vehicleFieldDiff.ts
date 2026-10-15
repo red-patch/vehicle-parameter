@@ -54,16 +54,38 @@ export const computeRowDiff = (row: VehicleParameter, reference: VehicleParamete
     return { reference, nameDiffers, valueDiffers, groupDiffers };
 };
 
-/** 「视同更新」写入内容：参数名 + 参数值 + 分组 + 时间戳（不动 id） */
+/**
+ * 「视同更新」写入内容：参数名 + 参数值 + 分组（不动 id）
+ *
+ * 刻意不写 updatedAt：全量视同会一次刷满整表，而那个时间戳在界面上表达的是
+ * 「人工逐条校对过」，批量采纳参考车型并不具备这层含义。
+ */
 export const buildSyncPatch = (
     _row: VehicleParameter,
-    reference: VehicleParameter,
-    updatedAt: string
-): Pick<VehicleParameter, 'name' | 'value' | 'group' | 'updatedAt'> => ({
+    reference: VehicleParameter
+): Pick<VehicleParameter, 'name' | 'value' | 'group'> => ({
     name: reference.name,
     value: reference.value,
     group: reference.group,
-    updatedAt,
 });
+
+/**
+ * 对视同更新求新参数列表：只有 id 同时命中 `ids` 与 `diffById` 的行才被写入。
+ *
+ * `ids` 是这次动作的目标集合——行内按钮传单行 id，全量按钮传全部差异行 id。
+ * 漏判 ids 会让行内按钮退化成全量覆盖（历史上出过这个 bug）。
+ */
+export const applySyncToParams = (
+    params: VehicleParameter[],
+    ids: Set<string>,
+    diffById: Map<string, RowDiff>
+): VehicleParameter[] => {
+    if (ids.size === 0) return params;
+    return params.map(p => {
+        if (!ids.has(p.id)) return p;
+        const diff = diffById.get(p.id);
+        return diff ? { ...p, ...buildSyncPatch(p, diff.reference) } : p;
+    });
+};
 
 export const diffCount = (diffs: (RowDiff | null)[]): number => diffs.filter(Boolean).length;

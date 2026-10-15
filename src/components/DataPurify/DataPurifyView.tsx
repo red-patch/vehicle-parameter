@@ -2,7 +2,7 @@ import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react'
 import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Space, Alert } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
 import DataTable from '../common/DataTable';
-import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, SyncOutlined } from '@ant-design/icons';
+import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, SyncOutlined, EditOutlined, ProfileOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName } from '../../utils/attributeEnums';
@@ -17,7 +17,7 @@ import type { RepairSourceModule } from '../../types';
 import { buildVehicleDisplayLabels, buildVehicleInstanceKey, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
 import { useAssetAliasResolver } from '../../hooks/useAssetAliasResolver';
 import { getVehicleSelectionState } from '../../utils/vehicleSelectionState';
-import { buildReferenceIndex, buildSyncPatch, computeRowDiff, matchReference, type ReferenceIndex, type RowDiff } from '../../utils/vehicleFieldDiff';
+import { applySyncToParams, buildReferenceIndex, computeRowDiff, matchReference, type ReferenceIndex, type RowDiff } from '../../utils/vehicleFieldDiff';
 import { ReferenceProductSelect, RowSyncButton, SyncAllButton } from './ReferenceSync';
 
 interface DataPurifyViewProps {
@@ -161,15 +161,15 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         setPurifyParams((prev: VehicleParameter[]) => prev.filter(p => p.id !== id));
     }, []);
 
-    /** 视同更新：把参考车型的参数名/值/分组一次性写入指定行 */
+    /** 视同更新：把参考车型的参数名/值/分组写入 ids 指定的行（不写 updatedAt） */
     const handleSyncParam = useCallback((ids: Set<string>, diffById: Map<string, RowDiff>) => {
-        if (ids.size === 0) return;
-        const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-        setPurifyParams((prev: VehicleParameter[]) => prev.map(p => {
-            const diff = diffById.get(p.id);
-            return diff ? { ...p, ...buildSyncPatch(p, diff.reference, nowStr) } : p;
-        }));
+        setPurifyParams((prev: VehicleParameter[]) => applySyncToParams(prev, ids, diffById));
     }, []);
+
+    // 单元格内联编辑：同时只有一个单元格处于编辑态（参数分组 / 参数名共用）
+    const [editingCell, setEditingCell] = useState<{ id: string; field: 'group' | 'name' } | null>(null);
+    const openCell = useCallback((id: string, field: 'group' | 'name') => setEditingCell({ id, field }), []);
+    const closeCell = useCallback(() => setEditingCell(null), []);
 
     const handleAddParam = () => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -267,7 +267,9 @@ type PurifyRow = VehicleParameter & {
     enums: string[];
     hasEnums: boolean;
     isEnumMismatch: boolean;
-    /** 与参考车型的差异；null = 非差异行或未设参考车型 */
+    /** 参考车型里对应该行的字段；null = 未设参考车型或两边都匹配不上 */
+    reference: VehicleParameter | null;
+    /** 与参考车型的差异；null = 非差异行 */
     diff: RowDiff | null;
 };
 
@@ -294,6 +296,7 @@ type PurifyRow = VehicleParameter & {
             const hasEnums = enums.length > 0;
             const strValue = String(p.value || '').trim();
             const isEnumMismatch = hasEnums && strValue !== '' && !enums.some(e => String(e).toLowerCase() === strValue.toLowerCase());
+            const reference = matchReference(p, referenceIndex);
             return {
                 ...p,
                 isNameStandard: isKnownAttributeName(p.name),
@@ -301,7 +304,8 @@ type PurifyRow = VehicleParameter & {
                 enums,
                 hasEnums,
                 isEnumMismatch,
-                diff: computeRowDiff(p, matchReference(p, referenceIndex)),
+                reference,
+                diff: computeRowDiff(p, reference),
             };
         });
     }, [purifyParams, enumLoaded, referenceIndex]);
@@ -379,29 +383,63 @@ type PurifyRow = VehicleParameter & {
             title: '参数分组',
             dataIndex: 'group',
             key: 'group',
-            width: 150,
-            render: (text: string, record: PurifyRow) => (
-                <Input 
-                    value={text} 
-                    onChange={e => handleUpdateParam(record.id, 'group', e.target.value)} 
-                    variant="borderless" 
-                />
-            )
+            width: 160,
+            render: (text: string, record: PurifyRow) => {
+                const isEditing = editingCell?.id === record.id && editingCell.field === 'group';
+                if (isEditing) {
+                    return (
+                        <Input
+                            autoFocus
+                            size="small"
+                            value={text}
+                            onChange={e => handleUpdateParam(record.id, 'group', e.target.value)}
+                            onBlur={closeCell}
+                            onPressEnter={closeCell}
+                            placeholder="输入分组"
+                        />
+                    );
+                }
+                return (
+                    <span
+                        className={`cell-edit-text text-2 ${text ? '' : 'text-3'}`}
+                        title={text || '点击输入分组'}
+                        onClick={() => openCell(record.id, 'group')}
+                    >
+                        {text || '未分组'}
+                    </span>
+                );
+            }
         },
         {
             title: '参数名',
             key: 'name',
-            width: 300,
-            render: (_: unknown, record: PurifyRow) => (
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                        <Input 
+            width: 220,
+            render: (_: unknown, record: PurifyRow) => {
+                const isEditing = editingCell?.id === record.id && editingCell.field === 'name';
+                const isNonStandard = !record.isNameStandard && !!record.name;
+                if (isEditing) {
+                    return (
+                        <Input
+                            autoFocus
+                            size="small"
                             value={record.name}
                             onChange={e => handleUpdateParam(record.id, 'name', e.target.value)}
-                            status={!record.isNameStandard && record.name ? 'warning' : ''}
+                            onBlur={closeCell}
+                            onPressEnter={closeCell}
                             placeholder="输入参数名"
                         />
-                        {!record.isNameStandard && record.name && (
+                    );
+                }
+                return (
+                    <div className="flex items-center gap-1 min-w-0">
+                        <span
+                            className={`cell-edit-text ${isNonStandard ? 'text-warning-text' : 'text-1'}`}
+                            title={record.name || '点击输入参数名'}
+                            onClick={() => openCell(record.id, 'name')}
+                        >
+                            {record.name || <span className="text-3">未命名</span>}
+                        </span>
+                        {isNonStandard && (
                             <Popover
                                 trigger="click"
                                 placement="bottom"
@@ -426,74 +464,104 @@ type PurifyRow = VehicleParameter & {
                                     )
                                 }
                             >
-                                <WarningOutlined className="text-warning hover:text-[color:var(--warning-text)] text-[15px]" />
+                                <WarningOutlined className="text-warning hover:text-[color:var(--warning-text)] text-[13px] flex-shrink-0" />
                             </Popover>
                         )}
                     </div>
-                </div>
-            )
+                );
+            }
         },
 
         {
             title: '参数值',
             key: 'value',
-            width: 350,
+            width: 380,
             render: (_: unknown, record: PurifyRow) => {
                 const isManual = manualValueRows.has(record.id);
                 return (
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                            {record.hasEnums && !isManual ? (
-                                <Select
-                                    showSearch
-                                    allowClear
-                                    style={{ flex: 1 }}
-                                    value={record.value ? String(record.value) : undefined}
-                                    onChange={val => handleUpdateParam(record.id, 'value', val || '')}
-                                    options={record.enums.map((e: string) => ({ value: e, label: e }))}
-                                    status={record.isEnumMismatch ? 'error' : ''}
-                                    placeholder="选择或查找标准值"
-                                    dropdownStyle={{ minWidth: 200 }}
-                                />
-                            ) : (
-                                <Input
-                                    value={record.value}
-                                    onChange={(e) => handleUpdateParam(record.id, 'value', e.target.value)}
-                                    placeholder="输入数值"
-                                    style={{ flex: 1 }}
-                                />
-                            )}
+                    <div className="flex items-center gap-1.5">
+                        {record.hasEnums && !isManual ? (
+                            <Select
+                                showSearch
+                                allowClear
+                                size="small"
+                                style={{ flex: 1, minWidth: 0 }}
+                                value={record.value ? String(record.value) : undefined}
+                                onChange={val => handleUpdateParam(record.id, 'value', val || '')}
+                                options={record.enums.map((e: string) => ({ value: e, label: e }))}
+                                status={record.isEnumMismatch ? 'error' : ''}
+                                placeholder="选择或查找标准值"
+                                dropdownStyle={{ minWidth: 200 }}
+                            />
+                        ) : (
+                            <Input
+                                size="small"
+                                value={record.value}
+                                onChange={(e) => handleUpdateParam(record.id, 'value', e.target.value)}
+                                placeholder="输入数值"
+                                style={{ flex: 1, minWidth: 0 }}
+                            />
+                        )}
+                        {/* 图标槽宽度恒定（每行固定 3 个），保证左侧控件逐行对齐 */}
+                        <span className="flex items-center gap-0.5 flex-shrink-0 w-[24px] justify-center">
                             {record.isEnumMismatch && (
                                 <Tooltip title={'"' + record.value + '" 不在标准字典内'}>
                                     <WarningOutlined className="text-danger" />
                                 </Tooltip>
                             )}
+                        </span>
+                        <span className="flex items-center justify-center flex-shrink-0 w-[24px]">
                             {record.hasEnums && (
                                 <Tooltip title={isManual ? '切换为标准选择' : '手动输入'}>
-                                    <span
-                                        style={{ fontSize: 12, color: 'var(--brand)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        className="!w-[24px] !h-[24px] !min-w-0 !p-0"
+                                        icon={isManual ? <ProfileOutlined /> : <EditOutlined />}
                                         onClick={() => {
                                             const next = new Set(manualValueRows);
                                             if (isManual) next.delete(record.id); else next.add(record.id);
                                             setManualValueRows(next);
                                         }}
-                                    >
-                                        {isManual ? '📋 标准选择' : '✏️ 手动输入'}
-                                    </span>
+                                    />
                                 </Tooltip>
                             )}
-                        </div>
-                        {record.updatedAt && (
-                            <div className="text-[12px] text-3 mt-1 cursor-default">
-                                已于 {record.updatedAt} 手动更新
-                            </div>
-                        )}
-                        {record.diff && (
-                            <RowSyncButton
-                                diff={record.diff}
-                                onSync={() => handleSyncParam(new Set([record.id]), diffById)}
-                            />
-                        )}
+                        </span>
+                        <span className="flex items-center justify-center flex-shrink-0 w-[24px]">
+                            {record.updatedAt && (
+                                <Tooltip title={`已于 ${record.updatedAt} 手动更新`}>
+                                    <InfoCircleOutlined className="text-3" />
+                                </Tooltip>
+                            )}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            title: '参考值',
+            key: 'reference',
+            width: 240,
+            render: (_: unknown, record: PurifyRow) => {
+                if (!record.reference) {
+                    return <span className="cell-plain text-3">—</span>;
+                }
+                return (
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                            className={`cell-plain ${record.diff ? 'text-brand font-medium' : 'text-2'}`}
+                            title={String(record.reference.value) || '参考车型此字段为空'}
+                        >
+                            {String(record.reference.value) || <span className="text-3">（空）</span>}
+                        </span>
+                        <span className="flex items-center justify-center flex-shrink-0 w-[52px]">
+                            {record.diff && (
+                                <RowSyncButton
+                                    diff={record.diff}
+                                    onSync={() => handleSyncParam(new Set([record.id]), diffById)}
+                                />
+                            )}
+                        </span>
                     </div>
                 );
             },
@@ -501,17 +569,18 @@ type PurifyRow = VehicleParameter & {
         {
             title: '操作',
             key: 'action',
-            width: 80,
+            width: 64,
+            align: 'center' as const,
             render: (_: unknown, record: PurifyRow) => (
                 <Popconfirm
                     title="确定删除此参数？"
                     onConfirm={() => handleDeleteParam(record.id)}
                 >
-                    <Button type="text" danger icon={<DeleteOutlined />} size="small" />
+                    <Button type="text" danger icon={<DeleteOutlined />} size="small" className="!w-[24px] !h-[24px] !min-w-0 !p-0" />
                 </Popconfirm>
             )
         }
-    ], [handleUpdateParam, manualValueRows, handleDeleteParam, handleSyncParam, diffById]);
+    ], [handleUpdateParam, manualValueRows, handleDeleteParam, handleSyncParam, diffById, editingCell, openCell, closeCell]);
 
     return (
         <div className="h-full flex flex-col gap-3">
@@ -547,7 +616,7 @@ type PurifyRow = VehicleParameter & {
             )}
             <FilterBar
                 extra={
-                    <Space>
+                    <Space size={8}>
                         {effectiveReferenceProduct && (
                             <SyncAllButton
                                 diffFieldNames={diffFieldNames}
@@ -595,7 +664,7 @@ type PurifyRow = VehicleParameter & {
             >
                 <FilterItem label="待体检车型:">
                     <Select
-                        style={{ width: 220 }}
+                        style={{ width: 200 }}
                         value={selectedProduct}
                         onChange={setSelectedProduct}
                         options={selectedProductNames.map(name => ({
@@ -623,7 +692,7 @@ type PurifyRow = VehicleParameter & {
 
                 <FilterItem label="分组:">
                     <Select
-                        style={{ width: 140 }}
+                        style={{ width: 200 }}
                         value={filterGroup}
                         onChange={setFilterGroup}
                         options={availableGroups.map(g => ({ value: g, label: g }))}
@@ -635,7 +704,7 @@ type PurifyRow = VehicleParameter & {
 
                 <FilterItem label="搜索:">
                     <Input
-                        style={{ width: 260 }}
+                        style={{ width: 240 }}
                         value={paramSearch}
                         onChange={e => setParamSearch(e.target.value)}
                         placeholder="搜索参数名、分组或参数值..."
@@ -646,7 +715,7 @@ type PurifyRow = VehicleParameter & {
 
                 <FilterItem label="字段组:">
                     <Select
-                        style={{ width: 180 }}
+                        style={{ width: 200 }}
                         value={fieldGroupFilter}
                         onChange={setFieldGroupFilter}
                         options={fieldGroupOptions}
@@ -657,7 +726,6 @@ type PurifyRow = VehicleParameter & {
                     <Space.Compact>
                         <Button
                             type={quickFilter === 'anomaly' ? 'primary' : 'default'}
-                            size="small"
                             danger={quickFilter !== 'anomaly' && anomalyCount > 0}
                             icon={anomalyCount > 0 ? <WarningOutlined /> : <SafetyCertificateOutlined />}
                             onClick={() => setQuickFilter(quickFilter === 'anomaly' ? 'none' : 'anomaly')}
@@ -667,8 +735,8 @@ type PurifyRow = VehicleParameter & {
                         {effectiveReferenceProduct && (
                             <Button
                                 type={quickFilter === 'diff' ? 'primary' : 'default'}
-                                size="small"
                                 icon={<SyncOutlined />}
+                                disabled={diffFieldNames.length === 0 && quickFilter !== 'diff'}
                                 onClick={() => setQuickFilter(quickFilter === 'diff' ? 'none' : 'diff')}
                             >
                                 仅看差异 ({diffFieldNames.length})

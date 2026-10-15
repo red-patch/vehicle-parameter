@@ -10,7 +10,7 @@ export const ReferenceProductSelect: React.FC<{
     onChange: (value?: string) => void;
 }> = ({ value, options, onChange }) => (
     <Select
-        style={{ width: 220 }}
+        style={{ width: 200 }}
         value={value}
         onChange={onChange}
         options={options}
@@ -25,18 +25,19 @@ export const ReferenceProductSelect: React.FC<{
 export const RowSyncButton: React.FC<{
     diff: RowDiff;
     onSync: () => void;
-}> = ({ diff, onSync }) => (
-    <div className="flex items-center gap-2">
-        <span className="text-[12px] text-3 truncate" title={`参考：${diff.reference.name} / ${diff.reference.value}`}>
-            参考：{String(diff.reference.value)}
-        </span>
-        <Tooltip title={`采纳参考车型的参数名、参数值与分组`}>
-            <Button size="small" type="text" icon={<SyncOutlined />} onClick={onSync}>
+}> = ({ diff, onSync }) => {
+    const parts: string[] = [];
+    if (diff.nameDiffers) parts.push('参数名');
+    if (diff.valueDiffers) parts.push('参数值');
+    if (diff.groupDiffers) parts.push('分组');
+    return (
+        <Tooltip title={`采纳参考车型的${parts.join('、')}`}>
+            <Button size="small" type="link" icon={<SyncOutlined />} onClick={onSync} className="!px-1">
                 视同
             </Button>
         </Tooltip>
-    </div>
-);
+    );
+};
 
 /** 全量同步：一次把所有差异行的参数名/值/分组对齐到参考车型 */
 export const SyncAllButton: React.FC<{
@@ -45,7 +46,7 @@ export const SyncAllButton: React.FC<{
 }> = ({ diffFieldNames, onSyncAll }) => {
     if (diffFieldNames.length === 0) {
         return (
-            <Button size="small" icon={<SyncOutlined />} disabled>
+            <Button icon={<SyncOutlined />} disabled>
                 视同参考差异
             </Button>
         );
@@ -64,7 +65,7 @@ export const SyncAllButton: React.FC<{
             cancelText="取消"
             onConfirm={onSyncAll}
         >
-            <Button size="small" icon={<SyncOutlined />}>视同参考差异 ({diffFieldNames.length})</Button>
+            <Button icon={<SyncOutlined />}>视同参考差异 ({diffFieldNames.length})</Button>
         </Popconfirm>
     );
 };

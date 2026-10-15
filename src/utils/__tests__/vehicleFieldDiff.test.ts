@@ -5,8 +5,10 @@ import {
     matchReference,
     computeRowDiff,
     buildSyncPatch,
+    applySyncToParams,
     diffCount,
 } from '../vehicleFieldDiff';
+import type { RowDiff } from '../vehicleFieldDiff';
 import type { VehicleParameter } from '../../types';
 
 const p = (over: Partial<VehicleParameter> & { id: string }): VehicleParameter => ({
@@ -117,20 +119,64 @@ describe('computeRowDiff', () => {
 describe('buildSyncPatch', () => {
     const ref = p({ id: 'r1', name: '倒车影像', value: '标配（地上铁设备具备能力）', group: '智能化配置' });
 
-    it('三字段齐全 + updatedAt', () => {
+    it('三字段齐全', () => {
         const row = p({ id: 'a', name: '倒车影像 ', value: '', group: '新增参数' });
-        const now = '10/15 14:30';
-        expect(buildSyncPatch(row, ref, now)).toEqual({
+        expect(buildSyncPatch(row, ref)).toEqual({
             name: '倒车影像',
             value: '标配（地上铁设备具备能力）',
             group: '智能化配置',
-            updatedAt: now,
         });
     });
 
+    it('不写 updatedAt —— 批量视同不是人工逐条校对', () => {
+        const patch = buildSyncPatch(p({ id: 'a', name: 'x', value: '' }), ref);
+        expect('updatedAt' in patch).toBe(false);
+    });
+
     it('不改动 id', () => {
-        const patch = buildSyncPatch(p({ id: 'a', name: 'x', value: '' }), ref, 'now');
+        const patch = buildSyncPatch(p({ id: 'a', name: 'x', value: '' }), ref);
         expect('id' in patch).toBe(false);
+    });
+});
+
+describe('applySyncToParams', () => {
+    const refA = p({ id: 'refA', name: '倒车影像', value: '标配', group: '智能化配置' });
+    const refB = p({ id: 'refB', name: '货厢容积（m³）', value: '12.5', group: '货厢配置' });
+
+    const rows = [
+        p({ id: 'a', name: '倒车影像 ', value: '', group: '智能化配置' }),
+        p({ id: 'b', name: '货厢容积(m³)', value: '9', group: '货厢配置' }),
+        p({ id: 'c', name: '无关字段', value: 'x', group: 'g' }),
+    ];
+    const index = buildReferenceIndex([refA, refB]);
+    const diffIds = new Map<string, RowDiff>();
+    diffIds.set('a', computeRowDiff(rows[0], matchReference(rows[0], index))!);
+    diffIds.set('b', computeRowDiff(rows[1], matchReference(rows[1], index))!);
+
+    it('只更新传入 ids 的行，其余行原样保留', () => {
+        const next = applySyncToParams(rows, new Set(['a']), diffIds);
+        expect(next[0].value).toBe('标配');
+        expect(next[0].name).toBe('倒车影像');
+        // b 也在这个 diffById 里，但不该被碰到 —— 这正是行内按钮的语义
+        expect(next[1].value).toBe('9');
+        expect(next[1].name).toBe('货厢容积(m³)');
+        expect(next[2]).toEqual(rows[2]);
+    });
+
+    it('ids 为空时整表原样返回', () => {
+        expect(applySyncToParams(rows, new Set(), diffIds)).toEqual(rows);
+    });
+
+    it('传全部差异 id 时才整表对齐（全量按钮的语义）', () => {
+        const next = applySyncToParams(rows, new Set(diffIds.keys()), diffIds);
+        expect(next[0].value).toBe('标配');
+        expect(next[1].value).toBe('12.5');
+        expect(next[2]).toEqual(rows[2]);
+    });
+
+    it('id 不在 diffById 中时跳过，不写入', () => {
+        const next = applySyncToParams(rows, new Set(['c']), diffIds);
+        expect(next).toEqual(rows);
     });
 });
 
