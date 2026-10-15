@@ -201,11 +201,11 @@ const GlobalSearchModal: React.FC = () => {
     const hasQuery = debouncedQuery.trim().length > 0;
     const loading = snapshot.loading || announcementLoading || regulationLoading;
 
-    // 空态文案按配置与命中情况分级
-    const emptyHint = !assetLibraryPath
-        ? '资产库未配置——先在设置中指定资产库目录'
-        : hasQuery && rows.length === 0
-            ? '没有匹配的结果'
+    // 空态文案：有查询时永远反馈「无匹配」（当下动作的结果）；配置引导只在空查询时出现
+    const emptyHint = hasQuery
+        ? '没有匹配的结果'
+        : !assetLibraryPath
+            ? '资产库未配置——先在设置中指定资产库目录'
             : '输入关键字搜索资产 / 公告 / 法规';
 
     // 结果行渲染（React.memo 化避免每键全列表重渲——设计 §3.3）
