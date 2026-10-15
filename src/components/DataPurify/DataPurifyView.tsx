@@ -2,7 +2,7 @@ import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react'
 import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Space, Alert } from 'antd';
 import { FilterBar, FilterItem } from '../common/FilterBar';
 import DataTable from '../common/DataTable';
-import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, SyncOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName } from '../../utils/attributeEnums';
@@ -17,6 +17,8 @@ import type { RepairSourceModule } from '../../types';
 import { buildVehicleDisplayLabels, buildVehicleInstanceKey, buildVehicleOptionLabel, getVehicleProductName } from '../../utils/vehicleInstance';
 import { useAssetAliasResolver } from '../../hooks/useAssetAliasResolver';
 import { getVehicleSelectionState } from '../../utils/vehicleSelectionState';
+import { buildReferenceIndex, buildSyncPatch, computeRowDiff, matchReference, type ReferenceIndex, type RowDiff } from '../../utils/vehicleFieldDiff';
+import { ReferenceProductSelect, RowSyncButton, SyncAllButton } from './ReferenceSync';
 
 interface DataPurifyViewProps {
     onReturnToSource?: (sourceModule: RepairSourceModule) => void;
@@ -29,6 +31,8 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         assetLibraryPath,
         selectedProduct,
         setSelectedProduct,
+        referenceProduct,
+        setReferenceProduct,
         assetFiles,
         activeAssets,
         repairContext,
@@ -44,6 +48,8 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         assetLibraryPath: state.assetLibraryPath,
         selectedProduct: state.currentPurifyProduct,
         setSelectedProduct: state.setPurifyProduct,
+        referenceProduct: state.purifyReferenceProduct,
+        setReferenceProduct: state.setPurifyReferenceProduct,
         assetFiles: state.assetFiles,
         activeAssets: state.activeAssets,
         repairContext: state.repairContext,
@@ -73,7 +79,7 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
     // 过滤状态
     const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
     const [paramSearch, setParamSearch] = useState('');
-    const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'anomaly'>('none');
+    const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'anomaly' | 'diff'>('none');
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
     const [manualValueRows, setManualValueRows] = useState<Set<string>>(new Set());
 
@@ -114,6 +120,21 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
         return getAssetBackedSourceFile(assetFiles, selectedProduct);
     }, [assetFiles, repairContext, selectedProduct]);
 
+    // 参考车型：与待体检车型相同时无意义，视为未设置
+    const effectiveReferenceProduct = referenceProduct && referenceProduct !== selectedProduct ? referenceProduct : null;
+
+    // 参考车型数据取自已保存的资产/上传数据（purifyParams 只装当前车型）
+    const referenceData = useMemo(() => {
+        if (!effectiveReferenceProduct) return [] as VehicleParameter[];
+        const state = getVehicleSelectionState(uploadedFiles, effectiveReferenceProduct, assetFiles, activeAssets);
+        return state.status === 'ready' ? state.data : [];
+    }, [uploadedFiles, effectiveReferenceProduct, assetFiles, activeAssets]);
+
+    const referenceIndex: ReferenceIndex | null = useMemo(
+        () => (effectiveReferenceProduct ? buildReferenceIndex(referenceData) : null),
+        [effectiveReferenceProduct, referenceData]
+    );
+
     // 当所选产品变化时，初始化净化列表
     useEffect(() => {
         if (selectedProduct) {
@@ -138,6 +159,16 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => 
 
     const handleDeleteParam = useCallback((id: string) => {
         setPurifyParams((prev: VehicleParameter[]) => prev.filter(p => p.id !== id));
+    }, []);
+
+    /** 视同更新：把参考车型的参数名/值/分组一次性写入指定行 */
+    const handleSyncParam = useCallback((ids: Set<string>, diffById: Map<string, RowDiff>) => {
+        if (ids.size === 0) return;
+        const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        setPurifyParams((prev: VehicleParameter[]) => prev.map(p => {
+            const diff = diffById.get(p.id);
+            return diff ? { ...p, ...buildSyncPatch(p, diff.reference, nowStr) } : p;
+        }));
     }, []);
 
     const handleAddParam = () => {
@@ -236,6 +267,8 @@ type PurifyRow = VehicleParameter & {
     enums: string[];
     hasEnums: boolean;
     isEnumMismatch: boolean;
+    /** 与参考车型的差异；null = 非差异行或未设参考车型 */
+    diff: RowDiff | null;
 };
 
 // 为每一行计算异常状态和推荐
@@ -268,9 +301,10 @@ type PurifyRow = VehicleParameter & {
                 enums,
                 hasEnums,
                 isEnumMismatch,
+                diff: computeRowDiff(p, matchReference(p, referenceIndex)),
             };
         });
-    }, [purifyParams, enumLoaded]);
+    }, [purifyParams, enumLoaded, referenceIndex]);
 
     // 提取所有可用的分组用于下拉菜单
     const availableGroups = useMemo(() => {
@@ -299,16 +333,31 @@ type PurifyRow = VehicleParameter & {
                 if (!matchName && !matchGroup && !matchValue) return false;
             }
             
-            // 快捷过滤器（仅保留「仅异常」，其他通过字段组下拉实现）
+            // 快捷过滤器（仅保留「仅异常」与「仅看差异」，其他通过字段组下拉实现）
             if (quickFilter === 'anomaly') {
                 const isNameHealthy = p.isNameStandard;
                 const isValueHealthy = !p.isEnumMismatch;
                 return !(isNameHealthy && isValueHealthy);
             }
+            if (quickFilter === 'diff') {
+                return !!p.diff;
+            }
 
             return true;
         });
     }, [augmentedParams, filterGroup, quickFilter, paramSearch, fieldGroupFilter, fieldGroupsVersion]);
+
+    // 差异行索引：供行内按钮与全量同步共用
+    const diffById = useMemo(() => {
+        const map = new Map<string, RowDiff>();
+        augmentedParams.forEach(p => { if (p.diff) map.set(p.id, p.diff); });
+        return map;
+    }, [augmentedParams]);
+
+    const diffFieldNames = useMemo(
+        () => augmentedParams.filter(p => p.diff).map(p => p.name || '（未命名参数）'),
+        [augmentedParams]
+    );
 
     const fieldGroupOptions = useMemo(
         () => [{ value: 'all', label: '全部字段组' }, ...getFieldGroupsSync().map((group) => ({ value: group.id, label: group.name }))],
@@ -439,6 +488,12 @@ type PurifyRow = VehicleParameter & {
                                 已于 {record.updatedAt} 手动更新
                             </div>
                         )}
+                        {record.diff && (
+                            <RowSyncButton
+                                diff={record.diff}
+                                onSync={() => handleSyncParam(new Set([record.id]), diffById)}
+                            />
+                        )}
                     </div>
                 );
             },
@@ -456,7 +511,7 @@ type PurifyRow = VehicleParameter & {
                 </Popconfirm>
             )
         }
-    ], [handleUpdateParam, manualValueRows, handleDeleteParam]);
+    ], [handleUpdateParam, manualValueRows, handleDeleteParam, handleSyncParam, diffById]);
 
     return (
         <div className="h-full flex flex-col gap-3">
@@ -493,6 +548,12 @@ type PurifyRow = VehicleParameter & {
             <FilterBar
                 extra={
                     <Space>
+                        {effectiveReferenceProduct && (
+                            <SyncAllButton
+                                diffFieldNames={diffFieldNames}
+                                onSyncAll={() => handleSyncParam(new Set(diffById.keys()), diffById)}
+                            />
+                        )}
                         <Button icon={<PlusOutlined />} onClick={handleAddParam}>
                             手动新增参数
                         </Button>
@@ -546,7 +607,20 @@ type PurifyRow = VehicleParameter & {
                         showSearch
                     />
                 </FilterItem>
-                
+
+                <FilterItem label="参考车型:">
+                    <ReferenceProductSelect
+                        value={referenceProduct || undefined}
+                        onChange={val => setReferenceProduct(val || null)}
+                        options={selectedProductNames.map(name => ({
+                            value: name,
+                            label: selectedProductDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name),
+                            title: selectedProductDisplayLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name),
+                            disabled: name === selectedProduct,
+                        }))}
+                    />
+                </FilterItem>
+
                 <FilterItem label="分组:">
                     <Select
                         style={{ width: 140 }}
@@ -580,15 +654,27 @@ type PurifyRow = VehicleParameter & {
                 </FilterItem>
 
                 <FilterItem label="快捷:">
-                    <Button
-                        type={quickFilter === 'anomaly' ? 'primary' : 'default'}
-                        size="small"
-                        danger={quickFilter !== 'anomaly' && anomalyCount > 0}
-                        icon={anomalyCount > 0 ? <WarningOutlined /> : <SafetyCertificateOutlined />}
-                        onClick={() => setQuickFilter(quickFilter === 'anomaly' ? 'none' : 'anomaly')}
-                    >
-                        {anomalyCount > 0 ? `发现异常 (${anomalyCount})` : '完全合规'}
-                    </Button>
+                    <Space.Compact>
+                        <Button
+                            type={quickFilter === 'anomaly' ? 'primary' : 'default'}
+                            size="small"
+                            danger={quickFilter !== 'anomaly' && anomalyCount > 0}
+                            icon={anomalyCount > 0 ? <WarningOutlined /> : <SafetyCertificateOutlined />}
+                            onClick={() => setQuickFilter(quickFilter === 'anomaly' ? 'none' : 'anomaly')}
+                        >
+                            {anomalyCount > 0 ? `发现异常 (${anomalyCount})` : '完全合规'}
+                        </Button>
+                        {effectiveReferenceProduct && (
+                            <Button
+                                type={quickFilter === 'diff' ? 'primary' : 'default'}
+                                size="small"
+                                icon={<SyncOutlined />}
+                                onClick={() => setQuickFilter(quickFilter === 'diff' ? 'none' : 'diff')}
+                            >
+                                仅看差异 ({diffFieldNames.length})
+                            </Button>
+                        )}
+                    </Space.Compact>
                 </FilterItem>
             </FilterBar>
 

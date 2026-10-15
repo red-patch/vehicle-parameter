@@ -1,0 +1,69 @@
+import type { VehicleParameter } from '../types';
+
+/** 字段名归一化：全角→半角、去首尾与内部空白，用于跨车型匹配同名字段 */
+export const normalizeFieldKey = (name: string): string =>
+    (name || '')
+        .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+        .replace(/\u3000/g, ' ')
+        .replace(/\s+/g, '')
+        .trim();
+
+/** 参考车型字段索引：精确名 + 归一化名两级 */
+export interface ReferenceIndex {
+    exact: Map<string, VehicleParameter>;
+    normalized: Map<string, VehicleParameter>;
+}
+
+export const buildReferenceIndex = (refParams: VehicleParameter[]): ReferenceIndex => {
+    const exact = new Map<string, VehicleParameter>();
+    const normalized = new Map<string, VehicleParameter>();
+    refParams.forEach(param => {
+        const name = param.name || '';
+        if (name && !exact.has(name)) exact.set(name, param);
+        const key = normalizeFieldKey(name);
+        if (key && !normalized.has(key)) normalized.set(key, param);
+    });
+    return { exact, normalized };
+};
+
+/** 为当前车型的一行找参考车型里的对应字段：精确名优先，再退到归一化名 */
+export const matchReference = (row: VehicleParameter, index: ReferenceIndex | null): VehicleParameter | null => {
+    if (!index) return null;
+    const name = row.name || '';
+    return index.exact.get(name) || index.normalized.get(normalizeFieldKey(name)) || null;
+};
+
+/** 一行与参考车型之间的差异维度；全同或无参考则返回 null（非差异行） */
+export interface RowDiff {
+    reference: VehicleParameter;
+    nameDiffers: boolean;
+    valueDiffers: boolean;
+    groupDiffers: boolean;
+}
+
+export const computeRowDiff = (row: VehicleParameter, reference: VehicleParameter | null): RowDiff | null => {
+    if (!reference) return null;
+    // 参考车型自己没填值的字段不作为差异依据，避免把空覆盖到当前车型
+    if (String(reference.value ?? '').trim() === '') return null;
+
+    const nameDiffers = (row.name || '') !== (reference.name || '');
+    const valueDiffers = String(row.value ?? '').trim() !== String(reference.value ?? '').trim();
+    const groupDiffers = (row.group || '') !== (reference.group || '');
+
+    if (!nameDiffers && !valueDiffers && !groupDiffers) return null;
+    return { reference, nameDiffers, valueDiffers, groupDiffers };
+};
+
+/** 「视同更新」写入内容：参数名 + 参数值 + 分组 + 时间戳（不动 id） */
+export const buildSyncPatch = (
+    _row: VehicleParameter,
+    reference: VehicleParameter,
+    updatedAt: string
+): Pick<VehicleParameter, 'name' | 'value' | 'group' | 'updatedAt'> => ({
+    name: reference.name,
+    value: reference.value,
+    group: reference.group,
+    updatedAt,
+});
+
+export const diffCount = (diffs: (RowDiff | null)[]): number => diffs.filter(Boolean).length;
