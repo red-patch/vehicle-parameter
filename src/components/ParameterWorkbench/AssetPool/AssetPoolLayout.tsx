@@ -148,14 +148,15 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     const [batchMode, setBatchMode] = useState(false);
     const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set());
 
-    // ===== 左栏折叠 + 购物车浮层 =====
+    // ===== 左栏浮窗（默认收起；⌘S/点按钮 开关）+ 购物车浮层 =====
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-        try { return localStorage.getItem('asset-panel-sidebar-collapsed') === '1'; } catch { return false; }
+        // 默认收起（浮窗不默认遮挡列表）；期望展开时才记忆为 '0'
+        try { return localStorage.getItem('asset-pool-nav-open') !== '1'; } catch { return true; }
     });
     const toggleSidebar = useCallback(() => {
         setSidebarCollapsed(prev => {
             const next = !prev;
-            try { localStorage.setItem('asset-panel-sidebar-collapsed', next ? '1' : '0'); } catch (e) { console.warn(e); }
+            try { localStorage.setItem('asset-pool-nav-open', next ? '0' : '1'); } catch (e) { console.warn(e); }
             return next;
         });
     }, []);
@@ -979,11 +980,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         }
     }, [displayInfos, focusedFile, columnsInGrid]);
 
-    const focusSearch = useCallback(() => {
-        const input = searchSectionRef.current?.querySelector('input');
-        input?.focus();
-    }, []);
-
     const focusedInfo = useCallback(() => (
         focusedFile ? snapshot.infos.find(i => i.fileName === focusedFile) ?? null : null
     ), [focusedFile, snapshot.infos]);
@@ -991,7 +987,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     useAssetPoolHotkeys({
         enabled: true,
         onToggleSidebar: toggleSidebar,
-        onFocusSearch: focusSearch,
         onMoveFocus: moveFocus,
         onOpenInspector: () => { const i = focusedInfo(); if (i) handleOpenInspector(i); },
         onToggleActive: () => { const i = focusedInfo(); if (i) handleToggleActive(i); },
@@ -1001,6 +996,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         onRefresh: () => { bumpAssetVersion(); message.success('正在刷新资产库…'); },
         onShowCheatsheet: () => setCheatsheetOpen(true),
         onEscape: () => {
+            if (!sidebarCollapsed) { setSidebarCollapsed(true); try { localStorage.setItem('asset-pool-nav-open', '0'); } catch (e) { console.warn(e); } return; }
             if (cartExpanded) { setCartExpanded(false); return; }
             if (batchMode) { exitBatchMode(); return; }
             setFocusedFile(null);
@@ -1117,32 +1113,36 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
 
     return (
         <div className="flex h-full gap-3">
-            {/* 左栏：可折叠（展开 240px / 折叠 0 = 完全隐藏；展开入口在筛选条左缘） */}
+            {/* 左栏：浮窗（覆盖在列表上，不挤压布局；点外部/Esc 收起） */}
             {!sidebarCollapsed && (
-                <div className="w-[240px] flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden">
-                    <AssetSidebar
-                        governanceView={governanceView}
-                        onGovernanceViewChange={setGovernanceView}
-                        counts={governanceCounts}
-                        facetSelection={facetSelection}
-                        onFacetSelectionChange={setFacetSelection}
-                        facetVocab={facetVocab}
-                        facetItems={facetItems}
-                        onOpenGovernance={() => setGovernanceOpen(true)}
-                        onCollapse={toggleSidebar}
-                    />
-                </div>
+                <>
+                    {/* 透明点击层：点面板外收起 */}
+                    <div className="fixed inset-0 z-40" onClick={toggleSidebar} />
+                    <div className="fixed left-4 top-20 bottom-16 z-50 w-[260px] surface-container border border-popover rounded-xl overflow-hidden shadow-popover flex flex-col">
+                        <AssetSidebar
+                            governanceView={governanceView}
+                            onGovernanceViewChange={setGovernanceView}
+                            counts={governanceCounts}
+                            facetSelection={facetSelection}
+                            onFacetSelectionChange={setFacetSelection}
+                            facetVocab={facetVocab}
+                            facetItems={facetItems}
+                            onOpenGovernance={() => { setGovernanceOpen(true); setSidebarCollapsed(true); }}
+                            onCollapse={toggleSidebar}
+                        />
+                    </div>
+                </>
             )}
 
-            {/* 中间主区：弹性 */}
+            {/* 中间主区：弹性（左栏浮窗化后占满宽度） */}
             <div className="flex-1 min-w-0 flex flex-col surface-container border border-default rounded-xl overflow-hidden">
                 <div className="flex items-stretch">
-                    {/* 导航开关（常驻筛选条左缘；折叠后唯一展开入口，保证可达） */}
+                    {/* 导航开关（常驻筛选条左缘；浮窗开关） */}
                     <button
                         className="flex-none px-1.5 flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak border-r border-default transition-colors duration-150"
                         style={{ transitionTimingFunction: 'var(--ease-ui)' }}
                         onClick={toggleSidebar}
-                        title={sidebarCollapsed ? '展开导航（⌘S）' : '隐藏导航（⌘S）'}
+                        title={sidebarCollapsed ? '展开导航（⌘S）' : '收起导航（⌘S）'}
                     >
                         <span className="text-[11px]">{sidebarCollapsed ? '▸' : '◂'}</span>
                     </button>

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
     HomeOutlined, AppstoreOutlined, StarOutlined, WarningOutlined,
     BranchesOutlined, EditOutlined, HistoryOutlined, DeleteOutlined,
-    AuditOutlined, SettingOutlined, ReloadOutlined, SearchOutlined,
+    AuditOutlined, ReloadOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import { message, Tooltip, Input } from 'antd';
 import { useShallow } from 'zustand/react/shallow';
@@ -92,9 +92,7 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
     onOpenGovernance,
     onCollapse,
 }) => {
-    const { assetLibraryPath, setAssetLibraryPath, bumpAssetVersion } = useVehicleStore(useShallow(state => ({
-        assetLibraryPath: state.assetLibraryPath,
-        setAssetLibraryPath: state.setAssetLibraryPath,
+    const { bumpAssetVersion } = useVehicleStore(useShallow(state => ({
         bumpAssetVersion: state.bumpAssetVersion,
     })));
 
@@ -142,20 +140,6 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
 
     const handleGovernanceClick = (view: string) => {
         onGovernanceViewChange(governanceView === view ? null : view);
-    };
-
-    const handleSetAssetLibrary = async () => {
-        try {
-            const { open } = await import('@tauri-apps/plugin-dialog');
-            const selected = await open({ directory: true, multiple: false, title: '选择资产库目录' });
-            if (selected && typeof selected === 'string') {
-                setAssetLibraryPath(selected);
-                message.success(`已设置资产库目录: ${selected}`);
-            }
-        } catch (err) {
-            console.error('Failed to select directory', err);
-            message.error('选择目录失败');
-        }
     };
 
     return (
@@ -297,11 +281,7 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                     label="治理体检"
                     onClick={onOpenGovernance}
                 />
-                <NavItem
-                    icon={<SettingOutlined />}
-                    label={assetLibraryPath ? '更换资产库目录' : '设置资产库目录'}
-                    onClick={handleSetAssetLibrary}
-                />
+                {/* 「更换资产库目录」已迁至设置面板（路径与位置），此处不再重复 */}
             </div>
         </div>
     );

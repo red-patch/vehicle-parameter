@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { Drawer, Tag, Button, Empty, Progress, Tooltip } from 'antd';
+import { Drawer, Tag, Button, Empty, Progress } from 'antd';
 import {
-    ArrowRightOutlined, CheckCircleOutlined, WarningOutlined, EditOutlined, KeyOutlined, HistoryOutlined,
-    StopOutlined, CopyOutlined, FilePdfOutlined, DiffOutlined, DownloadOutlined, UpCircleOutlined,
-    FolderOpenOutlined, FileOutlined, DeleteOutlined, ThunderboltOutlined, CloseCircleOutlined, DatabaseOutlined,
+    ArrowRightOutlined, CheckCircleOutlined, WarningOutlined, HistoryOutlined,
+    StopOutlined, CopyOutlined, FileOutlined, ThunderboltOutlined, CloseCircleOutlined, DatabaseOutlined,
 } from '@ant-design/icons';
 
 import { useShallow } from 'zustand/react/shallow';
@@ -14,7 +13,6 @@ import { buildVehicleDisplayLabels, parseVehicleInstanceKey } from '../../utils/
 import { getAssetDisplayName } from '../../utils/assetNaming';
 import { buildAliasSource, resolveAssetDisplayName } from '../../utils/assetAlias';
 import { getAssetSourceMeta } from '../../utils/assetSourceTags';
-import { KEY_VEHICLE_TAG } from '../../utils/assetGovernance';
 import { getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import TagSelector from '../common/TagSelector';
 import type { AssetActions } from './useAssetActions';
@@ -140,84 +138,33 @@ const AssetInspector: React.FC<AssetInspectorProps> = ({ open, instanceKey, snap
                         </div>
                     </div>
 
-                    {/* 操作区（紧贴事实头：用户反馈动作埋底部太深，2026-10-01 上移） */}
+                    {/* 操作区（瘦身：其余对象级动作已在卡片右键菜单，此处只留视图内高频）
+                        设计文档 2026-10-14-asset-pool-* §4：检查器定位「参数详情」，
+                        15 个写操作全部下沉右键；本区只保留激活/移出 + 送去对比 + 标签编辑（看到即改） */}
                     <div>
-                        <SectionTitle icon={<ThunderboltOutlined className="text-brand" />}>操作</SectionTitle>
-                        <div className="space-y-2.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                {isAsset && info && (
-                                    <Button
-                                        size="small"
-                                        icon={isActive ? <StopOutlined /> : <ThunderboltOutlined />}
-                                        onClick={() => actions.toggleActive(info, isActive)}
-                                    >
-                                        {isActive ? '移出工作集' : '激活进工作集'}
-                                    </Button>
-                                )}
-                                <Button size="small" type="primary" icon={<ArrowRightOutlined />} onClick={() => onGoCompare(instanceKey!)}>
-                                    送去对比
-                                </Button>
-                            </div>
-
+                        <div className="flex items-center gap-2 flex-wrap">
                             {isAsset && info && (
-                                <>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <TagSelector
-                                            selected={tags}
-                                            availableTags={allTags}
-                                            onChange={next => void actions.saveTags(info.fileName, next)}
-                                        />
-                                        <Button size="small" icon={<EditOutlined />} onClick={() => actions.startRename(info)}>重命名</Button>
-                                        <Button size="small" onClick={() => void actions.startSetAlias(info)}>设置别名</Button>
-                                        <Button
-                                            size="small"
-                                            icon={<KeyOutlined className={tags.includes(KEY_VEHICLE_TAG) ? 'text-brand' : undefined} />}
-                                            onClick={() => void actions.toggleKeyVehicle(info)}
-                                        >
-                                            {tags.includes(KEY_VEHICLE_TAG) ? '取消关键车型' : '标记为关键车型'}
-                                        </Button>
-                                        <Button
-                                            size="small"
-                                            icon={<HistoryOutlined />}
-                                            onClick={() => void actions.setStatus(info, 'superseded')}
-                                        >
-                                            {metaStatus === 'superseded' ? '取消历史版本标记' : '标记为历史版本'}
-                                        </Button>
-                                        <Button
-                                            size="small"
-                                            icon={<StopOutlined />}
-                                            onClick={() => void actions.setStatus(info, 'deprecated')}
-                                        >
-                                            {metaStatus === 'deprecated' ? '清除废弃标记' : '标记为废弃'}
-                                        </Button>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <Button size="small" icon={<CopyOutlined />} onClick={() => actions.copyAnnounceNo(info)}>复制公告号</Button>
-                                        <Button size="small" icon={<FilePdfOutlined />} onClick={() => actions.viewAnnouncementPdf(info)}>查看公告 PDF</Button>
-                                        <Button size="small" icon={<DiffOutlined />} onClick={() => actions.compareWithAnnouncement(info)}>与公告对比</Button>
-                                        <Button size="small" icon={<DownloadOutlined />} onClick={() => void actions.exportCsv(info)}>导出 CSV</Button>
-                                        <Button size="small" icon={<UpCircleOutlined />} onClick={() => void actions.openUpgrade(info)}>升级导入</Button>
-                                        <Tooltip title="在 Finder 中显示">
-                                            <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void actions.revealInFinder(info)} />
-                                        </Tooltip>
-                                        <Tooltip title="打开文件">
-                                            <Button size="small" icon={<FileOutlined />} onClick={() => void actions.openInEditor(info)} />
-                                        </Tooltip>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 flex-wrap pt-1">
-                                        <Button size="small" danger icon={<DeleteOutlined />} onClick={() => actions.deleteAsset(info)}>
-                                            删除资产（可恢复）
-                                        </Button>
-                                        {metaStatus === 'deprecated' && (
-                                            <Button size="small" danger type="primary" icon={<DeleteOutlined />} onClick={() => actions.hardDelete(info)}>
-                                                彻底删除（归档）
-                                            </Button>
-                                        )}
-                                    </div>
-                                </>
+                                <Button
+                                    size="small"
+                                    icon={isActive ? <StopOutlined /> : <ThunderboltOutlined />}
+                                    onClick={() => actions.toggleActive(info, isActive)}
+                                >
+                                    {isActive ? '移出工作集' : '激活进工作集'}
+                                </Button>
                             )}
+                            <Button size="small" type="primary" icon={<ArrowRightOutlined />} onClick={() => onGoCompare(instanceKey!)}>
+                                送去对比
+                            </Button>
+                            {isAsset && info && (
+                                <TagSelector
+                                    selected={tags}
+                                    availableTags={allTags}
+                                    onChange={next => void actions.saveTags(info.fileName, next)}
+                                />
+                            )}
+                        </div>
+                        <div className="mt-2 text-caption text-3">
+                            更多操作（重命名 / 别名 / 状态 / 公告 / 导出 / 删除…）在卡片上右键。
                         </div>
                     </div>
 
