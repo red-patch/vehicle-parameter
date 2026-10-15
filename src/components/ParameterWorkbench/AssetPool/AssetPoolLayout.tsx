@@ -754,11 +754,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         return buildAssetGroupsMulti(rows, groupDims, groupCtx);
     }, [displayInfos, groupDims, groupCtx, cardDisplayName, snapshot.meta, brandNames]);
 
-    const filtersActive = Boolean(
-        searchKeyword.trim() || governanceView || selectedTags.length > 0 || statusSelection.length > 0
-        || isFacetSelectionActive(facetSelection),
-    );
-
     const handleClearFilters = useCallback(() => {
         setSearchKeyword('');
         setFacetSelection(EMPTY_FACET_SELECTION);
@@ -1386,7 +1381,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                         <AssetGroupTree
                             nodes={assetGroupNodes}
                             level={0}
-                            forceExpand={filtersActive}
                             isCollapsed={key => collapsedGroups.has(key)}
                             onToggle={toggleGroupCollapsed}
                             onActivateLatest={handleActivateLatest}
