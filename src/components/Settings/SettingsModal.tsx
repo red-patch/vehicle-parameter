@@ -6,6 +6,7 @@ import { useSettingsHotkey } from './useSettingsHotkey';
 import AppearanceSection from './sections/AppearanceSection';
 import PathsSection from './sections/PathsSection';
 import MobileSection from './sections/MobileSection';
+import ShortcutsSection from './sections/ShortcutsSection';
 import DataSection from './sections/DataSection';
 
 /**
@@ -28,6 +29,7 @@ const SettingsModal: React.FC = () => {
             case 'appearance': return <AppearanceSection />;
             case 'paths': return <PathsSection />;
             case 'mobile': return <MobileSection />;
+            case 'shortcuts': return <ShortcutsSection />;
             case 'data': return <DataSection />;
             default: return null;
         }

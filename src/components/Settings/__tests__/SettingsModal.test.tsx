@@ -69,14 +69,20 @@ describe('SettingsModal', () => {
         useSettingsStore.setState({ isOpen: true, activeSection: 'appearance' });
         render(<SettingsModal />);
 
-        // 左导航四个分类都在
+        // 左导航五个分类都在
         expect(screen.getByRole('tab', { name: /外观/ })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: /路径与位置/ })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /快捷键/ })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: /手机查看/ })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: /数据与危险操作/ })).toBeInTheDocument();
 
         // 默认在外观：主题单选可见
         expect(screen.getByText('主题')).toBeInTheDocument();
+
+        // 切到快捷键分类：注册表渲染出「全局」分组
+        fireEvent.click(screen.getByRole('tab', { name: /快捷键/ }));
+        expect(useSettingsStore.getState().activeSection).toBe('shortcuts');
+        expect(screen.getByText('全局')).toBeInTheDocument();
 
         // 切到数据分类：危险操作按钮出现
         fireEvent.click(screen.getByRole('tab', { name: /数据与危险操作/ }));
