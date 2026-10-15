@@ -10,7 +10,6 @@ import { useEffect } from 'react';
  */
 export interface AssetPoolHotkeyHandlers {
     onToggleSidebar: () => void;
-    onFocusSearch: () => void;
     onMoveFocus: (delta: { dx: number; dy: number }) => void;
     onOpenInspector: () => void;
     onToggleActive: () => void;
@@ -42,7 +41,7 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
 export function useAssetPoolHotkeys(opts: UseAssetPoolHotkeysOptions): void {
     const {
         enabled,
-        onToggleSidebar, onFocusSearch, onMoveFocus, onOpenInspector, onToggleActive,
+        onToggleSidebar, onMoveFocus, onOpenInspector, onToggleActive,
         onEnterBatch, onToggleCart, onGoCompare, onRefresh, onShowCheatsheet, onEscape,
         onSaveView, onSwitchView,
     } = opts;
@@ -83,12 +82,6 @@ export function useAssetPoolHotkeys(opts: UseAssetPoolHotkeysOptions): void {
             if (mod && !e.shiftKey && (e.key === '1' || e.key === '2' || e.key === '3')) {
                 e.preventDefault();
                 onSwitchView(Number(e.key) - 1);
-                return;
-            }
-            // ⌘K：聚焦搜索框
-            if (mod && !e.shiftKey && (e.key === 'k' || e.key === 'K')) {
-                e.preventDefault();
-                onFocusSearch();
                 return;
             }
             // ⌘⇧A：批量选择
@@ -146,7 +139,7 @@ export function useAssetPoolHotkeys(opts: UseAssetPoolHotkeysOptions): void {
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, [
-        enabled, onToggleSidebar, onFocusSearch, onMoveFocus, onOpenInspector, onToggleActive,
+        enabled, onToggleSidebar, onMoveFocus, onOpenInspector, onToggleActive,
         onEnterBatch, onToggleCart, onGoCompare, onRefresh, onShowCheatsheet, onEscape,
         onSaveView, onSwitchView,
     ]);

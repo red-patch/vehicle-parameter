@@ -14,7 +14,6 @@ const MOD = MAC ? '⌘' : 'Ctrl';
 
 const ROWS: { keys: string; label: string }[] = [
     { keys: `${MOD} S`, label: '隐藏 / 显示左侧导航' },
-    { keys: `${MOD} K`, label: '聚焦搜索框' },
     { keys: '↑ ↓ ← →', label: '在卡片间移动焦点' },
     { keys: 'Enter', label: '打开资产检查器' },
     { keys: 'Space', label: '激活 / 移出工作集' },

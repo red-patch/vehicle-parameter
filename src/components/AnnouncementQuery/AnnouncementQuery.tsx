@@ -75,13 +75,15 @@ interface AnnouncementQueryProps {
 const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }) => {
     const [announcementNo, setAnnouncementNo] = useState<string>('');
     const [importJson, setImportJson] = useState<string>('');
-    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath } = useVehicleStore(useShallow(state => ({
+    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath, pendingGlobalSearch, setPendingGlobalSearch } = useVehicleStore(useShallow(state => ({
         setMiitData: state.setMiitData,
         miitData: state.miitData,
         setTargetFile: state.setTargetFile,
         setCompareMode: state.setCompareMode,
         addFile: state.addFile,
         assetLibraryPath: state.assetLibraryPath,
+        pendingGlobalSearch: state.pendingGlobalSearch,
+        setPendingGlobalSearch: state.setPendingGlobalSearch,
     })));
     const { loadFor, refresh: refreshAnnouncements, infos: announcementInfos } = useAnnouncementStore(useShallow(state => ({
         loadFor: state.loadFor,
@@ -118,6 +120,14 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
     React.useEffect(() => {
         loadFor(assetLibraryPath);
     }, [assetLibraryPath, loadFor]);
+
+    // 全局搜索面板（⌘K）跳转：预填公告号查询框（一次性信号，见 docs/plans/2026-10-15-全局搜索面板-design.md §3.4）
+    React.useEffect(() => {
+        if (pendingGlobalSearch && pendingGlobalSearch.tab === 'announcement') {
+            setAnnouncementNo(pendingGlobalSearch.keyword);
+            setPendingGlobalSearch(null);
+        }
+    }, [pendingGlobalSearch, setPendingGlobalSearch]);
 
     // 回应用时增量检查（grilling 定稿：无常驻监听）——切回应用时 stat 下载目录，
     // Rust 侧缓存命中零解析、名字预筛不像公告的文件不打扰；发现新的公告 PDF 才弹通知。

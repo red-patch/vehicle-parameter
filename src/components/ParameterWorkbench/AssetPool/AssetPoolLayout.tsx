@@ -184,6 +184,16 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         }
     }, [pendingAnnounceNoFilter, setPendingAnnounceNoFilter]);
 
+    // 全局搜索面板（⌘K）跳转：预填搜索框（一次性信号，见 docs/plans/2026-10-15-全局搜索面板-design.md §3.4）
+    const pendingGlobalSearch = useVehicleStore(state => state.pendingGlobalSearch);
+    const setPendingGlobalSearch = useVehicleStore(state => state.setPendingGlobalSearch);
+    useEffect(() => {
+        if (pendingGlobalSearch && pendingGlobalSearch.tab === 'pool') {
+            setSearchKeyword(pendingGlobalSearch.keyword);
+            setPendingGlobalSearch(null);
+        }
+    }, [pendingGlobalSearch, setPendingGlobalSearch]);
+
     // ===== Facet 词表与取值 =====
     const [facetVocab, setFacetVocab] = useState<FacetVocab>(DEFAULT_FACET_VOCAB);
     const [facetValues, setFacetValues] = useState<FacetValues>(EMPTY_FACET_VALUES);

@@ -8,6 +8,7 @@ import {
     SettingOutlined,
 } from '@ant-design/icons';
 import { useRegulationStore } from '../../store/regulationStore';
+import { useVehicleStore } from '../../store/vehicleStore';
 import { extractHints } from '../../utils/regulationIO';
 import {
     STATUS_VALUES,
@@ -71,6 +72,16 @@ const RegulationLibrary: React.FC = () => {
         if (rootPath && !scan && !loading) void load();
         // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在 rootPath 首次就绪时拉一次
     }, [rootPath]);
+
+    // 全局搜索面板（⌘K）跳转：预填法规关键词（一次性信号，见 docs/plans/2026-10-15-全局搜索面板-design.md §3.4）
+    const pendingGlobalSearch = useVehicleStore(s => s.pendingGlobalSearch);
+    const setPendingGlobalSearch = useVehicleStore(s => s.setPendingGlobalSearch);
+    React.useEffect(() => {
+        if (pendingGlobalSearch && pendingGlobalSearch.tab === 'regulation') {
+            setFilters({ query: pendingGlobalSearch.keyword });
+            setPendingGlobalSearch(null);
+        }
+    }, [pendingGlobalSearch, setPendingGlobalSearch, setFilters]);
 
     const handlePick = async () => {
         try {

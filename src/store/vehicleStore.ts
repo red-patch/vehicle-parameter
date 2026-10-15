@@ -69,6 +69,10 @@ export interface VehicleStore {
     pendingAnnounceNoFilter: string[] | null;
     setPendingAnnounceNoFilter: (nos: string[] | null) => void;
 
+    /** 全局搜索面板（⌘K）的一次性跳转信号：目标页 + 预填关键字，消费后清空（不持久化） */
+    pendingGlobalSearch: { tab: string; keyword: string } | null;
+    setPendingGlobalSearch: (signal: { tab: string; keyword: string } | null) => void;
+
     // V6.2 Global Module Selections (Synchronization)
     activeAssets: string[];
     addActiveAsset: (fileName: string, productName: string) => void;
@@ -423,6 +427,8 @@ export const useVehicleStore = create<VehicleStore>()(
     setAssetLibraryPath: (path) => set({ assetLibraryPath: path }),
     pendingAnnounceNoFilter: null,
     setPendingAnnounceNoFilter: (nos) => set({ pendingAnnounceNoFilter: nos }),
+    pendingGlobalSearch: null,
+    setPendingGlobalSearch: (signal) => set({ pendingGlobalSearch: signal }),
 
     reset: () => set({
         baseFile: null,
