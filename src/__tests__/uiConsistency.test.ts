@@ -68,10 +68,9 @@ const DEFINITION_SITE: Record<string, string> = {
  */
 const MIGRATED_LIST_PAGES: string[] = [
     'AnnouncementQuery/AnnouncementArchiveList.tsx',
-    // SmartFiller/MatchResultTable.tsx 尚未入列：它当前是**半成品**——
-    // 筛选行走了 ListToolbar，标题行仍是手写 <h3>（2026-10-16 盘点的结论，
-    // 也是 R7 首次运行就抓到的真实回归）。归入设计语言 §7 批次 1 修完后加回，
-    // 在此之前由本清单的缺席 + 上述注释共同记录这笔债。
+    // 设计语言 §7 批次 1：手写 <h3> 标题行并入 ListToolbar 的 title/actions，
+    // 导出按钮按 §5.1 收进下拉（≥3 个动作）、标题行只留 1 个 primary。
+    'SmartFiller/MatchResultTable.tsx',
 ];
 
 /**

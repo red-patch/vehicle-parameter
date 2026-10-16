@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { Tag, Select, Progress, Button, message, Input, Tooltip, Popover } from 'antd';
+import { Tag, Select, Progress, Button, message, Input, Tooltip, Popover, Dropdown } from 'antd';
 import { FilterItem } from '../common/FilterBar';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
@@ -10,7 +10,7 @@ import { getProductData } from '../../store/vehicleSelectors';
 import { useShallow } from 'zustand/react/shallow';
 import Fuse from 'fuse.js';
 import type { MatchItem } from '../../types';
-import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined, BulbOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined, BulbOutlined, DownOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
 import { buildRepairContext, getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
@@ -443,25 +443,41 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
     if (!matchResults.length) return null;
 
     return (
-        <div className="mt-8 surface-container p-4 rounded border border-default">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
+        /* 列表页外壳统一走 ListToolbar（设计：2026-10-16-列表页设计语言 §4.1/§4.3）。
+           此前是「手写 flex 标题行 + ListToolbar 只当筛选行」两套壳并存，
+           正是 R7 抓到的半成品状态。 */
+        <ListToolbar
+            className="mt-8"
+            title={
+                <>
                     <CheckCircleOutlined className="text-success" />
-                    匹配结果预览
-                    <Tag>{filteredResults.length}/{matchResults.length}</Tag>
-                </h3>
-                <div className="flex gap-2 flex-wrap">
-                    <Button onClick={handleCopy}>
-                        复制填报结果 (CSV)
-                    </Button>
-                    <Button icon={<DownloadOutlined />} onClick={handleDownload}>
-                        下载 CSV
-                    </Button>
-                    {enumMismatchItems.length > 0 && (
-                        <Button
-                            icon={<CopyOutlined />}
-                            danger
-                            onClick={() => {
+                    <span className="font-semibold text-1">匹配结果预览</span>
+                    <Tag className="m-0">{filteredResults.length}/{matchResults.length}</Tag>
+                </>
+            }
+            actions={
+                <>
+                    {/* §5.1：≥3 个动作收进下拉，标题行只留 1 个 primary */}
+                    <Dropdown
+                        menu={{
+                            items: [
+                                { key: 'copy-csv', icon: <CopyOutlined />, label: '复制 CSV' },
+                                { key: 'download-csv', icon: <DownloadOutlined />, label: '下载 CSV' },
+                                ...(enumMismatchItems.length > 0
+                                    ? [
+                                          { type: 'divider' as const },
+                                          {
+                                              key: 'copy-enum',
+                                              icon: <WarningOutlined />,
+                                              danger: true,
+                                              label: `复制枚举异常字段（${enumMismatchItems.length}）`,
+                                          },
+                                      ]
+                                    : []),
+                            ],
+                            onClick: ({ key }) => {
+                                if (key === 'copy-csv') { handleCopy(); return; }
+                                if (key === 'download-csv') { handleDownload(); return; }
                                 const lines = enumMismatchItems.map(m => {
                                     const value = m.manualValue !== undefined
                                         ? m.manualValue
@@ -471,11 +487,14 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 navigator.clipboard.writeText('参数名\t当前值\n' + lines.join('\n'))
                                     .then(() => message.success(`已复制 ${enumMismatchItems.length} 个枚举异常字段`))
                                     .catch(() => message.error('复制失败'));
-                            }}
-                        >
-                            复制枚举异常字段 ({enumMismatchItems.length})
+                            },
+                        }}
+                        trigger={['click']}
+                    >
+                        <Button>
+                            导出 <DownOutlined style={{ fontSize: 10 }} />
                         </Button>
-                    )}
+                    </Dropdown>
                     <Button
                         type="primary"
                         icon={<CloudUploadOutlined />}
@@ -528,12 +547,9 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                     >
                         车上云系统模板导出
                     </Button>
-                </div>
-            </div>
-
-            {/* V3.0: 过滤器区域（外壳统一走 ListToolbar） */}
-            <ListToolbar
-                filters={
+                </>
+            }
+            filters={
                     <>
                         <FilterItem label="搜索">
                             <SearchInput
@@ -587,8 +603,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                         </FilterItem>
                     </>
                 }
-            />
-
+            padded={false}
+        >
             {/* 不用 virtual：虚拟滚动按固定值估行高（small 档 ≈37px），而本表行内含
                 可变高内容，估位与实际不符会让滚动条长度与定位失真。参照页（数据体检）
                 同样渲染全量行，量级相当（323 vs 437 行）。见表格行规范 §2.1/§3.2。 */}
@@ -598,7 +614,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                 rowKey="id"
                 scrollY={600}
             />
-        </div>
+        </ListToolbar>
     );
 };
 
