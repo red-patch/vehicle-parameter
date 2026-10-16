@@ -193,6 +193,19 @@ describe('UI 构件一致性护栏', () => {
         expect(regressed, `以下页面退回手写外壳：\n${regressed.join('\n')}`).toEqual([]);
     });
 
+    it('资产池筛选条保留 ChipShell，不得被替换为 FacetChips（合法例外）', () => {
+        // 用户明确要求保护资产池的筛选交互。ChipShell 是「下拉式 facet」，
+        // 内嵌 InputNumber（电量区间）/ TextArea（公告号粘贴口）/ 值列表；
+        // FacetChips 是「平铺式 + 定长枚举」，装不下这些语义。换掉会改变
+        // 资产池最核心的筛选交互——此用例即为防止它被「顺手统一」掉。
+        // 见 docs/plans/2026-10-16-列表页设计语言-design.md §7.1。
+        const src = SOURCES['../components/ParameterWorkbench/AssetPool/AssetFilterBar.tsx'];
+        expect(src, 'AssetFilterBar.tsx 不在扫描范围内（改名了？请同步本用例与 §7.1）').toBeTruthy();
+        const code = stripComments(src!);
+        expect(code, '筛选条不再使用 ChipShell——资产池筛选交互被改动').toContain('ChipShell');
+        expect(code, '筛选条混入了 FacetChips——ChipShell 是已登记的合法例外').not.toContain('FacetChips');
+    });
+
     it('存量违规总量有账可查（改小了请同步 LEGACY_EXEMPT 数字）', () => {
         let total = 0;
         for (const rel of Object.keys(LEGACY_EXEMPT)) {
