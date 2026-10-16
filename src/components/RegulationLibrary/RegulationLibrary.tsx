@@ -19,6 +19,9 @@ import {
     type RegulationRecord,
 } from '../../utils/regulationTypes';
 import RegulationFilterPanel from './RegulationFilterPanel';
+import ListToolbar from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
+import { FilterItem } from '../common/FilterBar';
 import RegulationTable from './RegulationTable';
 import RegulationImportModal from './RegulationImportModal';
 import RegulationDetailDrawer from './RegulationDetailDrawer';
@@ -215,27 +218,16 @@ const RegulationLibrary: React.FC = () => {
 
     const unregistered = scan?.unregistered ?? [];
 
+    /** 筛选是否处于激活态（决定「清除筛选」是否出现） */
+    const filtersDirty =
+        filters.levels.length > 0 ||
+        filters.domains.length > 0 ||
+        filters.statuses.length > 0 ||
+        filters.query.trim() !== '';
+
     return (
         <div className="p-4" style={{ height: '100%', overflow: 'auto' }}>
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                {/* 页标题与顶栏 tab 名重复，删除；库路径 + 目录操作收进下方卡片头 */}
-                <Space style={{ width: '100%', justifyContent: 'flex-end' }} wrap>
-                    <Space>
-                        <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handlePick()}>
-                            选择目录
-                        </Button>
-                        <Button
-                            size="small"
-                            icon={<ReloadOutlined />}
-                            disabled={!rootPath}
-                            loading={loading}
-                            onClick={() => void rescan()}
-                        >
-                            刷新
-                        </Button>
-                    </Space>
-                </Space>
-
                 {error && (
                     <Alert
                         type={error.includes('桌面端') ? 'info' : 'error'}
@@ -283,21 +275,16 @@ const RegulationLibrary: React.FC = () => {
                             />
                         )}
 
-                        <RegulationFilterPanel
-                            filters={filters}
-                            vocab={sidecar.vocab}
-                            statusCounts={statusCounts}
-                            onChange={setFilters}
-                            onReset={resetFilters}
-                        />
-
-                        <Card
-                            size="small"
+                        {/* 列表页外壳统一走 ListToolbar 三段（设计语言 §4.1/§4.3）：
+                            此前是「无标题操作行 + 筛选 Card + 记录 Card」三块并列。 */}
+                        <ListToolbar
+                            className="shadow-sm"
+                            padded={false}
                             title={
                                 <Space size={8} wrap>
                                     <Space size={6}>
                                         <ScanOutlined />
-                                        <span>记录（{filtered.length}）</span>
+                                        <span className="font-semibold text-1">记录（{filtered.length}）</span>
                                         {filtered.length !== sidecar.records.length && (
                                             <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                                 / 共 {sidecar.records.length}
@@ -311,8 +298,13 @@ const RegulationLibrary: React.FC = () => {
                                     )}
                                 </Space>
                             }
-                            extra={
-                                <Space>
+                            actions={
+                                <>
+                                    {/* §5.1：primary 只给产出/终点动作；本页主任务是浏览与治理，
+                                        选择目录/刷新/保存/设置都是过程动作，一律 default */}
+                                    <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handlePick()}>
+                                        选择目录
+                                    </Button>
                                     <Tooltip title="把当前记录写回库目录下的 _regulations.json">
                                         <Button
                                             size="small"
@@ -332,16 +324,51 @@ const RegulationLibrary: React.FC = () => {
                                             设置
                                         </Button>
                                     </Tooltip>
-                                </Space>
+                                    <Tooltip title="重新扫描库目录">
+                                        <Button
+                                            size="small"
+                                            icon={<ReloadOutlined />}
+                                            disabled={!rootPath}
+                                            loading={loading}
+                                            onClick={() => void rescan()}
+                                        />
+                                    </Tooltip>
+                                </>
                             }
-                            styles={{ body: { padding: 8 } }}
+                            filters={
+                                <>
+                                    <FilterItem label="搜索">
+                                        <SearchInput
+                                            width="lg"
+                                            placeholder="搜索标准号、名称、主题域"
+                                            value={filters.query}
+                                            onChange={q => setFilters({ query: q })}
+                                        />
+                                    </FilterItem>
+                                    <RegulationFilterPanel
+                                        filters={filters}
+                                        vocab={sidecar.vocab}
+                                        statusCounts={statusCounts}
+                                        onChange={setFilters}
+                                    />
+                                    {filtersDirty && (
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 'var(--fs-aux)', cursor: 'pointer' }}
+                                            onClick={resetFilters}
+                                        >
+                                            清除筛选
+                                        </Text>
+                                    )}
+                                </>
+                            }
                         >
                             <RegulationTable
                                 records={filtered}
                                 loading={loading}
                                 onOpen={rec => setSelected(rec)}
                             />
-                        </Card>
+                        </ListToolbar>
                     </>
                 )}
             </Space>

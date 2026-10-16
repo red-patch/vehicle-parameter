@@ -71,6 +71,11 @@ const MIGRATED_LIST_PAGES: string[] = [
     // 设计语言 §7 批次 1：手写 <h3> 标题行并入 ListToolbar 的 title/actions，
     // 导出按钮按 §5.1 收进下拉（≥3 个动作）、标题行只留 1 个 primary。
     'SmartFiller/MatchResultTable.tsx',
+    // 设计语言 §7 批次 3：结果区三段落位（display 段独立）、删除重复导出入口。
+    'ParameterWorkbench/CompareView.tsx',
+    // 设计语言 §7 批次 4：三块并列（无标题操作行 + 筛选 Card + 记录 Card）合并为
+    // ListToolbar 三段；清掉全仓最后一处 Input.Search。
+    'RegulationLibrary/RegulationLibrary.tsx',
 ];
 
 /**
@@ -91,7 +96,6 @@ const LEGACY_EXEMPT: Record<string, number> = {
     'ParameterWorkbench/CompareView.tsx': 1,
     'ParameterWorkbench/FileManager.tsx': 1,
     'ParameterWorkbench/MultiVehicleView.tsx': 1,
-    'RegulationLibrary/RegulationFilterPanel.tsx': 1,
     'SmartFiller/ConfigManagerView.tsx': 4,
     'SmartFiller/CoreFieldRuleComposer.tsx': 1,
     'SmartFiller/EnumImportModal.tsx': 2,
