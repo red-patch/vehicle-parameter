@@ -4,7 +4,7 @@
 
 ## 项目简介
 
-面向整车产品工作的桌面工具（产品名 **整车产品工作台 VPW**）：车型资产治理与筛选、公告记录归档与比对、法规标准库、参数导入（Excel/CSV）、智能填报、属性去重、数据体检与修复、版本对比、导出。名称刻意中性，不绑定单一品牌或单一角色。
+面向整车产品工作的桌面工具（产品名 **整车产品工作台 VPW**）：车型资产治理与筛选、公告记录归档与比对、法规标准库、参数导入（Excel/CSV）、智能填报、数据体检与修复、版本对比、导出。名称刻意中性，不绑定单一品牌或单一角色。
 技术栈：**Tauri 2 + React 19 + TypeScript + Vite 7 + Tailwind 3 + Ant Design v6**，状态用 Zustand，后端逻辑在 Rust（src-tauri）。
 
 ## 验证命令（改完代码必须跑）
@@ -37,13 +37,13 @@ npm run build      # tsc -b + vite build
 - **错题本**：[LESSONS.md](LESSONS.md) 记 agent 的工程教训（返工/不该合/验证糙），同一教训在 3 个不同日期重现即升格进本文件；开工前扫一眼与本次改动相关的条目
 - **架构决策**：`docs/adr/0001-0004`（受控属性分层、身份键与永不静默覆盖、主文件退役、只读远程访问面）
 - **设计方案**：`docs/plans/YYYY-MM-DD-主题-design.md`，带「日期｜状态」头与前置文档链；新设计照此体例落盘，实施完把状态头改为「已实施」
-- **资产管理页组件链**：`MainLayout('pool')` → `ParameterWorkbench` → `DataSourcePanel`；`src/components/AssetLibrary/` 只装筛选面板和弹窗抽屉，不是页面入口
+- **资产管理页组件链**：`MainLayout('pool')` → `ParameterWorkbench` → `AssetPoolLayout` → `AssetSidebar` / `AssetFilterBar` / `AssetGroupTree`；`src/components/AssetLibrary/` 只装筛选面板和弹窗抽屉，不是页面入口
 
 ## 目录地图
 
 | 路径 | 说明 |
 |---|---|
-| `src/components/` | 功能模块（ParameterWorkbench / SmartFiller / DiffViewer / AttributeDedup / DataPurify / AssetLibrary / AnnouncementQuery / FileUpload） |
+| `src/components/` | 功能模块（ParameterWorkbench / SmartFiller / DiffViewer / DataPurify / AssetLibrary / AnnouncementQuery / RegulationLibrary / FileUpload / GlobalSearch / VehicleDesigner） |
 | `src/store/` | 全局状态 |
 | `src/workers/` | Web Worker（解析等重计算） |
 | `src/utils/` | 纯函数工具，优先把逻辑放这里方便测试 |
@@ -56,11 +56,11 @@ npm run build      # tsc -b + vite build
 
 | 文件 | 行数 | 改动后必跑 |
 |---|---|---|
+| `src/components/ParameterWorkbench/AssetPool/AssetPoolLayout.tsx` | ~1550 | lint + test + build |
 | `src/components/SmartFiller/ConfigManagerView.tsx` | ~1270 | lint + test + build |
-| `src/components/ParameterWorkbench/DataSourcePanel.tsx` | ~1280 | lint + test + build |
 | `src/components/DiffViewer/DiffResultView.tsx` | ~520 | lint + test |
 
-原则：这些文件已经超过需要拆分的阈值，**新增逻辑优先写到独立文件/子组件，不要再往里面堆**。资产对象级动作（重命名/激活/删除/标签/公告关联）已抽到 `src/components/ParameterWorkbench/useAssetActions.tsx`，新动作加在那里，别堆回 DataSourcePanel。
+原则：这些文件已经超过需要拆分的阈值，**新增逻辑优先写到独立文件/子组件，不要再往里面堆**。资产对象级动作（重命名/激活/删除/标签/公告关联）已抽到 `src/components/ParameterWorkbench/useAssetActions.tsx`，新动作加在那里，别堆回 AssetPoolLayout。
 
 ## UI 构件（用这些，别手搓）
 

@@ -16,7 +16,7 @@ import {
 /**
  * 批量字段维护抽屉（设计：docs/plans/2026-10-13-batch-field-maintenance-design.md）。
  * 参数行与受控属性共用一个字段选择器：选字段 → 填新值 → 逐台预览判定 → 确认写入。
- * 只负责交互与预览，落盘由宿主（DataSourcePanel）分派，纯逻辑在 assetFieldEdit.ts。
+ * 只负责交互与预览，落盘由宿主（AssetPoolLayout）分派，纯逻辑在 assetFieldEdit.ts。
  */
 
 export interface ParamFieldOption {
