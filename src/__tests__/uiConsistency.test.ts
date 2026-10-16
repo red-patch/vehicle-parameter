@@ -99,7 +99,6 @@ const MIGRATED_LIST_PAGES: string[] = [
  */
 const LEGACY_EXEMPT: Record<string, number> = {
     'AssetLibrary/AssetListDrawer.tsx': 1,
-    'ParameterWorkbench/AssetPool/AssetFilterBar.tsx': 1,
     'ParameterWorkbench/AssetPool/AssetSidebar.tsx': 1,
     'ParameterWorkbench/FileManager.tsx': 1,
     'ParameterWorkbench/MultiVehicleView.tsx': 1,

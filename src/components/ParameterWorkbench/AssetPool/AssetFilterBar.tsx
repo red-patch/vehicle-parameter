@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Input, Button, Popover, Tag, InputNumber, Tooltip } from 'antd';
-import { SearchOutlined, ClearOutlined, CaretDownOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { ClearOutlined, CaretDownOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import {
     FACET_NONE, collectFacetValues, countFacetValues, toggleFacetValue,
     isFacetSelectionActive, type FacetSelection, type FacetDim,
 } from '../../../utils/facetFilters';
+import SearchInput from '../../common/SearchInput';
 import type { FacetVocab, ResolvedFacets } from '../../../utils/assetFacets';
 import type { StatusFilter } from './AssetPoolLayout';
 
@@ -189,13 +190,14 @@ const AssetFilterBar: React.FC<AssetFilterBarProps> = ({
                     </button>
                 </Tooltip>
             )}
-            <Input
-                className="flex-1 min-w-[180px]"
-                placeholder="搜名字/公告号/标签..."
-                prefix={<SearchOutlined className="text-3" />}
-                allowClear
+            {/* 搜索框走规范唯一形态（设计语言 §5）。width="fluid" 精确保住此处原有布局：
+                它本是 flex-1 min-w-[180px]（随筛选条伸缩），改用固定像素档会把同行
+                chips 挤走——资产池布局不得改动（§7.1）。 */}
+            <SearchInput
+                width="fluid"
+                placeholder="搜名字、公告号、标签"
                 value={searchKeyword}
-                onChange={e => onSearchKeywordChange(e.target.value)}
+                onChange={onSearchKeywordChange}
             />
 
             {/* 电量（区间） */}

@@ -13,14 +13,22 @@ import { SearchOutlined } from '@ant-design/icons';
  * 宽度只收 'sm' | 'md' | 'lg' 三档，不接受任意像素。
  */
 
-/** 宽度三档（取代散落的 240 / 320 / 200 魔法数） */
+/** 固定宽度三档（取代散落的 240 / 320 / 200 魔法数） */
 const WIDTHS = {
     sm: 200,
     md: 240,
     lg: 320,
 } as const;
 
-export type SearchWidth = keyof typeof WIDTHS;
+/**
+ * 宽度档位：`sm|md|lg` 为固定像素（普通工具条用）；
+ * `fluid` 为撑满可用宽度（**筛选条里搜索框用**——筛选条是 flex 行，
+ * 搜索框需随宽度伸缩，写死像素会把同行的 chips 挤走）。
+ */
+export type SearchWidth = keyof typeof WIDTHS | 'fluid';
+
+/** fluid 档的类：flex 撑满 + 最小宽度（避免被同行元素压没） */
+const FLUID_CLASS = 'flex-1 min-w-[180px]';
 
 export interface SearchInputProps {
     value: string;
@@ -56,7 +64,9 @@ const SearchInput: React.FC<SearchInputProps> = ({
     const fullPlaceholder = hint ? `${placeholder}（${hint}）` : placeholder;
     // 宽度必须落在外层：带 prefix 时 antd 把 style 给 .ant-input-affix-wrapper，
     // 内层 .ant-input 恒 width:100%。只给 Input 传 style 会得到 100% 宽（实测过）。
-    const style: React.CSSProperties = { width: WIDTHS[width] };
+    const fluid = width === 'fluid';
+    const style: React.CSSProperties = fluid ? {} : { width: WIDTHS[width] };
+    const widthClass = fluid ? FLUID_CLASS : '';
 
     if (multiline) {
         return (
@@ -69,7 +79,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
                 onPressEnter={onPressEnter}
                 autoSize={{ minRows: 1, maxRows: 4 }}
                 style={style}
-                className={className}
+                className={`${widthClass} ${className}`.trim()}
             />
         );
     }
@@ -84,7 +94,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
             prefix={<SearchOutlined className="text-3" />}
             onPressEnter={onPressEnter}
             style={style}
-            className={className}
+            className={`${widthClass} ${className}`.trim()}
         />
     );
 };

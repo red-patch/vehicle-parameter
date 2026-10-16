@@ -28,6 +28,18 @@ describe('SearchInput', () => {
         expect(c2.querySelector('.ant-input-affix-wrapper')).toHaveStyle({ width: '240px' });
     });
 
+    it('fluid 档：撑满可用宽度而非固定像素（筛选条里的搜索框用）', () => {
+        const { container } = render(
+            <SearchInput value="" onChange={() => {}} placeholder="搜索" width="fluid" />,
+        );
+        const wrap = container.querySelector('.ant-input-affix-wrapper') as HTMLElement;
+        // 不写死像素；以 flex 撑满，并保留最小宽度避免被压没
+        expect(wrap.style.width).toBe('');
+        expect(wrap.className).toContain('flex-1');
+        expect(wrap.style.flexBasis).toBe('');
+        expect(wrap.className).toMatch(/min-w-/);
+    });
+
     it('宽度只取 sm/md/lg 三档实例值', () => {
         const cases: Array<['sm' | 'md' | 'lg', string]> = [
             ['sm', '200px'],
