@@ -121,16 +121,16 @@ const RegulationImportModal: React.FC<Props> = ({ open, files, vocab, existing, 
                     title: `有 ${conflicts.length} 条会覆盖库里已有的记录`,
                     content: (
                         <Space direction="vertical" size={2}>
-                            <Text style={{ fontSize: 12 }}>
+                            <Text style={{ fontSize: 'var(--fs-aux)' }}>
                                 同一个「标准号 + 年份」在库里已存在，继续登记将替换其元数据：
                             </Text>
                             {conflicts.slice(0, 8).map(c => (
-                                <Text key={`${c.standardNo}-${c.year}`} style={{ fontSize: 12 }}>
+                                <Text key={`${c.standardNo}-${c.year}`} style={{ fontSize: 'var(--fs-aux)' }}>
                                     · {c.standardNo} {c.year ?? ''}
                                 </Text>
                             ))}
                             {conflicts.length > 8 && (
-                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                     …另有 {conflicts.length - 8} 条
                                 </Text>
                             )}
@@ -230,7 +230,7 @@ const RegulationImportModal: React.FC<Props> = ({ open, files, vocab, existing, 
             width: 200,
             render: (_, r) => (
                 <Space size={4}>
-                    <Text type="secondary" ellipsis style={{ fontSize: 12 }} title={r.file.fileName}>
+                    <Text type="secondary" ellipsis style={{ fontSize: 'var(--fs-aux)' }} title={r.file.fileName}>
                         {r.file.fileName}
                     </Text>
                     {r.file.notDownloaded && <Tag color="orange">未下载</Tag>}
@@ -300,7 +300,7 @@ const RegulationImportModal: React.FC<Props> = ({ open, files, vocab, existing, 
                             ),
                             children: (
                                 <>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                         这些多是政策文件、研究报告或过程文件。若其中确实有标准，手动补齐标准号即可登记。
                                     </Text>
                                     <Table<Row>
