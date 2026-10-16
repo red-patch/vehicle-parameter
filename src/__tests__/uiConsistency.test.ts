@@ -76,6 +76,9 @@ const MIGRATED_LIST_PAGES: string[] = [
     // 设计语言 §7 批次 4：三块并列（无标题操作行 + 筛选 Card + 记录 Card）合并为
     // ListToolbar 三段；清掉全仓最后一处 Input.Search。
     'RegulationLibrary/RegulationLibrary.tsx',
+    // 设计语言 §7 批次 5：FilterBar 外壳 → ListToolbar 三段；搜索换 SearchInput；
+    // 快捷筛选由变色主按钮换 FacetChips；去掉硬编码 bg-orange/green（绕过 token）。
+    'DataPurify/DataPurifyView.tsx',
 ];
 
 /**
@@ -89,7 +92,6 @@ const MIGRATED_LIST_PAGES: string[] = [
  */
 const LEGACY_EXEMPT: Record<string, number> = {
     'AssetLibrary/AssetListDrawer.tsx': 1,
-    'DataPurify/DataPurifyView.tsx': 8,
     'DiffViewer/DiffResultView.tsx': 6,
     'ParameterWorkbench/AssetPool/AssetFilterBar.tsx': 1,
     'ParameterWorkbench/AssetPool/AssetSidebar.tsx': 1,

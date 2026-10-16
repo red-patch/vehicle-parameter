@@ -1,8 +1,11 @@
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
-import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Space, Alert } from 'antd';
-import { FilterBar, FilterItem } from '../common/FilterBar';
+import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Alert } from 'antd';
+import { FilterItem } from '../common/FilterBar';
+import ListToolbar from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
+import FacetChips from '../common/FacetChips';
 import DataTable from '../common/DataTable';
-import { SafetyCertificateOutlined, SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, SyncOutlined, EditOutlined, ProfileOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, EditOutlined, ProfileOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName } from '../../utils/attributeEnums';
@@ -614,9 +617,12 @@ type PurifyRow = VehicleParameter & {
                     />
                 </div>
             )}
-            <FilterBar
-                extra={
-                    <Space size={8}>
+            {/* 列表页外壳统一走 ListToolbar 三段（设计语言 §4.1/§4.3）：
+                此前是 FilterBar 的「筛选在左 + 操作在右，挤同一行」。 */}
+            <ListToolbar
+                title={<span className="font-semibold text-1">体检参数</span>}
+                actions={
+                    <>
                         {effectiveReferenceProduct && (
                             <SyncAllButton
                                 diffFieldNames={diffFieldNames}
@@ -626,7 +632,7 @@ type PurifyRow = VehicleParameter & {
                         <Button icon={<PlusOutlined />} onClick={handleAddParam}>
                             手动新增参数
                         </Button>
-                        <Button 
+                        <Button
                             icon={<SaveOutlined />}
                             disabled={!selectedProduct || purifyParams.length === 0}
                             onClick={() => {
@@ -637,11 +643,15 @@ type PurifyRow = VehicleParameter & {
                                 setSaveModalVisible(true);
                             }}
                         >
-                            单独保存 (另存为)
+                            单独保存（另存为）
                         </Button>
-                        <Button 
-                            type="primary" 
-                            className={isExistingAsset ? "bg-orange-500 hover:bg-orange-400" : "bg-green-600 hover:bg-green-500"}
+                        {/* §5.1 Q19：本页的产出/终点动作是「把改好的数据落盘」，故保留 1 个 primary。
+                            覆盖是风险动作，用 danger 表达（与 AssetUpgradeModal 同一处理）；
+                            此前用 className 硬改 bg-orange-500/bg-green-600，绕过曜蓝 token，
+                            暗色下不翻转，且违反「色彩是信号不是填充」的设计系统铁律。 */}
+                        <Button
+                            type={isExistingAsset ? 'primary' : 'primary'}
+                            danger={isExistingAsset}
                             icon={<SaveOutlined />}
                             loading={saving}
                             disabled={!selectedProduct || purifyParams.length === 0}
@@ -659,102 +669,111 @@ type PurifyRow = VehicleParameter & {
                         >
                             {isExistingAsset ? '覆盖原资产' : '保存至资产库'}
                         </Button>
-                    </Space>
+                    </>
                 }
+                filters={
+                    <>
+                        <FilterItem label="待体检车型">
+                            <Select
+                                style={{ width: 200 }}
+                                value={selectedProduct}
+                                onChange={setSelectedProduct}
+                                options={selectedProductNames.map(name => ({
+                                    value: name,
+                                    label: selectedProductDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name),
+                                    title: selectedProductDisplayLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name),
+                                }))}
+                                placeholder="请选择车型"
+                                showSearch
+                            />
+                        </FilterItem>
+
+                        <FilterItem label="参考车型">
+                            <ReferenceProductSelect
+                                value={referenceProduct || undefined}
+                                onChange={val => setReferenceProduct(val || null)}
+                                options={selectedProductNames.map(name => ({
+                                    value: name,
+                                    label: selectedProductDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name),
+                                    title: selectedProductDisplayLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name),
+                                    disabled: name === selectedProduct,
+                                }))}
+                            />
+                        </FilterItem>
+
+                        <span className="ml-auto" />
+                        <FilterItem label="搜索">
+                            <SearchInput
+                                width="md"
+                                placeholder="搜索参数名、分组或参数值"
+                                value={paramSearch}
+                                onChange={setParamSearch}
+                            />
+                        </FilterItem>
+                    </>
+                }
+                display={
+                    /* ③ 显示选项：分组/字段组与两个快捷筛选都只改「呈现什么」，
+                       不改数据集合本身，按 §4.1 归属此段。
+                       快捷筛选由「变色主按钮」改为 FacetChips（规范禁项）。 */
+                    <>
+                        <FilterItem label="分组">
+                            <Select
+                                style={{ width: 160 }}
+                                size="small"
+                                value={filterGroup}
+                                onChange={setFilterGroup}
+                                options={availableGroups.map(g => ({ value: g, label: g }))}
+                                placeholder="所有分组"
+                                allowClear
+                                showSearch
+                            />
+                        </FilterItem>
+                        <FilterItem label="字段组">
+                            <Select
+                                style={{ width: 160 }}
+                                size="small"
+                                value={fieldGroupFilter}
+                                onChange={setFieldGroupFilter}
+                                options={fieldGroupOptions}
+                            />
+                        </FilterItem>
+                        <FilterItem label="快捷">
+                            <FacetChips
+                                options={[
+                                    {
+                                        value: 'anomaly',
+                                        label: anomalyCount > 0 ? '发现异常' : '完全合规',
+                                        count: anomalyCount > 0 ? anomalyCount : undefined,
+                                        tone: anomalyCount > 0 ? 'warning' : undefined,
+                                    },
+                                    ...(effectiveReferenceProduct
+                                        ? [{
+                                              value: 'diff',
+                                              label: '仅看差异',
+                                              count: diffFieldNames.length,
+                                              disabled: diffFieldNames.length === 0 && quickFilter !== 'diff',
+                                          }]
+                                        : []),
+                                ]}
+                                value={quickFilter === 'none' ? '' : quickFilter}
+                                onChange={v => setQuickFilter((v || 'none') as typeof quickFilter)}
+                            />
+                        </FilterItem>
+                    </>
+                }
+                padded={false}
             >
-                <FilterItem label="待体检车型:">
-                    <Select
-                        style={{ width: 200 }}
-                        value={selectedProduct}
-                        onChange={setSelectedProduct}
-                        options={selectedProductNames.map(name => ({
-                            value: name,
-                            label: selectedProductDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name),
-                            title: selectedProductDisplayLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name),
-                        }))}
-                        placeholder="请选择车型"
-                        showSearch
+                <div className="flex-1 overflow-auto">
+                    <DataTable
+                        columns={columns}
+                        dataSource={displayedParams}
+                        rowKey="id"
+                        scrollY="calc(100vh - 360px)"
+                        rowClassName={(record: PurifyRow) => targetFieldName && record.name === targetFieldName ? 'bg-brand-weak' : ''}
                     />
-                </FilterItem>
-
-                <FilterItem label="参考车型:">
-                    <ReferenceProductSelect
-                        value={referenceProduct || undefined}
-                        onChange={val => setReferenceProduct(val || null)}
-                        options={selectedProductNames.map(name => ({
-                            value: name,
-                            label: selectedProductDisplayLabels.get(name)?.shortLabel || getVehicleProductName(name),
-                            title: selectedProductDisplayLabels.get(name)?.fullLabel || buildVehicleOptionLabel(name),
-                            disabled: name === selectedProduct,
-                        }))}
-                    />
-                </FilterItem>
-
-                <FilterItem label="分组:">
-                    <Select
-                        style={{ width: 200 }}
-                        value={filterGroup}
-                        onChange={setFilterGroup}
-                        options={availableGroups.map(g => ({ value: g, label: g }))}
-                        placeholder="所有分组"
-                        allowClear
-                        showSearch
-                    />
-                </FilterItem>
-
-                <FilterItem label="搜索:">
-                    <Input
-                        style={{ width: 240 }}
-                        value={paramSearch}
-                        onChange={e => setParamSearch(e.target.value)}
-                        placeholder="搜索参数名、分组或参数值..."
-                        allowClear
-                        prefix={<SearchOutlined className="text-3" />}
-                    />
-                </FilterItem>
-
-                <FilterItem label="字段组:">
-                    <Select
-                        style={{ width: 200 }}
-                        value={fieldGroupFilter}
-                        onChange={setFieldGroupFilter}
-                        options={fieldGroupOptions}
-                    />
-                </FilterItem>
-
-                <FilterItem label="快捷:">
-                    <Space.Compact>
-                        <Button
-                            type={quickFilter === 'anomaly' ? 'primary' : 'default'}
-                            danger={quickFilter !== 'anomaly' && anomalyCount > 0}
-                            icon={anomalyCount > 0 ? <WarningOutlined /> : <SafetyCertificateOutlined />}
-                            onClick={() => setQuickFilter(quickFilter === 'anomaly' ? 'none' : 'anomaly')}
-                        >
-                            {anomalyCount > 0 ? `发现异常 (${anomalyCount})` : '完全合规'}
-                        </Button>
-                        {effectiveReferenceProduct && (
-                            <Button
-                                type={quickFilter === 'diff' ? 'primary' : 'default'}
-                                icon={<SyncOutlined />}
-                                disabled={diffFieldNames.length === 0 && quickFilter !== 'diff'}
-                                onClick={() => setQuickFilter(quickFilter === 'diff' ? 'none' : 'diff')}
-                            >
-                                仅看差异 ({diffFieldNames.length})
-                            </Button>
-                        )}
-                    </Space.Compact>
-                </FilterItem>
-            </FilterBar>
-
-            <div className="flex-1 overflow-auto border border-default rounded">
-                <DataTable
-                    columns={columns}
-                    dataSource={displayedParams}
-                    rowKey="id"
-                    scrollY="calc(100vh - 320px)"
-                    rowClassName={(record: PurifyRow) => targetFieldName && record.name === targetFieldName ? 'bg-brand-weak' : ''}
-                />
-            </div>
+                </div>
+            </ListToolbar>
 
             <SaveAssetModal 
                 visible={saveModalVisible}

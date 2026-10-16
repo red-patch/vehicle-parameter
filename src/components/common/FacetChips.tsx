@@ -22,6 +22,11 @@ export interface FacetOption {
     count?: number;
     /** 语义档，只影响「未选中」时的提示色 */
     tone?: ChipTone;
+    /**
+     * 单项禁用（如「仅看差异」在没有差异字段时不可点）。
+     * 与整组 disabled 不同：其余项照常可用。已选中的禁用项仍显示选中态但不响应点击。
+     */
+    disabled?: boolean;
 }
 
 /** 单选与多选的 value/onChange 类型由 `multiple` 判定，写错编译期即拦下 */
@@ -72,19 +77,22 @@ const FacetChips: React.FC<FacetChipsProps> = props => {
         <div className="flex flex-wrap items-center gap-1.5">
             {options.map(opt => {
                 const active = selected.includes(opt.value);
+                const itemDisabled = disabled || opt.disabled;
                 return (
                     <Tag
                         key={opt.value}
-                        className={`chip-md m-0 cursor-pointer border ${
-                            active
-                                ? 'tag-checked font-medium'
-                                : `surface-inset border-default text-2 hover:border-brand ${
-                                      opt.tone ? TONE_CLASS[opt.tone] : ''
-                                  }`
+                        className={`chip-md m-0 border ${
+                            itemDisabled && !active
+                                ? 'surface-inset border-default text-3 opacity-50 cursor-not-allowed'
+                                : active
+                                  ? 'tag-checked font-medium cursor-pointer'
+                                  : `surface-inset border-default text-2 hover:border-brand cursor-pointer ${
+                                        opt.tone ? TONE_CLASS[opt.tone] : ''
+                                    }`
                         }`}
-                        onClick={() => !disabled && toggle(opt.value)}
+                        onClick={() => !itemDisabled && toggle(opt.value)}
                         aria-pressed={active}
-                        aria-disabled={disabled}
+                        aria-disabled={itemDisabled}
                     >
                         {opt.label}
                         {opt.count !== undefined && (

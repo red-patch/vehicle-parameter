@@ -113,6 +113,42 @@ describe('FacetChips', () => {
     });
 });
 
+describe('FacetChips 单项禁用', () => {
+    const withDisabled = [
+        { value: 'a', label: '可用项' },
+        { value: 'b', label: '禁用项', disabled: true },
+    ];
+
+    it('单项 disabled 时点击不回传（其余项不受影响）', () => {
+        const onChange = vi.fn();
+        render(<FacetChips options={withDisabled} value="" onChange={onChange} />);
+        fireEvent.click(screen.getByText('禁用项'));
+        expect(onChange).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByText('可用项'));
+        expect(onChange).toHaveBeenCalledWith('a');
+    });
+
+    it('单项禁用有可辨识的禁用态', () => {
+        render(<FacetChips options={withDisabled} value="" onChange={() => {}} />);
+        const disabled = screen.getByText('禁用项').closest('.ant-tag')!;
+        const enabled = screen.getByText('可用项').closest('.ant-tag')!;
+        expect(disabled).toHaveAttribute('aria-disabled', 'true');
+        // antd Tag 会丢掉 aria-disabled="false"（React 对字符串型 ARIA 属性省略 false），
+        // 故「可用」一侧断言在样式类上——禁用项有 cursor-not-allowed，可用项没有
+        expect(disabled.className).toContain('cursor-not-allowed');
+        expect(enabled.className).not.toContain('cursor-not-allowed');
+        expect(enabled.className).toContain('cursor-pointer');
+    });
+
+    it('已选中的项即使被禁用也保持选中态（禁止取消）', () => {
+        const onChange = vi.fn();
+        render(<FacetChips options={withDisabled} value="b" onChange={onChange} />);
+        fireEvent.click(screen.getByText('禁用项'));
+        expect(onChange).not.toHaveBeenCalled();
+        expect(screen.getByText('禁用项').closest('.ant-tag')).toHaveClass('tag-checked');
+    });
+});
+
 describe('FilterItem', () => {
     it('自动补冒号，调用方不写', () => {
         render(<FilterItem label="搜索">x</FilterItem>);
