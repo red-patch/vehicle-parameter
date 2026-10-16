@@ -58,6 +58,16 @@ Loop B（工作树体检）/ Loop C（陈旧物清理）发现异常时，顺带
 
 ---
 
+## 后续条目
+
+### L-5: 新建的文件必须与「引用它的改动」同批提交，否则 HEAD 会碎
+- 原因：三轮改动只 `git add` 了自己**改过**的文件，漏掉**新建**的文件——提交的 `MatchResultTable` 已 `import` 三个构件（`ListToolbar`/`SearchInput`/`FacetChips`），而这三个文件从未入库。后果：干净 checkout 上 `tsc` 直接报 `TS2307 Cannot find module`，**HEAD 无法构建**（`npm run build` 必挂），而本地因为工作区有这些文件，一切"正常"，完全无感。是靠 `git worktree add HEAD` 到独立目录跑 typecheck 才发现的。
+- 证据：`afb19ce`（提交时三个构件均不在库，实测 `git cat-file -e afb19ce:src/components/common/ListToolbar.tsx` 不存在）→ `0165871` / `ace8bb0` / `7eade3b`（三条补提交修复），均 2026-10-16。
+- Seen 1×（2026-10-16）。
+- 关联：与 `AGENTS.md`「执行纪律」的"没跑的检查不算通过"同类——**提交后应在独立 worktree 上验证 HEAD 可构建**，本地绿不等于 HEAD 绿（本地工作区会掩盖漏提交）。
+
+---
+
 ## 已升格条目（种子前的手工升格，留档）
 
 > 下列规则在建库**之前**已由人工升格进 `AGENTS.md`，此处仅登记来源，证明"I从教训到硬规则"的路径本项目早已在走。
