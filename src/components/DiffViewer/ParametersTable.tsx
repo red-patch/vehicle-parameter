@@ -278,7 +278,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     showTotal: (total) => `共 ${total} 条`,
                     onShowSizeChange: (_current, size) => setPageSize(size),
                 }}
-                size="middle"
+                size="small"
                 scroll={{ x: 'max-content' }}
                 bordered
                 rowClassName={(record) => {

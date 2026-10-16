@@ -340,7 +340,7 @@ const DiffResultView: React.FC = () => {
                                 columns={modifiedColumns}
                                 rowKey="id"
                                 pagination={{ pageSize: 10 }}
-                                size="middle"
+                                size="small"
                                 bordered
                             />
                         </div>
@@ -387,7 +387,7 @@ const DiffResultView: React.FC = () => {
                         columns={modifiedColumns}
                         rowKey="id"
                         pagination={{ pageSize: 20 }}
-                        size="middle"
+                        size="small"
                         bordered
                         rowClassName={(record) => {
                              const isRequired = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
@@ -431,7 +431,7 @@ const DiffResultView: React.FC = () => {
                 columns={miitColumns}
                 rowKey="key"
                 pagination={{ pageSize: 20 }}
-                size="middle"
+                size="small"
                 bordered
                 rowClassName={(record) => {
                     const isRequired = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
