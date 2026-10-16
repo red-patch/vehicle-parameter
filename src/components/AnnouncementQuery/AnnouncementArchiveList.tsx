@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Empty, Modal, Segmented, Space, Tooltip, Typography, message } from 'antd';
+import { Button, Drawer, Dropdown, Empty, Modal, Segmented, Space, Tooltip, Typography, message } from 'antd';
 import {
-    FileAddOutlined, ReloadOutlined, SwapOutlined,
+    DownOutlined, FileAddOutlined, ImportOutlined, ReloadOutlined, SwapOutlined,
 } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -299,15 +299,29 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
             title="公告归档"
             actions={
                 <>
-                    <Button size="small" icon={<SwapOutlined />} onClick={() => { setImportPrefill(null); setOrphanPdfPath(null); setImportOpen(true); }}>
-                        导入公告 PDF
-                    </Button>
-                    <Button size="small" icon={<FileAddOutlined />} onClick={() => setBatchImportOpen(true)}>
-                        批量导入 PDF
-                    </Button>
-                    <Button size="small" icon={<FileAddOutlined />} onClick={() => setMigrationOpen(true)}>
-                        从资产库迁移公告数据
-                    </Button>
+                    {/* §5.1：≥3 个同类动作收进下拉；「从资产库迁移」是独立动作，平铺 */}
+                    <Dropdown
+                        menu={{
+                            items: [
+                                { key: 'single', icon: <SwapOutlined />, label: '导入公告 PDF' },
+                                { key: 'batch', icon: <FileAddOutlined />, label: '批量导入 PDF' },
+                                { type: 'divider' as const },
+                                { key: 'migrate', icon: <ImportOutlined />, label: '从资产库迁移公告数据' },
+                            ],
+                            onClick: ({ key }) => {
+                                if (key === 'batch') { setBatchImportOpen(true); return; }
+                                if (key === 'migrate') { setMigrationOpen(true); return; }
+                                setImportPrefill(null);
+                                setOrphanPdfPath(null);
+                                setImportOpen(true);
+                            },
+                        }}
+                        trigger={['click']}
+                    >
+                        <Button size="small" type="primary" icon={<ImportOutlined />}>
+                            导入 <DownOutlined style={{ fontSize: 10 }} />
+                        </Button>
+                    </Dropdown>
                     <Tooltip title="刷新公告归档">
                         <Button size="small" icon={<ReloadOutlined />} onClick={handleRefresh} />
                     </Tooltip>
