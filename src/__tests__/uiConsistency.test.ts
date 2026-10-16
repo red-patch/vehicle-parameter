@@ -101,14 +101,12 @@ const LEGACY_EXEMPT: Record<string, number> = {
     'AssetLibrary/AssetListDrawer.tsx': 1,
     'ParameterWorkbench/AssetPool/AssetFilterBar.tsx': 1,
     'ParameterWorkbench/AssetPool/AssetSidebar.tsx': 1,
-    'ParameterWorkbench/CompareView.tsx': 1,
     'ParameterWorkbench/FileManager.tsx': 1,
     'ParameterWorkbench/MultiVehicleView.tsx': 1,
     // 剩 1 处：AutoComplete 的内层 Input（带 options 下拉的组合框，非搜索框；
     // SearchInput 不支持 options）。这是文本级护栏的固有边界，见 R2 注释。
     'SmartFiller/ConfigManagerView.tsx': 1,
     'SmartFiller/CoreFieldRuleComposer.tsx': 1,
-    'SmartFiller/EnumImportModal.tsx': 2,
 };
 
 /** glob 键是相对本文件的路径，归一为 `src/components/` 之后的相对路径 */

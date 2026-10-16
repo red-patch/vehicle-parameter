@@ -21,6 +21,10 @@ vi.mock('../../../store/vehicleStore', () => ({
     useVehicleStore: (selector: (state: typeof mockState) => unknown) => selector(mockState),
 }));
 
+// 静态导入而非每个用例内动态 import：DiffResultView 会拉起 xlsx 依赖图，
+// 动态导入在每个 it 里重复付出 ~1.4s，全量并行跑时会顶到超时（实测 16.7s/15s）。
+import DiffResultView from '../DiffResultView';
+
 const sheet = (fileName: string, rows: { group: string; name: string; value: string }[]): SheetData => ({
     fileName,
     rawHeaders: ['分组', '参数名', '参数值'],
@@ -52,9 +56,8 @@ afterEach(() => {
 });
 
 describe('DiffResultView 工具条（批次 9）', () => {
-    it('外壳是 ListToolbar，不再是 FilterBar</>', async () => {
+    it('外壳是 ListToolbar，不再是 FilterBar</>', () => {
         seed();
-        const { default: DiffResultView } = await import('../DiffResultView');
         const { container } = render(<DiffResultView />);
         const bar = container.querySelector('.surface-container.border.rounded-lg');
         expect(bar).not.toBeNull();
@@ -63,18 +66,16 @@ describe('DiffResultView 工具条（批次 9）', () => {
         expect(container.querySelector('.mb-4.flex.items-center.justify-between')).toBeNull();
     }, 15000);
 
-    it('视图切换用 Segmented，不是 Radio.Group（规范禁项）', async () => {
+    it('视图切换用 Segmented，不是 Radio.Group（规范禁项）', () => {
         seed();
-        const { default: DiffResultView } = await import('../DiffResultView');
         const { container } = render(<DiffResultView />);
         expect(container.querySelector('.ant-segmented')).not.toBeNull();
         expect(container.querySelector('.ant-radio-group')).toBeNull();
         expect(screen.getByText('对比模式：')).toBeInTheDocument();
     }, 15000);
 
-    it('搜索走 SearchInput（固定带搜索图标）', async () => {
+    it('搜索走 SearchInput（固定带搜索图标）', () => {
         seed();
-        const { default: DiffResultView } = await import('../DiffResultView');
         const { container } = render(<DiffResultView />);
         expect(container.querySelector('.ant-input-affix-wrapper .anticon-search')).not.toBeNull();
         // DiffResultView 的搜索原为**单行** Input（非多关键词），迁移保持单行；
@@ -82,9 +83,8 @@ describe('DiffResultView 工具条（批次 9）', () => {
         expect(screen.getByPlaceholderText('搜索字段名、值或分组')).toBeInTheDocument();
     }, 15000);
 
-    it('统计四态在独立统计带内', async () => {
+    it('统计四态在独立统计带内', () => {
         seed();
-        const { default: DiffResultView } = await import('../DiffResultView');
         render(<DiffResultView />);
         expect(screen.getByText('新增参数')).toBeInTheDocument();
         expect(screen.getByText('变更参数')).toBeInTheDocument();

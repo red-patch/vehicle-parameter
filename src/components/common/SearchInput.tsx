@@ -38,6 +38,8 @@ export interface SearchInputProps {
     multiline?: boolean;
     disabled?: boolean;
     onPressEnter?: () => void;
+    /** 额外的布局类（如 margin）；不用于改字号/颜色——那些是规范的一部分 */
+    className?: string;
 }
 
 const SearchInput: React.FC<SearchInputProps> = ({
@@ -49,6 +51,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
     multiline = false,
     disabled,
     onPressEnter,
+    className = '',
 }) => {
     const fullPlaceholder = hint ? `${placeholder}（${hint}）` : placeholder;
     // 宽度必须落在外层：带 prefix 时 antd 把 style 给 .ant-input-affix-wrapper，
@@ -66,6 +69,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
                 onPressEnter={onPressEnter}
                 autoSize={{ minRows: 1, maxRows: 4 }}
                 style={style}
+                className={className}
             />
         );
     }
@@ -80,6 +84,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
             prefix={<SearchOutlined className="text-3" />}
             onPressEnter={onPressEnter}
             style={style}
+            className={className}
         />
     );
 };

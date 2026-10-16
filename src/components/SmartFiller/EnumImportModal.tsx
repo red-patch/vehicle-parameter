@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, Button, message, Select, Table, Tag, Spin, Statistic, Divider, Input } from 'antd';
+import { Modal, Button, message, Select, Table, Tag, Spin, Statistic, Divider } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined, SearchOutlined } from '@ant-design/icons';
+import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
+import SearchInput from '../common/SearchInput';
 import { readFirstSheetRowsFromPathAsync } from '../../utils/excelParserAsync';
 import { buildEnumRows } from '../../utils/enumImportRowMapping';
 
@@ -62,13 +63,12 @@ const ExpandedEnumValues: React.FC<{ record: FieldGroup }> = ({ record }) => {
         : record.values;
     return (
         <div className="p-3 bg-surface-3 rounded max-h-[300px] overflow-y-auto">
-            <Input
-                size="small"
-                placeholder="搜索枚举值..."
-                prefix={<SearchOutlined />}
+            <SearchInput
+                width="sm"
+                placeholder="搜索枚举值"
                 value={valSearch}
-                onChange={e => setValSearch(e.target.value)}
-                className="mb-2 w-64"
+                onChange={setValSearch}
+                className="mb-2"
             />
             <div className="flex flex-wrap gap-1">
                 {filtered.map((v, i) => <Tag key={i} className="text-xs">{v}</Tag>)}
@@ -436,14 +436,11 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium text-2">字段列表（按字段分组，点击展开查看全部枚举值）</span>
-                                <Input
-                                    placeholder="搜索字段..."
-                                    prefix={<SearchOutlined />}
+                                <SearchInput
+                                    width="md"
+                                    placeholder="搜索字段"
                                     value={fieldSearch}
-                                    onChange={e => setFieldSearch(e.target.value)}
-                                    style={{ width: 240 }}
-                                    size="small"
-                                    allowClear
+                                    onChange={setFieldSearch}
                                 />
                             </div>
                             <Table<FieldGroup>
