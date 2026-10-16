@@ -299,7 +299,7 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
             title="公告归档"
             actions={
                 <>
-                    {/* §5.1：≥3 个同类动作收进下拉；「从资产库迁移」是独立动作，平铺 */}
+                    {/* §5.1：≥3 个同类动作收进下拉 */}
                     <Dropdown
                         menu={{
                             items: [
@@ -318,7 +318,10 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                         }}
                         trigger={['click']}
                     >
-                        <Button size="small" type="primary" icon={<ImportOutlined />}>
+                        {/* primary 只给「产出/终点动作」（设计语言 §5.1 Q19）：
+                            本页主任务是浏览与治理已归档记录，导入只是补充手段，
+                            故用 default——本页没有 primary 是合法状态。 */}
+                        <Button size="small" icon={<ImportOutlined />}>
                             导入 <DownOutlined style={{ fontSize: 10 }} />
                         </Button>
                     </Dropdown>

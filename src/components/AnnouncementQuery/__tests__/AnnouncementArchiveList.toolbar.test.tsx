@@ -41,13 +41,14 @@ describe('公告归档 工具条', () => {
         expect(screen.getByText('请先在数据源面板设置资产库目录')).toBeInTheDocument();
     });
 
-    it('导入类动作收进下拉，标题行只留 1 个 primary（§5.1）', () => {
+    it('导入类动作收进下拉，标题行不抢 primary（§5.1 / Q19）', () => {
         const { container } = render(<AnnouncementArchiveList />);
         const bar = container.querySelector('.surface-container.border.rounded-lg');
         expect(bar).not.toBeNull();
         const head = bar!.children[0];
-        // 标题行：1 个 primary（导入）+ 1 个刷新图标按钮
-        expect(head.querySelectorAll('.ant-btn-primary')).toHaveLength(1);
+        // primary 只给「产出/终点动作」；本页主任务是浏览治理，导入属过程动作，
+        // 故标题行 0 个 primary——「页面没有 primary」是合法状态（规范 §5.1 Q19）
+        expect(head.querySelectorAll('.ant-btn-primary')).toHaveLength(0);
         expect(head.textContent).toContain('导入');
         // 三个导入动作不再平铺
         expect(head.textContent).not.toContain('批量导入 PDF');
