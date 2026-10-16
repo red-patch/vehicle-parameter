@@ -66,14 +66,16 @@ export function useAssetPoolHotkeys(opts: UseAssetPoolHotkeysOptions): void {
             // 其余快捷键：输入态一律不拦截（不影响弹窗保存/表单输入）
             if (editable) return;
 
-            // ⌘⇧S：保存当前视图（须在 ⌘S 前判断——同为 s 键）
+            // ⌘S：保存当前视图 —— macOS 由原生菜单消费并转发（见 lib.rs SAVE_VIEW_MENU_ID），
+            // 走事件通道；此处不再用 JS 绑 ⌘S（否则与系统"保存页面"冲突，且菜单快捷键优先）。
+            // ⌘⇧S 保留 JS 绑定作为跨平台兜底（Windows 无应用菜单）。
             if (mod && e.shiftKey && (e.key === 's' || e.key === 'S')) {
                 e.preventDefault();
                 onSaveView();
                 return;
             }
-            // ⌘S / ⌘B：隐藏/显示左栏（⌘B 为惯用别名）
-            if (mod && !e.shiftKey && (e.key === 's' || e.key === 'S' || e.key === 'b' || e.key === 'B')) {
+            // ⌘B：隐藏/显示左栏（侧栏开关惯用键）
+            if (mod && !e.shiftKey && (e.key === 'b' || e.key === 'B')) {
                 e.preventDefault();
                 onToggleSidebar();
                 return;

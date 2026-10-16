@@ -9,6 +9,7 @@ import AssetCard from './AssetCard';
 import AssetAliasBatchModal from './AssetAliasBatchModal';
 import AssetHotkeyCheatsheet from './AssetHotkeyCheatsheet';
 import { useAssetPoolHotkeys } from './useAssetPoolHotkeys';
+import { useSaveViewMenuEvent } from './useSaveViewMenuEvent';
 import AssetInspector from '../AssetInspector';
 import AssetBatchTagBar from '../AssetBatchTagBar';
 import GovernanceReportModal from '../GovernanceReportModal';
@@ -1015,6 +1016,10 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         onSwitchView: (index) => { if (views[index]) applyView(views[index]); },
     });
 
+    // ⌘S = 保存当前视图（macOS 经原生菜单转发；见 useSaveViewMenuEvent）
+    const openSaveView = useCallback(() => { setSaveViewSeed(null); setSaveViewOpen(true); }, []);
+    useSaveViewMenuEvent(openSaveView);
+
     // ===== 批量建议别名（设计 §D6）：仅对勾选资产生效；逐条 writeMeta，避免并发覆盖 =====
     const aliasBatchTargets = useMemo(
         () => snapshot.infos.filter(i => batchSelection.has(i.fileName)),
@@ -1123,7 +1128,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
 
     return (
         <div className="flex h-full gap-3">
-            {/* 左栏：浮窗（覆盖在列表上，不挤压布局；点外部/Esc 收起） */}
+            {/* 左栏：浮窗（覆盖在列表上，不挤压布局；点外部/Esc/选中项后收起） */}
             {!sidebarCollapsed && (
                 <>
                     {/* 透明点击层：点面板外收起 */}
@@ -1139,6 +1144,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             facetItems={facetItems}
                             onOpenGovernance={() => { setGovernanceOpen(true); setSidebarCollapsed(true); }}
                             onCollapse={toggleSidebar}
+                            onAction={() => { setSidebarCollapsed(true); try { localStorage.setItem('asset-pool-nav-open', '0'); } catch (e) { console.warn(e); } }}
                         />
                     </div>
                 </>
@@ -1147,15 +1153,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
             {/* 中间主区：弹性（左栏浮窗化后占满宽度） */}
             <div className="flex-1 min-w-0 flex flex-col surface-container border border-default rounded-xl overflow-hidden">
                 <div className="flex items-stretch">
-                    {/* 导航开关（常驻筛选条左缘；浮窗开关） */}
-                    <button
-                        className="flex-none px-1.5 flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak border-r border-default transition-colors duration-150"
-                        style={{ transitionTimingFunction: 'var(--ease-ui)' }}
-                        onClick={toggleSidebar}
-                        title={sidebarCollapsed ? '展开导航（⌘S）' : '收起导航（⌘S）'}
-                    >
-                        <span className="text-[11px]">{sidebarCollapsed ? '▸' : '◂'}</span>
-                    </button>
                     <div ref={searchSectionRef} className="flex-1 min-w-0">
                 <AssetFilterBar
                     searchKeyword={searchKeyword}
@@ -1170,6 +1167,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     statusSelection={statusSelection}
                     onStatusSelectionChange={setStatusSelection}
                     onClearAll={handleClearFilters}
+                    onToggleNav={toggleSidebar}
+                    navOpen={!sidebarCollapsed}
                 />
                     </div>
                 </div>

@@ -10,6 +10,11 @@ mod regulations;
 pub const SETTINGS_MENU_ID: &str = "settings";
 pub const SETTINGS_EVENT: &str = "open-settings";
 
+/// 「保存视图」菜单项的 id / 事件。⌘S 在 macOS 是系统保留键（无菜单项时
+/// WKWebView 会弹"保存页面"对话框），必须由原生菜单消费再转发给前端。
+pub const SAVE_VIEW_MENU_ID: &str = "save-view";
+pub const SAVE_VIEW_EVENT: &str = "save-view";
+
 /// macOS 标准应用菜单：系统预定义项自带加速键（Cmd+Q 退出 / Cmd+W 关窗 /
 /// Cmd+M 最小化 / Cmd+H 隐藏 / Cmd+C·V·X·Z·A 编辑）。不配菜单时 macOS 落到
 /// 缺加速键的默认菜单，Cmd+W/Q 全部无效——这是「基本快捷键不可用」的根因。
@@ -22,6 +27,11 @@ fn setup_macos_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
   // 自定义项（非系统预定义）：需显式给加速键。放在 App 菜单里符合 macOS 偏好设置惯例。
   let settings_item = MenuItemBuilder::with_id(SETTINGS_MENU_ID, "设置…")
     .accelerator("CmdOrCtrl+,")
+    .build(app)?;
+
+  // ⌘S 保存视图：占住系统保留键，避免 WKWebView 弹"保存页面"；转发给前端。
+  let save_view_item = MenuItemBuilder::with_id(SAVE_VIEW_MENU_ID, "保存视图")
+    .accelerator("CmdOrCtrl+S")
     .build(app)?;
 
   let app_menu = SubmenuBuilder::new(app, "整车产品工作台 VPW")
@@ -37,6 +47,8 @@ fn setup_macos_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     .build()?;
 
   let file_menu = SubmenuBuilder::new(app, "文件")
+    .item(&save_view_item)
+    .separator()
     .close_window()
     .build()?;
 
@@ -73,6 +85,9 @@ pub fn run() {
       if event.id() == SETTINGS_MENU_ID {
         use tauri::Emitter;
         let _ = app.emit(SETTINGS_EVENT, ());
+      } else if event.id() == SAVE_VIEW_MENU_ID {
+        use tauri::Emitter;
+        let _ = app.emit(SAVE_VIEW_EVENT, ());
       }
     })
     .plugin(tauri_plugin_window_state::Builder::new().build())

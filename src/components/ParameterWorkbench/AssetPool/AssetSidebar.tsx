@@ -34,8 +34,13 @@ export interface AssetSidebarProps {
     facetVocab: FacetVocab;
     facetItems: { facets: ResolvedFacets }[];
     onOpenGovernance: () => void;
-    /** 折叠左栏（⌘S / 顶部折叠按钮） */
+    /** 折叠/收起浮窗（⌘B / 顶部折叠按钮 / 点外部） */
     onCollapse: () => void;
+    /**
+     * 用户在浮窗内做出「选择/动作」后的回调（浮窗模式：动作完成即收起）。
+     * 仅导航叶子项、治理视角项、工具项触发；搜索输入与分组展开不触发。
+     */
+    onAction?: () => void;
 }
 
 interface NavItemProps {
@@ -91,6 +96,7 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
     facetItems,
     onOpenGovernance,
     onCollapse,
+    onAction,
 }) => {
     const { bumpAssetVersion } = useVehicleStore(useShallow(state => ({
         bumpAssetVersion: state.bumpAssetVersion,
@@ -136,17 +142,19 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
         const current = facetSelection[key];
         const next = current.includes(value) ? [] : [value];
         onFacetSelectionChange({ ...facetSelection, [key]: next });
+        onAction?.();
     };
 
     const handleGovernanceClick = (view: string) => {
         onGovernanceViewChange(governanceView === view ? null : view);
+        onAction?.();
     };
 
     return (
         <div className="h-full overflow-y-auto custom-scrollbar py-3">
-            {/* 折叠按钮（⌘S） */}
+            {/* 收起浮窗（⌘B） */}
             <div className="flex justify-end px-3 pb-1">
-                <Tooltip title="折叠导航（⌘S）">
+                <Tooltip title="收起导航（⌘B）">
                     <button
                         className="w-6 h-6 rounded flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak transition-colors duration-150"
                         style={{ transitionTimingFunction: 'var(--ease-ui)' }}
@@ -274,7 +282,7 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                 <NavItem
                     icon={<ReloadOutlined />}
                     label="刷新资产库"
-                    onClick={() => { bumpAssetVersion(); message.success('正在刷新资产库…'); }}
+                    onClick={() => { bumpAssetVersion(); message.success('正在刷新资产库…'); onAction?.(); }}
                 />
                 <NavItem
                     icon={<AuditOutlined />}
