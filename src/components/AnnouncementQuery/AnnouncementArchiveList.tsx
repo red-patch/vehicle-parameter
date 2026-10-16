@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Drawer, Empty, Input, Modal, Segmented, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { Button, Drawer, Empty, Modal, Segmented, Space, Tooltip, Typography, message } from 'antd';
 import {
     FileAddOutlined, ReloadOutlined, SwapOutlined,
 } from '@ant-design/icons';
@@ -34,6 +34,9 @@ import AnnouncementMigrationModal from './AnnouncementMigrationModal';
 import AnnouncementFlatTable from './AnnouncementFlatTable';
 import AnnouncementGroupedTable from './AnnouncementGroupedTable';
 import AnnouncementBatchDiffDrawer from './AnnouncementBatchDiffDrawer';
+import ListToolbar from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
+import FacetChips from '../common/FacetChips';
 
 const { Text } = Typography;
 
@@ -120,7 +123,13 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                 .map(normalizeAnnounceNo));
             nos.forEach(no => {
                 const list = map.get(no);
-                if (list) list.push({ fileName: a.fileName, productName: a.productName });
+                if (list) list.push({
+                    fileName: a.fileName,
+                    productName: a.productName,
+                    totalParams: a.totalParams,
+                    filledParams: a.filledParams,
+                    updatedAt: a.updatedAt,
+                });
             });
         });
         return map;
@@ -284,10 +293,12 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
     };
 
     return (
-        <Card
+        <>
+        <ListToolbar
+            className="shadow-sm"
             title="公告归档"
-            extra={
-                <Space>
+            actions={
+                <>
                     <Button size="small" icon={<SwapOutlined />} onClick={() => { setImportPrefill(null); setOrphanPdfPath(null); setImportOpen(true); }}>
                         导入公告 PDF
                     </Button>
@@ -300,48 +311,44 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                     <Tooltip title="刷新公告归档">
                         <Button size="small" icon={<ReloadOutlined />} onClick={handleRefresh} />
                     </Tooltip>
-                </Space>
+                </>
             }
-            className="shadow-sm"
+            filters={
+                <>
+                    <Segmented
+                        size="small"
+                        value={view}
+                        onChange={v => switchView(v as ArchiveView)}
+                        options={[
+                            { label: '分组', value: 'grouped' },
+                            { label: '平铺', value: 'flat' },
+                        ]}
+                    />
+                    <FacetChips
+                        options={ARCHIVE_CHIPS.map(c => ({ value: c.key, label: c.label }))}
+                        value={chip}
+                        onChange={v => setChip(v as ArchiveChip)}
+                    />
+                    <span className="ml-auto" />
+                    <SearchInput
+                        width="sm"
+                        placeholder="搜索车型名 / 公告号 / 批次"
+                        value={search}
+                        onChange={v => {
+                            setSearch(v);
+                            if (!v.trim()) setExpandedKeys([]);
+                        }}
+                    />
+                </>
+            }
+            padded={false}
         >
             {!assetLibraryPath ? (
-                <Empty description="请先在数据源面板设置资产库目录" />
+                <div className="p-3">
+                    <Empty description="请先在数据源面板设置资产库目录" />
+                </div>
             ) : (
                 <>
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <Segmented
-                            size="small"
-                            value={view}
-                            onChange={v => switchView(v as ArchiveView)}
-                            options={[
-                                { label: '分组', value: 'grouped' },
-                                { label: '平铺', value: 'flat' },
-                            ]}
-                        />
-                        <Space size={4} wrap>
-                            {ARCHIVE_CHIPS.map(c => (
-                                <Tag.CheckableTag
-                                    key={c.key}
-                                    checked={chip === c.key}
-                                    onChange={() => setChip(c.key)}
-                                >
-                                    {c.label}
-                                </Tag.CheckableTag>
-                            ))}
-                        </Space>
-                        <span className="flex-1" />
-                        <Input.Search
-                            size="small"
-                            placeholder="搜索车型名 / 公告号 / 批次"
-                            allowClear
-                            value={search}
-                            onChange={e => {
-                                setSearch(e.target.value);
-                                if (!e.target.value.trim()) setExpandedKeys([]);
-                            }}
-                            className="w-52"
-                        />
-                    </div>
                     {view === 'grouped' ? (
                         <AnnouncementGroupedTable
                             groups={groups}
@@ -376,6 +383,7 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                     )}
                 </>
             )}
+        </ListToolbar>
             <AnnouncementImportModal
                 open={importOpen}
                 onClose={() => setImportOpen(false)}
@@ -418,7 +426,7 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                 open={migrationOpen}
                 onClose={() => setMigrationOpen(false)}
             />
-        </Card>
+        </>
     );
 };
 

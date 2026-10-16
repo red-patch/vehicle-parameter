@@ -23,7 +23,7 @@ import RegulationTable from './RegulationTable';
 import RegulationImportModal from './RegulationImportModal';
 import RegulationDetailDrawer from './RegulationDetailDrawer';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 /**
  * 法规标准库主视图（设计文档 §2）。
@@ -218,22 +218,14 @@ const RegulationLibrary: React.FC = () => {
     return (
         <div className="p-4" style={{ height: '100%', overflow: 'auto' }}>
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
-                    <Space size={8}>
-                        <Title level={4} style={{ margin: 0 }}>
-                            法规标准
-                        </Title>
-                        {rootPath && (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {rootPath}
-                            </Text>
-                        )}
-                    </Space>
+                {/* 页标题与顶栏 tab 名重复，删除；库路径 + 目录操作收进下方卡片头 */}
+                <Space style={{ width: '100%', justifyContent: 'flex-end' }} wrap>
                     <Space>
-                        <Button icon={<FolderOpenOutlined />} onClick={() => void handlePick()}>
+                        <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handlePick()}>
                             选择目录
                         </Button>
                         <Button
+                            size="small"
                             icon={<ReloadOutlined />}
                             disabled={!rootPath}
                             loading={loading}
@@ -260,7 +252,7 @@ const RegulationLibrary: React.FC = () => {
                             description={
                                 <Space direction="vertical" size={4}>
                                     <Text>还没有指定法规标准库目录</Text>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                         选一个放着标准 PDF 的目录即可开始。文件仍留在原处，本工具只登记元数据。
                                     </Text>
                                 </Space>
@@ -280,7 +272,7 @@ const RegulationLibrary: React.FC = () => {
                                 message={`发现 ${unregistered.length} 个未登记文件`}
                                 description={
                                     <Space size={8} wrap>
-                                        <Text style={{ fontSize: 12 }}>
+                                        <Text style={{ fontSize: 'var(--fs-aux)' }}>
                                             盘上有、库里还没有的文件。登记后才会进入列表。
                                         </Text>
                                         <Button size="small" type="primary" onClick={() => setImportOpen(true)}>
@@ -302,12 +294,19 @@ const RegulationLibrary: React.FC = () => {
                         <Card
                             size="small"
                             title={
-                                <Space>
-                                    <ScanOutlined />
-                                    <span>记录（{filtered.length}）</span>
-                                    {filtered.length !== sidecar.records.length && (
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            / 共 {sidecar.records.length}
+                                <Space size={8} wrap>
+                                    <Space size={6}>
+                                        <ScanOutlined />
+                                        <span>记录（{filtered.length}）</span>
+                                        {filtered.length !== sidecar.records.length && (
+                                            <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
+                                                / 共 {sidecar.records.length}
+                                            </Text>
+                                        )}
+                                    </Space>
+                                    {rootPath && (
+                                        <Text type="secondary" style={{ fontSize: 'var(--fs-aux)', fontWeight: 400 }}>
+                                            {rootPath}
                                         </Text>
                                     )}
                                 </Space>
@@ -387,7 +386,7 @@ const RegulationLibrary: React.FC = () => {
                 cancelText="关闭"
             >
                 <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                         主题域是受控词表主题（不是受控属性——层级才是），可多值。词表跟着库走（写在库目录的旁路文件里），换机器也生效。
                     </Text>
                     <Space wrap>
@@ -414,7 +413,7 @@ const RegulationLibrary: React.FC = () => {
                         />
                         <Button onClick={handleAddDomain}>添加</Button>
                     </Space.Compact>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                         层级（{sidecar.vocab.levels.join(' / ')}）由标准号前缀自动判定，不可编辑。
                     </Text>
                 </Space>

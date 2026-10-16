@@ -40,14 +40,13 @@
       /* ④ 列表中文本选择为划过底色，更像 Finder 列表 */
       ::selection { background: rgba(0, 122, 255, 0.15); color: inherit; }
 
-      /* ⑤ 表格/输入框字体稍微调小，更接近原生桌面应用 */
-      .ant-table-cell { font-size: 12.5px !important; }
-      .ant-input, .ant-select, .ant-btn { font-size: 13px !important; }
-      .ant-table-thead .ant-table-cell { font-size: 11.5px !important; font-weight: 600 !important; color: #555 !important; }
+      /* ⑤ 表格/输入框字号不再在此写死——字号归主题 token 与「界面字号」设置管
+         （曾用 !important 压成 12.5/13/11.5px，后果：① 界面字号设置对控件失效；
+         ② 表头 #555 在暗色下仅 2:1。表头排版见 src/index.css 的 token 化规则）。 */
 
-      /* ⑥ 选中行底色用 macOS 系统蓝色调，更柔和 */
-      .ant-table-row-selected td { background: rgba(0, 122, 255, 0.04) !important; }
-      .ant-table-row:hover td { background: rgba(0, 122, 255, 0.02) !important; }
+      /* ⑥ 选中行底色走品牌 token（曾硬编码 iOS 蓝，与曜蓝不同源、暗色下不可见） */
+      .ant-table-row-selected td { background: var(--brand-weak) !important; }
+      .ant-table-row:hover td { background: var(--table-row-hover) !important; }
     </style>
   </head>
   <body>
