@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import ListToolbar from '../ListToolbar';
-import { FilterItem } from '../FilterBar';
+import { FilterItem } from '../ListToolbar';
 import SearchInput from '../SearchInput';
 import FacetChips from '../FacetChips';
 

@@ -13,7 +13,7 @@ import DataTable from '../common/DataTable';
 import ReportExportDropdown from '../common/ReportExportDropdown';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
-import { FilterItem } from '../common/FilterBar';
+import { FilterItem } from '../common/ListToolbar';
 import { exportCompareReport } from '../../utils/compareReport';
 import type { ReportFormat } from '../../utils/reportExport';
 import { getFieldGroupsSync } from '../../utils/fieldLists';

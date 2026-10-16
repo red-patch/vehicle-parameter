@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Table, Tabs, Tag, Badge, Typography, Descriptions, Select, Radio, Input, Tooltip, message } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { Table, Tabs, Tag, Badge, Typography, Select, Segmented, message } from 'antd';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import ParametersTable from './ParametersTable';
 import type { CompareMode } from '../../types';
 import { isFieldRequired } from '../../assets/requiredFields';
-import { FilterBar, FilterItem } from '../common/FilterBar';
 import ReportExportDropdown from '../common/ReportExportDropdown';
+import ListToolbar from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
+import { FilterItem } from '../common/ListToolbar';
 import { countUniqueModified, countUniqueParameters, exportDiffReport } from '../../utils/diffReport';
 import type { ReportFormat } from '../../utils/reportExport';
 
@@ -327,12 +328,11 @@ const DiffResultView: React.FC = () => {
                                 <Badge status="warning" /> 变更 ({modified.length})
                             </h4>
                             <div className="mb-4">
-                                <Input
-                                    prefix={<SearchOutlined />}
-                                    placeholder="搜索字段名、值或分组..."
-                                    onChange={e => setModifiedSearchText(e.target.value)}
-                                    allowClear
-                                    className="max-w-md"
+                                <SearchInput
+                                    width="lg"
+                                    placeholder="搜索字段名、值或分组"
+                                    value={modifiedSearchText}
+                                    onChange={setModifiedSearchText}
                                 />
                             </div>
                             <Table
@@ -374,12 +374,11 @@ const DiffResultView: React.FC = () => {
             children: (
                 <div>
                     <div className="mb-4">
-                        <Input
-                            prefix={<SearchOutlined />}
-                            placeholder="搜索字段名、值或分组..."
-                            onChange={e => setModifiedSearchText(e.target.value)}
-                            allowClear
-                            className="max-w-md"
+                        <SearchInput
+                            width="lg"
+                            placeholder="搜索字段名、值或分组"
+                            value={modifiedSearchText}
+                            onChange={setModifiedSearchText}
                         />
                     </div>
                     <Table
@@ -413,12 +412,11 @@ const DiffResultView: React.FC = () => {
     const miitView = (
         <div>
            <div className="mb-4">
-                <Input
-                    prefix={<SearchOutlined />}
-                    placeholder="搜索公告字段名、值..."
-                    onChange={e => setMiitSearchText(e.target.value)}
-                    allowClear
-                    className="max-w-md"
+                <SearchInput
+                    width="lg"
+                    placeholder="搜索公告字段名、值"
+                    value={miitSearchText}
+                    onChange={setMiitSearchText}
                 />
             </div>
             <div className="mb-4 flex items-center gap-4">
@@ -452,65 +450,70 @@ const DiffResultView: React.FC = () => {
     );
 
     return (
-        <div className="surface-container p-4 rounded border border-default">
-            <div className="mb-6 p-4 bg-brand-weak rounded">
-                <Descriptions title="比对统计" column={4}>
-                    {stats.map(s => (
-                        <Descriptions.Item key={s.label} label={s.label}>
-                            <Tag color={s.color} className="text-lg px-2 rounded tabular-nums">{s.value}</Tag>
-                        </Descriptions.Item>
-                    ))}
-                </Descriptions>
-                <div className="mt-2 text-sm text-2">
-                    对比文件:
-                    <span className="font-mono mx-2">{baseFile?.fileName}</span>
-                    vs
-                    <span className="font-mono mx-2">{targetFile?.fileName}</span>
-                </div>
-
-                {/* 报告导出入口 */}
-                <div className="mt-4">
-                    <ReportExportDropdown onExport={handleExportReport} />
-                </div>
-            </div>
-
-            {/* Filters Row: Compare Mode + Sheet Filter */}
-            <FilterBar>
-                {/* Compare Mode Selector */}
-                <FilterItem label="对比模式:">
-                    <Radio.Group
-                        value={compareMode}
-                        onChange={(e) => setCompareMode(e.target.value as CompareMode)}
-                        optionType="button"
-                        buttonStyle="solid"
-                        size="small"
-                    >
-                        <Radio.Button value="content">按内容对比</Radio.Button>
-                        <Tooltip title={!isMiitModeAvailable ? '仅当目标文件来自公告号查询时可用' : ''}>
-                            <Radio.Button value="miit" disabled={!isMiitModeAvailable}>仅公告号数据对比</Radio.Button>
-                        </Tooltip>
-                    </Radio.Group>
-                </FilterItem>
-
-                {/* Sheet Filter */}
-                {allSheets.length > 0 && (
-                    <FilterItem label="按工作表筛选:">
-                        <Select
-                            value={selectedSheet}
-                            onChange={setSelectedSheet}
-                            style={{ width: 220 }}
+        <ListToolbar
+            className="shadow-sm"
+            title={<span className="font-semibold text-1">比对统计</span>}
+            actions={
+                /* §5.1：导出是本页的产出动作，primary 位置留它；
+                   报表入口唯一一个（此前统计卡里还有一个，已合并到此） */
+                <ReportExportDropdown onExport={handleExportReport} />
+            }
+            filters={
+                <>
+                    {/* 视图切换统一用 Segmented（规范禁 Radio.Group optionType=button）；
+                        单项禁用由 Segmented 的 options[].disabled 支持 */}
+                    <FilterItem label="对比模式">
+                        <Segmented
+                            value={compareMode}
+                            onChange={v => setCompareMode(v as CompareMode)}
+                            size="small"
                             options={[
-                                { label: '全部工作表 (All Sheets)', value: 'all' },
-                                ...allSheets.map(s => ({ label: s, value: s }))
+                                { label: '按内容对比', value: 'content' },
+                                {
+                                    label: '仅公告号数据对比',
+                                    value: 'miit',
+                                    disabled: !isMiitModeAvailable,
+                                    tooltip: !isMiitModeAvailable ? '仅当目标文件来自公告号查询时可用' : undefined,
+                                },
                             ]}
                         />
                     </FilterItem>
-                )}
-            </FilterBar>
 
+                    {allSheets.length > 0 && (
+                        <FilterItem label="按工作表筛选">
+                            <Select
+                                value={selectedSheet}
+                                onChange={setSelectedSheet}
+                                style={{ width: 220 }}
+                                size="small"
+                                options={[
+                                    { label: '全部工作表 (All Sheets)', value: 'all' },
+                                    ...allSheets.map(s => ({ label: s, value: s })),
+                                ]}
+                            />
+                        </FilterItem>
+                    )}
+                </>
+            }
+            padded={false}
+        >
+            {/* 统计数字条：四态计数 + 对比文件（原先塞在统计卡里，现独立成带 */}
+            <div className="px-3 py-2 bg-brand-weak flex flex-wrap items-center gap-x-4 gap-y-2">
+                {stats.map(s => (
+                    <span key={s.label} className="text-2" style={{ fontSize: 'var(--fs-aux)' }}>
+                        {s.label}
+                        <Tag color={s.color} className="ml-1.5 mr-0 px-2 rounded tabular-nums">{s.value}</Tag>
+                    </span>
+                ))}
+                <span className="ml-auto text-3 font-mono" style={{ fontSize: 'var(--fs-aux)' }}>
+                    {baseFile?.fileName} vs {targetFile?.fileName}
+                </span>
+            </div>
 
-            {compareMode === 'miit' ? miitView : <Tabs defaultActiveKey="all" items={items} />}
-        </div>
+            <div className="p-3">
+                {compareMode === 'miit' ? miitView : <Tabs defaultActiveKey="all" items={items} />}
+            </div>
+        </ListToolbar>
     );
 };
 

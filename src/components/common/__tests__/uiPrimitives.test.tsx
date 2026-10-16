@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import SearchInput from '../SearchInput';
 import FacetChips from '../FacetChips';
-import { FilterItem } from '../FilterBar';
+import { FilterItem } from '../ListToolbar';
 
 /**
  * UI 构件单测（设计：docs/plans/2026-10-15-ui-构件规范-design.md §7）。

@@ -25,9 +25,10 @@ const RULES = [
     { id: 'R2', re: /prefix=\{<SearchOutlined/g, fix: 'SearchInput' },
     { id: 'R3', re: /Tag\.CheckableTag/g, fix: 'FacetChips' },
     { id: 'R4', re: /label="[^"]*[:：]"/g, fix: 'FilterItem（冒号由组件补，label 不写冒号）' },
-    // R5 是迁移债：ListToolbar 已取代 FilterBar 这个**外壳**，剩下的消费方属存量、逐页迁移。
-    // 只匹配 JSX 用法（`<FilterBar`），不匹配 import——`FilterItem` 仍住在 FilterBar.tsx
-    // 且仍是合法的标签原语，按路径匹配会误伤它的引用方。
+    // R5 是迁移债：ListToolbar 已取代 FilterBar 这个**外壳**（2026-10-16 批次 9 后
+    // 外壳的消费方已清零，FilterBar.tsx 已删除，FilterItem 迁入 ListToolbar.tsx）。
+    // 规则保留为回归锁：旧外壳若被重新引入即报红。只匹配 JSX 用法（`<FilterBar`），
+    // 不匹配 import——按路径匹配会误伤引用 FilterItem 的文件。
     // 文本级护栏的边界：它抓得住「还渲染着旧外壳」，抓不住「该用 FacetChips 却用了
     // Select」这类语义偏差——那要靠 code review 兜。
     { id: 'R5', re: /<FilterBar[\s/>]/g, fix: 'ListToolbar（FilterBar 外壳已被其取代）' },
@@ -79,6 +80,9 @@ const MIGRATED_LIST_PAGES: string[] = [
     // 设计语言 §7 批次 5：FilterBar 外壳 → ListToolbar 三段；搜索换 SearchInput；
     // 快捷筛选由变色主按钮换 FacetChips；去掉硬编码 bg-orange/green（绕过 token）。
     'DataPurify/DataPurifyView.tsx',
+    // 设计语言 §7 批次 9：DiffViewer 是 FilterBar 最后一个外壳消费方；
+    // 迁完即退役该外壳（FilterBar.tsx 已删，FilterItem 迁入 ListToolbar.tsx）。
+    'DiffViewer/DiffResultView.tsx',
 ];
 
 /**
@@ -92,7 +96,6 @@ const MIGRATED_LIST_PAGES: string[] = [
  */
 const LEGACY_EXEMPT: Record<string, number> = {
     'AssetLibrary/AssetListDrawer.tsx': 1,
-    'DiffViewer/DiffResultView.tsx': 6,
     'ParameterWorkbench/AssetPool/AssetFilterBar.tsx': 1,
     'ParameterWorkbench/AssetPool/AssetSidebar.tsx': 1,
     'ParameterWorkbench/CompareView.tsx': 1,

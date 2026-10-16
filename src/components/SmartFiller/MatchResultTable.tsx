@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Tag, Select, Progress, Button, message, Input, Tooltip, Popover, Dropdown } from 'antd';
-import { FilterItem } from '../common/FilterBar';
+import { FilterItem } from '../common/ListToolbar';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
 import FacetChips from '../common/FacetChips';

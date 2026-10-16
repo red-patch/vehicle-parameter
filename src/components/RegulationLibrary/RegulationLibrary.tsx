@@ -21,7 +21,7 @@ import {
 import RegulationFilterPanel from './RegulationFilterPanel';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
-import { FilterItem } from '../common/FilterBar';
+import { FilterItem } from '../common/ListToolbar';
 import RegulationTable from './RegulationTable';
 import RegulationImportModal from './RegulationImportModal';
 import RegulationDetailDrawer from './RegulationDetailDrawer';

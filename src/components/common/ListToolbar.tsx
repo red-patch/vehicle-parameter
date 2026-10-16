@@ -23,6 +23,39 @@ import React, { type ReactNode } from 'react';
  * 本构件只管**三段怎么摆**；控件形态由 SearchInput / FacetChips / FilterItem 决定。
  */
 
+/**
+ * 筛选行的标签原语（原住 `common/FilterBar.tsx`，随该外壳退役迁到此处）。
+ *
+ * 统一补冒号：调用方写 `label="搜索"`，组件补成「搜索：」；已是冒号结尾的按原样
+ * （幂等，避免「搜索：：」）。字号跟随「界面字号」设置。
+ */
+export interface FilterItemProps {
+    /** 标签文字；**不要自带冒号**（组件统一补） */
+    label?: ReactNode;
+    children: ReactNode;
+    className?: string;
+}
+
+/** 统一补冒号；已有冒号的旧写法按原样渲染（幂等） */
+const withColon = (label: ReactNode): ReactNode => {
+    if (typeof label !== 'string') return label;
+    return /[:：]\s*$/.test(label) ? label : `${label}：`;
+};
+
+export const FilterItem: React.FC<FilterItemProps> = ({ label, children, className = '' }) => (
+    <div className={`flex items-center gap-2 ${className}`}>
+        {label && (
+            <span
+                className="font-semibold text-2 whitespace-nowrap"
+                style={{ fontSize: 'var(--fs-body)' }}
+            >
+                {withColon(label)}
+            </span>
+        )}
+        {children}
+    </div>
+);
+
 export interface ListToolbarProps {
     /** 标题区：字符串或节点（可含计数徽标、路径等） */
     title?: ReactNode;
