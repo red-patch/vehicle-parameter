@@ -83,6 +83,9 @@ const MIGRATED_LIST_PAGES: string[] = [
     // 设计语言 §7 批次 9：DiffViewer 是 FilterBar 最后一个外壳消费方；
     // 迁完即退役该外壳（FilterBar.tsx 已删，FilterItem 迁入 ListToolbar.tsx）。
     'DiffViewer/DiffResultView.tsx',
+    // 设计语言 §7 批次 6：Card 外壳 → ListToolbar；页级搜索换 SearchInput；
+    // Tab 内动作行按 §5.1 收进下拉（只留 1 个 primary）。
+    'SmartFiller/ConfigManagerView.tsx',
 ];
 
 /**
@@ -101,7 +104,9 @@ const LEGACY_EXEMPT: Record<string, number> = {
     'ParameterWorkbench/CompareView.tsx': 1,
     'ParameterWorkbench/FileManager.tsx': 1,
     'ParameterWorkbench/MultiVehicleView.tsx': 1,
-    'SmartFiller/ConfigManagerView.tsx': 4,
+    // 剩 1 处：AutoComplete 的内层 Input（带 options 下拉的组合框，非搜索框；
+    // SearchInput 不支持 options）。这是文本级护栏的固有边界，见 R2 注释。
+    'SmartFiller/ConfigManagerView.tsx': 1,
     'SmartFiller/CoreFieldRuleComposer.tsx': 1,
     'SmartFiller/EnumImportModal.tsx': 2,
 };
