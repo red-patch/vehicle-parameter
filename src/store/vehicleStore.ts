@@ -69,6 +69,10 @@ export interface VehicleStore {
     pendingAnnounceNoFilter: string[] | null;
     setPendingAnnounceNoFilter: (nos: string[] | null) => void;
 
+    /** 全局搜索面板（⌘K）的一次性跳转信号：目标页 + 预填关键字，消费后清空（不持久化） */
+    pendingGlobalSearch: { tab: string; keyword: string } | null;
+    setPendingGlobalSearch: (signal: { tab: string; keyword: string } | null) => void;
+
     // V6.2 Global Module Selections (Synchronization)
     activeAssets: string[];
     addActiveAsset: (fileName: string, productName: string) => void;
@@ -78,11 +82,14 @@ export interface VehicleStore {
     healAssetSelectionKeys: (canonicalByFileName: Record<string, string>) => void;
 
     currentPurifyProduct: string | null;
+    // 体检页的参考车型（视同更新的数据来源）
+    purifyReferenceProduct: string | null;
     currentCompareProducts: string[];
     currentMultiVehicleProducts: string[];
     currentSmartFillProduct: string | null;
     currentBidPullProducts: string[];
     setPurifyProduct: (name: string | null) => void;
+    setPurifyReferenceProduct: (name: string | null) => void;
     setCompareProducts: (names: string[]) => void;
     setMultiVehicleProducts: (names: string[]) => void;
     setSmartFillProduct: (name: string | null) => void;
@@ -265,6 +272,7 @@ export const useVehicleStore = create<VehicleStore>()(
             selectedProductNames: state.selectedProductNames.filter(n => !affectedProductNames.includes(n)),
             ignoredProductNames: state.ignoredProductNames.filter(n => !affectedProductNames.includes(n)),
             currentPurifyProduct: affectedProductNames.includes(state.currentPurifyProduct || '') ? null : state.currentPurifyProduct,
+            purifyReferenceProduct: affectedProductNames.includes(state.purifyReferenceProduct || '') ? null : state.purifyReferenceProduct,
             currentCompareProducts: state.currentCompareProducts.filter(n => !affectedProductNames.includes(n)),
             currentMultiVehicleProducts: state.currentMultiVehicleProducts.filter(n => !affectedProductNames.includes(n)),
             currentBidPullProducts: state.currentBidPullProducts.filter(n => !affectedProductNames.includes(n)),
@@ -301,6 +309,7 @@ export const useVehicleStore = create<VehicleStore>()(
                 ignoredProductNames: Array.from(new Set([...state.ignoredProductNames, name])),
                 selectedProductNames: state.selectedProductNames.filter(n => n !== name),
                 currentPurifyProduct: state.currentPurifyProduct === name ? null : state.currentPurifyProduct,
+                purifyReferenceProduct: state.purifyReferenceProduct === name ? null : state.purifyReferenceProduct,
                 currentCompareProducts: state.currentCompareProducts.filter(n => n !== name),
                 currentMultiVehicleProducts: state.currentMultiVehicleProducts.filter(n => n !== name),
                 currentBidPullProducts: state.currentBidPullProducts.filter(n => n !== name),
@@ -400,6 +409,7 @@ export const useVehicleStore = create<VehicleStore>()(
         excludedProducts: state.excludedProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
         ignoredProductNames: state.ignoredProductNames.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
         currentPurifyProduct: state.currentPurifyProduct === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : state.currentPurifyProduct,
+        purifyReferenceProduct: state.purifyReferenceProduct === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : state.purifyReferenceProduct,
         currentCompareProducts: state.currentCompareProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
         currentMultiVehicleProducts: state.currentMultiVehicleProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
         currentBidPullProducts: state.currentBidPullProducts.map(n => n === buildVehicleInstanceKey('asset', fileName, oldProductName) ? buildVehicleInstanceKey('asset', fileName, newProductName) : n),
@@ -417,6 +427,8 @@ export const useVehicleStore = create<VehicleStore>()(
     setAssetLibraryPath: (path) => set({ assetLibraryPath: path }),
     pendingAnnounceNoFilter: null,
     setPendingAnnounceNoFilter: (nos) => set({ pendingAnnounceNoFilter: nos }),
+    pendingGlobalSearch: null,
+    setPendingGlobalSearch: (signal) => set({ pendingGlobalSearch: signal }),
 
     reset: () => set({
         baseFile: null,
@@ -467,6 +479,7 @@ export const useVehicleStore = create<VehicleStore>()(
             currentBidPullProducts: replaceInList(state.currentBidPullProducts),
             currentSmartFillProduct: oldKeys.includes(state.currentSmartFillProduct || '') ? newKey : state.currentSmartFillProduct,
             currentPurifyProduct: oldKeys.includes(state.currentPurifyProduct || '') ? newKey : state.currentPurifyProduct,
+            purifyReferenceProduct: oldKeys.includes(state.purifyReferenceProduct || '') ? newKey : state.purifyReferenceProduct,
         };
     }),
     removeActiveAsset: (fileName, productName) => set((state) => {
@@ -476,6 +489,7 @@ export const useVehicleStore = create<VehicleStore>()(
             selectedProductNames: state.selectedProductNames.filter(n => n !== removedKey),
             // 同步修剪各模块的当前选中，保持状态闭环
             currentPurifyProduct: state.currentPurifyProduct === removedKey ? null : state.currentPurifyProduct,
+            purifyReferenceProduct: state.purifyReferenceProduct === removedKey ? null : state.purifyReferenceProduct,
             currentCompareProducts: state.currentCompareProducts.filter(n => n !== removedKey),
             currentMultiVehicleProducts: state.currentMultiVehicleProducts.filter(n => n !== removedKey),
             currentBidPullProducts: state.currentBidPullProducts.filter(n => n !== removedKey),
@@ -493,9 +507,12 @@ export const useVehicleStore = create<VehicleStore>()(
             selectedProductNames: state.selectedProductNames.map(n => {
                 return n === oldKey ? newKey : n;
             }),
-            currentPurifyProduct: state.currentPurifyProduct === oldKey 
-                ? newKey 
+            currentPurifyProduct: state.currentPurifyProduct === oldKey
+                ? newKey
                 : state.currentPurifyProduct,
+            purifyReferenceProduct: state.purifyReferenceProduct === oldKey
+                ? newKey
+                : state.purifyReferenceProduct,
             currentCompareProducts: state.currentCompareProducts.map(n =>
                 n === oldKey ? newKey : n
             ),
@@ -524,6 +541,7 @@ export const useVehicleStore = create<VehicleStore>()(
             value ? remapAssetSelectionKeys([value], canonicalByFileName)[0] ?? null : null;
         const currentSmartFillProduct = remapSingle(state.currentSmartFillProduct);
         const currentPurifyProduct = remapSingle(state.currentPurifyProduct);
+        const purifyReferenceProduct = remapSingle(state.purifyReferenceProduct);
         if (
             selectedProductNames === state.selectedProductNames &&
             confirmedProducts === state.confirmedProducts &&
@@ -533,7 +551,8 @@ export const useVehicleStore = create<VehicleStore>()(
             currentMultiVehicleProducts === state.currentMultiVehicleProducts &&
             currentBidPullProducts === state.currentBidPullProducts &&
             currentSmartFillProduct === state.currentSmartFillProduct &&
-            currentPurifyProduct === state.currentPurifyProduct
+            currentPurifyProduct === state.currentPurifyProduct &&
+            purifyReferenceProduct === state.purifyReferenceProduct
         ) {
             return {};
         }
@@ -547,15 +566,18 @@ export const useVehicleStore = create<VehicleStore>()(
             currentBidPullProducts,
             currentSmartFillProduct,
             currentPurifyProduct,
+            purifyReferenceProduct,
         };
     }),
 
     currentPurifyProduct: null,
+    purifyReferenceProduct: null,
     currentCompareProducts: [],
     currentMultiVehicleProducts: [],
     currentSmartFillProduct: null,
     currentBidPullProducts: [],
     setPurifyProduct: (name) => set({ currentPurifyProduct: name }),
+    setPurifyReferenceProduct: (name) => set({ purifyReferenceProduct: name }),
     setCompareProducts: (names) => set({ currentCompareProducts: names }),
     setMultiVehicleProducts: (names) => set({ currentMultiVehicleProducts: names }),
     setSmartFillProduct: (name) => set({ currentSmartFillProduct: name }),
@@ -603,6 +625,7 @@ export const useVehicleStore = create<VehicleStore>()(
         bidPullSchemeId: state.bidPullSchemeId,
         assetLibraryPath: state.assetLibraryPath,
         activeAssets: state.activeAssets,
+        purifyReferenceProduct: state.purifyReferenceProduct,
         poolSidebarWidth: state.poolSidebarWidth,
         poolWorkspaceHeight: state.poolWorkspaceHeight,
         // 核心分析环境（uploadedFiles/selected*/confirmed*/excluded*/ignored*）已迁移至

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
     HomeOutlined, AppstoreOutlined, StarOutlined, WarningOutlined,
     BranchesOutlined, EditOutlined, HistoryOutlined, DeleteOutlined,
-    AuditOutlined, SettingOutlined, ReloadOutlined, SearchOutlined,
+    AuditOutlined, ReloadOutlined, SearchOutlined,
 } from '@ant-design/icons';
 import { message, Tooltip, Input } from 'antd';
 import { useShallow } from 'zustand/react/shallow';
@@ -34,8 +34,13 @@ export interface AssetSidebarProps {
     facetVocab: FacetVocab;
     facetItems: { facets: ResolvedFacets }[];
     onOpenGovernance: () => void;
-    /** 折叠左栏（⌘S / 顶部折叠按钮） */
+    /** 折叠/收起浮窗（⌘B / 顶部折叠按钮 / 点外部） */
     onCollapse: () => void;
+    /**
+     * 用户在浮窗内做出「选择/动作」后的回调（浮窗模式：动作完成即收起）。
+     * 仅导航叶子项、治理视角项、工具项触发；搜索输入与分组展开不触发。
+     */
+    onAction?: () => void;
 }
 
 interface NavItemProps {
@@ -91,10 +96,9 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
     facetItems,
     onOpenGovernance,
     onCollapse,
+    onAction,
 }) => {
-    const { assetLibraryPath, setAssetLibraryPath, bumpAssetVersion } = useVehicleStore(useShallow(state => ({
-        assetLibraryPath: state.assetLibraryPath,
-        setAssetLibraryPath: state.setAssetLibraryPath,
+    const { bumpAssetVersion } = useVehicleStore(useShallow(state => ({
         bumpAssetVersion: state.bumpAssetVersion,
     })));
 
@@ -138,31 +142,19 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
         const current = facetSelection[key];
         const next = current.includes(value) ? [] : [value];
         onFacetSelectionChange({ ...facetSelection, [key]: next });
+        onAction?.();
     };
 
     const handleGovernanceClick = (view: string) => {
         onGovernanceViewChange(governanceView === view ? null : view);
-    };
-
-    const handleSetAssetLibrary = async () => {
-        try {
-            const { open } = await import('@tauri-apps/plugin-dialog');
-            const selected = await open({ directory: true, multiple: false, title: '选择资产库目录' });
-            if (selected && typeof selected === 'string') {
-                setAssetLibraryPath(selected);
-                message.success(`已设置资产库目录: ${selected}`);
-            }
-        } catch (err) {
-            console.error('Failed to select directory', err);
-            message.error('选择目录失败');
-        }
+        onAction?.();
     };
 
     return (
         <div className="h-full overflow-y-auto custom-scrollbar py-3">
-            {/* 折叠按钮（⌘S） */}
+            {/* 收起浮窗（⌘B） */}
             <div className="flex justify-end px-3 pb-1">
-                <Tooltip title="折叠导航（⌘S）">
+                <Tooltip title="收起导航（⌘B）">
                     <button
                         className="w-6 h-6 rounded flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak transition-colors duration-150"
                         style={{ transitionTimingFunction: 'var(--ease-ui)' }}
@@ -290,18 +282,14 @@ const AssetSidebar: React.FC<AssetSidebarProps> = ({
                 <NavItem
                     icon={<ReloadOutlined />}
                     label="刷新资产库"
-                    onClick={() => { bumpAssetVersion(); message.success('正在刷新资产库…'); }}
+                    onClick={() => { bumpAssetVersion(); message.success('正在刷新资产库…'); onAction?.(); }}
                 />
                 <NavItem
                     icon={<AuditOutlined />}
                     label="治理体检"
                     onClick={onOpenGovernance}
                 />
-                <NavItem
-                    icon={<SettingOutlined />}
-                    label={assetLibraryPath ? '更换资产库目录' : '设置资产库目录'}
-                    onClick={handleSetAssetLibrary}
-                />
+                {/* 「更换资产库目录」已迁至设置面板（路径与位置），此处不再重复 */}
             </div>
         </div>
     );

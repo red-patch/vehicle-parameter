@@ -38,11 +38,12 @@ const MemoRegulationLibrary = React.memo(() => <RegulationLibrary />);
 const MemoConfigManager = React.memo(() => <ConfigManagerView />);
 
 const App: React.FC = () => {
-  const { baseFile, targetFile, setDiffResult, compareMode } = useVehicleStore(useShallow(state => ({
+  const { baseFile, targetFile, setDiffResult, compareMode, pendingGlobalSearch } = useVehicleStore(useShallow(state => ({
     baseFile: state.baseFile,
     targetFile: state.targetFile,
     setDiffResult: state.setDiffResult,
     compareMode: state.compareMode,
+    pendingGlobalSearch: state.pendingGlobalSearch,
   })));
   const { isDarkMode } = useThemeStore();
   const fontSize = useSettingsStore(state => state.fontSize);
@@ -76,6 +77,14 @@ const App: React.FC = () => {
       root.setAttribute('data-font-scale', fontSize);
     }
   }, [fontSize]);
+
+  // 全局搜索面板（⌘K）的一次性跳转信号：切页即可，预填由各目标页自己消费
+  // （pendingGlobalSearch 携带 tab + keyword，目标页 effect 读到后写入自己的搜索框并清空信号）
+  React.useEffect(() => {
+    if (pendingGlobalSearch) {
+      handleTabChange(pendingGlobalSearch.tab);
+    }
+  }, [pendingGlobalSearch, handleTabChange]);
 
   // Auto-run diff when both files are present or mode changes
   React.useEffect(() => {

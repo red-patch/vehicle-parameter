@@ -363,8 +363,8 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                         <Descriptions.Item label="文件">
                             {record.fileName ? (
                                 <Space direction="vertical" size={2}>
-                                    <Text style={{ fontSize: 12 }}>{baseNameOf(record.fileName)}</Text>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                    <Text style={{ fontSize: 'var(--fs-aux)' }}>{baseNameOf(record.fileName)}</Text>
+                                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                         {formatSize(record.fileSize)}
                                         {record.textLayer === 'none' && ' · 扫描件（正文不可检索）'}
                                     </Text>
@@ -391,7 +391,7 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                             权威查询
                         </Title>
                         {entries.length === 0 ? (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
+                            <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                 该层级暂无已配置的权威站点
                             </Text>
                         ) : (
@@ -409,7 +409,7 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                             </Space>
                         )}
                         <div style={{ marginTop: 4 }}>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
+                            <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                 在浏览器中打开权威站点核对版本与状态；本工具不发网络请求。
                             </Text>
                         </div>
@@ -422,7 +422,7 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                             版本链（{chain.length}）
                         </Title>
                         {chain.length <= 1 ? (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
+                            <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                 该标准号下只有这一版
                             </Text>
                         ) : (
@@ -436,7 +436,7 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                                             <Tag color={STATUS_COLOR[vs] ?? 'default'}>{vs}</Tag>
                                             <Text
                                                 style={{
-                                                    fontSize: 12,
+                                                    fontSize: 'var(--fs-aux)',
                                                     cursor: current ? 'default' : 'pointer',
                                                     color: current ? undefined : '#1677ff',
                                                 }}
@@ -462,14 +462,14 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                                 {record.knowledgeCards.map(c => (
                                     <Space key={c} size={4}>
                                         <LinkOutlined />
-                                        <Text style={{ fontSize: 12 }}>{baseNameOf(c)}</Text>
+                                        <Text style={{ fontSize: 'var(--fs-aux)' }}>{baseNameOf(c)}</Text>
                                     </Space>
                                 ))}
                             </Space>
                         ) : (
                             <Empty
                                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                description={<Text type="secondary" style={{ fontSize: 12 }}>暂无解读卡</Text>}
+                                description={<Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>暂无解读卡</Text>}
                             />
                         )}
                     </div>

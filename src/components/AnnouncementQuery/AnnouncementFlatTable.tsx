@@ -5,7 +5,7 @@ import {
     AimOutlined, CopyOutlined, DeleteOutlined, FilePdfOutlined, LinkOutlined, ProfileOutlined,
 } from '@ant-design/icons';
 import { normalizeAnnounceNo, type AnnouncementInfo } from '../../utils/announcementRecord';
-import { formatArchiveDate, type JoinedAsset } from '../../utils/announcementGrouping';
+import { describeLinkedAsset, formatArchiveDate, type JoinedAsset } from '../../utils/announcementGrouping';
 
 const { Text } = Typography;
 
@@ -147,8 +147,7 @@ const AnnouncementFlatTable: React.FC<AnnouncementFlatTableProps> = ({
                         <ul className="m-0 pl-4 text-xs space-y-1">
                             {list.map(a => (
                                 <li key={a.fileName}>
-                                    <Text className="font-medium">{a.productName}</Text>
-                                    <Text type="secondary" className="ml-2">{a.fileName}</Text>
+                                    <Text className="font-medium">{describeLinkedAsset(a)}</Text>
                                 </li>
                             ))}
                         </ul>

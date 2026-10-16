@@ -11,7 +11,7 @@ import { persist } from 'zustand/middleware';
  *   开合有单一源。
  */
 
-export type SettingsSection = 'appearance' | 'paths' | 'mobile' | 'data';
+export type SettingsSection = 'appearance' | 'paths' | 'mobile' | 'shortcuts' | 'data';
 
 /** 界面字号三档。`medium` 是不设置属性时的默认值（与 index.css 的 --fs-* 同源）。 */
 export type FontScale = 'small' | 'medium' | 'large';

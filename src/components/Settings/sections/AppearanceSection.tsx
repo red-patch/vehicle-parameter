@@ -50,7 +50,7 @@ const AppearanceSection: React.FC = () => {
             <section>
                 <Title level={5} className="!mb-1">界面字号</Title>
                 <Text type="secondary" className="block mb-3">
-                    调整全局文字大小。部分图表与表格内的固定尺寸文字不随此设置变化。
+                    调整全局文字大小，表格与表单控件一并跟随。少量图表内的文字不随此设置变化。
                 </Text>
                 <Segmented<FontScale>
                     value={fontSize}

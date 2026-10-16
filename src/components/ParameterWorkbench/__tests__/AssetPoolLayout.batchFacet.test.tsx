@@ -68,7 +68,10 @@ const seed = () => {
 const openFieldEditor = async () => {
     render(<AssetPoolLayout />);
     await waitFor(() => expect(document.querySelector('[data-asset-file="a.json"]')).toBeTruthy());
-    fireEvent.click(screen.getByText('治理体检'));
+    // 左栏已浮窗化且默认收起（设计 §3.1 修订：不常驻遮挡列表）——
+    // 治理体检入口在浮窗内，须先展开。展开按钮是筛选条左缘的图标钮（Tooltip 文案见下）。
+    fireEvent.click(await screen.findByLabelText('展开导航'));
+    fireEvent.click(await screen.findByText('治理体检'));
     await waitFor(() => expect(screen.getByText(/打开批量字段维护/)).toBeInTheDocument());
     fireEvent.click(screen.getByText(/打开批量字段维护/));
     // 抽屉内锚定：字段选择器 + 预览表（.ant-table）已出现

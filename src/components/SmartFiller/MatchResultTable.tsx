@@ -1,13 +1,16 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { Tag, Select, Progress, Button, message, Input, Switch, Tooltip } from 'antd';
-import { FilterBar, FilterItem } from '../common/FilterBar';
+import { Tag, Select, Progress, Button, message, Input, Tooltip, Popover, Dropdown } from 'antd';
+import { FilterItem } from '../common/ListToolbar';
+import ListToolbar from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
+import FacetChips from '../common/FacetChips';
 import DataTable from '../common/DataTable';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { getProductData } from '../../store/vehicleSelectors';
 import { useShallow } from 'zustand/react/shallow';
 import Fuse from 'fuse.js';
 import type { MatchItem } from '../../types';
-import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined, BulbOutlined, DownOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
 import { buildRepairContext, getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
@@ -310,10 +313,15 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                 const hasEnums = enumValues.length > 0;
                 const fixes = quickFixes[record.id];
                 
+                const enumMismatch = !!(assetSourceFile && hasEnums && currentValue && !enumValues.includes(currentValue));
+
+                // 单行格律（设计：docs/plans/2026-10-16-表格行规范-design.md §3.2）：
+                // 一个单元格只放一个「主控件」，次要信息收进 popover/tooltip，
+                // 行高恒定、不再随内容浮动。此前四层堆叠 + 重复显示同一个值，是
+                // 「智能填报太丑 / 行距跟别的模块不一样」的直接原因。
                 return (
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                            {isManualMode ? (
+                    <div className="flex items-center gap-1.5">
+                        {isManualMode ? (
                             // 手动输入模式
                             <Input
                                 defaultValue={currentValue}
@@ -322,11 +330,9 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 placeholder="手动输入..."
                                 style={{ flex: 1, minWidth: 0 }}
                                 className={isModified ? 'border-blue-400' : ''}
-                                suffix={isModified ? <Tag color="processing" className="mr-0">已修改</Tag> : null}
                             />
                         ) : hasEnums ? (
                             // 枚举选择模式
-                            <>
                             <Select
                                 showSearch
                                 style={{ flex: 1, minWidth: 0 }}
@@ -336,14 +342,8 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 onChange={(value) => updateManualValue(record.id, String(value))}
                                 options={enumValues.map(v => ({ value: v, label: v }))}
                                 suffixIcon={<DatabaseOutlined style={{ color: 'var(--brand)' }} />}
-                                status={currentValue && !enumValues.includes(currentValue) ? 'error' : (!currentValue ? 'warning' : undefined)}
+                                status={enumMismatch ? 'error' : (!currentValue ? 'warning' : undefined)}
                             />
-                            {currentValue && !enumValues.includes(currentValue) && (
-                                <Tooltip title={`“${currentValue}”不在枚举列表中，需更新字典`}>
-                                    <WarningOutlined style={{ color: 'var(--warning)', fontSize: 16 }} />
-                                </Tooltip>
-                            )}
-                            </>
                         ) : (
                             // 无枚举时默认输入框；有自动匹配值时清空=显式空值，避免导出回退 N/A
                             <Input
@@ -355,45 +355,71 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 className={`font-mono ${isModified ? 'border-blue-400' : ''}`}
                             />
                         )}
-                        {/* 模式切换开关 */}
-                        {hasEnums && (
-                            <Tooltip title={isManualMode ? '切换为枚举选择' : '切换为手动输入'}>
-                                <Switch
+
+                        {/* 快捷推荐：收进 popover，避免第二行把行高撑开 */}
+                        {fixes && fixes.length > 0 && !isManualMode && (
+                            <Popover
+                                trigger="click"
+                                placement="bottomRight"
+                                title="推荐值"
+                                content={
+                                    <div className="flex flex-col gap-1 max-w-[240px]">
+                                        {fixes.map((f, i) => (
+                                            <span
+                                                key={i}
+                                                className="cell-edit-text text-2"
+                                                title={`提取自字段：${f.title}`}
+                                                onClick={() => updateManualValue(record.id, f.value, { explicitEmpty: true })}
+                                            >
+                                                {f.value || '(空)'}
+                                            </span>
+                                        ))}
+                                    </div>
+                                }
+                            >
+                                <Button
                                     size="small"
-                                    checkedChildren={<EditOutlined />}
-                                    unCheckedChildren={<DatabaseOutlined />}
-                                    checked={isManualMode}
-                                    onChange={() => toggleManualMode(record.id)}
+                                    type="text"
+                                    icon={<BulbOutlined />}
+                                    aria-label={`推荐值（${fixes.length}）`}
+                                    className="flex-shrink-0"
+                                />
+                            </Popover>
+                        )}
+
+                        {/* 枚举不匹配：一行图标按钮，点击修复源数据（原先整块 RepairableValue 会把值显示第二遍） */}
+                        {enumMismatch && (
+                            <Tooltip title={`“${currentValue}”不在枚举列表中，点击修复源数据`}>
+                                <Button
+                                    size="small"
+                                    type="text"
+                                    icon={<WarningOutlined style={{ color: 'var(--warning)' }} />}
+                                    aria-label="修复枚举不匹配"
+                                    onClick={() => triggerRepair(record.requirementName, 'enum_mismatch')}
+                                    className="flex-shrink-0"
                                 />
                             </Tooltip>
                         )}
-                        </div>
-                        
-                        {/* 快捷推荐修正 (Quick Fix) */}
-                        {fixes && fixes.length > 0 && !isManualMode && (
-                            <div className="flex items-center flex-wrap gap-1 mt-1">
-                                <span className="text-xs text-3 mr-1">推荐:</span>
-                                {fixes.map((f, i) => (
-                                    <Tooltip key={i} title={`提取自字段: ${f.title}`}>
-                                        <Tag
-                                            className="hover:border-brand text-xs m-0"
-                                            color="default"
-                                            onClick={() => updateManualValue(record.id, f.value, { explicitEmpty: true })}
-                                        >
-                                            {f.value ? (f.value.length > 15 ? f.value.substring(0, 15) + '...' : f.value) : '(空)'}
-                                        </Tag>
-                                    </Tooltip>
-                                ))}
-                            </div>
+
+                        {/* 已修改标记：一行内的轻量提示，不再用输入框 suffix 撑高行 */}
+                        {isModified && !isManualMode && (
+                            <Tooltip title="已手动修改">
+                                <span className="text-xs text-brand flex-shrink-0">已改</span>
+                            </Tooltip>
                         )}
-                        {assetSourceFile && hasEnums && currentValue && !enumValues.includes(currentValue) && (
-                            <RepairableValue
-                                value={<span className="text-warning font-medium">{currentValue}</span>}
-                                repairable={true}
-                                hint="点击修复源数据"
-                                className="self-start"
-                                onRepair={() => triggerRepair(record.requirementName, 'enum_mismatch')}
-                            />
+
+                        {/* 模式切换：图标按钮（与控件等高 24px），不再用 Switch 撑行 */}
+                        {hasEnums && (
+                            <Tooltip title={isManualMode ? '切换为枚举选择' : '切换为手动输入'}>
+                                <Button
+                                    size="small"
+                                    type="text"
+                                    icon={isManualMode ? <DatabaseOutlined /> : <EditOutlined />}
+                                    aria-label={isManualMode ? '切换为枚举选择' : '切换为手动输入'}
+                                    onClick={() => toggleManualMode(record.id)}
+                                    className="flex-shrink-0"
+                                />
+                            </Tooltip>
                         )}
                     </div>
                 );
@@ -417,25 +443,41 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
     if (!matchResults.length) return null;
 
     return (
-        <div className="mt-8 surface-container p-4 rounded border border-default">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
+        /* 列表页外壳统一走 ListToolbar（设计：2026-10-16-列表页设计语言 §4.1/§4.3）。
+           此前是「手写 flex 标题行 + ListToolbar 只当筛选行」两套壳并存，
+           正是 R7 抓到的半成品状态。 */
+        <ListToolbar
+            className="mt-8"
+            title={
+                <>
                     <CheckCircleOutlined className="text-success" />
-                    匹配结果预览
-                    <Tag>{filteredResults.length}/{matchResults.length}</Tag>
-                </h3>
-                <div className="flex gap-2 flex-wrap">
-                    <Button onClick={handleCopy}>
-                        复制填报结果 (CSV)
-                    </Button>
-                    <Button icon={<DownloadOutlined />} onClick={handleDownload}>
-                        下载 CSV
-                    </Button>
-                    {enumMismatchItems.length > 0 && (
-                        <Button
-                            icon={<CopyOutlined />}
-                            danger
-                            onClick={() => {
+                    <span className="font-semibold text-1">匹配结果预览</span>
+                    <Tag className="m-0">{filteredResults.length}/{matchResults.length}</Tag>
+                </>
+            }
+            actions={
+                <>
+                    {/* §5.1：≥3 个动作收进下拉，标题行只留 1 个 primary */}
+                    <Dropdown
+                        menu={{
+                            items: [
+                                { key: 'copy-csv', icon: <CopyOutlined />, label: '复制 CSV' },
+                                { key: 'download-csv', icon: <DownloadOutlined />, label: '下载 CSV' },
+                                ...(enumMismatchItems.length > 0
+                                    ? [
+                                          { type: 'divider' as const },
+                                          {
+                                              key: 'copy-enum',
+                                              icon: <WarningOutlined />,
+                                              danger: true,
+                                              label: `复制枚举异常字段（${enumMismatchItems.length}）`,
+                                          },
+                                      ]
+                                    : []),
+                            ],
+                            onClick: ({ key }) => {
+                                if (key === 'copy-csv') { handleCopy(); return; }
+                                if (key === 'download-csv') { handleDownload(); return; }
                                 const lines = enumMismatchItems.map(m => {
                                     const value = m.manualValue !== undefined
                                         ? m.manualValue
@@ -445,11 +487,14 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 navigator.clipboard.writeText('参数名\t当前值\n' + lines.join('\n'))
                                     .then(() => message.success(`已复制 ${enumMismatchItems.length} 个枚举异常字段`))
                                     .catch(() => message.error('复制失败'));
-                            }}
-                        >
-                            复制枚举异常字段 ({enumMismatchItems.length})
+                            },
+                        }}
+                        trigger={['click']}
+                    >
+                        <Button>
+                            导出 <DownOutlined style={{ fontSize: 10 }} />
                         </Button>
-                    )}
+                    </Dropdown>
                     <Button
                         type="primary"
                         icon={<CloudUploadOutlined />}
@@ -502,70 +547,74 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                     >
                         车上云系统模板导出
                     </Button>
-                </div>
-            </div>
+                </>
+            }
+            filters={
+                    <>
+                        <FilterItem label="搜索">
+                            <SearchInput
+                                multiline
+                                width="lg"
+                                hint="支持换行搜索多个"
+                                placeholder="搜索参数名、匹配名或值"
+                                value={searchText}
+                                onChange={setSearchText}
+                            />
+                        </FilterItem>
+                        <FilterItem label="匹配度">
+                            <Select
+                                value={confidenceFilter}
+                                onChange={setConfidenceFilter}
+                                style={{ width: 140 }}
+                                options={[
+                                    { label: '全部', value: 'all' },
+                                    { label: '100%匹配', value: 'perfect' },
+                                    { label: '<100%匹配', value: 'imperfect' },
+                                ]}
+                            />
+                        </FilterItem>
+                        <FilterItem label="状态">
+                            <Select
+                                value={statusFilter}
+                                onChange={setStatusFilter}
+                                style={{ width: 140 }}
+                                options={[
+                                    { label: '全部', value: 'all' },
+                                    { label: '已填报', value: 'filled' },
+                                    { label: '未填报', value: 'empty' },
+                                ]}
+                            />
+                        </FilterItem>
 
-            {/* V3.0: 过滤器区域 */}
-            <FilterBar>
-                <FilterItem label="搜索:">
-                    <Input.TextArea
-                        placeholder="搜索参数名、匹配名或值... (支持换行搜索多个)"
-                        value={searchText}
-                        onChange={e => setSearchText(e.target.value)}
-                        allowClear
-                        autoSize={{ minRows: 1, maxRows: 4 }}
-                        style={{ width: 320 }}
-                    />
-                </FilterItem>
-                <FilterItem label="匹配度:">
-                    <Select
-                        value={confidenceFilter}
-                        onChange={setConfidenceFilter}
-                        style={{ width: 140 }}
-                        options={[
-                            { label: '全部', value: 'all' },
-                            { label: '100%匹配', value: 'perfect' },
-                            { label: '<100%匹配', value: 'imperfect' },
-                        ]}
-                    />
-                </FilterItem>
-                <FilterItem label="状态:">
-                    <Select
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        style={{ width: 140 }}
-                        options={[
-                            { label: '全部', value: 'all' },
-                            { label: '已填报', value: 'filled' },
-                            { label: '未填报', value: 'empty' },
-                        ]}
-                    />
-                </FilterItem>
-
-                {/* V3.1: 快捷筛选按钮 */}
-                <FilterItem label="快捷:">
-                    <Button
-                        type={quickFilter === 'enum_mismatch' ? 'primary' : 'default'}
-                        size="small"
-                        danger={quickFilter !== 'enum_mismatch' && enumMismatchItems.length > 0}
-                        icon={<WarningOutlined />}
-                        onClick={() => setQuickFilter(quickFilter === 'enum_mismatch' ? 'none' : 'enum_mismatch')}
-                        loading={!enumLoaded}
-                    >
-                        枚举异常 ({enumMismatchItems.length})
-                    </Button>
-                </FilterItem>
-            </FilterBar>
-
+                        {/* V3.1: 快捷筛选 → 统一为 chip，不再用变色主按钮 */}
+                        <FilterItem label="快捷">
+                            <FacetChips
+                                options={[
+                                    {
+                                        value: 'enum_mismatch',
+                                        label: '枚举异常',
+                                        count: enumMismatchItems.length,
+                                        tone: enumMismatchItems.length > 0 ? 'warning' : undefined,
+                                    },
+                                ]}
+                                value={quickFilter === 'enum_mismatch' ? 'enum_mismatch' : ''}
+                                onChange={v => setQuickFilter(v === 'enum_mismatch' ? 'enum_mismatch' : 'none')}
+                            />
+                        </FilterItem>
+                    </>
+                }
+            padded={false}
+        >
+            {/* 不用 virtual：虚拟滚动按固定值估行高（small 档 ≈37px），而本表行内含
+                可变高内容，估位与实际不符会让滚动条长度与定位失真。参照页（数据体检）
+                同样渲染全量行，量级相当（323 vs 437 行）。见表格行规范 §2.1/§3.2。 */}
             <DataTable
                 dataSource={filteredResults}
                 columns={columns}
                 rowKey="id"
                 scrollY={600}
-                scrollX={970}
-                virtual
             />
-        </div>
+        </ListToolbar>
     );
 };
 

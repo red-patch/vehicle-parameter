@@ -91,12 +91,14 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
             title: '层级',
             dataIndex: 'level',
             width: 80,
+            responsive: ['lg'],
             render: (l: string) => (l ? <Tag>{l}</Tag> : '—'),
         },
         {
             title: '主题域',
             dataIndex: 'domains',
             width: 220,
+            responsive: ['xl'],
             render: (domains: string[]) =>
                 domains?.length
                     ? domains.map(d => (
@@ -119,12 +121,14 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
             title: '实施日期',
             dataIndex: 'effectiveAt',
             width: 110,
+            responsive: ['xl'],
             render: (d: string | null, rec) => d || <Text type="secondary">{rec.publishedAt ?? '—'}</Text>,
         },
         {
             title: '文件',
             key: 'file',
             width: 100,
+            responsive: ['lg'],
             render: (_, rec) => {
                 if (!rec.fileName) return <Text type="secondary">无文件</Text>;
                 return (

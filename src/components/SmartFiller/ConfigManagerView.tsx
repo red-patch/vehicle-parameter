@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Table, Input, Tag, Card, Skeleton, Empty, Typography, Tabs, Button, message, Modal, Space, AutoComplete, Select, Switch } from 'antd';
+import { Table, Input, Tag, Skeleton, Empty, Typography, Tabs, Button, message, Modal, AutoComplete, Select, Switch, Dropdown } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
+import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
+import ListToolbar, { FilterItem } from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
 import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded, getEnumActiveFilter, setEnumActiveFilter, getAllCategoryPaths, getAllCategories, isEnumActive } from '../../utils/attributeEnums';
 import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
 import {
@@ -421,64 +423,90 @@ const ConfigManagerView: React.FC = () => {
     }
 
     return (
-        <Card
-            title={
-                <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                        <SettingOutlined className="text-brand" />
-                        <span>字段与词表</span>
-                    </div>
-                    <Button icon={<FileExcelOutlined />} onClick={() => setEnumImportVisible(true)}>
-                        从 Excel 导入枚举
-                    </Button>
-                </div>
-            }
+        <ListToolbar
             className="shadow-sm"
+            title={
+                <>
+                    <SettingOutlined className="text-brand" />
+                    <span className="font-semibold text-1">字段与词表</span>
+                </>
+            }
+            actions={
+                /* §5.2 Q19 判据「用户做完哪一步可以离开」：本页是配置页，
+                   产出动作是「把字典/字段配置好并保存」——由各 Tab 内的保存承载；
+                   页级只有导入这一个过程动作。 */
+                <Button icon={<FileExcelOutlined />} onClick={() => setEnumImportVisible(true)}>
+                    从 Excel 导入枚举
+                </Button>
+            }
+            filters={
+                <>
+                    <FilterItem label="搜索">
+                        <SearchInput
+                            width="lg"
+                            placeholder="搜索字段名或枚举值"
+                            value={searchText}
+                            onChange={setSearchText}
+                        />
+                    </FilterItem>
+                    <span className="ml-auto" />
+                    <Tag className="m-0">{enumData.length} 个字段</Tag>
+                    <Tag color="processing" className="m-0">
+                        {enumData.filter(d => isEnumActive(d.name)).length} 激活
+                    </Tag>
+                </>
+            }
+            padded={false}
         >
-            <Tabs defaultActiveKey="enums" items={[
+            <Tabs defaultActiveKey="enums" className="px-3" items={[
                 {
                     key: 'enums',
                     label: '枚举字典配置',
                     children: (
                         <div>
-                            <div className="mb-4 flex justify-between items-center">
-                                <Input
-                                    placeholder="搜索字段名或枚举值..."
-                                    prefix={<SearchOutlined className="text-3" />}
-                                    value={searchText}
-                                    onChange={(e) => setSearchText(e.target.value)}
-                                    allowClear
-                                    size="large"
-                                    className="max-w-md"
-                                />
-                                <Space wrap>
-                                    <Tag>{enumData.length} 个字段</Tag>
-                                    <Tag color="processing">{enumData.filter(d => isEnumActive(d.name)).length} 激活</Tag>
-                                    <Button size="small" icon={<CopyOutlined />} onClick={() => {
-                                        const required = enumData.filter(d => d.required === '是').map(d => d.name);
-                                        if (required.length === 0) { message.info('没有必填字段'); return; }
-                                        navigator.clipboard.writeText(required.join('\n'));
-                                        message.success(`已复制 ${required.length} 个必填字段名`);
-                                    }}>复制必填</Button>
-                                    <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_enums.json')}>枚举字典</Button>
-                                    <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_enum_meta.json')}>枚举元数据</Button>
-                                    <Button size="small" onClick={() => {
-                                        setEditingFilter(getEnumActiveFilter());
-                                        setFilterModalVisible(true);
-                                    }}>激活配置</Button>
-                                    <Button
-                                        type="primary"
-                                        icon={<PlusOutlined />}
-                                        onClick={() => {
-                                            setIsCreatingNewEnum(true);
-                                            setEditingKey('');
-                                            setEditingValues([]);
-                                            setEditModalVisible(true);
-                                        }}
-                                    >
-                                        新增业务字典
+                            {/* Tab 内的动作行：≥3 个动作按 §5.1 收进下拉，只留 1 个 primary */}
+                            <div className="mb-4 flex items-center gap-2 flex-wrap">
+                                <Dropdown
+                                    menu={{
+                                        items: [
+                                            { key: 'copy-required', icon: <CopyOutlined />, label: '复制必填字段名' },
+                                            { type: 'divider' as const },
+                                            { key: 'enums', icon: <FileTextOutlined />, label: '打开枚举字典' },
+                                            { key: 'enum-meta', icon: <FileTextOutlined />, label: '打开枚举元数据' },
+                                            { key: 'active-filter', label: '激活配置' },
+                                        ],
+                                        onClick: ({ key }) => {
+                                            if (key === 'enums') { openConfigFile('custom_enums.json'); return; }
+                                            if (key === 'enum-meta') { openConfigFile('custom_enum_meta.json'); return; }
+                                            if (key === 'active-filter') {
+                                                setEditingFilter(getEnumActiveFilter());
+                                                setFilterModalVisible(true);
+                                                return;
+                                            }
+                                            const required = enumData.filter(d => d.required === '是').map(d => d.name);
+                                            if (required.length === 0) { message.info('没有必填字段'); return; }
+                                            navigator.clipboard.writeText(required.join('\n'));
+                                            message.success(`已复制 ${required.length} 个必填字段名`);
+                                        },
+                                    }}
+                                    trigger={['click']}
+                                >
+                                    <Button size="small" icon={<MoreOutlined />}>
+                                        更多
                                     </Button>
-                                </Space>
+                                </Dropdown>
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => {
+                                        setIsCreatingNewEnum(true);
+                                        setEditingKey('');
+                                        setEditingValues([]);
+                                        setEditModalVisible(true);
+                                    }}
+                                >
+                                    新增业务字典
+                                </Button>
                             </div>
 
                             {filteredData.length === 0 ? (
@@ -828,7 +856,7 @@ const ConfigManagerView: React.FC = () => {
                     message.info('枚举数据已刷新');
                 }}
             />
-        </Card>
+        </ListToolbar>
     );
 };
 
@@ -1156,13 +1184,11 @@ const EnumExpandedRow: React.FC<{ record: EnumItem }> = ({ record }) => {
         <div className="p-3 bg-surface-3 rounded">
             <div className="flex items-center gap-2 mb-2">
                 <Typography.Text type="secondary">全部枚举值 ({record.count} 个):</Typography.Text>
-                <Input
-                    size="small"
-                    placeholder="搜索枚举值..."
-                    prefix={<SearchOutlined />}
+                <SearchInput
+                    width="sm"
+                    placeholder="搜索枚举值"
                     value={valSearch}
-                    onChange={e => setValSearch(e.target.value)}
-                    style={{ width: 200 }}
+                    onChange={setValSearch}
                 />
             </div>
             <div className="flex flex-wrap gap-1 max-h-60 overflow-y-auto">
@@ -1217,14 +1243,11 @@ const EnumEditPanel: React.FC<{ values: string[]; onChange: (v: string[]) => voi
             <Text type="secondary" className="mb-2 block text-xs">代表这些选项是合规库内的绝对权威标准。</Text>
 
             <div className="flex items-center gap-2 mb-3">
-                <Input
-                    size="small"
-                    placeholder="搜索已有枚举值..."
-                    prefix={<SearchOutlined />}
+                <SearchInput
+                    width="sm"
+                    placeholder="搜索已有枚举值"
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    style={{ width: 220 }}
-                    allowClear
+                    onChange={setSearch}
                 />
                 <span className="text-xs text-3">{values.length} 个</span>
             </div>

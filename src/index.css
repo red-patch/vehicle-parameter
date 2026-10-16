@@ -299,6 +299,41 @@
 /* 状态边线：资产卡"已激活"左缘条（常驻弱信号，无填充） */
 .edge-success { border-left: 3px solid var(--asset-active-bar); }
 
+/* 单元格内联编辑：只读态是文本 + 悬停弱底（提示可点），进入编辑态换成输入控件 */
+.cell-edit-text {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: background-color 0.12s var(--ease-ui);
+}
+.cell-edit-text:hover { background-color: var(--surface-3); }
+.cell-edit-text:focus-visible { outline: 2px solid var(--brand-ring); outline-offset: 1px; }
+
+/* 表内纯文本展示列（参考值等）：与行内控件同一字号，避免大小不一 */
+.cell-plain {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- 表格行高契约（设计：docs/plans/2026-10-16-表格行规范-design.md §3.1）----
+   同一张表里，纯文本格 = 8+20+8 = 36px，含控件格 = 8+24+8 = 40px（控件 controlHeightSM 24）。
+   两种格混排时行高忽紧忽松。把文本格补到控件等高，一张表内行距就齐了。
+   只作用于表格体内，不影响表外对这两个类名的其它用法。 */
+.ant-table-wrapper .ant-table-tbody .cell-edit-text,
+.ant-table-wrapper .ant-table-tbody .cell-plain {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+
 /* 状态点：叠在 surface-inset 图标块上时的分离环 */
 .dot-ring { border: 2px solid var(--surface-2); }
 
@@ -309,6 +344,17 @@
 
 /* 选择器中的已选标签（控制态：brand-weak 弱底 + 蓝字，非内容装饰） */
 .tag-checked { background-color: var(--brand-weak) !important; color: var(--brand) !important; border-color: transparent !important; }
+
+/* 中号 chip（筛选条用）：antd 的 Tag/CheckableTag 取 fontSizeSM（基准 13 时算出 10px，
+   已跌出字号阶梯最低档 11px）；此处提到 aux 档 12px，与资产池 ChipShell 的 text-aux 同档。
+   特异性 (0,2,0) 高于 antd 的 :where(.ant-tag) (0,1,0)，无需 !important。
+   只覆盖字号/行高/内边距，颜色仍由 .tag-checked / .surface-inset 等控制。 */
+.ant-tag.chip-md {
+  font-size: var(--fs-aux);
+  line-height: 20px;
+  padding: 0 8px;
+  border-radius: 6px;
+}
 
 /* 差异图例色条（结果页常驻图例用） */
 .legend-bar { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
@@ -396,6 +442,16 @@ body {
 /* ====================================================================
    表格微调（语义色）
    ==================================================================== */
+/* 表头排版：走 token 而非写死值——字号随「界面字号」缩放，颜色随明暗翻转。
+   此前这组值写在 index.html 里并带 !important（12.5/11.5px + #555），
+   后果：① 界面字号设置对表格与控件全部失效；② 暗色下 #555 仅 2.0:1 不可读。
+   层级靠「小一号 + 次级色」，不靠压暗到看不清（设计文档 2026-10-15 §1.1 / §3.1）。 */
+.ant-table-wrapper .ant-table-thead > tr > th,
+.ant-table-wrapper .ant-table-thead > tr > td {
+  font-size: var(--fs-aux);
+  font-weight: 600;
+  color: var(--text-2);
+}
 /* 表格行 hover：瞬时不渐变——行 hover 是全应用最高频交互，
    渐变写在 :hover 内还会造成「渐入瞬出」不对称 */
 .ant-table-tbody > tr:hover > td {

@@ -8,6 +8,7 @@ import {
     SettingOutlined,
 } from '@ant-design/icons';
 import { useRegulationStore } from '../../store/regulationStore';
+import { useVehicleStore } from '../../store/vehicleStore';
 import { extractHints } from '../../utils/regulationIO';
 import {
     STATUS_VALUES,
@@ -18,11 +19,14 @@ import {
     type RegulationRecord,
 } from '../../utils/regulationTypes';
 import RegulationFilterPanel from './RegulationFilterPanel';
+import ListToolbar from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
+import { FilterItem } from '../common/ListToolbar';
 import RegulationTable from './RegulationTable';
 import RegulationImportModal from './RegulationImportModal';
 import RegulationDetailDrawer from './RegulationDetailDrawer';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 /**
  * 法规标准库主视图（设计文档 §2）。
@@ -71,6 +75,16 @@ const RegulationLibrary: React.FC = () => {
         if (rootPath && !scan && !loading) void load();
         // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在 rootPath 首次就绪时拉一次
     }, [rootPath]);
+
+    // 全局搜索面板（⌘K）跳转：预填法规关键词（一次性信号，见 docs/plans/2026-10-15-全局搜索面板-design.md §3.4）
+    const pendingGlobalSearch = useVehicleStore(s => s.pendingGlobalSearch);
+    const setPendingGlobalSearch = useVehicleStore(s => s.setPendingGlobalSearch);
+    React.useEffect(() => {
+        if (pendingGlobalSearch && pendingGlobalSearch.tab === 'regulation') {
+            setFilters({ query: pendingGlobalSearch.keyword });
+            setPendingGlobalSearch(null);
+        }
+    }, [pendingGlobalSearch, setPendingGlobalSearch, setFilters]);
 
     const handlePick = async () => {
         try {
@@ -204,35 +218,16 @@ const RegulationLibrary: React.FC = () => {
 
     const unregistered = scan?.unregistered ?? [];
 
+    /** 筛选是否处于激活态（决定「清除筛选」是否出现） */
+    const filtersDirty =
+        filters.levels.length > 0 ||
+        filters.domains.length > 0 ||
+        filters.statuses.length > 0 ||
+        filters.query.trim() !== '';
+
     return (
         <div className="p-4" style={{ height: '100%', overflow: 'auto' }}>
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
-                    <Space size={8}>
-                        <Title level={4} style={{ margin: 0 }}>
-                            法规标准
-                        </Title>
-                        {rootPath && (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {rootPath}
-                            </Text>
-                        )}
-                    </Space>
-                    <Space>
-                        <Button icon={<FolderOpenOutlined />} onClick={() => void handlePick()}>
-                            选择目录
-                        </Button>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            disabled={!rootPath}
-                            loading={loading}
-                            onClick={() => void rescan()}
-                        >
-                            刷新
-                        </Button>
-                    </Space>
-                </Space>
-
                 {error && (
                     <Alert
                         type={error.includes('桌面端') ? 'info' : 'error'}
@@ -249,7 +244,7 @@ const RegulationLibrary: React.FC = () => {
                             description={
                                 <Space direction="vertical" size={4}>
                                     <Text>还没有指定法规标准库目录</Text>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                                         选一个放着标准 PDF 的目录即可开始。文件仍留在原处，本工具只登记元数据。
                                     </Text>
                                 </Space>
@@ -269,7 +264,7 @@ const RegulationLibrary: React.FC = () => {
                                 message={`发现 ${unregistered.length} 个未登记文件`}
                                 description={
                                     <Space size={8} wrap>
-                                        <Text style={{ fontSize: 12 }}>
+                                        <Text style={{ fontSize: 'var(--fs-aux)' }}>
                                             盘上有、库里还没有的文件。登记后才会进入列表。
                                         </Text>
                                         <Button size="small" type="primary" onClick={() => setImportOpen(true)}>
@@ -280,29 +275,36 @@ const RegulationLibrary: React.FC = () => {
                             />
                         )}
 
-                        <RegulationFilterPanel
-                            filters={filters}
-                            vocab={sidecar.vocab}
-                            statusCounts={statusCounts}
-                            onChange={setFilters}
-                            onReset={resetFilters}
-                        />
-
-                        <Card
-                            size="small"
+                        {/* 列表页外壳统一走 ListToolbar 三段（设计语言 §4.1/§4.3）：
+                            此前是「无标题操作行 + 筛选 Card + 记录 Card」三块并列。 */}
+                        <ListToolbar
+                            className="shadow-sm"
+                            padded={false}
                             title={
-                                <Space>
-                                    <ScanOutlined />
-                                    <span>记录（{filtered.length}）</span>
-                                    {filtered.length !== sidecar.records.length && (
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            / 共 {sidecar.records.length}
+                                <Space size={8} wrap>
+                                    <Space size={6}>
+                                        <ScanOutlined />
+                                        <span className="font-semibold text-1">记录（{filtered.length}）</span>
+                                        {filtered.length !== sidecar.records.length && (
+                                            <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
+                                                / 共 {sidecar.records.length}
+                                            </Text>
+                                        )}
+                                    </Space>
+                                    {rootPath && (
+                                        <Text type="secondary" style={{ fontSize: 'var(--fs-aux)', fontWeight: 400 }}>
+                                            {rootPath}
                                         </Text>
                                     )}
                                 </Space>
                             }
-                            extra={
-                                <Space>
+                            actions={
+                                <>
+                                    {/* §5.1：primary 只给产出/终点动作；本页主任务是浏览与治理，
+                                        选择目录/刷新/保存/设置都是过程动作，一律 default */}
+                                    <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handlePick()}>
+                                        选择目录
+                                    </Button>
                                     <Tooltip title="把当前记录写回库目录下的 _regulations.json">
                                         <Button
                                             size="small"
@@ -322,16 +324,51 @@ const RegulationLibrary: React.FC = () => {
                                             设置
                                         </Button>
                                     </Tooltip>
-                                </Space>
+                                    <Tooltip title="重新扫描库目录">
+                                        <Button
+                                            size="small"
+                                            icon={<ReloadOutlined />}
+                                            disabled={!rootPath}
+                                            loading={loading}
+                                            onClick={() => void rescan()}
+                                        />
+                                    </Tooltip>
+                                </>
                             }
-                            styles={{ body: { padding: 8 } }}
+                            filters={
+                                <>
+                                    <FilterItem label="搜索">
+                                        <SearchInput
+                                            width="lg"
+                                            placeholder="搜索标准号、名称、主题域"
+                                            value={filters.query}
+                                            onChange={q => setFilters({ query: q })}
+                                        />
+                                    </FilterItem>
+                                    <RegulationFilterPanel
+                                        filters={filters}
+                                        vocab={sidecar.vocab}
+                                        statusCounts={statusCounts}
+                                        onChange={setFilters}
+                                    />
+                                    {filtersDirty && (
+                                        <Text
+                                            type="secondary"
+                                            style={{ fontSize: 'var(--fs-aux)', cursor: 'pointer' }}
+                                            onClick={resetFilters}
+                                        >
+                                            清除筛选
+                                        </Text>
+                                    )}
+                                </>
+                            }
                         >
                             <RegulationTable
                                 records={filtered}
                                 loading={loading}
                                 onOpen={rec => setSelected(rec)}
                             />
-                        </Card>
+                        </ListToolbar>
                     </>
                 )}
             </Space>
@@ -376,7 +413,7 @@ const RegulationLibrary: React.FC = () => {
                 cancelText="关闭"
             >
                 <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                         主题域是受控词表主题（不是受控属性——层级才是），可多值。词表跟着库走（写在库目录的旁路文件里），换机器也生效。
                     </Text>
                     <Space wrap>
@@ -403,7 +440,7 @@ const RegulationLibrary: React.FC = () => {
                         />
                         <Button onClick={handleAddDomain}>添加</Button>
                     </Space.Compact>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
                         层级（{sidecar.vocab.levels.join(' / ')}）由标准号前缀自动判定，不可编辑。
                     </Text>
                 </Space>

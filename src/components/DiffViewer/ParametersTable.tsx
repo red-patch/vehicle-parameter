@@ -1,12 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Table, Input, Tag, Checkbox, Dropdown, Button, Space, message } from 'antd';
+import { Table, Tag, Checkbox, Dropdown, Button, Space, message } from 'antd';
 import { SettingOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { VehicleParameter } from '../../types';
 import { isFieldRequired } from '../../assets/requiredFields';
 import type { ColumnsType } from 'antd/es/table';
 import * as XLSX from 'xlsx';
+import SearchInput from '../common/SearchInput';
 
-const { TextArea } = Input;
 
 interface ParametersTableProps {
     data: VehicleParameter[];
@@ -230,17 +230,19 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
     return (
         <div>
             <div className="mb-4 flex items-center gap-4 flex-wrap">
-                {/* V3.0: 多字段搜索 */}
+                {/* V3.0: 多字段搜索 —— 走 SearchInput 的 multiline（规范唯一搜索形态；
+                    此前拿裸 TextArea 当搜索框，是规范点名要消灭的写法） */}
                 <div className="flex-1 min-w-[300px]">
-                    <TextArea
-                        placeholder="搜索参数名、分组或值...（支持多个关键词，换行分隔）"
+                    <SearchInput
+                        multiline
+                        width="lg"
+                        hint="支持换行搜索多个"
+                        placeholder="搜索参数名、分组或值"
                         value={searchText}
-                        onChange={e => setSearchText(e.target.value)}
-                        autoSize={{ minRows: 1, maxRows: 4 }}
-                        allowClear
+                        onChange={setSearchText}
                     />
                 </div>
-                
+
                 <Space>
                     {allProductNames.length > 1 && (
                         <Dropdown dropdownRender={() => columnSelectorContent} trigger={['click']}>
@@ -249,13 +251,13 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                             </Button>
                         </Dropdown>
                     )}
-                    
-                    {/* V3.0: 复制和下载按钮 */}
+
+                    {/* V3.0: 复制和下载按钮（§5.2 文案两段式：动作 + 格式） */}
                     <Button icon={<CopyOutlined />} onClick={handleCopy}>
                         复制
                     </Button>
                     <Button icon={<DownloadOutlined />} onClick={handleDownload}>
-                        下载CSV
+                        下载 CSV
                     </Button>
                 </Space>
             </div>
@@ -278,7 +280,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     showTotal: (total) => `共 ${total} 条`,
                     onShowSizeChange: (_current, size) => setPageSize(size),
                 }}
-                size="middle"
+                size="small"
                 scroll={{ x: 'max-content' }}
                 bordered
                 rowClassName={(record) => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Input, Button, Card, Typography, Space, Alert, message, notification, Steps, Drawer } from 'antd';
-import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined, FilePdfOutlined, GlobalOutlined, FileTextOutlined, ToolOutlined } from '@ant-design/icons';
+import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined, FilePdfOutlined, GlobalOutlined, FileTextOutlined, ToolOutlined, DownOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useAnnouncementStore } from '../../store/announcementStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -26,6 +26,7 @@ import {
 } from '../../utils/announcementParamParse';
 import { probeNewPdfs } from '../../utils/announcementScan';
 import AnnouncementArchiveList from './AnnouncementArchiveList';
+import { useScrollCollapse } from '../../hooks/useScrollCollapse';
 import AnnouncementImportModal from './AnnouncementImportModal';
 import AnnouncementPickupPrompt from './AnnouncementPickupPrompt';
 
@@ -75,13 +76,15 @@ interface AnnouncementQueryProps {
 const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }) => {
     const [announcementNo, setAnnouncementNo] = useState<string>('');
     const [importJson, setImportJson] = useState<string>('');
-    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath } = useVehicleStore(useShallow(state => ({
+    const { setMiitData, miitData, setTargetFile, setCompareMode, addFile, assetLibraryPath, pendingGlobalSearch, setPendingGlobalSearch } = useVehicleStore(useShallow(state => ({
         setMiitData: state.setMiitData,
         miitData: state.miitData,
         setTargetFile: state.setTargetFile,
         setCompareMode: state.setCompareMode,
         addFile: state.addFile,
         assetLibraryPath: state.assetLibraryPath,
+        pendingGlobalSearch: state.pendingGlobalSearch,
+        setPendingGlobalSearch: state.setPendingGlobalSearch,
     })));
     const { loadFor, refresh: refreshAnnouncements, infos: announcementInfos } = useAnnouncementStore(useShallow(state => ({
         loadFor: state.loadFor,
@@ -107,6 +110,15 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
     const [previewOpen, setPreviewOpen] = useState(false);
     // 提取工具（书签安装）抽屉：装一次就不再需要，降级为按需打开
     const [bookmarkOpen, setBookmarkOpen] = useState(false);
+    // 顶部查询/导入区：主体是下方公告归档，滚过它即收起（布局优化 2026-10-15）
+    const headerRef = React.useRef<HTMLDivElement>(null);
+    const scrolledCollapsed = useScrollCollapse(headerRef);
+    // 收起态下手动展开：用户主动要看就留住，滚回顶部时自然复位
+    const [manualOpen, setManualOpen] = useState(false);
+    React.useEffect(() => {
+        if (!scrolledCollapsed) setManualOpen(false);
+    }, [scrolledCollapsed]);
+    const headerCollapsed = scrolledCollapsed && !manualOpen;
 
     React.useEffect(() => {
         if (bookmarkLinkRef.current) {
@@ -118,6 +130,14 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
     React.useEffect(() => {
         loadFor(assetLibraryPath);
     }, [assetLibraryPath, loadFor]);
+
+    // 全局搜索面板（⌘K）跳转：预填公告号查询框（一次性信号，见 docs/plans/2026-10-15-全局搜索面板-design.md §3.4）
+    React.useEffect(() => {
+        if (pendingGlobalSearch && pendingGlobalSearch.tab === 'announcement') {
+            setAnnouncementNo(pendingGlobalSearch.keyword);
+            setPendingGlobalSearch(null);
+        }
+    }, [pendingGlobalSearch, setPendingGlobalSearch]);
 
     // 回应用时增量检查（grilling 定稿：无常驻监听）——切回应用时 stat 下载目录，
     // Rust 侧缓存命中零解析、名字预筛不像公告的文件不打扰；发现新的公告 PDF 才弹通知。
@@ -446,16 +466,37 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
 
     return (
         <div className="space-y-4">
-            <Steps
-                size="small"
-                current={miitData ? 3 : 0}
-                items={[
-                    { title: '查询公告号', description: '输入公告号，本地优先' },
-                    { title: '提取数据', description: '在详情页使用书签脚本' },
-                    { title: '导入数据', description: '粘贴JSON并解析' },
-                ]}
-                className="mb-2"
-            />
+            {/* 顶部操作区：可滚动的两块——它们是工作台入口，主体是下方公告归档。
+                下滑浏览归档时收起成一条摘要，把版面让给列表（布局优化 2026-10-15 Q1）。 */}
+            <div ref={headerRef} className="space-y-4">
+                {headerCollapsed ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <Steps
+                            size="small"
+                            current={miitData ? 3 : 0}
+                            items={[
+                                { title: '查询公告号' },
+                                { title: '提取数据' },
+                                { title: '导入数据' },
+                            ]}
+                            style={{ flex: 1, minWidth: 280 }}
+                        />
+                        <Button size="small" type="text" onClick={() => setManualOpen(true)}>
+                            展开操作区 <DownOutlined />
+                        </Button>
+                    </div>
+                ) : (
+                    <>
+                        <Steps
+                            size="small"
+                            current={miitData ? 3 : 0}
+                            items={[
+                                { title: '查询公告号', description: '输入公告号，本地优先' },
+                                { title: '提取数据', description: '在详情页使用书签脚本' },
+                                { title: '导入数据', description: '粘贴JSON并解析' },
+                            ]}
+                            className="mb-2"
+                        />
 
             {/* 顶部紧凑操作区：查询 + 粘贴导入（主体是下方公告归档） */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -526,6 +567,9 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
                         解析并导入
                     </Button>
                 </Card>
+            </div>
+                    </>
+                )}
             </div>
 
             {/* 查询本地命中：不跳浏览器，原地给出本地归档出口（Q11） */}

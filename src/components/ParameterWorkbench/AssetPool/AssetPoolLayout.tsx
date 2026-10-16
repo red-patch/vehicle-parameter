@@ -9,6 +9,7 @@ import AssetCard from './AssetCard';
 import AssetAliasBatchModal from './AssetAliasBatchModal';
 import AssetHotkeyCheatsheet from './AssetHotkeyCheatsheet';
 import { useAssetPoolHotkeys } from './useAssetPoolHotkeys';
+import { useSaveViewMenuEvent } from './useSaveViewMenuEvent';
 import AssetInspector from '../AssetInspector';
 import AssetBatchTagBar from '../AssetBatchTagBar';
 import GovernanceReportModal from '../GovernanceReportModal';
@@ -148,14 +149,15 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     const [batchMode, setBatchMode] = useState(false);
     const [batchSelection, setBatchSelection] = useState<Set<string>>(new Set());
 
-    // ===== 左栏折叠 + 购物车浮层 =====
+    // ===== 左栏浮窗（默认收起；⌘S/点按钮 开关）+ 购物车浮层 =====
     const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-        try { return localStorage.getItem('asset-panel-sidebar-collapsed') === '1'; } catch { return false; }
+        // 默认收起（浮窗不默认遮挡列表）；期望展开时才记忆为 '0'
+        try { return localStorage.getItem('asset-pool-nav-open') !== '1'; } catch { return true; }
     });
     const toggleSidebar = useCallback(() => {
         setSidebarCollapsed(prev => {
             const next = !prev;
-            try { localStorage.setItem('asset-panel-sidebar-collapsed', next ? '1' : '0'); } catch (e) { console.warn(e); }
+            try { localStorage.setItem('asset-pool-nav-open', next ? '0' : '1'); } catch (e) { console.warn(e); }
             return next;
         });
     }, []);
@@ -182,6 +184,16 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
             setPendingAnnounceNoFilter(null);
         }
     }, [pendingAnnounceNoFilter, setPendingAnnounceNoFilter]);
+
+    // 全局搜索面板（⌘K）跳转：预填搜索框（一次性信号，见 docs/plans/2026-10-15-全局搜索面板-design.md §3.4）
+    const pendingGlobalSearch = useVehicleStore(state => state.pendingGlobalSearch);
+    const setPendingGlobalSearch = useVehicleStore(state => state.setPendingGlobalSearch);
+    useEffect(() => {
+        if (pendingGlobalSearch && pendingGlobalSearch.tab === 'pool') {
+            setSearchKeyword(pendingGlobalSearch.keyword);
+            setPendingGlobalSearch(null);
+        }
+    }, [pendingGlobalSearch, setPendingGlobalSearch]);
 
     // ===== Facet 词表与取值 =====
     const [facetVocab, setFacetVocab] = useState<FacetVocab>(DEFAULT_FACET_VOCAB);
@@ -754,11 +766,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         return buildAssetGroupsMulti(rows, groupDims, groupCtx);
     }, [displayInfos, groupDims, groupCtx, cardDisplayName, snapshot.meta, brandNames]);
 
-    const filtersActive = Boolean(
-        searchKeyword.trim() || governanceView || selectedTags.length > 0 || statusSelection.length > 0
-        || isFacetSelectionActive(facetSelection),
-    );
-
     const handleClearFilters = useCallback(() => {
         setSearchKeyword('');
         setFacetSelection(EMPTY_FACET_SELECTION);
@@ -984,11 +991,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         }
     }, [displayInfos, focusedFile, columnsInGrid]);
 
-    const focusSearch = useCallback(() => {
-        const input = searchSectionRef.current?.querySelector('input');
-        input?.focus();
-    }, []);
-
     const focusedInfo = useCallback(() => (
         focusedFile ? snapshot.infos.find(i => i.fileName === focusedFile) ?? null : null
     ), [focusedFile, snapshot.infos]);
@@ -996,7 +998,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
     useAssetPoolHotkeys({
         enabled: true,
         onToggleSidebar: toggleSidebar,
-        onFocusSearch: focusSearch,
         onMoveFocus: moveFocus,
         onOpenInspector: () => { const i = focusedInfo(); if (i) handleOpenInspector(i); },
         onToggleActive: () => { const i = focusedInfo(); if (i) handleToggleActive(i); },
@@ -1006,6 +1007,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         onRefresh: () => { bumpAssetVersion(); message.success('正在刷新资产库…'); },
         onShowCheatsheet: () => setCheatsheetOpen(true),
         onEscape: () => {
+            if (!sidebarCollapsed) { setSidebarCollapsed(true); try { localStorage.setItem('asset-pool-nav-open', '0'); } catch (e) { console.warn(e); } return; }
             if (cartExpanded) { setCartExpanded(false); return; }
             if (batchMode) { exitBatchMode(); return; }
             setFocusedFile(null);
@@ -1013,6 +1015,10 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         onSaveView: () => { setSaveViewSeed(null); setSaveViewOpen(true); },
         onSwitchView: (index) => { if (views[index]) applyView(views[index]); },
     });
+
+    // ⌘S = 保存当前视图（macOS 经原生菜单转发；见 useSaveViewMenuEvent）
+    const openSaveView = useCallback(() => { setSaveViewSeed(null); setSaveViewOpen(true); }, []);
+    useSaveViewMenuEvent(openSaveView);
 
     // ===== 批量建议别名（设计 §D6）：仅对勾选资产生效；逐条 writeMeta，避免并发覆盖 =====
     const aliasBatchTargets = useMemo(
@@ -1122,35 +1128,31 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
 
     return (
         <div className="flex h-full gap-3">
-            {/* 左栏：可折叠（展开 240px / 折叠 0 = 完全隐藏；展开入口在筛选条左缘） */}
+            {/* 左栏：浮窗（覆盖在列表上，不挤压布局；点外部/Esc/选中项后收起） */}
             {!sidebarCollapsed && (
-                <div className="w-[240px] flex-shrink-0 surface-container border border-default rounded-xl overflow-hidden">
-                    <AssetSidebar
-                        governanceView={governanceView}
-                        onGovernanceViewChange={setGovernanceView}
-                        counts={governanceCounts}
-                        facetSelection={facetSelection}
-                        onFacetSelectionChange={setFacetSelection}
-                        facetVocab={facetVocab}
-                        facetItems={facetItems}
-                        onOpenGovernance={() => setGovernanceOpen(true)}
-                        onCollapse={toggleSidebar}
-                    />
-                </div>
+                <>
+                    {/* 透明点击层：点面板外收起 */}
+                    <div className="fixed inset-0 z-40" onClick={toggleSidebar} />
+                    <div className="fixed left-4 top-20 bottom-16 z-50 w-[260px] surface-container border border-popover rounded-xl overflow-hidden shadow-popover flex flex-col">
+                        <AssetSidebar
+                            governanceView={governanceView}
+                            onGovernanceViewChange={setGovernanceView}
+                            counts={governanceCounts}
+                            facetSelection={facetSelection}
+                            onFacetSelectionChange={setFacetSelection}
+                            facetVocab={facetVocab}
+                            facetItems={facetItems}
+                            onOpenGovernance={() => { setGovernanceOpen(true); setSidebarCollapsed(true); }}
+                            onCollapse={toggleSidebar}
+                            onAction={() => { setSidebarCollapsed(true); try { localStorage.setItem('asset-pool-nav-open', '0'); } catch (e) { console.warn(e); } }}
+                        />
+                    </div>
+                </>
             )}
 
-            {/* 中间主区：弹性 */}
+            {/* 中间主区：弹性（左栏浮窗化后占满宽度） */}
             <div className="flex-1 min-w-0 flex flex-col surface-container border border-default rounded-xl overflow-hidden">
                 <div className="flex items-stretch">
-                    {/* 导航开关（常驻筛选条左缘；折叠后唯一展开入口，保证可达） */}
-                    <button
-                        className="flex-none px-1.5 flex items-center justify-center text-3 hover:text-brand hover:bg-brand-weak border-r border-default transition-colors duration-150"
-                        style={{ transitionTimingFunction: 'var(--ease-ui)' }}
-                        onClick={toggleSidebar}
-                        title={sidebarCollapsed ? '展开导航（⌘S）' : '隐藏导航（⌘S）'}
-                    >
-                        <span className="text-[11px]">{sidebarCollapsed ? '▸' : '◂'}</span>
-                    </button>
                     <div ref={searchSectionRef} className="flex-1 min-w-0">
                 <AssetFilterBar
                     searchKeyword={searchKeyword}
@@ -1165,6 +1167,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                     statusSelection={statusSelection}
                     onStatusSelectionChange={setStatusSelection}
                     onClearAll={handleClearFilters}
+                    onToggleNav={toggleSidebar}
+                    navOpen={!sidebarCollapsed}
                 />
                     </div>
                 </div>
@@ -1386,7 +1390,6 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                         <AssetGroupTree
                             nodes={assetGroupNodes}
                             level={0}
-                            forceExpand={filtersActive}
                             isCollapsed={key => collapsedGroups.has(key)}
                             onToggle={toggleGroupCollapsed}
                             onActivateLatest={handleActivateLatest}

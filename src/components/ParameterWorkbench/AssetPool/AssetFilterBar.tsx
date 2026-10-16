@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Input, Button, Popover, Tag, InputNumber } from 'antd';
-import { SearchOutlined, ClearOutlined, CaretDownOutlined } from '@ant-design/icons';
+import { Input, Button, Popover, Tag, InputNumber, Tooltip } from 'antd';
+import { ClearOutlined, CaretDownOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import {
     FACET_NONE, collectFacetValues, countFacetValues, toggleFacetValue,
     isFacetSelectionActive, type FacetSelection, type FacetDim,
 } from '../../../utils/facetFilters';
+import SearchInput from '../../common/SearchInput';
 import type { FacetVocab, ResolvedFacets } from '../../../utils/assetFacets';
 import type { StatusFilter } from './AssetPoolLayout';
 
@@ -26,6 +27,10 @@ export interface AssetFilterBarProps {
     statusSelection: StatusFilter[];
     onStatusSelectionChange: (s: StatusFilter[]) => void;
     onClearAll: () => void;
+    /** 切换左侧导航浮窗（无应用菜单时的鼠标入口） */
+    onToggleNav?: () => void;
+    /** 导航浮窗是否展开（控制按钮图标方向） */
+    navOpen?: boolean;
 }
 
 interface ChipShellProps {
@@ -128,6 +133,8 @@ const AssetFilterBar: React.FC<AssetFilterBarProps> = ({
     statusSelection,
     onStatusSelectionChange,
     onClearAll,
+    onToggleNav,
+    navOpen,
 }) => {
     const [announcePaste, setAnnouncePaste] = useState('');
 
@@ -167,13 +174,30 @@ const AssetFilterBar: React.FC<AssetFilterBarProps> = ({
 
     return (
         <div className="flex-none surface-container border-b border-default px-4 py-2.5 flex items-center gap-2 flex-wrap">
-            <Input
-                className="flex-1 min-w-[180px]"
-                placeholder="搜名字/公告号/标签..."
-                prefix={<SearchOutlined className="text-3" />}
-                allowClear
+            {/* 导航浮窗开关（紧凑图标，并入筛选条行；替代原通高竖条） */}
+            {onToggleNav && (
+                <Tooltip title={navOpen ? '收起导航（⌘B）' : '展开导航（⌘B）'}>
+                    <button
+                        type="button"
+                        aria-label={navOpen ? '收起导航' : '展开导航'}
+                        className={`flex-none w-7 h-7 rounded-md border flex items-center justify-center transition-colors duration-150 ${
+                            navOpen ? 'bg-brand-weak border-brand text-brand' : 'surface-container border-line text-3 hover:border-brand hover:text-brand'
+                        }`}
+                        style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                        onClick={onToggleNav}
+                    >
+                        {navOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+                    </button>
+                </Tooltip>
+            )}
+            {/* 搜索框走规范唯一形态（设计语言 §5）。width="fluid" 精确保住此处原有布局：
+                它本是 flex-1 min-w-[180px]（随筛选条伸缩），改用固定像素档会把同行
+                chips 挤走——资产池布局不得改动（§7.1）。 */}
+            <SearchInput
+                width="fluid"
+                placeholder="搜名字、公告号、标签"
                 value={searchKeyword}
-                onChange={e => onSearchKeywordChange(e.target.value)}
+                onChange={onSearchKeywordChange}
             />
 
             {/* 电量（区间） */}

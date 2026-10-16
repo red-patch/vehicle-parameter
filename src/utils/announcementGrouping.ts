@@ -69,11 +69,46 @@ export interface VehicleGroup {
     linkedAssetCount: number;
 }
 
-/** 关联资产条目（公告面板视图层的最小投影） */
+/**
+ * 关联资产条目（公告面板视图层的最小投影）。
+ *
+ * `fileName` 只作 key 与去重口径，**绝不直接展示给用户**（含 .json 属内部实现）——
+ * 展示一律走 `describeLinkedAsset`。统计字段可选：老调用方（测试/快照）不传也能用。
+ */
 export interface JoinedAsset {
     fileName: string;
     productName: string;
+    /** 参数总数（资产侧 AssetFileInfo.totalParams） */
+    totalParams?: number;
+    /** 已填参数数 */
+    filledParams?: number;
+    /** 资产更新时间（ISO） */
+    updatedAt?: string | null;
 }
+
+/** 文件基名：去掉 .json 扩展名（资产文件名 = 产品名 + .json，展示时扩展名无意义） */
+const stripJsonExt = (name: string): string => name.replace(/\.json$/iu, '').trim();
+
+/**
+ * 关联资产的一行可读描述（展开行用）。
+ *
+ * 治用户反馈「显示 json 文件的意义是什么」：不再泄露内部文件名，
+ * 且产品名与文件名同源时只展示一次（真实数据里两者只差 .json）。
+ * 格式：`车型名 · N 参数 · 完成率 · 时间`，缺项自动省略。
+ */
+export const describeLinkedAsset = (asset: JoinedAsset): string => {
+    const name = String(asset.productName ?? '').trim() || stripJsonExt(asset.fileName);
+    const parts: string[] = [name];
+
+    const total = asset.totalParams ?? 0;
+    if (total > 0) {
+        parts.push(`${total} 参数`);
+        const filled = asset.filledParams ?? 0;
+        parts.push(`${Math.round((filled / total) * 100)}%`);
+    }
+    if (asset.updatedAt) parts.push(formatArchiveDate(asset.updatedAt));
+    return parts.join(' · ');
+};
 
 /** 记录归属组键：孤儿或无有效车型名 → 未归类 */
 export const groupKeyOf = (info: AnnouncementInfo): string => {

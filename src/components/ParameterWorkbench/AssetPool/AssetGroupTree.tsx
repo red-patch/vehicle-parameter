@@ -12,8 +12,6 @@ import type { AssetFileInfo } from '../../../utils/assetManager';
 export interface AssetGroupTreeProps {
     nodes: AssetGroupNode[];
     level: number;
-    /** 有筛选/搜索时强制展开 */
-    forceExpand: boolean;
     isCollapsed: (pathKey: string) => boolean;
     onToggle: (pathKey: string) => void;
     onActivateLatest: (group: VehicleGroup) => void;
@@ -28,11 +26,14 @@ export interface AssetGroupTreeProps {
 }
 
 const AssetGroupTree: React.FC<AssetGroupTreeProps> = ({
-    nodes, level, forceExpand, isCollapsed, onToggle, onActivateLatest, onRenameGroup, onBulkEditFields, renderCard, gridTemplateColumns,
+    nodes, level, isCollapsed, onToggle, onActivateLatest, onRenameGroup, onBulkEditFields, renderCard, gridTemplateColumns,
 }) => (
     <div className={level === 0 ? 'space-y-3' : 'space-y-2'}>
         {nodes.map(node => {
-            const collapsed = !forceExpand && isCollapsed(node.pathKey);
+            // 折叠只看用户状态（collapsedGroups 存"用户折叠过的组"）：
+            // - 用户折叠过 → 折叠（优先于筛选自动展开）
+            // - 用户展开过/从未碰过 → 展开（筛选命中组因此自动展开）
+            const collapsed = isCollapsed(node.pathKey);
             const expanded = !collapsed;
             // 非叶子：先看本层是否有 rows（叶子）；否则递归子节点
             const isLeaf = !node.children || node.children.length === 0;
@@ -63,7 +64,6 @@ const AssetGroupTree: React.FC<AssetGroupTreeProps> = ({
                                 <AssetGroupTree
                                     nodes={node.children!}
                                     level={level + 1}
-                                    forceExpand={forceExpand}
                                     isCollapsed={isCollapsed}
                                     onToggle={onToggle}
                                     onActivateLatest={onActivateLatest}

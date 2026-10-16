@@ -10,6 +10,7 @@ import { reloadBidMappings } from '../../utils/bidFieldMapping';
 import { preloadEnumData } from '../../utils/attributeEnums';
 import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import SettingsModal from '../Settings/SettingsModal';
+import GlobalSearchModal from '../GlobalSearch/GlobalSearchModal';
 import { APP_NAME } from '../../constants/app';
 
 const { Header, Content, Footer } = AntLayout;
@@ -179,6 +180,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
             {/* 设置面板常驻挂载：开合由 settingsStore.isOpen 单点驱动，
                 快捷键监听也随其生命周期驻留（见 useSettingsHotkey）。 */}
             <SettingsModal />
+            {/* 全局搜索面板（⌘K）同模式常驻挂载：开合由 globalSearchStore 单点驱动。 */}
+            <GlobalSearchModal />
         </AntLayout>
     );
 };

@@ -1,7 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Tabs, Skeleton } from 'antd';
 import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import AssetPoolLayout from './AssetPool/AssetPoolLayout';
+import { useViewportPaneHeight } from '../../hooks/useViewportPaneHeight';
 import AssetDataSynchronizer from './AssetDataSynchronizer';
 import type { RepairSourceModule } from '../../types';
 
@@ -26,9 +27,19 @@ interface ParameterWorkbenchProps {
 /**
  * 资产管理三栏（设计文档 2026-10-13-asset-panel-redesign-v2）：
  * 左导航（240px）+ 中列表（弹性）+ 右购物车（300px）。
+ *
+ * 视口锁高（设计 2026-10-01 §3.1，V2 重构时丢失、此处恢复）：
+ * 外壳 MainLayout 是 min-h-screen 整页滚动，高度链在 Content 处断开；
+ * 这里把面板钉在视口内，让“筛选条/列表头固定、仅列表内部滚动”成立。
  */
 const PoolPane: React.FC<{ onGoCompare: () => void }> = React.memo(({ onGoCompare }) => {
-    return <AssetPoolLayout onGoCompare={onGoCompare} />;
+    const paneRef = useRef<HTMLDivElement>(null);
+    const paneHeight = useViewportPaneHeight(paneRef);
+    return (
+        <div ref={paneRef} className="h-full" style={paneHeight ? { height: paneHeight } : undefined}>
+            <AssetPoolLayout onGoCompare={onGoCompare} />
+        </div>
+    );
 });
 
 const ComparePane: React.FC<{ onGoRepair: () => void }> = React.memo(({ onGoRepair }) => (
