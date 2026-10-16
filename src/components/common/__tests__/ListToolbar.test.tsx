@@ -12,6 +12,42 @@ import FacetChips from '../FacetChips';
 
 afterEach(() => cleanup());
 
+describe('ListToolbar 三段槽位（设计语言 §4.1）', () => {
+    it('display 段独立于 filters 段渲染（②③ 必须分开）', () => {
+        const { container } = render(
+            <ListToolbar
+                filters={<span>筛选内容</span>}
+                display={<span>显示选项</span>}
+            />,
+        );
+        expect(screen.getByText('筛选内容')).toBeInTheDocument();
+        expect(screen.getByText('显示选项')).toBeInTheDocument();
+        // 两段各自一层，之间有分隔线
+        expect(container.querySelectorAll('.border-b')).toHaveLength(1);
+    });
+
+    it('三段齐全时是三条带（标题/筛选/显示）两条分隔线', () => {
+        const { container } = render(
+            <ListToolbar title="标题" filters={<span>F</span>} display={<span>D</span>} />,
+        );
+        const bar = container.firstElementChild!;
+        expect(bar.children).toHaveLength(3);
+        expect(bar.querySelectorAll('.border-b')).toHaveLength(2);
+    });
+
+    it('省略 display 段时不残留空行（向后兼容）', () => {
+        const { container } = render(<ListToolbar title="T" filters={<span>F</span>} />);
+        expect(container.firstElementChild!.children).toHaveLength(2);
+    });
+
+    it('省略 filters 但有 display 时，display 仍独立成段', () => {
+        const { container } = render(<ListToolbar title="T" display={<span>D</span>} />);
+        expect(screen.getByText('D')).toBeInTheDocument();
+        // 标题 + 显示 = 两条带
+        expect(container.firstElementChild!.children).toHaveLength(2);
+    });
+});
+
 describe('ListToolbar', () => {
     it('只有筛选时渲染单行（等价于旧 FilterBar 的无标题形态）', () => {
         const { container } = render(

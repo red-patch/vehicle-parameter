@@ -29,37 +29,58 @@ export interface ListToolbarProps {
     /** 右侧操作按钮区（导出/刷新/新建等） */
     actions?: ReactNode;
     /**
-     * 筛选控件区，自动排成一行。推荐用 `<FilterItem label="搜索">` 包控件；
+     * ② 筛选控件区，自动排成一行。推荐用 `<FilterItem label="搜索">` 包控件；
      * 不带标签时直接传控件亦可。
      */
     filters?: ReactNode;
+    /**
+     * ③ 显示选项区（隐藏无值字段 / 按字段名合并 这类**只改呈现不改数据**的开关）。
+     * 必须与 `filters` 分开成段——混在一起是最明显的语义混淆（§4.1）。
+     */
+    display?: ReactNode;
     /** 列表主体（表格等）；省略则只渲染工具条本身 */
     children?: ReactNode;
     /** 主体是否加内边距；表格类内容通常传 false 让表格贴边 */
     padded?: boolean;
+    /**
+     * 让主体撑满可用高度（外壳变 flex 纵向、主体 flex-1）。
+     * 用于「表格在卡内自己滚动、页面不滚动」的页面——不传则外壳随内容增高。
+     */
+    fill?: boolean;
     className?: string;
+    style?: React.CSSProperties;
 }
 
 const ListToolbar: React.FC<ListToolbarProps> = ({
     title,
     actions,
     filters,
+    display,
     children,
     padded = true,
+    fill = false,
     className = '',
+    style,
 }) => {
     const hasHead = Boolean(title || actions);
     const hasFilters = Boolean(filters);
+    const hasDisplay = Boolean(display);
     const hasBody = Boolean(children);
     // 分隔线只在「后面还有内容」时出现，否则末行会拖一条悬空的下边框
     const divider = 'border-b border-default';
+    const rowCls = 'flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 shrink-0';
 
     return (
-        <div className={`surface-container border border-default rounded-lg ${className}`}>
+        <div
+            className={`surface-container border border-default rounded-lg ${
+                fill ? 'flex flex-col min-h-0 overflow-hidden' : ''
+            } ${className}`}
+            style={style}
+        >
             {hasHead && (
                 <div
-                    className={`flex items-center justify-between gap-3 px-3 py-2 ${
-                        hasFilters || hasBody ? divider : ''
+                    className={`flex items-center justify-between gap-3 px-3 py-2 shrink-0 ${
+                        hasFilters || hasDisplay || hasBody ? divider : ''
                     }`}
                 >
                     <div className="min-w-0 flex items-center gap-2">{title}</div>
@@ -69,15 +90,17 @@ const ListToolbar: React.FC<ListToolbarProps> = ({
                 </div>
             )}
             {hasFilters && (
-                <div
-                    className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 ${
-                        hasBody ? divider : ''
-                    }`}
-                >
+                <div className={`${rowCls} ${hasDisplay || hasBody ? divider : ''}`}>
                     {filters}
                 </div>
             )}
-            {hasBody && <div className={padded ? 'p-3' : ''}>{children}</div>}
+            {/* ③ 显示选项：只改「呈现方式」不改「数据集合」，故与筛选分开成段（§4.1） */}
+            {hasDisplay && <div className={`${rowCls} ${hasBody ? divider : ''}`}>{display}</div>}
+            {hasBody && (
+                <div className={`${padded ? 'p-3' : ''} ${fill ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
+                    {children}
+                </div>
+            )}
         </div>
     );
 };
