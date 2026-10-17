@@ -55,8 +55,8 @@ const BottomBar = ({
   return (
     <div
       style={{
-        background: '#0f172a',
-        borderTop: '1px solid #334155',
+        background: 'var(--surface-2)',
+        borderTop: '1px solid var(--border-default)',
         padding: '6px 12px',
         display: 'flex',
         alignItems: 'center',
@@ -69,7 +69,7 @@ const BottomBar = ({
         保存当前
       </Button>
 
-      <div style={{ width: 1, height: 24, background: '#334155', flexShrink: 0 }} />
+      <div style={{ width: 1, height: 24, background: 'var(--border-default)', flexShrink: 0 }} />
 
       {/* Slot items */}
       <div
@@ -85,14 +85,13 @@ const BottomBar = ({
         {savedConfigs.length === 0 ? (
           <span
             style={{
-              fontSize: 10,
-              color: '#64748b',
-              fontStyle: 'italic',
+              fontSize: 12,
+              color: 'var(--text-3)',
               padding: '0 8px',
               whiteSpace: 'nowrap',
             }}
           >
-            暂无保存的配置
+            暂无保存的配置，点「保存当前」可留存方案并叠加对比
           </span>
         ) : (
           savedConfigs.map((config) => {
@@ -107,9 +106,9 @@ const BottomBar = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 4,
-                  background: '#1e293b',
+                  background: 'var(--surface-3)',
                   borderRadius: 6,
-                  border: '1px solid #334155',
+                  border: '1px solid var(--border-default)',
                   padding: '2px 8px',
                   minWidth: 0,
                   maxWidth: 190,
@@ -126,10 +125,10 @@ const BottomBar = ({
                   <Button
                     type="text"
                     size="small"
-                    style={{ color: '#cbd5e1', padding: 0, minWidth: 0 }}
+                    style={{ color: 'var(--text-1)', padding: 0, minWidth: 0 }}
                     title={`加载配置: ${config.name}`}
                   >
-                    <span style={{ fontSize: 10, color: '#94a3b8', marginRight: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)', marginRight: 4 }}>
                       {timeLabel(config.timestamp)}
                     </span>
                     <span
@@ -176,7 +175,7 @@ const BottomBar = ({
                     type="text"
                     size="small"
                     icon={<MoreOutlined />}
-                    style={{ color: '#94a3b8', padding: 0, minWidth: 0 }}
+                    style={{ color: 'var(--text-3)', padding: 0, minWidth: 0 }}
                   />
                 </Dropdown>
               </div>
@@ -185,17 +184,18 @@ const BottomBar = ({
         )}
       </div>
 
-      <div style={{ width: 1, height: 24, background: '#334155', flexShrink: 0 }} />
+      <div style={{ width: 1, height: 24, background: 'var(--border-default)', flexShrink: 0 }} />
 
       {/* Import toggle */}
       <Button
         size="small"
         icon={<FileTextOutlined />}
         onClick={() => setShowImport(!showImport)}
+        aria-pressed={showImport}
         style={
           showImport
-            ? { color: '#fff', background: '#1d4ed8' }
-            : { color: '#94a3b8' }
+            ? { color: 'var(--brand)', background: 'var(--brand-weak)', borderColor: 'var(--brand-border)' }
+            : undefined
         }
       >
         文本导入

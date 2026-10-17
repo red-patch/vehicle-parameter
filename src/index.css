@@ -270,6 +270,9 @@
 .surface-success  { background-color: var(--success); }
 
 .bg-brand-weak   { background-color: var(--brand-weak); }
+/* 实色品牌填充（白字）：暗色下 --brand 是浅色文字色，直接当底色会让白字看不清，填充一律走 --brand-fill */
+.bg-brand-fill    { background-color: var(--brand-fill); }
+.border-brand-fill { border-color: var(--brand-fill); }
 .bg-success-weak { background-color: var(--success-weak); }
 .bg-warning-weak { background-color: var(--warning-weak); }
 .bg-danger-weak  { background-color: var(--danger-weak); }
@@ -437,6 +440,15 @@ body {
   display: none;
   width: 0;
   height: 0;
+}
+/* 窄窗口收紧导航项间距：1100–1360px 宽度下 8 个模块全部可见，不被折进「⋯」。
+   下划线（::after）的内缩与左右内边距同步，否则选中线比文字宽。 */
+@media (max-width: 1360px) {
+  .app-header .ant-menu-horizontal > .ant-menu-item,
+  .app-header .ant-menu-horizontal > .ant-menu-submenu { padding-inline: 10px; }
+  .app-header .ant-menu-horizontal > .ant-menu-item::after,
+  .app-header .ant-menu-horizontal > .ant-menu-submenu::after { inset-inline: 10px; }
+  .app-header .ant-menu-horizontal > .ant-menu-item .ant-menu-title-content { margin-inline-start: 6px; }
 }
 
 /* ====================================================================

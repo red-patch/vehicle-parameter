@@ -13,11 +13,18 @@ import BottomBar from './BottomBar';
 import { SideView, FrontView } from './Canvas/index';
 import ResultPanel from './ResultPanel';
 import SaveConfigModal from './modals/SaveConfigModal';
+import { useDesignerHotkeys, type DesignerView } from './useDesignerHotkeys';
+import { useViewportPaneHeight } from '../../hooks/useViewportPaneHeight';
 
 // Lazy loaded 3D
 const Vehicle3D = lazy(() => import('./Vehicle3D'));
 
-type View = 'side' | 'front' | '3d';
+type View = DesignerView;
+
+interface VehicleDesignerProps {
+  /** 是否为当前可见页面（App 按顶层 activeTab 传入）；控制快捷键是否绑定 */
+  active?: boolean;
+}
 
 /**
  * 与 useSavedConfigs 内部的 SavedConfig 结构一致（该接口未导出）。
@@ -34,7 +41,7 @@ interface SavedConfigShape {
  * VehicleDesigner — 主容器组件
  * 三段式布局：顶栏（TopBar）+ 中栏（左栏参数 | 画布 | 右栏结果）+ 底栏（BottomBar）
  */
-const VehicleDesigner = () => {
+const VehicleDesigner = ({ active = true }: VehicleDesignerProps) => {
   // --- Hooks ---
   const {
     params,
@@ -73,6 +80,10 @@ const VehicleDesigner = () => {
 
   const { containerRef, viewDimensions } = useResponsiveCanvas();
 
+  // 整页钉在视口内（替代原 h-screen：外层已有导航与页脚，h-screen 会把底栏挤出视口）
+  const rootRef = useRef<HTMLDivElement>(null);
+  const paneHeight = useViewportPaneHeight(rootRef);
+
   // --- Local state ---
   const [activeTab, setActiveTab] = useState<View>('side');
   const [showDimensions] = useState(true);
@@ -99,7 +110,8 @@ const VehicleDesigner = () => {
   }, []);
 
   // --- SVG 渲染基础计算 ---
-  const groundY = viewDimensions.height * 0.85;
+  // 地面线下方要放 3 层尺寸标注（最深 groundY + 90 + 文字高），至少留 110px，避免画布较矮时被裁切
+  const groundY = Math.min(viewDimensions.height * 0.85, viewDimensions.height - 110);
 
   // --- 文本导入处理 ---
   const [parseErrors, setParseErrors] = useState<Set<number>>(new Set());
@@ -138,37 +150,20 @@ const VehicleDesigner = () => {
     setActiveTab(v as View);
   };
 
-  // --- 键盘快捷键: 视图切换 1/2/3 + 撤销/重做 ---
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // 输入框/textarea/select 聚焦时不劫持按键
-    const target = e.target as HTMLElement | null;
-    const tag = target?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-    // 快捷键 1/2/3 切换侧视/前视/3D
-    if (e.key === '1') { setActiveTab('side'); e.preventDefault(); return; }
-    if (e.key === '2') { setActiveTab('front'); e.preventDefault(); return; }
-    if (e.key === '3') { setHasVisited3D(true); setActiveTab('3d'); e.preventDefault(); return; }
-
-    const isMod = e.metaKey || e.ctrlKey;
-    if (isMod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-    }
-    if (isMod && e.key.toLowerCase() === 'z' && e.shiftKey) {
-      e.preventDefault();
-      redo();
-    }
-  }, [undo, redo]);
-
-  useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  // --- 键盘快捷键: 视图切换 1/2/3 + 撤销/重做（仅本页可见时生效） ---
+  const handleSelectView = useCallback((view: View) => {
+    if (view === '3d') setHasVisited3D(true);
+    setActiveTab(view);
+  }, []);
+  useDesignerHotkeys({ enabled: active, onSelectView: handleSelectView, onUndo: undo, onRedo: redo });
 
   // --- 渲染 ---
   return (
-    <div className="flex flex-col h-screen bg-white text-slate-800 font-sans">
+    <div
+      ref={rootRef}
+      className="flex flex-col surface-container text-1 rounded-lg border border-default overflow-hidden font-sans"
+      style={{ height: paneHeight, minHeight: 560 }}
+    >
       {/* ====== 顶栏 ====== */}
       <TopBar
         activeView={activeTab}
@@ -194,7 +189,7 @@ const VehicleDesigner = () => {
       {/* ====== 主体三栏布局 ====== */}
       <div className="flex flex-1 overflow-hidden">
         {/* ---- 左栏: 参数面板 ---- */}
-        <div className="w-96 bg-slate-50 border-r border-slate-200 overflow-y-auto p-4 flex flex-col gap-4">
+        <div className="w-96 shrink-0 surface-container border-r border-default overflow-y-auto p-4 flex flex-col gap-4">
           <ParameterPanel
             params={params}
             handleChange={handleChange}
@@ -204,18 +199,12 @@ const VehicleDesigner = () => {
             isRearOverhangTooShort={isRearOverhangTooShort}
             lastEditedKey={lastEditedKey}
           />
-
-          {/* 底部版权 */}
-          <div className="pt-4 mt-auto text-center border-t border-gray-100">
-            <div className="text-[10px] text-gray-400 font-mono flex items-center justify-center gap-1">
-              <span>Design By 计皓琛 2025.12</span>
-            </div>
-          </div>
         </div>
 
         {/* ---- 中栏: 画布 ---- */}
-        <div className="flex-1 bg-gray-100 p-6 flex flex-col relative" ref={containerRef}>
-          <div className="flex-1 bg-white shadow-lg rounded-xl overflow-hidden relative">
+        <div className="flex-1 min-w-0 surface-inset p-4 flex flex-col relative" ref={containerRef}>
+          {/* 图纸保持浅色底：SVG 视图的线条/标注配色按白底设计 */}
+          <div className="flex-1 bg-white rounded-lg border border-default overflow-hidden relative">
             {/* 三个视图常驻挂载，用 CSS display 切换 —— 避免 2D SVG 重建与 3D WebGL 卸载 */}
             <div style={{ display: activeTab === 'side' ? 'block' : 'none', width: '100%', height: '100%' }}>
               <SideView params={params} showDimensions={showDimensions} viewDimensions={viewDimensions} groundY={groundY} selectedSlots={selectedSlots} />
@@ -226,7 +215,7 @@ const VehicleDesigner = () => {
             <div style={{ display: activeTab === '3d' ? 'block' : 'none', width: '100%', height: '100%' }}>
               {hasVisited3D && (
                 <Suspense fallback={
-                  <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-500 text-sm">
+                  <div className="w-full h-full flex items-center justify-center surface-inset text-3 text-sm">
                     正在加载 3D 预览...
                   </div>
                 }>

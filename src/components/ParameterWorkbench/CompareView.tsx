@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Checkbox, Empty, Tag, Alert, Segmented, message, Select, Spin, Tooltip } from 'antd';
+import { Card, Checkbox, Empty, Tag, Segmented, message, Select, Spin, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DiffOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { DiffOutlined } from '@ant-design/icons';
+import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import ProductSourceSelector from './ProductSourceSelector';
@@ -25,9 +26,11 @@ import type { CompareRow } from '../../utils/compareMatrix';
 
 interface CompareViewProps {
     onGoRepair?: () => void;
+    /** 跳到「车型资产」选车（前置提示里的直达按钮） */
+    onGoPool?: () => void;
 }
 
-const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
+const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
     const { uploadedFiles, assetFiles, activeAssets, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
@@ -297,12 +300,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair }) => {
     return (
         <div className="flex flex-col gap-3 h-full">
             {selectedProductNames.length === 0 && (
-                <Alert
-                    message="请先在「车型资产」中选择车型"
-                    type="info"
-                    showIcon
-                    icon={<InfoCircleOutlined />}
-                />
+                <SelectVehiclesHint onGoPool={onGoPool} />
             )}
             
             {/* Selection Area - Unified UI */}

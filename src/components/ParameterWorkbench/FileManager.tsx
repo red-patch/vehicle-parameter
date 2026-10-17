@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag, Select, Table, Segmented } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -153,7 +154,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
   };
 
   const handleConfirmSave = async () => {
-    if (!assetLibraryPath) { message.error('请先设置资产库路径'); return; }
+    if (!assetLibraryPath) { warnLibraryPathMissing('error'); return; }
     const selected = pendingProducts.filter(p => p.checked !== false && (p.decision ?? 'save') !== 'skip');
     if (selected.length === 0) { message.warning('请至少选择一个要保存的车型（处理方式为「跳过」的不会保存）'); return; }
 

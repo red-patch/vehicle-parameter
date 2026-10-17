@@ -205,6 +205,31 @@ describe('UI 构件一致性护栏', () => {
         expect(code, '筛选条混入了 FacetChips——ChipShell 是已登记的合法例外').not.toContain('FacetChips');
     });
 
+    it('前置条件提示走共享构件，不得手写（R8–R10）', () => {
+        // 这三条与 R1–R6 分开：它们锁的是「引导文案 + 直达入口」这一意图，而非控件形态。
+        // - R8 未选车：此前三页各自手写 Alert，只有一句话、没有去选车的按钮；
+        // - R9 未设资产库目录：此前 5 种说法，其中「数据源面板」「应用右上角」指向不存在/不准确的入口；
+        // - R10 暗色下 --brand 是浅色文字色，拿来当底色配白字看不清，实色填充只走 bg-brand-fill。
+        const LOCAL_RULES = [
+            { id: 'R8', re: /请先在「车型资产」中选择车型/g, site: 'common/SelectVehiclesHint.tsx', fix: 'SelectVehiclesHint（带「去车型资产选择」按钮）' },
+            { id: 'R9', re: /数据源面板|应用右上角|资产库大目录|请先设置资产库(?:目录|路径)/g, site: '', fix: 'utils/libraryPathPrompt 的 warnLibraryPathMissing / LIBRARY_PATH_MISSING_TEXT' },
+            { id: 'R10', re: /\bbg-brand(?![-\w])[^'"`\n]*\btext-white\b|\btext-white\b[^'"`\n]*\bbg-brand(?![-\w])/g, site: '', fix: 'bg-brand-fill（暗色下 --brand 不适合当白字底色）' },
+        ];
+        const offenders: string[] = [];
+        for (const [key, src] of Object.entries(SOURCES)) {
+            const rel = relKey(key);
+            if (rel.startsWith('__tests__/') || rel.includes('/__tests__/')) continue;
+            const code = stripComments(src);
+            for (const rule of LOCAL_RULES) {
+                if (rule.site === rel) continue;
+                const hits = code.match(rule.re)?.length ?? 0;
+                if (hits > 0) offenders.push(`${rel} → ${rule.id}→${rule.fix}`);
+            }
+        }
+        expect(offenders, `出现手写前置提示，请改用共享构件：\n${offenders.join('\n')}`).toEqual([]);
+        expect(Object.keys(SOURCES).map(relKey), 'R8 的定义处缺失').toContain('common/SelectVehiclesHint.tsx');
+    });
+
     it('存量违规总量有账可查（改小了请同步 LEGACY_EXEMPT 数字）', () => {
         let total = 0;
         for (const rel of Object.keys(LEGACY_EXEMPT)) {

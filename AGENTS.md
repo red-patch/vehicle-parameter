@@ -74,6 +74,10 @@ npm run build      # tsc -b + vite build
 | 视图 / 模式切换 | antd `Segmented` | `Radio.Group optionType="button"`（做同一件事的另一种写法） |
 | 筛选行的标签 | `common/FilterBar` 的 `<FilterItem label="搜索">`（**冒号由组件补，label 不写**） | `label="搜索:"`、自己拼冒号 |
 | 单元格文本 / 就地编辑 | `common/CellText`（只读态是文本，点开才变输入框） | 输入框常驻（会把行高撑开、与其他行不齐） |
+| 「还没选车型」前置提示 | `common/SelectVehiclesHint`（带「去车型资产选择」直达按钮） | 每页手写 `Alert message="请先在「车型资产」中选择车型"` |
+| 「资产库目录未设置」提示 | `utils/libraryPathPrompt`：toast 用 `warnLibraryPathMissing()`，空状态用 `LIBRARY_PATH_MISSING_TEXT` + `openLibraryPathSettings` | 自写文案（「数据源面板」已下线、「应用右上角」不准确），或只说不给入口 |
+| 引导型空状态（前置条件没满足） | `common/GuideEmpty`（一句现状 + 下一步按钮，按钮用 default） | 一行灰字没有出路；纯展示的「暂无数据」继续用 antd `Empty` |
+| 品牌色实色填充（白字） | `bg-brand-fill` / `border-brand-fill` | `bg-brand text-white`（暗色下 `--brand` 是浅色文字色，白字看不清） |
 
 **列表页工具条的 3 段槽位**（段序固定，不得调换；① ③ 可整段省略）：
 

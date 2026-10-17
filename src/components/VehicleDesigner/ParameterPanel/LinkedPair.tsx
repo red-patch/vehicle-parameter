@@ -21,7 +21,7 @@ const LinkedPair = ({ primaryLabel, primaryKey, primaryValue, secondaryLabel, se
   const secondaryTooltip = isSecondaryMaster ? `${secondaryLabel} 为主参数（最后编辑）` : `推导公式: ${overhangValue}mm × tan(${primaryLabel})`;
 
   const badge = (isMaster: boolean) => (
-    <span style={{ fontSize: 9, fontWeight: 700, color: isMaster ? '#2563eb' : '#f97316', background: isMaster ? '#dbeafe' : '#ffedd5', padding: '0 4px', borderRadius: 4, marginRight: 4 }}>
+    <span style={{ fontSize: 9, fontWeight: 700, color: isMaster ? 'var(--brand)' : 'var(--warning-text)', background: isMaster ? 'var(--brand-weak)' : 'var(--warning-weak)', padding: '0 4px', borderRadius: 4, marginRight: 4 }}>
       {isMaster ? '主' : '从'}
     </span>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Table, Input, Tag, Skeleton, Empty, Typography, Tabs, Button, message, Modal, AutoComplete, Select, Switch, Dropdown } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import type { ColumnsType } from 'antd/es/table';
 import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import ListToolbar, { FilterItem } from '../common/ListToolbar';
@@ -205,7 +206,7 @@ const ConfigManagerView: React.FC = () => {
 
     const handleSaveEnum = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         if (!editingKey.trim()) {
@@ -238,7 +239,7 @@ const ConfigManagerView: React.FC = () => {
 
     const handleSaveFields = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         try {
@@ -259,7 +260,7 @@ const ConfigManagerView: React.FC = () => {
 
     const handleSaveTagGroups = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         try {
@@ -282,7 +283,7 @@ const ConfigManagerView: React.FC = () => {
     };
 
     const openConfigFile = async (fileName: string) => {
-        if (!assetLibraryPath) { message.warning('请先设置资产库目录'); return; }
+        if (!assetLibraryPath) { warnLibraryPathMissing(); return; }
         try {
             const { openPath } = await import('@tauri-apps/plugin-opener');
             const fullPath = await join(assetLibraryPath, fileName);
@@ -926,7 +927,7 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
 
     const confirmPurgeTag = (tag: string) => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         Modal.confirm({

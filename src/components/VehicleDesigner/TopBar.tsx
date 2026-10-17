@@ -1,4 +1,4 @@
-import { Button, Dropdown, Popconfirm, Segmented } from 'antd';
+import { Button, Dropdown, Popconfirm, Segmented, Tooltip } from 'antd';
 import {
   CopyOutlined,
   DownOutlined,
@@ -8,6 +8,7 @@ import {
   ReloadOutlined,
   UndoOutlined,
 } from '@ant-design/icons';
+import { formatShortcut } from '../../constants/shortcuts';
 
 interface TopBarProps {
   activeView: string;
@@ -27,8 +28,10 @@ const VIEW_OPTIONS = [
   { label: '3D', value: '3d' },
 ];
 
+/** 工具条走表面变量：此前写死深蓝底 + ghost 按钮，亮色主题下与全应用割裂 */
 const barStyle: React.CSSProperties = {
-  background: '#0f172a',
+  background: 'var(--surface-2)',
+  borderBottom: '1px solid var(--border-default)',
   padding: '8px 16px',
   display: 'flex',
   alignItems: 'center',
@@ -55,7 +58,7 @@ const TopBar = ({
   return (
     <div style={barStyle}>
       {/* Left: Brand */}
-      <span style={{ color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: 1 }}>
+      <span style={{ color: 'var(--text-1)', fontSize: 'var(--fs-title)', fontWeight: 600 }}>
         整车设计
       </span>
 
@@ -63,29 +66,21 @@ const TopBar = ({
       <Segmented
         value={activeView}
         onChange={(v) => onViewChange(v as string)}
-        options={VIEW_OPTIONS}
+        options={VIEW_OPTIONS.map((o, i) => ({ ...o, label: <Tooltip title={`快捷键 ${i + 1}`}>{o.label}</Tooltip> }))}
       />
 
       {/* Right: Actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Button
-          ghost
-          icon={<UndoOutlined />}
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="撤销 (⌘Z)"
-        >
-          撤销
-        </Button>
-        <Button
-          ghost
-          icon={<RedoOutlined />}
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="重做 (⌘⇧Z)"
-        >
-          重做
-        </Button>
+        <Tooltip title={`撤销（${formatShortcut('mod+z')}）`}>
+          <Button icon={<UndoOutlined />} onClick={onUndo} disabled={!canUndo}>
+            撤销
+          </Button>
+        </Tooltip>
+        <Tooltip title={`重做（${formatShortcut('mod+shift+z')}）`}>
+          <Button icon={<RedoOutlined />} onClick={onRedo} disabled={!canRedo}>
+            重做
+          </Button>
+        </Tooltip>
 
         <Popconfirm
           title="确认重置所有参数？"

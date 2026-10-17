@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Input, message } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import type { InputRef } from 'antd';
 import TagSelector from '../common/TagSelector';
 import { checkAssetExists, setAssetFileTags } from '../../utils/assetManager';
@@ -61,7 +62,7 @@ const SaveAssetModal: React.FC<SaveAssetModalProps> = ({ visible, onClose, onSav
         }
         
         if (!assetLibraryPath) {
-            message.error('请先在应用右上角"⚙️"设置资产库持久保存路径！');
+            warnLibraryPathMissing('error');
             return;
         }
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Button, Input, message, Segmented, Space, Alert, Upload, Select } from 'antd';
-import { ClearOutlined, InfoCircleOutlined, UploadOutlined } from '@ant-design/icons';
+import { ClearOutlined, UploadOutlined } from '@ant-design/icons';
+import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { readFirstSheetRowsAsync } from '../../utils/excelParserAsync';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -17,9 +18,11 @@ const { TextArea } = Input;
 
 interface SmartFillViewProps {
     onGoRepair?: () => void;
+    /** 跳到「车型资产」选车（前置提示里的直达按钮） */
+    onGoPool?: () => void;
 }
 
-const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
+const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) => {
     const { 
         uploadedFiles, 
         setMatchResults, 
@@ -157,12 +160,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair }) => {
             <>
             {/* 提示信息 */}
             {selectedProductNames.length === 0 && (
-                <Alert
-                    message="请先在「车型资产」中选择车型"
-                    type="info"
-                    showIcon
-                    icon={<InfoCircleOutlined />}
-                />
+                <SelectVehiclesHint onGoPool={onGoPool} />
             )}
             {referenceProductState?.status === 'pending' && (
                 <Alert

@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Drawer, Dropdown, Empty, Modal, Segmented, Space, Tooltip, Typography, message } from 'antd';
+import { Button, Drawer, Dropdown, Modal, Segmented, Space, Tooltip, Typography, message } from 'antd';
+import GuideEmpty from '../common/GuideEmpty';
+import { LIBRARY_PATH_MISSING_TEXT, openLibraryPathSettings } from '../../utils/libraryPathPrompt';
 import {
     DownOutlined, FileAddOutlined, ImportOutlined, ReloadOutlined, SwapOutlined,
 } from '@ant-design/icons';
@@ -361,9 +363,11 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
             padded={false}
         >
             {!assetLibraryPath ? (
-                <div className="p-3">
-                    <Empty description="请先在数据源面板设置资产库目录" />
-                </div>
+                <GuideEmpty
+                    title={LIBRARY_PATH_MISSING_TEXT}
+                    description="公告归档保存在资产库目录下，设置后即可查看"
+                    action={<Button onClick={openLibraryPathSettings}>设置资产库目录</Button>}
+                />
             ) : (
                 <>
                     {view === 'grouped' ? (

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Modal, Button, message, Select, Table, Tag, Spin, Statistic, Divider } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import type { ColumnsType } from 'antd/es/table';
 import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
@@ -218,7 +219,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
     }, [fieldGroups, rawData.length]);
 
     const handleImport = async () => {
-        if (!assetLibraryPath) { message.error('请先设置资产库目录'); return; }
+        if (!assetLibraryPath) { warnLibraryPathMissing('error'); return; }
         if (mapping.fieldNameCol === '无' || mapping.enumValueCol === '无') {
             message.error('请先配置字段名称列和枚举值列的映射');
             return;

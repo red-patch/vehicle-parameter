@@ -36,6 +36,14 @@ const MemoAnnouncement: React.FC<{ onOpenWorkbench?: () => void }> = ({ onOpenWo
 );
 const MemoRegulationLibrary = React.memo(() => <RegulationLibrary />);
 const MemoConfigManager = React.memo(() => <ConfigManagerView />);
+/** active 只在进出本页时变化：设计器的快捷键据此只在可见时绑定（见 useDesignerHotkeys） */
+const MemoVehicleDesigner = React.memo(({ active }: { active: boolean }) => <VehicleDesigner active={active} />);
+
+/**
+ * 页面外边距：工作台与法规标准的根容器自带 p-4，这里给其余顶层页补齐同一档，
+ * 让 8 个页面的内容区与窗口边缘距离一致（此前 5 页 32px、3 页 16px）。
+ */
+const PAGE_GUTTER = 'p-4';
 
 const App: React.FC = () => {
   const { baseFile, targetFile, setDiffResult, compareMode, pendingGlobalSearch } = useVehicleStore(useShallow(state => ({
@@ -130,7 +138,7 @@ const App: React.FC = () => {
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
+            <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
               <MemoAnnouncement onOpenWorkbench={() => handleTabChange('pool')} />
             </div>
           </React.Suspense>
@@ -142,14 +150,14 @@ const App: React.FC = () => {
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
+            <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
               <MemoConfigManager />
             </div>
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: activeTab === 'designer' ? undefined : 'none' }}>
-              <VehicleDesigner />
+            <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'designer' ? undefined : 'none' }}>
+              <MemoVehicleDesigner active={activeTab === 'designer'} />
             </div>
           </React.Suspense>
 

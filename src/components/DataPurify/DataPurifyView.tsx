@@ -1,11 +1,13 @@
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Alert } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { FilterItem } from '../common/ListToolbar';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
 import FacetChips from '../common/FacetChips';
 import DataTable from '../common/DataTable';
 import { SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, EditOutlined, ProfileOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName } from '../../utils/attributeEnums';
@@ -25,9 +27,11 @@ import { ReferenceProductSelect, RowSyncButton, SyncAllButton } from './Referenc
 
 interface DataPurifyViewProps {
     onReturnToSource?: (sourceModule: RepairSourceModule) => void;
+    /** 跳到「车型资产」选车（未选车时的前置提示） */
+    onGoPool?: () => void;
 }
 
-const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource }) => {
+const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource, onGoPool }) => {
     const { 
         uploadedFiles, 
         selectedProductNames, 
@@ -587,6 +591,7 @@ type PurifyRow = VehicleParameter & {
 
     return (
         <div className="h-full flex flex-col gap-3">
+            {selectedProductNames.length === 0 && <SelectVehiclesHint onGoPool={onGoPool} />}
             {selectedProductState?.status === 'pending' && (
                 <Alert
                     type="info"
@@ -637,7 +642,7 @@ type PurifyRow = VehicleParameter & {
                             disabled={!selectedProduct || purifyParams.length === 0}
                             onClick={() => {
                                 if (!assetLibraryPath) {
-                                    message.error('请先设置资产库目录');
+                                    warnLibraryPathMissing('error');
                                     return;
                                 }
                                 setSaveModalVisible(true);
@@ -650,14 +655,15 @@ type PurifyRow = VehicleParameter & {
                             此前用 className 硬改 bg-orange-500/bg-green-600，绕过曜蓝 token，
                             暗色下不翻转，且违反「色彩是信号不是填充」的设计系统铁律。 */}
                         <Button
-                            type={isExistingAsset ? 'primary' : 'primary'}
+                            type="primary"
                             danger={isExistingAsset}
+                            data-hotkey="save"
                             icon={<SaveOutlined />}
                             loading={saving}
                             disabled={!selectedProduct || purifyParams.length === 0}
                             onClick={() => {
                                 if (!assetLibraryPath) {
-                                    message.error('请先在应用右上角设置资产库目录');
+                                    warnLibraryPathMissing('error');
                                     return;
                                 }
                                 if (isExistingAsset) {

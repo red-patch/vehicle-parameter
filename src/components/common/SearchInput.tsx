@@ -11,6 +11,9 @@ import { SearchOutlined } from '@ant-design/icons';
  *
  * 刻意不暴露 children / size / prefix / allowClear：这些是规范的一部分，不是自由度。
  * 宽度只收 'sm' | 'md' | 'lg' 三档，不接受任意像素。
+ *
+ * 自带 `data-hotkey="search"`：⌘F / Ctrl+F 按它定位「当前页面的搜索框」
+ * （见 utils/hotkeyScope.ts），不再靠占位符里有没有「搜索」二字去猜。
  */
 
 /** 固定宽度三档（取代散落的 240 / 320 / 200 魔法数） */
@@ -78,6 +81,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
                 disabled={disabled}
                 onPressEnter={onPressEnter}
                 autoSize={{ minRows: 1, maxRows: 4 }}
+                data-hotkey="search"
                 style={style}
                 className={`${widthClass} ${className}`.trim()}
             />
@@ -93,6 +97,7 @@ const SearchInput: React.FC<SearchInputProps> = ({
             disabled={disabled}
             prefix={<SearchOutlined className="text-3" />}
             onPressEnter={onPressEnter}
+            data-hotkey="search"
             style={style}
             className={`${widthClass} ${className}`.trim()}
         />

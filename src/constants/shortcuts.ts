@@ -43,7 +43,7 @@ export const SHORTCUTS: readonly ShortcutEntry[] = [
         scope: 'global',
         combo: 'mod+s',
         description: '点击当前页面的保存按钮',
-        note: 'Windows 上为「点第一个主按钮」；macOS 上 ⌘S 已让给系统菜单的「保存视图」',
+        note: '只认当前可见页面（或最顶层弹窗）里的保存按钮；macOS 上 ⌘S 已让给系统菜单的「保存视图」',
     },
     {
         id: 'global.close-overlay',

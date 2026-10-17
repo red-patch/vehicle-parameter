@@ -3,6 +3,7 @@
 // 保存到资产库目录 custom_bid_field_mappings.json，供跨会话复用
 import React, { useMemo, useState } from 'react';
 import { AutoComplete, Button, Drawer, Empty, Input, message, Popconfirm, Select, Space } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import {
     CopyOutlined, DeleteOutlined, DownOutlined, PlusOutlined, ThunderboltOutlined, UpOutlined,
     VerticalAlignTopOutlined,
@@ -219,7 +220,7 @@ const SchemeEditor: React.FC<{ onClose: () => void; onSaved?: (focusedSchemeId: 
     // ---- 保存 --------------------------------------------------------------
     const handleSave = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先在「车型资产」中选择资产库目录，方案将保存在该目录下');
+            warnLibraryPathMissing();
             return;
         }
         const now = new Date().toISOString();

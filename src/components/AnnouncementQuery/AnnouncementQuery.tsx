@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Input, Button, Card, Typography, Space, Alert, message, notification, Steps, Drawer } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined, FilePdfOutlined, GlobalOutlined, FileTextOutlined, ToolOutlined, DownOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useAnnouncementStore } from '../../store/announcementStore';
@@ -337,7 +338,7 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
     const handleSaveToCenter = async () => {
         if (!miitData) return;
         if (!assetLibraryPath) {
-            message.warning('请先在数据源面板设置资产库目录');
+            warnLibraryPathMissing();
             return;
         }
         const announceNo = (announcementNo.trim() || miitData.fileName).trim();
