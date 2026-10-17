@@ -66,6 +66,12 @@ Loop B（工作树体检）/ Loop C（陈旧物清理）发现异常时，顺带
 - Seen 1×（2026-10-16）。
 - 关联：与 `AGENTS.md`「执行纪律」的"没跑的检查不算通过"同类——**提交后应在独立 worktree 上验证 HEAD 可构建**，本地绿不等于 HEAD 绿（本地工作区会掩盖漏提交）。
 
+### L-6: 推主干前先查分支保护（ruleset），别只看 fast-forward
+- 原因：用户要「把本地 `main` 推上去」，我核了工作树干净、`origin/main` 是祖先（可 fast-forward）就下了「安全」的结论，**漏查分支保护规则**。实际 `main` 挂着 ruleset `main-protection`（`required_status_checks: ["check"]`，且 `bypass_actors: []` —— 管理员也不能绕），直接推**必然被拒**。为执行这个「A 方案」我还在本地 `main` 上白做了一个提交（`0f52a69`），最后只能 `git branch -f main origin/main` 清掉。
+- 证据：`git push origin main` → `remote rejected: Required status check "check" is expected`；`gh api repos/<owner>/<repo>/rulesets` → `main-protection`（2026-10-13 建）。误判与清理均 2026-10-16。
+- Seen 1×（2026-10-16）。
+- 关联：与 L-5 同源——都是「**本地能做 ≠ 远程接受**」的验证环境不对齐。推主干前应查：`gh api repos/{owner}/{repo}/branches/<branch>/protection` 与 `/rulesets`；有保护时**走 PR** 是唯一路径，`main` 的本地领先提交会随 PR 合并进入主干，不必也无法单独推。
+
 ---
 
 ## 已升格条目（种子前的手工升格，留档）
