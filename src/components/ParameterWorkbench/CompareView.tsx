@@ -16,6 +16,7 @@ import SearchInput from '../common/SearchInput';
 import { FilterItem } from '../common/ListToolbar';
 import StatusDot from '../common/StatusDot';
 import CountLabel from '../common/CountLabel';
+import ColumnTitle from '../common/ColumnTitle';
 import { exportCompareReport } from '../../utils/compareReport';
 import type { ReportFormat } from '../../utils/reportExport';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
@@ -197,10 +198,15 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
 
         localSelection.forEach(instanceKey => {
             dynamicCols.push({
-                title: selectionDisplayLabels.get(instanceKey)?.shortLabel || getVehicleProductName(instanceKey),
+                title: (
+                    <ColumnTitle>
+                        {selectionDisplayLabels.get(instanceKey)?.shortLabel || getVehicleProductName(instanceKey)}
+                    </ColumnTitle>
+                ),
                 dataIndex: instanceKey,
                 key: instanceKey,
-                width: 180,
+                width: 200,
+                ellipsis: true,
                 fixed: undefined,
                 render: (text: string, record: { hasDiff: boolean }) => {
                     const isRepairable = assetSourceByProduct.has(instanceKey);

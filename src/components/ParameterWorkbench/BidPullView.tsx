@@ -20,6 +20,8 @@ import DataTable from '../common/DataTable';
 import ListToolbar from '../common/ListToolbar';
 import GuideEmpty from '../common/GuideEmpty';
 import RepairableValue from '../common/RepairableValue';
+import ColumnTitle from '../common/ColumnTitle';
+import StatusDot from '../common/StatusDot';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 
 interface BidPullViewProps {
@@ -265,13 +267,16 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
             key: 'target',
             fixed: 'left' as const,
             width: 160,
-            render: (text: string) => <b>{text}</b>,
+            ellipsis: true,
+            // 首列与其他列表的名称列同权重：正文色常规字重（不加粗）
+            render: (text: string) => <span className="text-1">{text}</span>,
         },
         ...vehicles.map((v) => ({
-            title: getVehicleProductName(v.name),
+            title: <ColumnTitle>{getVehicleProductName(v.name)}</ColumnTitle>,
             dataIndex: v.name,
             key: v.name,
-            width: 220,
+            width: 240,
+            ellipsis: true,
             render: (_: unknown, record: PullRow) => {
                 const { override, composed } = cellInfo(record.rule, v.name);
                 const editButton = (
@@ -283,13 +288,15 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                     />
                 );
 
+                // 状态只标「需要注意的」（§9）：自动命中是常态不加标记；
+                // 组合 = 分类（中性 Tag），缺项 / 已修正 = 状态（圆点）
                 if (override !== undefined) {
                     return (
-                        <span className="flex items-center gap-1">
-                            <Tag color="blue" className="m-0">已修正</Tag>
-                            <span className="flex-1 truncate">{override}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <StatusDot tone="info">已修正</StatusDot>
+                            <span className="flex-1 min-w-0 truncate" title={override}>{override}</span>
                             {editButton}
-                        </span>
+                        </div>
                     );
                 }
 
@@ -300,24 +307,20 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                 if (composed.ready) {
                     const isCombined = record.rule.sources.length > 1;
                     return (
-                        <span className="flex items-center gap-1">
-                            <Tag color="success" className="m-0">
-                                {isCombined ? '组合' : '自动'}
-                            </Tag>
-                            <span className="flex-1 truncate">{composed.text}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            {isCombined && <Tag className="m-0">组合</Tag>}
+                            <span className="flex-1 min-w-0 truncate" title={composed.text}>{composed.text}</span>
                             {editButton}
-                        </span>
+                        </div>
                     );
                 }
 
                 return (
-                    <span className="flex items-center gap-1">
-                        <Tag color="warning" className="m-0">
-                            缺{composed.missingCount}项
-                        </Tag>
-                        <span className="flex-1 truncate text-warning-text">{composed.text || '-'}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <StatusDot tone="warning">缺 {composed.missingCount} 项</StatusDot>
+                        <span className="flex-1 min-w-0 truncate text-3" title={composed.text}>{composed.text || '—'}</span>
                         {editButton}
-                    </span>
+                    </div>
                 );
             },
         })),
@@ -334,23 +337,26 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                   <span className="font-mono text-aux">{`{${record.index}} `}{record.source}</span>
               ) },
             ...vehicles.map((v) => ({
-                title: getVehicleProductName(v.name),
+                title: <ColumnTitle>{getVehicleProductName(v.name)}</ColumnTitle>,
                 dataIndex: v.name,
                 key: v.name,
                 width: 240,
+                ellipsis: true,
                 render: (_: unknown, record: { source: string; index: number }) => {
                     const resolution = row.cells.get(v.name)?.[record.index];
                     if (!resolution) return <span className="text-3">—</span>;
 
                     if (resolution.status === 'auto' || resolution.status === 'picked') {
+                        // 与主表同一套标记（§9）：精确命中不标；别名 = 中性 Tag；手选 = 状态圆点
                         return (
-                            <span className="flex items-center gap-1">
-                                <Tag color={resolution.status === 'picked' ? 'blue' : 'success'}
-                                     className="m-0">
-                                    {resolution.status === 'picked' ? '手选' : resolution.matchType === 'alias' ? '别名' : '命中'}
-                                </Tag>
-                                <span className="text-aux text-3 mr-1">{resolution.resolvedName}</span>
-                                <b>{String(resolution.value ?? '')}</b>
+                            <span className="flex items-center gap-1.5 min-w-0">
+                                {resolution.status === 'picked' ? (
+                                    <StatusDot tone="info">手选</StatusDot>
+                                ) : resolution.matchType === 'alias' ? (
+                                    <Tag className="m-0">别名</Tag>
+                                ) : null}
+                                <span className="cell-sub truncate">{resolution.resolvedName}</span>
+                                <span className="text-1 truncate">{String(resolution.value ?? '')}</span>
                             </span>
                         );
                     }

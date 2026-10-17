@@ -104,7 +104,6 @@ const MIGRATED_LIST_PAGES: string[] = [
 const LEGACY_EXEMPT: Record<string, number> = {
     'AssetLibrary/AssetListDrawer.tsx': 1,
     'ParameterWorkbench/AssetPool/AssetSidebar.tsx': 1,
-    'ParameterWorkbench/FileManager.tsx': 1,
     // 剩 1 处：AutoComplete 的内层 Input（带 options 下拉的组合框，非搜索框；
     // SearchInput 不支持 options）。这是文本级护栏的固有边界，见 R2 注释。
     'SmartFiller/ConfigManagerView.tsx': 1,

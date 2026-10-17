@@ -76,6 +76,7 @@ npm run build      # tsc -b + vite build
 | 列表计数 | `ListToolbar` 的 `count`（`26` / `17 / 26`）；短标签带数用 `common/CountLabel` | 「共 N 项」、`<Tag>已选 3 款</Tag>`、`全部 (26)` 括号拼接 |
 | 行内操作列 | `common/RowActions`（图标按钮 + Tooltip，>3 个自动收「更多」，删除传 `danger`/`confirm`） | `type="link"` 图标、红色 `danger` 垃圾桶常驻、裸 `Popconfirm` + `Button` |
 | 状态列 | `common/StatusDot`（`tone` 只收 5 个语义档） | antd 预设色 `<Tag color="green">`（暗色不翻转、整列涂满） |
+| 动态列标题（车型名等） | `common/ColumnTitle` + 列 `ellipsis: true`（`DataTable` 自动切 fixed 布局） | 长名直接当 `title`（表头折 3 行、列宽失控） |
 | 表格分页 | `common/tablePresets`：页面 `pagePagination()`（50），弹窗/抽屉 `compactPagination()`（20） | `pageSize: 数字字面量` |
 | 单元格文本 / 就地编辑 | `common/CellText`（只读态是文本，点开才变输入框） | 输入框常驻（会把行高撑开、与其他行不齐） |
 | 「还没选车型」前置提示 | `common/SelectVehiclesHint`（带「去车型资产选择」直达按钮） | 每页手写 `Alert message="请先在「车型资产」中选择车型"` |

@@ -169,3 +169,37 @@ describe('StatusDot / CountLabel（§9 / §5.2）', () => {
         expect(container.querySelector('.tabular-nums')?.textContent).toBe('26');
     });
 });
+
+describe('DataTable 长内容列（§3.4，真实数据回归）', () => {
+    const rows = [{ key: '1', name: '外扩尺寸', a: '5920;5995;5945×1995;2000;2020;2050;2070×2300;2350;2800' }];
+
+    it('有 ellipsis 列时强制 fixed 布局，横向宽度 = 列宽之和（不被长表头撑开）', async () => {
+        const { default: DataTable } = await import('../DataTable');
+        const { default: ColumnTitle } = await import('../ColumnTitle');
+        const longName = '智云S300 宁德时代新能源科技股份有限公司 100.07 SX5047CCYBEV341N III1';
+        const { container } = render(
+            <DataTable
+                dataSource={rows}
+                columns={[
+                    { title: '字段', dataIndex: 'name', width: 160, fixed: 'left', ellipsis: true },
+                    { title: <ColumnTitle>{longName}</ColumnTitle>, dataIndex: 'a', width: 240, ellipsis: true },
+                ]}
+            />,
+        );
+        const table = container.querySelector('table') as HTMLTableElement;
+        expect(table.style.tableLayout).toBe('fixed');
+        expect(table.style.width).toBe('400px');
+        // 表头单行截断（全名在 Tooltip 里）
+        expect(container.querySelector('thead .truncate')?.textContent).toBe(longName);
+    });
+
+    it('没有 ellipsis 列时保持默认布局与 max-content', async () => {
+        const { default: DataTable } = await import('../DataTable');
+        const { container } = render(
+            <DataTable dataSource={rows} columns={[{ title: '字段', dataIndex: 'name', width: 160 }]} />,
+        );
+        const table = container.querySelector('table') as HTMLTableElement;
+        expect(table.style.tableLayout).not.toBe('fixed');
+        expect(table.style.width).toBe('max-content');
+    });
+});

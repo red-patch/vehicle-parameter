@@ -16,6 +16,7 @@ import DataTable from '../common/DataTable';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
 import GuideEmpty from '../common/GuideEmpty';
+import ColumnTitle from '../common/ColumnTitle';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
 import { getVehicleProductName } from '../../utils/vehicleInstance';
 
@@ -248,13 +249,15 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
             key: 'targetField',
             fixed: 'left' as const,
             width: 150,
-            render: (text: string) => <b>{text}</b>
+            ellipsis: true,
+            render: (text: string) => <span className="text-1">{text}</span>
         },
         ...selectedVehicles.map(v => ({
-            title: getVehicleProductName(v.name),
+            title: <ColumnTitle>{getVehicleProductName(v.name)}</ColumnTitle>,
             dataIndex: v.name,
             key: v.name,
-            width: 200,
+            width: 220,
+            ellipsis: true,
             render: (text: string | number | undefined, record: OrganizedRow) => {
                 const matchResult = record._matches?.get(v.name);
                 const sourceFileName = assetSourceByProduct.get(v.name);
@@ -297,13 +300,16 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                     );
                 }
 
-                // 精确/别名匹配 → 值 + 绿色标签
-                if (matchResult && matchResult.matchType !== 'none' && text !== undefined) {
-                    return (
-                        <span>
-                            <Tag color="success" style={{ marginRight: 4 }}>精确</Tag>
-                            {text}
+                // 命中 → 值本身。精确命中是常态，不再给每格挂绿色「精确」标签（整列涂满 = 颜色成了填充，§9）；
+                // 别名命中是分类信息，用中性 Tag 提示「值来自别名字段」。空串走下方「—」分支
+                if (matchResult && matchResult.matchType !== 'none' && text !== undefined && text !== '') {
+                    return matchResult.matchType === 'alias' ? (
+                        <span className="flex items-center gap-1.5 min-w-0">
+                            <Tag className="m-0">别名</Tag>
+                            <span className="truncate" title={String(text)}>{text}</span>
                         </span>
+                    ) : (
+                        <span title={String(text)}>{text}</span>
                     );
                 }
 

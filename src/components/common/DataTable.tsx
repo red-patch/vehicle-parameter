@@ -34,6 +34,7 @@ export default function DataTable<T extends object = Record<string, unknown>>({
   virtual = false,
   size = 'small',
   pagination,
+  tableLayout,
   ...rest
 }: DataTableProps<T>) {
   const mergedPagination: TableProps<T>['pagination'] =
@@ -45,10 +46,24 @@ export default function DataTable<T extends object = Record<string, unknown>>({
           ...(typeof pagination === 'object' ? pagination : {}),
         });
 
+  // fixed 布局下 x='max-content' 仍按单元格固有宽度（长表头不换行）撑表，须改为列宽之和；
+  // minWidth 100% 由 antd 保证，列少时仍铺满
+  const ellipsisCols = (rest.columns ?? []) as { width?: number | string; ellipsis?: unknown }[];
+  const hasEllipsisCol = ellipsisCols.some(c => !!c.ellipsis);
+  const resolvedX =
+    hasEllipsisCol && scrollX === 'max-content'
+      ? ellipsisCols.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 120), 0) +
+        (rest.expandable ? 48 : 0) + (rest.rowSelection ? 36 : 0)
+      : scrollX;
   const mergedScroll: TableProps<T>['scroll'] = {
-    ...(scrollX ? { x: scrollX } : {}),
+    ...(resolvedX ? { x: resolvedX } : {}),
     ...(scrollY !== undefined ? { y: scrollY } : {}),
   };
+
+  // 声明了 ellipsis 的列要按列宽截断，表格必须是 fixed 布局。antd 在「有固定列 + scroll.x=max-content」
+  // 时会退回 auto 布局，ellipsis 随之失效：长车型名表头把列撑到 600px+、组合值溢出到相邻列
+  // （列表区设计语言 §3.4，真实数据回归发现）。
+  const mergedLayout = tableLayout ?? (hasEllipsisCol ? 'fixed' : undefined);
 
   return (
     <ConfigProvider componentSize="small">
@@ -57,6 +72,7 @@ export default function DataTable<T extends object = Record<string, unknown>>({
         pagination={mergedPagination}
         scroll={mergedScroll}
         virtual={virtual}
+        tableLayout={mergedLayout}
         {...rest}
       />
     </ConfigProvider>
