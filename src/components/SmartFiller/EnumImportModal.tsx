@@ -8,6 +8,7 @@ import { join } from '@tauri-apps/api/path';
 import SearchInput from '../common/SearchInput';
 import { readFirstSheetRowsFromPathAsync } from '../../utils/excelParserAsync';
 import { buildEnumRows } from '../../utils/enumImportRowMapping';
+import { compactPagination } from '../common/tablePresets';
 
 
 interface EnumImportModalProps {
@@ -448,9 +449,8 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                                 dataSource={filteredGroups}
                                 columns={tableColumns}
                                 size="small"
-                                pagination={{ pageSize: 50, showSizeChanger: false, showTotal: t => `共 ${t} 个字段` }}
+                                pagination={compactPagination()}
                                 scroll={{ x: 900, y: 400 }}
-                                bordered
                                 rowKey="fieldName"
                                 expandable={{
                                     expandedRowRender: record => <ExpandedEnumValues record={record} />,

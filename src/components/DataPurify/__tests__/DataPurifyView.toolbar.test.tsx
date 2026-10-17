@@ -47,9 +47,10 @@ describe('数据体检 工具条（批次 5）', () => {
         expect(screen.getByText('体检参数')).toBeInTheDocument();
     });
 
-    it('搜索走 SearchInput（固定带搜索图标）', () => {
+    it('搜索走 SearchInput（固定带搜索图标），不带「搜索：」标签（列表区设计语言 §5.3）', () => {
         const { container } = renderIt();
-        expect(screen.getByText('搜索：')).toBeInTheDocument();
+        expect(screen.queryByText('搜索：')).toBeNull();
+        expect(screen.getByPlaceholderText('搜索参数名、分组或参数值')).toBeInTheDocument();
         expect(container.querySelector('.ant-input-affix-wrapper .anticon-search')).not.toBeNull();
     });
 

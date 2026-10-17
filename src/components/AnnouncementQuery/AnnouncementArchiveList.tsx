@@ -297,8 +297,8 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
     return (
         <>
         <ListToolbar
-            className="shadow-sm"
             title="公告归档"
+            count={assetLibraryPath ? { shown: filtered.length, total: infos.length } : undefined}
             actions={
                 <>
                     {/* §5.1：≥3 个同类动作收进下拉 */}
@@ -323,19 +323,18 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                         {/* primary 只给「产出/终点动作」（设计语言 §5.1 Q19）：
                             本页主任务是浏览与治理已归档记录，导入只是补充手段，
                             故用 default——本页没有 primary 是合法状态。 */}
-                        <Button size="small" icon={<ImportOutlined />}>
-                            导入 <DownOutlined style={{ fontSize: 10 }} />
+                        <Button icon={<ImportOutlined />}>
+                            导入 <DownOutlined className="text-3" />
                         </Button>
                     </Dropdown>
                     <Tooltip title="刷新公告归档">
-                        <Button size="small" icon={<ReloadOutlined />} onClick={handleRefresh} />
+                        <Button icon={<ReloadOutlined />} aria-label="刷新公告归档" onClick={handleRefresh} />
                     </Tooltip>
                 </>
             }
             filters={
                 <>
                     <Segmented
-                        size="small"
                         value={view}
                         onChange={v => switchView(v as ArchiveView)}
                         options={[

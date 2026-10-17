@@ -536,7 +536,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                                         }}
                                                     />
                                                     <span
-                                                        style={{ fontSize: 10, color: 'var(--brand)', cursor: 'pointer', display: 'block', marginTop: 2, textAlign: 'right' }}
+                                                        style={{ fontSize: 'var(--fs-caption)', color: 'var(--brand)', cursor: 'pointer', display: 'block', marginTop: 2, textAlign: 'right' }}
                                                         onClick={() => keepOnlyThisProductColumn(ci)}
                                                     >
                                                         仅此列
@@ -562,7 +562,7 @@ const ExcelPreviewDialog: React.FC<Props> = ({ open, previews, fileName, onConfi
                                                 fontSize: 11, textAlign: 'center', fontWeight: 500
                                             }}>
                                                 {ri + 1}
-                                                {isHeader && <span style={{ fontSize: 9, display: 'block' }}>表头</span>}
+                                                {isHeader && <span style={{ fontSize: 'var(--fs-caption)', display: 'block' }}>表头</span>}
                                             </td>
                                             {row.slice(0, colCount).map((cell, ci) => {
                                                 const role = getColumnRole(ci);

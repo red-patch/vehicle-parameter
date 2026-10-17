@@ -6,6 +6,7 @@ import { isFieldRequired } from '../../assets/requiredFields';
 import type { ColumnsType } from 'antd/es/table';
 import * as XLSX from 'xlsx';
 import SearchInput from '../common/SearchInput';
+import { PAGE_SIZE, pagePagination } from '../common/tablePresets';
 
 
 interface ParametersTableProps {
@@ -16,7 +17,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
     // V3.0: 改为多字段搜索（换行分隔）
     const [searchText, setSearchText] = useState('');
     const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-    const [pageSize, setPageSize] = useState(20);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
     // Pivot Data Logic
     const { tableData, productColumns, allProductNames } = useMemo(() => {
@@ -273,16 +274,12 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 dataSource={filteredData}
                 columns={displayColumns}
                 rowKey="key"
-                pagination={{ 
-                    pageSize: pageSize,
-                    showSizeChanger: true,
-                    pageSizeOptions: ['10', '20', '50', '100'],
-                    showTotal: (total) => `共 ${total} 条`,
+                pagination={pagePagination({
+                    pageSize,
                     onShowSizeChange: (_current, size) => setPageSize(size),
-                }}
+                })}
                 size="small"
                 scroll={{ x: 'max-content' }}
-                bordered
                 rowClassName={(record) => {
                     const isRequired = isFieldRequired(record.name);
                     if (!isRequired) return '';

@@ -54,7 +54,7 @@ describe('CompareView asset sync', () => {
     const { rerender } = render(<CompareView />);
 
     expect(await screen.findByText('快充')).toBeInTheDocument();
-    expect(screen.getAllByText('-').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
 
     mockState.assetFiles = [
       {
@@ -85,7 +85,7 @@ describe('CompareView asset sync', () => {
 
     const { rerender } = render(<CompareView />);
 
-    expect(screen.getByText('正在同步 1 款车型数据...')).toBeInTheDocument();
+    expect(screen.getByText('正在同步 1 款车型数据…')).toBeInTheDocument();
 
     mockState.assetFiles = [
       {

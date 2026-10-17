@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { readAnnouncementRecord, type AnnouncementInfo } from '../../utils/announcementRecord';
 import { compareBatchParams, type BatchCompareResult, type BatchCompareRow } from '../../utils/announcementCompare';
+import { compactPagination } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -156,7 +157,7 @@ const BatchDiffBody: React.FC<{ batches: AnnouncementInfo[] }> = ({ batches }) =
                     rowKey={r => r.name}
                     columns={columns}
                     dataSource={result.rows}
-                    pagination={{ pageSize: 20, showSizeChanger: false }}
+                    pagination={compactPagination()}
                     rowClassName={r => (r.changed ? 'diff-row' : '')}
                     locale={{ emptyText: <Empty description="两批次均无参数" /> }}
                 />

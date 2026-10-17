@@ -146,10 +146,10 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
                     ]}
                 />
                 {smartFillMode === 'single' && (
-                    <span className="text-xs text-3">多车取数：先在方案里把投标字段关联到系统字段，再一键拉取多车型参数</span>
+                    <span className="text-aux text-3">多车取数：先在方案里把投标字段关联到系统字段，再一键拉取多车型参数</span>
                 )}
                 {smartFillMode === 'freeMulti' && (
-                    <span className="text-xs text-3">粘贴目标字段即可横向整理多车型参数，无需预先配置方案</span>
+                    <span className="text-aux text-3">粘贴目标字段即可横向整理多车型参数，无需预先配置方案</span>
                 )}
             </div>
             {smartFillMode === 'bidPull' ? (
@@ -170,11 +170,11 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
                 />
             )}
             
-            <Card className="shadow-sm flex-shrink-0" size="small">
+            <Card className="flex-shrink-0" size="small">
                 <Space direction="vertical" className="w-full">
                     <div className="flex items-start gap-4">
                         <div className="flex-1">
-                            <div className="mb-2 font-medium">1. 选择参考车型 (数据来源)</div>
+                            <div className="mb-2 font-medium">1. 选择参考车型（数据来源）</div>
                             <ProductSourceSelector 
                                 mode="single"
                                 value={referenceProduct}
@@ -185,9 +185,9 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
                         </div>
                         <div className="flex-[2]">
                             <div className="mb-2 font-medium flex items-center gap-3">
-                                2. 输入需求参数列表 (每行一个)
+                                2. 输入需求参数列表（每行一个）
                                 <a
-                                    className="text-xs font-normal text-brand"
+                                    className="text-aux font-normal text-brand"
                                     onClick={() => setRequirementsText("整备质量\n最高车速\n轴距\n外形尺寸长\n外形尺寸宽\n外形尺寸高\n轮胎规格\n发动机型号")}
                                 >
                                     填入示例
@@ -221,7 +221,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
                                         return false;
                                     }}
                                 >
-                                    <a className="text-xs font-normal text-brand"><UploadOutlined /> 从文件导入</a>
+                                    <a className="text-aux font-normal text-brand"><UploadOutlined /> 从文件导入</a>
                                 </Upload>
                             </div>
                             <TextArea 

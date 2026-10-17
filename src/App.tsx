@@ -1,5 +1,5 @@
 import React from 'react';
-import { ConfigProvider, message, Skeleton, theme } from 'antd';
+import { ConfigProvider, Empty, message, Skeleton, theme } from 'antd';
 import ErrorBoundary from './components/ErrorBoundary';
 import zhCN from 'antd/locale/zh_CN';
 import MainLayout from './components/Layout/MainLayout';
@@ -10,6 +10,15 @@ import { useSettingsStore, FONT_SCALE_PX } from './store/settingsStore';
 import { compareSheets } from './utils/comparator';
 import { getThemeConfig } from './theme/themeConfig';
 import { useShallow } from 'zustand/react/shallow';
+
+/**
+ * 全局构件默认（设计：docs/plans/2026-10-17-列表区统一设计语言-design.md §2）。
+ * - 按钮不自动插空格：antd 会把两字中文按钮渲染成「查 询」，与其它按钮字距不一
+ * - 空状态一律简版插画：此前 17 处大插画 + 18 处简版混用，同一个「暂无」两种分量
+ * 模块级常量，避免 ConfigProvider 每次渲染拿到新对象引用
+ */
+const BUTTON_CONFIG = { autoInsertSpace: false } as const;
+const EMPTY_CONFIG = { image: Empty.PRESENTED_IMAGE_SIMPLE };
 
 const ParameterWorkbench = React.lazy(() => import('./components/ParameterWorkbench/ParameterWorkbench'));
 const AnnouncementQuery = React.lazy(() => import('./components/AnnouncementQuery/AnnouncementQuery'));
@@ -119,6 +128,8 @@ const App: React.FC = () => {
     <ConfigProvider
       locale={zhCN}
       theme={themeConfig}
+      button={BUTTON_CONFIG}
+      empty={EMPTY_CONFIG}
     >
       <ErrorBoundary>
         <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>

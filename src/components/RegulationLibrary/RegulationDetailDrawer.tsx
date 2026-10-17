@@ -31,7 +31,8 @@ import {
     type RegulationVocab,
     type SiteTemplate,
 } from '../../utils/regulationTypes';
-import { STATUS_COLOR } from './RegulationTable';
+import { STATUS_TONE } from './RegulationTable';
+import StatusDot from '../common/StatusDot';
 
 const { Text, Title } = Typography;
 
@@ -221,7 +222,7 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                 <Space size={8} wrap>
                     <Text strong>{record.standardNo || '（无标准号）'}</Text>
                     {record.year && <Tag>{record.year}</Tag>}
-                    <Tag color={STATUS_COLOR[status] ?? 'default'}>{status}</Tag>
+                    <StatusDot tone={STATUS_TONE[status] ?? 'neutral'}>{status}</StatusDot>
                 </Space>
             }
             extra={
@@ -433,7 +434,7 @@ const RegulationDetailDrawer: React.FC<Props> = ({
                                     return (
                                         <Space key={v.year ?? 'none'} size={8}>
                                             <Tag color={current ? 'blue' : 'default'}>{v.year ?? '无年份'}</Tag>
-                                            <Tag color={STATUS_COLOR[vs] ?? 'default'}>{vs}</Tag>
+                                            <StatusDot tone={STATUS_TONE[vs] ?? 'neutral'}>{vs}</StatusDot>
                                             <Text
                                                 style={{
                                                     fontSize: 'var(--fs-aux)',

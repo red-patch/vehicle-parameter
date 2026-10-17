@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Card, Checkbox, Empty, Tag, Segmented, message, Select, Spin, Tooltip } from 'antd';
+import { Checkbox, Empty, Segmented, message, Select, Spin, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { DiffOutlined } from '@ant-design/icons';
 import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -15,6 +14,8 @@ import ReportExportDropdown from '../common/ReportExportDropdown';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
 import { FilterItem } from '../common/ListToolbar';
+import StatusDot from '../common/StatusDot';
+import CountLabel from '../common/CountLabel';
 import { exportCompareReport } from '../../utils/compareReport';
 import type { ReportFormat } from '../../utils/reportExport';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
@@ -167,13 +168,14 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                 key: 'group',
                 width: 100,
                 fixed: 'left',
+                // 分组是归属信息，不是状态：次级文字而非彩色 Tag（与数据体检同列同形）
                 render: (text: string, record: CompareRow) =>
                     record.groups && record.groups.length > 1 ? (
                         <Tooltip title={`合并自：${record.groups.join('、')}`}>
-                            <Tag color="blue">{text}</Tag>
+                            <span className="cell-plain text-2 underline decoration-dotted underline-offset-2">{text}</span>
                         </Tooltip>
                     ) : (
-                        <Tag color="default">{text}</Tag>
+                        <span className="cell-plain text-2">{text}</span>
                     ),
             },
             {
@@ -189,7 +191,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                 width: 60,
                 fixed: 'left',
                 render: (_: unknown, record: { name: string }) =>
-                    isFieldRequired(record.name) ? <Tag color="warning">是</Tag> : <span className="text-3">-</span>,
+                    isFieldRequired(record.name) ? <StatusDot tone="warning">是</StatusDot> : <span className="text-3">—</span>,
             }
         ];
 
@@ -202,7 +204,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                 fixed: undefined,
                 render: (text: string, record: { hasDiff: boolean }) => {
                     const isRepairable = assetSourceByProduct.has(instanceKey);
-                    if (!text) return <span className="text-3">-</span>;
+                    if (!text) return <span className="text-3">—</span>;
                     if (record.hasDiff) {
                         return (
                             <RepairableValue
@@ -304,24 +306,16 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
             )}
             
             {/* Selection Area - Unified UI */}
-            <Card className="surface-container border-default" size="small">
-                <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <DiffOutlined className="text-brand text-lg" />
-                            <h2 className="text-[15px] font-bold text-1 m-0">选择对比车型</h2>
-                            <Tag color="processing" className="ml-2 m-0 rounded-sm">已选 {localSelection.length} 款</Tag>
-                        </div>
-                        {/* 导出入口唯一保留在结果工具条（§5.1 同动作一屏一次），此处不再重复 */}
-                    </div>
-
-                    <ProductSourceSelector
-                        value={localSelection}
-                        onChange={names => setLocalSelection(Array.isArray(names) ? names : names ? [names] : [])}
-                        placeholder="从已选车型中选择进行对比..."
-                    />
-                </div>
-            </Card>
+            {/* 选择区与结果区同一种面板外壳（列表区设计语言 §4）：标题 14/600 无图标、
+                计数是标题后的三级文字——此前这里是 15px 粗体 + 图标 + 蓝色「已选 N 款」Tag。
+                导出入口唯一保留在结果工具条（§5.1 同动作一屏一次）。 */}
+            <ListToolbar title="对比车型" count={localSelection.length}>
+                <ProductSourceSelector
+                    value={localSelection}
+                    onChange={names => setLocalSelection(Array.isArray(names) ? names : names ? [names] : [])}
+                    placeholder="从已选车型中选择进行对比…"
+                />
+            </ListToolbar>
 
             {/* Results Area
                maxHeight + isolation：结果表在自己的卡片内滚动，不让整页滚动。
@@ -337,13 +331,13 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                    会留下合成层残影，把左三列画到顶部标题栏之上。隔离层兜底：
                    即便残影出现，表格层也永远被限制在卡片堆叠上下文内，盖不到 z-50 顶栏。 */
                 style={{ isolation: 'isolate' }}
-                title={<span className="text-2">共 {comparisonData.length} 项</span>}
+                title="对比结果"
+                count={{ shown: filteredData.length, total: comparisonData.length }}
                 actions={
                     <>
                         {pendingSelectionCount > 0 && (
-                            <Tag color="processing" className="m-0">同步中: {pendingSelectionCount} 款</Tag>
+                            <StatusDot tone="info">同步中 {pendingSelectionCount} 款</StatusDot>
                         )}
-                        <Tag className="m-0">显示: {filteredData.length} 条</Tag>
                         {/* §5.1：同一动作一屏内只出现一次——此前这里与上方选择卡各有一个
                             「导出报告」，已删掉上方那个，只保留本处（唯一入口） */}
                         <ReportExportDropdown onExport={handleExportReport} disabled={comparisonData.length === 0} />
@@ -355,12 +349,11 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                             value={diffFilter}
                             onChange={v => setDiffFilter(v as typeof diffFilter)}
                             options={[
-                                { label: `全部 (${comparisonData.length})`, value: 'all' },
-                                { label: `差异 (${diffCount})`, value: 'diff' },
-                                { label: `一致 (${sameCount})`, value: 'same' },
-                                { label: `必填 (${requiredCount})`, value: 'required' },
+                                { label: <CountLabel label="全部" count={comparisonData.length} />, value: 'all' },
+                                { label: <CountLabel label="差异" count={diffCount} />, value: 'diff' },
+                                { label: <CountLabel label="一致" count={sameCount} />, value: 'same' },
+                                { label: <CountLabel label="必填" count={requiredCount} />, value: 'required' },
                             ]}
-                            size="small"
                         />
                         <DiffLegend />
                         <FilterItem label="字段组">
@@ -369,7 +362,6 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                                 onChange={setFieldGroupFilter}
                                 options={fieldGroupOptions}
                                 style={{ width: 180 }}
-                                size="small"
                             />
                         </FilterItem>
                         <span className="ml-auto" />
@@ -389,7 +381,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                             checked={hideEmpty}
                             onChange={e => setHideEmpty(e.target.checked)}
                         >
-                            隐藏无值字段{emptyHideableCount > 0 ? ` (${emptyHideableCount})` : ''}
+                            <CountLabel label="隐藏无值字段" count={emptyHideableCount > 0 ? emptyHideableCount : undefined} />
                         </Checkbox>
                         <Tooltip title="忽略分组，只按参数名配对；同名字段在任一车型内取值冲突时不合并">
                             <Checkbox
@@ -414,9 +406,9 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                     </div>
                 ) : pendingSelectionCount > 0 ? (
                     <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-3 text-center">
-                        <Spin size="large" />
-                        <div className="text-sm text-2">正在同步 {pendingSelectionCount} 款车型数据...</div>
-                        <div className="text-xs text-3">资产数据加载完成后会自动显示对比结果</div>
+                        <Spin />
+                        <div className="text-body text-2">正在同步 {pendingSelectionCount} 款车型数据…</div>
+                        <div className="text-aux text-3">资产数据加载完成后会自动显示对比结果</div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-center h-full min-h-[220px]">

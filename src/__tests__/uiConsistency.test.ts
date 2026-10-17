@@ -86,6 +86,10 @@ const MIGRATED_LIST_PAGES: string[] = [
     // 设计语言 §7 批次 6：Card 外壳 → ListToolbar；页级搜索换 SearchInput；
     // Tab 内动作行按 §5.1 收进下拉（只留 1 个 primary）。
     'SmartFiller/ConfigManagerView.tsx',
+    // 列表区统一设计语言（2026-10-17）§4：智能填报的两个多车结果区由
+    // 「手写 border 容器 + <h3> 标题 + 手搓搜索框」迁到 ListToolbar。
+    'ParameterWorkbench/BidPullView.tsx',
+    'ParameterWorkbench/MultiVehicleView.tsx',
 ];
 
 /**
@@ -101,7 +105,6 @@ const LEGACY_EXEMPT: Record<string, number> = {
     'AssetLibrary/AssetListDrawer.tsx': 1,
     'ParameterWorkbench/AssetPool/AssetSidebar.tsx': 1,
     'ParameterWorkbench/FileManager.tsx': 1,
-    'ParameterWorkbench/MultiVehicleView.tsx': 1,
     // 剩 1 处：AutoComplete 的内层 Input（带 options 下拉的组合框，非搜索框；
     // SearchInput 不支持 options）。这是文本级护栏的固有边界，见 R2 注释。
     'SmartFiller/ConfigManagerView.tsx': 1,
@@ -239,5 +242,112 @@ describe('UI 构件一致性护栏', () => {
         // 只断言「不高于登记总量」，避免存量清零过程中的数字同步成为噪音
         const budget = Object.values(LEGACY_EXEMPT).reduce((a, b) => a + b, 0);
         expect(total).toBeLessThanOrEqual(budget);
+    });
+});
+
+/**
+ * 列表区统一设计语言护栏（设计：docs/plans/2026-10-17-列表区统一设计语言-design.md §11）。
+ *
+ * 与上面 R1–R10 同一策略：只锁**能唯一区分的文本信号**，语义项（该不该是 primary、
+ * 状态该不该用圆点）留给文档 + review。每条都先实测零误报再入表。
+ */
+/**
+ * index.css 不能走 import.meta.glob ?raw：vitest 默认把 .css 模块替换为空串。
+ * 改为运行时读文件；模块名用变量传入，避开 tsconfig.app.json 不含 node 类型的限制。
+ */
+const readIndexCss = async (): Promise<string> => {
+    const fsModule = 'node:fs';
+    const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as {
+        readFileSync: (path: string, encoding: 'utf8') => string;
+    };
+    // import.meta.url 在 vitest(jsdom) 下不是 file:// 协议，改用 cwd（vitest 根 = 仓库根）
+    const cwd = (globalThis as unknown as { process: { cwd: () => string } }).process.cwd();
+    return readFileSync(`${cwd}/src/index.css`, 'utf8');
+};
+
+const ALL_TS_SOURCES = import.meta.glob(['../**/*.{ts,tsx}', '!../**/__tests__/**'], {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+}) as Record<string, string>;
+
+const LIST_RULES = [
+    // R11 表格竖线：一档密度下只用横向分隔线（行），列靠对齐与留白区分。
+    // 只匹配「独占一行的 bordered」与「<Table … bordered」——Descriptions 的 bordered 是合法用法。
+    { id: 'R11', re: /^\s*bordered(?:=\{true\})?\s*$|<(?:Data)?Table\b[^>\n]*\sbordered\b/gm, fix: '去掉 bordered（表格不画竖线，§3.3）' },
+    // R12 分页条数字面量：只有 pagePagination / compactPagination 两档（§6）
+    { id: 'R12', re: /pageSize:\s*\d+|pageSize=\{\d+\}|[pP]ageSize\]\s*=\s*useState\(\d+\)/g, fix: 'common/tablePresets 的 pagePagination() / compactPagination()' },
+    // R13 列表外壳不加投影：面板层级靠描边，不靠阴影（暗色下投影不可见，两套主题表现不一）
+    { id: 'R13', re: /\bshadow-sm\b/g, fix: '去掉 shadow-sm（面板 = 描边 + 圆角 8，无投影，§4）' },
+    // R14 阶梯外字号：最小档 caption = 11px；10px 及以下来自 antd 算法值或手写魔法数
+    { id: 'R14', re: /text-\[(?:[0-9]|10)px\]|fontSize:\s*(?:[0-9]|10)\b|fontSize:\s*'(?:[0-9]|10)px'/g, fix: 'text-caption / var(--fs-caption)（字号阶梯最小 11px，§2.2）' },
+] as const;
+
+/**
+ * 存量豁免（只减不增）。资产池布局已冻结（用户明确要求），其中的小字号随布局一起冻结；
+ * 整车设计是画布标注，不属于列表区。浮动批量条（AssetBatchTagBar）是真正的抬升层，投影合法。
+ */
+const LIST_LEGACY_EXEMPT: Record<string, Partial<Record<(typeof LIST_RULES)[number]['id'], number>>> = {
+    'ParameterWorkbench/AssetSummaryCard.tsx': { R14: 4 },
+    'ParameterWorkbench/AssetGroupedView.tsx': { R14: 4 },
+    'ParameterWorkbench/AssetPool/AssetCartCard.tsx': { R14: 2 },
+    'ParameterWorkbench/AssetPool/AssetCard.tsx': { R14: 2 },
+    'ParameterWorkbench/AssetPool/AssetSidebar.tsx': { R14: 1 },
+    'ParameterWorkbench/AssetPool/AssetFilterBar.tsx': { R14: 1 },
+    'ParameterWorkbench/AssetBatchTagBar.tsx': { R14: 1, R13: 1 },
+    'VehicleDesigner/VehicleDesigner.tsx': { R14: 1 },
+    'VehicleDesigner/TopBar.tsx': { R14: 1 },
+    'VehicleDesigner/ParameterPanel/LinkedPair.tsx': { R14: 1 },
+};
+
+describe('列表区统一设计语言护栏（R11–R15）', () => {
+    it('表格不画竖线、分页只用两档预设、面板无投影、字号不低于阶梯（R11–R14）', () => {
+        const offenders: string[] = [];
+        for (const [key, src] of Object.entries(SOURCES)) {
+            const rel = relKey(key);
+            if (rel.startsWith('__tests__/') || rel.includes('/__tests__/')) continue;
+            const code = stripComments(src);
+            for (const rule of LIST_RULES) {
+                const hits = code.match(rule.re)?.length ?? 0;
+                const allowed = LIST_LEGACY_EXEMPT[rel]?.[rule.id] ?? 0;
+                if (hits > allowed) offenders.push(`${rel} → ${rule.id}（${hits} 处，豁免 ${allowed}）→ ${rule.fix}`);
+            }
+        }
+        expect(offenders, `列表区出现规范外写法：\n${offenders.join('\n')}`).toEqual([]);
+    });
+
+    it('列表区豁免清单不得陈旧（文件仍在、且确有存量）', () => {
+        const stale: string[] = [];
+        for (const [rel, rules] of Object.entries(LIST_LEGACY_EXEMPT)) {
+            const src = SOURCES[`../components/${rel}`];
+            if (!src) { stale.push(`${rel}（文件不存在）`); continue; }
+            const code = stripComments(src);
+            for (const [id, n] of Object.entries(rules)) {
+                const rule = LIST_RULES.find(r => r.id === id)!;
+                const hits = code.match(rule.re)?.length ?? 0;
+                if (hits < (n ?? 0)) stale.push(`${rel} ${id}：登记 ${n}，实际 ${hits}（改小了请同步）`);
+            }
+        }
+        expect(stale, `豁免清单需同步：\n${stale.join('\n')}`).toEqual([]);
+    });
+
+    it('引用的 CSS 变量必须在 index.css 定义（R15）', async () => {
+        // 此前 3 处引用了不存在的 --border / --bg / --line：浏览器静默回退为初始值，
+        // 边框消失、表头透明——没有任何报错，只有「看起来不太对」。
+        const css = await readIndexCss();
+        expect(css, 'index.css 未读到').toContain('--surface-1');
+        const defined = new Set([...css.matchAll(/(--[a-z0-9-]+)\s*:/g)].map(m => m[1]));
+        const missing: string[] = [];
+        for (const [key, src] of Object.entries(ALL_TS_SOURCES)) {
+            const code = stripComments(src);
+            // 自带样式的导出文档（如 reportExport 生成的 HTML）在同文件内定义自己的变量
+            const local = new Set([...code.matchAll(/(--[a-z0-9-]+)\s*:/g)].map(m => m[1]));
+            for (const m of code.matchAll(/var\((--[a-z0-9-]+)/g)) {
+                const name = m[1];
+                if (name.startsWith('--ant-') || defined.has(name) || local.has(name)) continue;
+                missing.push(`${key.replace(/^\.\.\//, 'src/')} → ${name}`);
+            }
+        }
+        expect([...new Set(missing)], `引用了未定义的 CSS 变量：\n${[...new Set(missing)].join('\n')}`).toEqual([]);
     });
 });

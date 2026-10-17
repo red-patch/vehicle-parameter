@@ -17,6 +17,7 @@ import { buildSupersedeMeta } from '../../utils/assetGovernance';
 import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { clearImportTransients } from '../../utils/importTransients';
 import TagSelector from '../common/TagSelector';
+import { MODAL_TABLE_SCROLL_Y, pagePagination } from '../common/tablePresets';
 
 /** 判定 → 徽章/选项元数据 */
 const VERDICT_META = {
@@ -483,11 +484,8 @@ const FileManager: React.FC<FileManagerProps> = () => {
             size="small"
             rowKey={r => String(r.__idx)}
             dataSource={confirmTableRows}
-            pagination={{
-              pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [20, 50, 100, 200],
-              showTotal: t => `共 ${t} 条`,
-            }}
-            scroll={{ y: 380 }}
+            pagination={pagePagination()}
+            scroll={{ y: MODAL_TABLE_SCROLL_Y }}
             rowSelection={{
               selectedRowKeys: pendingProducts.flatMap((p, i) => (p.checked !== false ? [String(i)] : [])),
               onChange: (keys) => {
@@ -509,7 +507,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
                 render: (_, prod) => (
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={prod.name}>{prod.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{prod.count} 个参数</div>
+                    <div style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-3)' }}>{prod.count} 个参数</div>
                   </div>
                 ),
               },
@@ -530,7 +528,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
                 render: (_, prod) => (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
                     {prod.identical && (
-                      <Tag className="m-0" style={{ fontSize: 10, flexShrink: 0 }}>内容一致</Tag>
+                      <Tag className="m-0" style={{ flexShrink: 0 }}>内容一致</Tag>
                     )}
                     <Tooltip title={prod.reason}>
                       <span style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -702,20 +700,20 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
               <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto" style={{ marginTop: 4 }}>
                 {grouped.map(g => (
                   <div key={g.id} className="flex items-start gap-1" style={{ marginBottom: 2 }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>{g.name}</span>
+                    <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>{g.name}</span>
                     <div className="flex flex-wrap gap-1">
                       {g.tags.map(t => (
-                        <Tag key={t} className="" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                        <Tag key={t} className="" style={{ margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
                       ))}
                     </div>
                   </div>
                 ))}
                 {ungrouped.length > 0 && (
                   <div className="flex items-start gap-1">
-                    <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>未分组</span>
+                    <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>未分组</span>
                     <div className="flex flex-wrap gap-1">
                       {ungrouped.map(t => (
-                        <Tag key={t} className="" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                        <Tag key={t} className="" style={{ margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
                       ))}
                     </div>
                   </div>

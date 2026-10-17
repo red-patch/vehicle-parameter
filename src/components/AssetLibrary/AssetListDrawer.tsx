@@ -280,12 +280,12 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                                             {item.replace('.json', '')}
                                                         </span>
                                                         {metaMap[item]?.status && (
-                                                            <span className="text-[10px] text-3 mt-0.5">
+                                                            <span className="text-caption text-3 mt-0.5">
                                                                 {metaMap[item]?.status === 'deprecated' && (
-                                                                    <Tag className="m-0 text-[10px] leading-[14px] px-1" color="error">废弃</Tag>
+                                                                    <Tag className="m-0" color="error">废弃</Tag>
                                                                 )}
                                                                 {metaMap[item]?.status === 'superseded' && (
-                                                                    <Tag className="m-0 text-[10px] leading-[14px] px-1" color="default">历史</Tag>
+                                                                    <Tag className="m-0" color="default">历史</Tag>
                                                                 )}
                                                             </span>
                                                         )}

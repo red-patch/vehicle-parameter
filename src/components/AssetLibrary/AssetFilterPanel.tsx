@@ -197,7 +197,7 @@ const AssetFilterPanel: React.FC<AssetFilterPanelProps> = ({
                         清除
                     </Button>
                 )}
-                <CaretRightOutlined className={`text-[10px] text-3 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                <CaretRightOutlined className={`text-caption text-3 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`} />
             </div>
 
             {/* 展开态：主机厂 / 族群 常驻，其余进「更多」，公告号粘贴 + 标签收尾 */}
@@ -250,7 +250,7 @@ const AssetFilterPanel: React.FC<AssetFilterPanelProps> = ({
                                 onClick={() => setMoreOpen(v => !v)}
                                 className="m-0 text-[11px] leading-[18px] px-1.5 rounded-lg border cursor-pointer surface-inset border-default text-2 hover:border-brand"
                             >
-                                {moreOpen ? <MinusOutlined className="text-[9px]" /> : <PlusOutlined className="text-[9px]" />}
+                                {moreOpen ? <MinusOutlined className="text-caption" /> : <PlusOutlined className="text-caption" />}
                                 {' '}电池品牌 / 电量 / 等级
                             </Tag>
                             {!moreOpen && (

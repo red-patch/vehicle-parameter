@@ -1,9 +1,12 @@
 import React from 'react';
-import { Button, Empty, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Empty, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-    AimOutlined, CopyOutlined, DeleteOutlined, FilePdfOutlined, LinkOutlined, ProfileOutlined,
+    AimOutlined, CopyOutlined, DeleteOutlined, FileAddOutlined, FilePdfOutlined, LinkOutlined, ProfileOutlined,
 } from '@ant-design/icons';
+import RowActions from '../common/RowActions';
+import StatusDot from '../common/StatusDot';
+import { NUMERIC_COLUMN, pagePagination } from '../common/tablePresets';
 import { normalizeAnnounceNo, type AnnouncementInfo } from '../../utils/announcementRecord';
 import { describeLinkedAsset, formatArchiveDate, type JoinedAsset } from '../../utils/announcementGrouping';
 
@@ -65,14 +68,14 @@ const AnnouncementFlatTable: React.FC<AnnouncementFlatTableProps> = ({
             width: 70,
             responsive: ['lg'],
             render: (has: boolean) => has
-                ? <Tag icon={<FilePdfOutlined />} color="success">有</Tag>
-                : <Tag>无</Tag>,
+                ? <StatusDot tone="success">有</StatusDot>
+                : <StatusDot tone="neutral">无</StatusDot>,
         },
-        { title: '参数数', dataIndex: 'paramCount', width: 70, align: 'right' as const, responsive: ['xl'] },
+        { title: '参数数', dataIndex: 'paramCount', width: 70, ...NUMERIC_COLUMN, responsive: ['xl'] },
         {
             title: '关联资产',
             width: 90,
-            align: 'right' as const,
+            ...NUMERIC_COLUMN,
             render: (_, info) => {
                 const count = linkedAssets.get(normalizeAnnounceNo(info.announceNo))?.length ?? 0;
                 return count > 0
@@ -84,48 +87,23 @@ const AnnouncementFlatTable: React.FC<AnnouncementFlatTableProps> = ({
         {
             title: '操作',
             key: 'actions',
-            width: 320,
+            width: 132,
+            // 行内操作统一走 RowActions（列表区设计语言 §8）：此前 6 个按钮链接/图标/带字混排、
+            // 删除常驻红色，列宽 320。现露出 2 个高频动作，其余进「更多」。
             render: (_, info) => (
-                <Space size={0}>
-                    {info.orphan ? (
-                        <Button type="link" size="small" onClick={() => onClaimOrphan(info)}>
-                            认领建档
-                        </Button>
-                    ) : (
-                        <Tooltip title={info.hasPdf ? '打开公告 PDF' : '该记录没有 PDF'}>
-                            <Button type="link" size="small" icon={<FilePdfOutlined />} disabled={!info.hasPdf} onClick={() => onOpenPdf(info)} />
-                        </Tooltip>
-                    )}
-                    <Tooltip title={info.hasPdf ? '复制 PDF 到剪贴板，可直接粘贴发给他人' : '该记录没有 PDF'}>
-                        <Button
-                            type="link"
-                            size="small"
-                            icon={<CopyOutlined />}
-                            disabled={!info.hasPdf}
-                            onClick={() => onCopyPdf(info)}
-                        />
-                    </Tooltip>
-                    <Tooltip title={info.paramCount > 0 ? '查看公告参数' : '该记录没有参数'}>
-                        <Button
-                            type="link"
-                            size="small"
-                            icon={<ProfileOutlined />}
-                            disabled={info.orphan || info.paramCount === 0}
-                            onClick={() => onViewParams(info)}
-                        >
-                            参数
-                        </Button>
-                    </Tooltip>
-                    <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onViewLinked(info)}>
-                        关联资产
-                    </Button>
-                    <Tooltip title="在文件夹中定位">
-                        <Button type="link" size="small" icon={<AimOutlined />} onClick={() => onReveal(info)} />
-                    </Tooltip>
-                    <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => onDelete(info)}>
-                        删除
-                    </Button>
-                </Space>
+                <RowActions
+                    maxVisible={info.orphan ? 1 : 2}
+                    actions={[
+                        info.orphan
+                            ? { key: 'claim', label: '认领建档', icon: <FileAddOutlined />, showLabel: true, onClick: () => onClaimOrphan(info) }
+                            : { key: 'pdf', label: '打开公告 PDF', icon: <FilePdfOutlined />, disabled: !info.hasPdf, disabledReason: '该记录没有 PDF', onClick: () => onOpenPdf(info) },
+                        { key: 'params', label: '查看公告参数', icon: <ProfileOutlined />, disabled: info.orphan || info.paramCount === 0, disabledReason: '该记录没有参数', onClick: () => onViewParams(info) },
+                        { key: 'linked', label: '关联资产', icon: <LinkOutlined />, onClick: () => onViewLinked(info) },
+                        { key: 'copy', label: '复制 PDF 到剪贴板', icon: <CopyOutlined />, disabled: !info.hasPdf, onClick: () => onCopyPdf(info) },
+                        { key: 'reveal', label: '在文件夹中定位', icon: <AimOutlined />, onClick: () => onReveal(info) },
+                        { key: 'delete', label: '删除', icon: <DeleteOutlined />, danger: true, onClick: () => onDelete(info) },
+                    ]}
+                />
             ),
         },
     ];
@@ -137,14 +115,14 @@ const AnnouncementFlatTable: React.FC<AnnouncementFlatTableProps> = ({
             columns={columns}
             dataSource={sorted}
             loading={loading}
-            pagination={{ pageSize: 10, showSizeChanger: false, hideOnSinglePage: true }}
+            pagination={pagePagination()}
             locale={{ emptyText: <Empty description="暂无归档公告" /> }}
             expandable={{
                 rowExpandable: info => (linkedAssets.get(normalizeAnnounceNo(info.announceNo))?.length ?? 0) > 0,
                 expandedRowRender: info => {
                     const list = linkedAssets.get(normalizeAnnounceNo(info.announceNo)) || [];
                     return (
-                        <ul className="m-0 pl-4 text-xs space-y-1">
+                        <ul className="m-0 pl-4 text-aux space-y-1">
                             {list.map(a => (
                                 <li key={a.fileName}>
                                     <Text className="font-medium">{describeLinkedAsset(a)}</Text>

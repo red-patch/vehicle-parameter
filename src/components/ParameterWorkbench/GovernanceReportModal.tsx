@@ -62,7 +62,7 @@ const UnconvergedCarCard = ({
 }) => (
     <div className="surface-inset border border-default rounded-lg px-3 py-2 space-y-1.5">
         <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] text-2">身份 <Tag className="m-0 text-[10px]">{car.identityKey}</Tag></span>
+            <span className="text-[12px] text-2">身份 <Tag className="m-0">{car.identityKey}</Tag></span>
             <span className="text-[12px] text-3">{car.files.length} 个文件</span>
             <Button
                 size="small"
@@ -76,7 +76,7 @@ const UnconvergedCarCard = ({
                 收敛（保留最新，其余标历史）
             </Button>
         </div>
-        <div className="divide-y divide-[color:var(--line)]">
+        <div className="divide-y divide-[color:var(--border-default)]">
             {car.files.map(entry => (
                 <CarFileRow key={entry.info.fileName} entry={entry} isLatest={entry.info.fileName === car.latestFileName} />
             ))}
@@ -180,9 +180,9 @@ const GovernanceReportModal: React.FC<GovernanceReportModalProps> = ({
                                     {u.dim}词表外写法 <b>{u.values.length}</b> 个（未归一，不自动合并）：
                                     <span className="flex flex-wrap gap-1 mt-1">
                                         {u.values.slice(0, 12).map(v => (
-                                            <Tag key={v} className="m-0 text-[10px] px-1">{v}</Tag>
+                                            <Tag key={v} className="m-0">{v}</Tag>
                                         ))}
-                                        {u.values.length > 12 && <span className="text-[10px] text-3">+{u.values.length - 12}</span>}
+                                        {u.values.length > 12 && <span className="text-caption text-3">+{u.values.length - 12}</span>}
                                     </span>
                                 </div>
                             ))}

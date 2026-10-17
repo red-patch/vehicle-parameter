@@ -31,6 +31,7 @@ import {
     type PdfCandidate,
     type PdfScanProgress,
 } from '../../utils/announcementScan';
+import { compactPagination } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -582,7 +583,7 @@ const AnnouncementBatchImportModal: React.FC<AnnouncementBatchImportModalProps> 
                         rowKey={i => i.candidate.path}
                         columns={columns}
                         dataSource={displayRows}
-                        pagination={{ pageSize: 15, showSizeChanger: false }}
+                        pagination={compactPagination()}
                         rowSelection={{
                             selectedRowKeys: [...checked],
                             onChange: keys => setChecked(new Set(keys as string[])),

@@ -1,11 +1,12 @@
 import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
-import { Select, Button, Input, Tooltip, Popover, message, Popconfirm, Alert } from 'antd';
+import { Select, Button, Input, Tooltip, Popover, message, Alert } from 'antd';
 import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { FilterItem } from '../common/ListToolbar';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
 import FacetChips from '../common/FacetChips';
 import DataTable from '../common/DataTable';
+import RowActions from '../common/RowActions';
 import { SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, EditOutlined, ProfileOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -174,8 +175,8 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource, onGoP
     }, []);
 
     // 单元格内联编辑：同时只有一个单元格处于编辑态（参数分组 / 参数名共用）
-    const [editingCell, setEditingCell] = useState<{ id: string; field: 'group' | 'name' } | null>(null);
-    const openCell = useCallback((id: string, field: 'group' | 'name') => setEditingCell({ id, field }), []);
+    const [editingCell, setEditingCell] = useState<{ id: string; field: 'group' | 'name' | 'value' } | null>(null);
+    const openCell = useCallback((id: string, field: 'group' | 'name' | 'value') => setEditingCell({ id, field }), []);
     const closeCell = useCallback(() => setEditingCell(null), []);
 
     const handleAddParam = () => {
@@ -485,30 +486,64 @@ type PurifyRow = VehicleParameter & {
             width: 380,
             render: (_: unknown, record: PurifyRow) => {
                 const isManual = manualValueRows.has(record.id);
+                const useSelect = record.hasEnums && !isManual;
+                const isEditing = editingCell?.id === record.id && editingCell.field === 'value';
+                const valueText = record.value ? String(record.value) : '';
+                // 列表区设计语言 §7「一格一主控件、只读态是文本」：此前本列 26 行常驻
+                // 26 个输入框/下拉，与左侧点开才编辑的分组、参数名两列不是一种语言。
+                let main: React.ReactNode;
+                if (isEditing && useSelect) {
+                    main = (
+                        <Select
+                            autoFocus
+                            defaultOpen
+                            showSearch
+                            allowClear
+                            size="small"
+                            style={{ flex: 1, minWidth: 0 }}
+                            value={valueText || undefined}
+                            onChange={val => { handleUpdateParam(record.id, 'value', val || ''); closeCell(); }}
+                            onBlur={closeCell}
+                            options={record.enums.map((e: string) => ({ value: e, label: e }))}
+                            status={record.isEnumMismatch ? 'error' : ''}
+                            placeholder="选择或查找标准值"
+                            dropdownStyle={{ minWidth: 200 }}
+                        />
+                    );
+                } else if (isEditing) {
+                    main = (
+                        <Input
+                            autoFocus
+                            size="small"
+                            value={record.value}
+                            onChange={(e) => handleUpdateParam(record.id, 'value', e.target.value)}
+                            onBlur={closeCell}
+                            onPressEnter={closeCell}
+                            placeholder="输入数值"
+                            style={{ flex: 1, minWidth: 0 }}
+                        />
+                    );
+                } else {
+                    main = (
+                        <span
+                            className={`cell-edit-text flex-1 min-w-0 ${
+                                !valueText ? 'text-3' : record.isEnumMismatch ? 'text-danger-text' : 'text-1'
+                            }`}
+                            title={valueText || (useSelect ? '点击选择标准值' : '点击输入数值')}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openCell(record.id, 'value')}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCell(record.id, 'value'); }
+                            }}
+                        >
+                            {valueText || (useSelect ? '选择标准值' : '输入数值')}
+                        </span>
+                    );
+                }
                 return (
                     <div className="flex items-center gap-1.5">
-                        {record.hasEnums && !isManual ? (
-                            <Select
-                                showSearch
-                                allowClear
-                                size="small"
-                                style={{ flex: 1, minWidth: 0 }}
-                                value={record.value ? String(record.value) : undefined}
-                                onChange={val => handleUpdateParam(record.id, 'value', val || '')}
-                                options={record.enums.map((e: string) => ({ value: e, label: e }))}
-                                status={record.isEnumMismatch ? 'error' : ''}
-                                placeholder="选择或查找标准值"
-                                dropdownStyle={{ minWidth: 200 }}
-                            />
-                        ) : (
-                            <Input
-                                size="small"
-                                value={record.value}
-                                onChange={(e) => handleUpdateParam(record.id, 'value', e.target.value)}
-                                placeholder="输入数值"
-                                style={{ flex: 1, minWidth: 0 }}
-                            />
-                        )}
+                        {main}
                         {/* 图标槽宽度恒定（每行固定 3 个），保证左侧控件逐行对齐 */}
                         <span className="flex items-center gap-0.5 flex-shrink-0 w-[24px] justify-center">
                             {record.isEnumMismatch && (
@@ -579,12 +614,16 @@ type PurifyRow = VehicleParameter & {
             width: 64,
             align: 'center' as const,
             render: (_: unknown, record: PurifyRow) => (
-                <Popconfirm
-                    title="确定删除此参数？"
-                    onConfirm={() => handleDeleteParam(record.id)}
-                >
-                    <Button type="text" danger icon={<DeleteOutlined />} size="small" className="!w-[24px] !h-[24px] !min-w-0 !p-0" />
-                </Popconfirm>
+                <RowActions
+                    actions={[{
+                        key: 'delete',
+                        label: '删除参数',
+                        icon: <DeleteOutlined />,
+                        danger: true,
+                        confirm: '确定删除此参数？',
+                        onClick: () => handleDeleteParam(record.id),
+                    }]}
+                />
             )
         }
     ], [handleUpdateParam, manualValueRows, handleDeleteParam, handleSyncParam, diffById, editingCell, openCell, closeCell]);
@@ -625,7 +664,8 @@ type PurifyRow = VehicleParameter & {
             {/* 列表页外壳统一走 ListToolbar 三段（设计语言 §4.1/§4.3）：
                 此前是 FilterBar 的「筛选在左 + 操作在右，挤同一行」。 */}
             <ListToolbar
-                title={<span className="font-semibold text-1">体检参数</span>}
+                title="体检参数"
+                count={{ shown: displayedParams.length, total: purifyParams.length }}
                 actions={
                     <>
                         {effectiveReferenceProduct && (
@@ -708,14 +748,12 @@ type PurifyRow = VehicleParameter & {
                         </FilterItem>
 
                         <span className="ml-auto" />
-                        <FilterItem label="搜索">
-                            <SearchInput
-                                width="md"
-                                placeholder="搜索参数名、分组或参数值"
-                                value={paramSearch}
-                                onChange={setParamSearch}
-                            />
-                        </FilterItem>
+                        <SearchInput
+                            width="md"
+                            placeholder="搜索参数名、分组或参数值"
+                            value={paramSearch}
+                            onChange={setParamSearch}
+                        />
                     </>
                 }
                 display={
@@ -726,7 +764,6 @@ type PurifyRow = VehicleParameter & {
                         <FilterItem label="分组">
                             <Select
                                 style={{ width: 160 }}
-                                size="small"
                                 value={filterGroup}
                                 onChange={setFilterGroup}
                                 options={availableGroups.map(g => ({ value: g, label: g }))}
@@ -738,7 +775,6 @@ type PurifyRow = VehicleParameter & {
                         <FilterItem label="字段组">
                             <Select
                                 style={{ width: 160 }}
-                                size="small"
                                 value={fieldGroupFilter}
                                 onChange={setFieldGroupFilter}
                                 options={fieldGroupOptions}

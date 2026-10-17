@@ -64,8 +64,13 @@ describe('CompareView 结果工具条（批次 3）', () => {
         render(<CompareView />);
         await screen.findByText('整备质量');
 
-        const bar = document.querySelector('.surface-container.border.rounded-lg');
+        // 页内两个 ListToolbar：「对比车型」与「对比结果」，取后者
+        const resultTitle = [...document.querySelectorAll('[data-slot="list-title"]')].find(
+            el => el.textContent === '对比结果',
+        );
+        const bar = resultTitle?.closest('.list-shell');
         expect(bar).not.toBeNull();
+        expect(bar!.className).toContain('surface-container');
         // 三段：标题/筛选/显示 → 两条分隔线
         const rows = bar!.children;
         expect(rows.length).toBeGreaterThanOrEqual(3);
@@ -92,19 +97,28 @@ describe('CompareView 结果工具条（批次 3）', () => {
         render(<CompareView />);
         await screen.findByText('整备质量');
 
-        expect(screen.getByText(/^全部 \(/)).toBeInTheDocument();
+        // 计数跟在文字后、无括号（CountLabel，列表区设计语言 §5.2）
+        const all = [...document.querySelectorAll('.ant-segmented-item-label')].find(el =>
+            el.textContent?.startsWith('全部'),
+        );
+        expect(all?.textContent).toMatch(/^全部\d+$/);
         expect(screen.getByText('字段组：')).toBeInTheDocument();
         // SearchInput 固定带搜索图标（非裸 Input 的写法）
         const searchWrap = document.querySelector('.ant-input-affix-wrapper .anticon-search');
         expect(searchWrap).not.toBeNull();
     }, 15000);
 
-    it('标题段显示项数与导出行数，操作在右端', async () => {
+    it('标题段显示计数：已选车型数与「显示 / 总数」（§5.2 计数是文字不是标签）', async () => {
         const { default: CompareView } = await import('../CompareView');
         seed();
         render(<CompareView />);
         await screen.findByText('整备质量');
-        expect(screen.getByText(/共 \d+ 项/)).toBeInTheDocument();
-        expect(screen.getByText(/显示: \d+ 条/)).toBeInTheDocument();
+        const titles = [...document.querySelectorAll('[data-slot="list-title"]')].map(el => el.textContent);
+        expect(titles).toEqual(['对比车型', '对比结果']);
+        const counts = [...document.querySelectorAll('[data-slot="list-count"]')].map(el => el.textContent);
+        expect(counts).toHaveLength(2);
+        for (const c of counts) expect(c).toMatch(/^\d+( \/ \d+)?$/);
+        // 旧写法（蓝 Tag「已选 N 款」、灰 Tag「显示: N 条」）不再出现
+        expect(screen.queryByText(/显示: \d+ 条/)).toBeNull();
     }, 15000);
 });

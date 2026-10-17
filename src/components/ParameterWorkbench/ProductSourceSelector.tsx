@@ -92,7 +92,6 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                     <Space size={4}>
                         <Tooltip title="选中当前工作集所有车型">
                             <Button 
-                                size="small" 
                                 icon={<SelectOutlined />} 
                                 onClick={handleSelectAll}
                                 disabled={productOptions.length === 0}
@@ -100,7 +99,6 @@ const ProductSourceSelector: React.FC<ProductSourceSelectorProps> = ({
                         </Tooltip>
                         <Tooltip title="清空选择">
                             <Button 
-                                size="small" 
                                 icon={<ClearOutlined />} 
                                 onClick={handleClear}
                                 disabled={!value || (Array.isArray(value) && value.length === 0)}
