@@ -143,10 +143,11 @@ fi
 
 echo -e "\n${BLUE}---> 📂 整理构建产物...${NC}"
 
-TARGET_DIR="src-tauri/target/release/bundle/macos"
-# .app 名取 productName，不是包目录名
+BUNDLE_DIR="src-tauri/target/release/bundle"
+# .app 在 bundle/macos/，DMG 在 bundle/dmg/（不同子目录，勿用同一个 TARGET_DIR）
+APP_DIR="$BUNDLE_DIR/macos"
 PRODUCT_NAME=$(node -p "require('./src-tauri/tauri.conf.json').productName")
-APP_PATH="$TARGET_DIR/${PRODUCT_NAME}.app"
+APP_PATH="$APP_DIR/${PRODUCT_NAME}.app"
 DEST_DIR="$HOME/Desktop/VehicleParameter_v$NEW_VERSION"
 
 mkdir -p "$DEST_DIR"
@@ -158,7 +159,7 @@ else
     echo -e "${RED}⚠️  未找到 .app（预期路径: $APP_PATH）${NC}"
 fi
 
-DMG_FILE=$(find "$TARGET_DIR" -name "*.dmg" 2>/dev/null | head -n 1)
+DMG_FILE=$(find "$BUNDLE_DIR" -name "*.dmg" 2>/dev/null | head -n 1)
 if [ -n "$DMG_FILE" ]; then
     cp "$DMG_FILE" "$DEST_DIR/"
     echo -e "${GREEN}✓ DMG 已复制到: $DEST_DIR${NC}"
