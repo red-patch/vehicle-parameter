@@ -3,6 +3,7 @@ import { Modal, Table, Tag, Empty, Tooltip } from 'antd';
 import { CheckCircleOutlined } from '@ant-design/icons';
 import type { SheetData } from '../../types';
 import { compareSheets } from '../../utils/comparator';
+import { compactPagination, MODAL_TABLE_SCROLL_Y } from '../common/tablePresets';
 
 interface ImportDiffModalProps {
     open: boolean;
@@ -110,7 +111,7 @@ const ImportDiffModal: React.FC<ImportDiffModalProps> = ({ open, baseFileName, t
                         size="small"
                         rowKey="key"
                         dataSource={rows}
-                        pagination={rows.length > 50 ? { pageSize: 50, size: 'small' } : false}
+                        pagination={compactPagination()}
                         columns={[
                             {
                                 title: '差异',
@@ -126,7 +127,7 @@ const ImportDiffModal: React.FC<ImportDiffModalProps> = ({ open, baseFileName, t
                             { title: '现有值', dataIndex: 'oldValue', ellipsis: true, render: v => v || <span className="text-3">—</span> },
                             { title: '导入值', dataIndex: 'newValue', ellipsis: true, render: v => v || <span className="text-3">—</span> },
                         ]}
-                        scroll={{ y: 360 }}
+                        scroll={{ y: MODAL_TABLE_SCROLL_Y }}
                         locale={{ emptyText: '无数据差异' }}
                     />
                 </>

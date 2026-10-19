@@ -68,12 +68,11 @@ describe('MatchResultTable 工具条外壳', () => {
         expect(container.querySelector('h3')).toBeNull();
     });
 
-    it('标题与计数落在 ListToolbar 的 title 段', () => {
-        render(<MatchResultTable />);
-        // 标题与计数同处一个容器
-        const title = screen.getByText('匹配结果预览');
-        expect(title).toBeInTheDocument();
-        expect(title.parentElement?.textContent).toContain('3/3');
+    it('标题与计数落在 ListToolbar 的 title 段（计数是文字不是标签，§5.2）', () => {
+        const { container } = render(<MatchResultTable />);
+        expect(container.querySelector('[data-slot="list-title"]')?.textContent).toBe('匹配结果');
+        // 未筛选时只给总数
+        expect(container.querySelector('[data-slot="list-count"]')?.textContent).toBe('3');
     });
 
     it('导出按钮收进下拉，标题行只剩 1 个 primary（§5.1）', () => {
@@ -88,9 +87,10 @@ describe('MatchResultTable 工具条外壳', () => {
         expect(screen.getByText('导出')).toBeInTheDocument();
     });
 
-    it('筛选段的三个控件都在（标签冒号由 FilterItem 补）', () => {
+    it('筛选段的三个控件都在（维度带标签、搜索靠右不带标签，§5.3）', () => {
         render(<MatchResultTable />);
-        expect(screen.getByText('搜索：')).toBeInTheDocument();
+        expect(screen.queryByText('搜索：')).toBeNull();
+        expect(screen.getByPlaceholderText(/^搜索参数名、匹配名或值/)).toBeInTheDocument();
         expect(screen.getByText('匹配度：')).toBeInTheDocument();
         expect(screen.getByText('状态：')).toBeInTheDocument();
     });

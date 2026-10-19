@@ -12,6 +12,7 @@ import {
     type FieldEditVerdict,
     type FieldTarget,
 } from '../../utils/assetFieldEdit';
+import { compactPagination } from '../common/tablePresets';
 
 /**
  * 批量字段维护抽屉（设计：docs/plans/2026-10-13-batch-field-maintenance-design.md）。
@@ -241,7 +242,7 @@ const AssetBatchFieldEditor: React.FC<AssetBatchFieldEditorProps> = ({
                 size="small"
                 rowKey="fileName"
                 dataSource={plan}
-                pagination={plan.length > 50 ? { pageSize: 50, size: 'small' } : false}
+                pagination={compactPagination()}
                 rowSelection={{
                     selectedRowKeys: Array.from(checked),
                     onChange: keys => {
@@ -260,9 +261,9 @@ const AssetBatchFieldEditor: React.FC<AssetBatchFieldEditorProps> = ({
                             <div className="min-w-0">
                                 <div className="text-[12px] text-1 truncate flex items-center gap-1" title={row.productName}>
                                     <span className="truncate">{row.productName}</span>
-                                    {row.isLatest && <Tag className="m-0 text-[10px] px-1 leading-[16px] text-brand border-brand">最新</Tag>}
+                                    {row.isLatest && <Tag className="m-0 leading-[16px] text-brand border-brand">最新</Tag>}
                                 </div>
-                                <div className="text-[10px] text-3 truncate" title={row.fileName}>{row.fileName}</div>
+                                <div className="text-caption text-3 truncate" title={row.fileName}>{row.fileName}</div>
                             </div>
                         ),
                     },

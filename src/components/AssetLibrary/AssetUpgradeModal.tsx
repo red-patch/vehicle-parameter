@@ -14,6 +14,7 @@ import ReportExportDropdown from '../common/ReportExportDropdown';
 import type { ReportFormat } from '../../utils/reportExport';
 import SaveAssetModal from './SaveAssetModal';
 import ExcelPreviewDialog from '../ParameterWorkbench/ExcelPreviewDialog';
+import { compactPagination } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -605,7 +606,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                             rowKey="key"
                                             columns={reviewColumns}
                                             dataSource={filteredItems}
-                                            pagination={{ pageSize: 8, showSizeChanger: false }}
+                                            pagination={compactPagination()}
                                             scroll={{ x: 1000 }}
                                             locale={{ emptyText: '当前筛选下没有差异项' }}
                                         />
@@ -645,7 +646,7 @@ const AssetUpgradeModal: React.FC<AssetUpgradeModalProps> = ({
                                                                 rowKey="key"
                                                                 columns={previewColumns}
                                                                 dataSource={preview.items}
-                                                                pagination={{ pageSize: 6, showSizeChanger: false }}
+                                                                pagination={compactPagination()}
                                                                 scroll={{ x: 1000 }}
                                                                 locale={{ emptyText: '当前没有需要审查的变更项' }}
                                                             />

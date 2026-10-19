@@ -270,6 +270,9 @@
 .surface-success  { background-color: var(--success); }
 
 .bg-brand-weak   { background-color: var(--brand-weak); }
+/* 实色品牌填充（白字）：暗色下 --brand 是浅色文字色，直接当底色会让白字看不清，填充一律走 --brand-fill */
+.bg-brand-fill    { background-color: var(--brand-fill); }
+.border-brand-fill { border-color: var(--brand-fill); }
 .bg-success-weak { background-color: var(--success-weak); }
 .bg-warning-weak { background-color: var(--warning-weak); }
 .bg-danger-weak  { background-color: var(--danger-weak); }
@@ -438,6 +441,15 @@ body {
   width: 0;
   height: 0;
 }
+/* 窄窗口收紧导航项间距：1100–1360px 宽度下 8 个模块全部可见，不被折进「⋯」。
+   下划线（::after）的内缩与左右内边距同步，否则选中线比文字宽。 */
+@media (max-width: 1360px) {
+  .app-header .ant-menu-horizontal > .ant-menu-item,
+  .app-header .ant-menu-horizontal > .ant-menu-submenu { padding-inline: 10px; }
+  .app-header .ant-menu-horizontal > .ant-menu-item::after,
+  .app-header .ant-menu-horizontal > .ant-menu-submenu::after { inset-inline: 10px; }
+  .app-header .ant-menu-horizontal > .ant-menu-item .ant-menu-title-content { margin-inline-start: 6px; }
+}
 
 /* ====================================================================
    表格微调（语义色）
@@ -451,6 +463,56 @@ body {
   font-size: var(--fs-aux);
   font-weight: 600;
   color: var(--text-2);
+}
+
+/* ---- 列表区密度契约（设计：docs/plans/2026-10-17-列表区统一设计语言-design.md §3）----
+   一档密度：表头 36 / 数据行 40（含 1px 分隔线）。内边距由 themeConfig 的 TABLE_DENSITY
+   给出（三种 size 同值），这里只补「纯文本行」的最小高度——表格单元格的 height 即最小高度，
+   含 24px 行内控件的行与纯文本行因此同高，不再 36/41 交错。
+   不作用于 virtual 表（div 行）与展开行内的自定义内容。 */
+:root {
+  --table-head-h: 36px;
+  --table-row-h: 40px;
+}
+.ant-table-wrapper .ant-table-thead > tr > th {
+  height: var(--table-head-h);
+}
+.ant-table-wrapper .ant-table-tbody > tr.ant-table-row > td {
+  height: var(--table-row-h);
+}
+/* 表内 Tag 收到 20px 并居中：默认 ~24px 的 inline-block 落在文字基线上，
+   把行盒撑高 1px（实测 40.6px），含 Tag 的行与不含的行差半像素到 1 像素 */
+.ant-table-wrapper .ant-table-tbody .ant-tag {
+  line-height: 18px;
+  vertical-align: middle;
+}
+/* 数值列不抖动：整表等宽数字（中文不受影响），数值列再配 align: 'right' */
+.ant-table-wrapper .ant-table {
+  font-variant-numeric: tabular-nums;
+}
+/* 表内次要信息（批次、路径、副标题）：aux 档 + 三级文字，与主值同一行 */
+.cell-sub {
+  font-size: var(--fs-aux);
+  color: var(--text-3);
+}
+/* 列表外壳内的表格贴边：外壳已有圆角与描边，表格再圆角会在表头两角露缝 */
+.list-shell .ant-table-wrapper .ant-table,
+.list-shell .ant-table-wrapper .ant-table-container,
+.list-shell .ant-table-wrapper .ant-table-thead > tr:first-child > *:first-child,
+.list-shell .ant-table-wrapper .ant-table-thead > tr:first-child > *:last-child {
+  border-radius: 0 !important;
+}
+/* 行内操作（RowActions）：常态中性，破坏性动作只在悬停时转红——
+   「色彩是信号不是填充」：26 行里 26 个红色垃圾桶是噪音，不是信号 */
+.row-action.ant-btn {
+  color: var(--text-3);
+}
+.row-action.ant-btn:not(:disabled):hover {
+  color: var(--text-1);
+}
+.row-action-danger.ant-btn:not(:disabled):hover {
+  color: var(--danger);
+  background-color: var(--danger-weak);
 }
 /* 表格行 hover：瞬时不渐变——行 hover 是全应用最高频交互，
    渐变写在 :hover 内还会造成「渐入瞬出」不对称 */

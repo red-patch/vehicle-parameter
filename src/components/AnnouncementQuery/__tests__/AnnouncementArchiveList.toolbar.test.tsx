@@ -36,9 +36,12 @@ describe('公告归档 工具条', () => {
         expect(screen.getByText('公告归档')).toBeInTheDocument();
     });
 
-    it('导航不出现 0 行骨架（无资产库时给 Empty 而非空白）', () => {
+    it('导航不出现 0 行骨架（无资产库时给引导空状态 + 直达设置的按钮）', () => {
         render(<AnnouncementArchiveList />);
-        expect(screen.getByText('请先在数据源面板设置资产库目录')).toBeInTheDocument();
+        expect(screen.getByText('还没有设置资产库目录')).toBeInTheDocument();
+        // 不再指向已下线的「数据源面板」
+        expect(screen.queryByText(/数据源面板/)).toBeNull();
+        expect(screen.getByRole('button', { name: '设置资产库目录' })).toBeInTheDocument();
     });
 
     it('导入类动作收进下拉，标题行不抢 primary（§5.1 / Q19）', () => {

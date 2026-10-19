@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Input, Button, Card, Typography, Space, Alert, message, notification, Steps, Drawer } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined, FilePdfOutlined, GlobalOutlined, FileTextOutlined, ToolOutlined, DownOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useAnnouncementStore } from '../../store/announcementStore';
@@ -337,7 +338,7 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
     const handleSaveToCenter = async () => {
         if (!miitData) return;
         if (!assetLibraryPath) {
-            message.warning('请先在数据源面板设置资产库目录');
+            warnLibraryPathMissing();
             return;
         }
         const announceNo = (announcementNo.trim() || miitData.fileName).trim();
@@ -500,7 +501,7 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
 
             {/* 顶部紧凑操作区：查询 + 粘贴导入（主体是下方公告归档） */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card title="查询公告号" size="small" className="shadow-sm">
+                <Card title="查询公告号" size="small">
                     <Space.Compact style={{ width: '100%' }}>
                         <Input
                             placeholder="请输入车辆公告号"
@@ -518,7 +519,7 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
                         </Button>
                     </Space.Compact>
                     <div className="flex flex-wrap items-center gap-2 mt-3">
-                        <Text type="secondary" className="text-xs">示例：</Text>
+                        <Text type="secondary" className="text-aux">示例：</Text>
                         {exampleNumbers.map((item) => (
                             <Button
                                 key={item.label}
@@ -536,7 +537,6 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
                 <Card
                     title="粘贴导入"
                     size="small"
-                    className="shadow-sm"
                     extra={
                         <Space size={4}>
                             {miitData && (

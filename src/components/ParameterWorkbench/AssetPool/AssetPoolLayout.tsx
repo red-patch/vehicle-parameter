@@ -8,6 +8,8 @@ import AssetCart from './AssetCart';
 import AssetCard from './AssetCard';
 import AssetAliasBatchModal from './AssetAliasBatchModal';
 import AssetHotkeyCheatsheet from './AssetHotkeyCheatsheet';
+import AssetPoolEmptyState from './AssetPoolEmptyState';
+import { resolveAssetPoolEmptyKind } from './assetPoolEmptyKind';
 import { useAssetPoolHotkeys } from './useAssetPoolHotkeys';
 import { useSaveViewMenuEvent } from './useSaveViewMenuEvent';
 import AssetInspector from '../AssetInspector';
@@ -1420,9 +1422,19 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             )}
                         />
                     ) : (
-                        <div className="text-center text-3 py-12 text-body">
-                            {searchKeyword || governanceView ? '没有匹配的资产' : '资产库空空如也'}
-                        </div>
+                        <AssetPoolEmptyState
+                            kind={resolveAssetPoolEmptyKind({
+                                libraryPath: assetLibraryPath,
+                                loading: snapshot.loading,
+                                hasActiveFilters: snapshot.infos.length > 0 && (
+                                    !!searchKeyword.trim() || !!governanceView || selectedTags.length > 0
+                                    || statusSelection.length > 0 || isFacetSelectionActive(facetSelection)
+                                ),
+                            })}
+                            onClearFilters={handleClearFilters}
+                            navOpen={!sidebarCollapsed}
+                            onOpenNav={toggleSidebar}
+                        />
                     )}
                 </div>
             </div>
@@ -1432,7 +1444,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                 <div className="fixed bottom-6 right-6 z-50">
                     {!cartExpanded ? (
                         <button
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-brand text-white shadow-popover hover:opacity-90 transition-opacity"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-brand-fill text-white shadow-popover hover:opacity-90 transition-opacity"
                             onClick={() => setCartExpanded(true)}
                         >
                             <span className="w-2 h-2 rounded-full bg-white opacity-80" />

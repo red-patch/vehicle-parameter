@@ -30,7 +30,7 @@ interface Palette {
 
 const LIGHT: Palette = {
   primary: '#2F44D8',   // 曜蓝 600（on #FFF = 7.1:1 AAA）
-  info: '#2F44D8',
+  info: '#0E7C8C',      // 与 index.css --info 同源（此前误用主色，信息态与品牌色撞色）
   success: '#0C9A68',   // 松绿 500（图形层）
   warning: '#E8930C',   // 琥珀 500
   error: '#E5484D',     // 茜红 500
@@ -78,8 +78,34 @@ const DARK: Palette = {
   buttonFillHover: '#5569EB', // 白字 4.6:1
 };
 
+/**
+ * 字号阶梯与 index.css 的 `--fs-*` 三档同源（:root / [data-font-scale]）。
+ * antd 的 fontSizeSM 由算法推导（基准 13 时算出 10px），跌出阶梯最低档——
+ * Tag、表格内标签因此出现 10px 小字。这里按档位显式给出 aux / title 两级。
+ */
+export const FONT_LADDER: Record<number, { aux: number; title: number }> = {
+  12: { aux: 11, title: 13 },
+  13: { aux: 12, title: 14 },
+  15: { aux: 14, title: 16 },
+};
+
+/** 与 index.css `--font-sans` 同源（此前 antd 用的是不含中文字体的西文栈） */
+export const FONT_SANS =
+  '-apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif';
+
+/**
+ * 表格密度：**一档**（设计：docs/plans/2026-10-17-列表区统一设计语言-design.md §3）。
+ * 三种 size（large/middle/small）的内边距与字号取同值——size 不再改变密度，
+ * 各页 `size="middle"` / 不写 size 的表不必逐个改，也写不出第二种行距。
+ * 行高 40 = 上下 7 + 内容 24（行内控件高 controlHeightSM）+ 1px 分隔线，
+ * 纯文本行由 index.css 的 td 最小高度补齐到同高。
+ */
+export const TABLE_DENSITY = { cellPaddingBlock: 7, cellPaddingInline: 8 } as const;
+
 export const getThemeConfig = (isDark: boolean, fontSize: number = 13): ThemeConfig => {
   const p = isDark ? DARK : LIGHT;
+  const ladder = FONT_LADDER[fontSize] ?? { aux: fontSize - 1, title: fontSize + 1 };
+  const { cellPaddingBlock, cellPaddingInline } = TABLE_DENSITY;
   return {
     token: {
       colorPrimary: p.primary,
@@ -88,11 +114,13 @@ export const getThemeConfig = (isDark: boolean, fontSize: number = 13): ThemeCon
       colorWarning: p.warning,
       colorError: p.error,
       colorTextBase: p.textBase,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      fontFamily: FONT_SANS,
       borderRadius: 6,
       // 基础字号由「设置 → 外观 → 界面字号」驱动（12/13/15）。
       // 注：`src/` 中内联的 fontSize: N 不读此 token，不随字号缩放——见设计文档 §4.1。
       fontSize,
+      // 小号字落回阶梯 aux 档（算法值 10px 在阶梯之外）
+      fontSizeSM: ladder.aux,
       colorBgLayout: p.bgLayout,
       colorBgContainer: p.bgContainer,
       colorBgElevated: p.bgElevated,
@@ -119,12 +147,20 @@ export const getThemeConfig = (isDark: boolean, fontSize: number = 13): ThemeCon
       Card: {
         borderRadiusLG: 8,
         paddingLG: 16,
+        // 面板标题 = title 档（14/600），与 ListToolbar 标题同档；此前 Card 标题 15px
+        headerFontSize: ladder.title,
+        headerFontSizeSM: ladder.title,
       },
       Table: {
         headerBg: p.tableHeaderBg,
         headerSplitColor: 'transparent',
-        headerColor: p.text,
+        headerColor: p.text2,
         borderRadiusLG: 8,
+        // 一档密度：三种 size 同值（见 TABLE_DENSITY）
+        cellPaddingBlock, cellPaddingInline,
+        cellPaddingBlockMD: cellPaddingBlock, cellPaddingInlineMD: cellPaddingInline,
+        cellPaddingBlockSM: cellPaddingBlock, cellPaddingInlineSM: cellPaddingInline,
+        cellFontSize: fontSize, cellFontSizeMD: fontSize, cellFontSizeSM: fontSize,
       },
       Layout: {
         headerBg: p.layoutHeaderBg,

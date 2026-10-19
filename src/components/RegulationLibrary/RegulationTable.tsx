@@ -17,6 +17,8 @@ import {
     STATUS_ORDER,
     type RegulationRecord,
 } from '../../utils/regulationTypes';
+import StatusDot, { type StatusTone } from '../common/StatusDot';
+import { NUMERIC_COLUMN, pagePagination } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -26,13 +28,17 @@ interface Props {
     onOpen: (record: RegulationRecord) => void;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-    现行: 'green',
-    即将实施: 'blue',
-    草案: 'gold',
-    已被替代: 'orange',
-    废止: 'red',
-    未知: 'default',
+/**
+ * 状态 → 圆点语义档（列表区设计语言 §9：状态 = 圆点 + 文字，不用彩色 Tag 涂满整列）。
+ * 此前用 antd 预设色名（green/blue/gold/orange/red），绕过曜蓝 token、暗色不翻转。
+ */
+const STATUS_TONE: Record<string, StatusTone> = {
+    现行: 'success',
+    即将实施: 'info',
+    草案: 'neutral',
+    已被替代: 'warning',
+    废止: 'danger',
+    未知: 'neutral',
 };
 
 /** 健康告警图标（详情抽屉给整句，列表只给图标 + tooltip） */
@@ -40,10 +46,11 @@ const IssueIcon: React.FC<{ record: RegulationRecord }> = ({ record }) => {
     const issue = recordIssue(record);
     if (!issue) return null;
     const map = {
-        'file-missing': { icon: <ExclamationCircleOutlined />, color: '#cf1322' },
-        'no-file': { icon: <FileSearchOutlined />, color: '#8c8c8c' },
-        'not-downloaded': { icon: <CloudDownloadOutlined />, color: '#d46b08' },
-        'no-text-layer': { icon: <FileExcelOutlined />, color: '#8c8c8c' },
+        // 颜色走 token（此前写死 #cf1322 / #8c8c8c / #d46b08，暗色下不翻转）
+        'file-missing': { icon: <ExclamationCircleOutlined />, color: 'var(--danger)' },
+        'no-file': { icon: <FileSearchOutlined />, color: 'var(--text-3)' },
+        'not-downloaded': { icon: <CloudDownloadOutlined />, color: 'var(--warning)' },
+        'no-text-layer': { icon: <FileExcelOutlined />, color: 'var(--text-3)' },
     } as const;
     const { icon, color } = map[issue];
     return (
@@ -69,12 +76,13 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
             render: (_, rec) => {
                 const chainLen = chains.get(rec.standardNo)?.length ?? 1;
                 return (
-                    <Space size={4}>
+                    // 年份 / 版本数是标准号的附属信息：次级文字（cell-sub），不是标签
+                    <Space size={6}>
                         <Text strong>{rec.standardNo || <Text type="secondary">（无标准号）</Text>}</Text>
-                        {rec.year && <Tag color="default">{rec.year}</Tag>}
+                        {rec.year && <span className="cell-sub tabular-nums">{rec.year}</span>}
                         {chainLen > 1 && (
                             <Tooltip title={`同一标准号下有 ${chainLen} 个版本，详情里可看版本链`}>
-                                <Tag color="purple">共 {chainLen} 版</Tag>
+                                <span className="cell-sub">共 {chainLen} 版</span>
                             </Tooltip>
                         )}
                         <IssueIcon record={rec} />
@@ -90,9 +98,11 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
         {
             title: '层级',
             dataIndex: 'level',
-            width: 80,
+            width: 120,
             responsive: ['lg'],
-            render: (l: string) => (l ? <Tag>{l}</Tag> : '—'),
+            // 一格一行（§3）：「推荐性国家标准」在 80 宽下折成两行，把整行撑到 57px
+            render: (l: string) =>
+                l ? <span className="text-2 whitespace-nowrap">{l}</span> : <span className="text-3">—</span>,
         },
         {
             title: '主题域',
@@ -102,11 +112,12 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
             render: (domains: string[]) =>
                 domains?.length
                     ? domains.map(d => (
-                          <Tag key={d} color="geekblue" style={{ marginBottom: 2 }}>
+                          // 多值分类属性用中性 Tag（颜色不承载含义时不上色）
+                          <Tag key={d} style={{ marginBottom: 2 }}>
                               {d}
                           </Tag>
                       ))
-                    : '—',
+                    : <span className="text-3">—</span>,
         },
         {
             title: '状态',
@@ -114,7 +125,7 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
             width: 100,
             render: (_, rec) => {
                 const s = deriveStatus(rec);
-                return <Tag color={STATUS_COLOR[s] ?? 'default'}>{s}</Tag>;
+                return <StatusDot tone={STATUS_TONE[s] ?? 'neutral'}>{s}</StatusDot>;
             },
         },
         {
@@ -129,6 +140,7 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
             key: 'file',
             width: 100,
             responsive: ['lg'],
+            ...NUMERIC_COLUMN,
             render: (_, rec) => {
                 if (!rec.fileName) return <Text type="secondary">无文件</Text>;
                 return (
@@ -150,7 +162,7 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
             loading={loading}
             columns={columns}
             dataSource={records}
-            pagination={records.length > 50 ? { pageSize: 50, showSizeChanger: false } : false}
+            pagination={pagePagination()}
             onRow={rec => ({
                 onClick: () => onOpen(rec),
                 style: { cursor: 'pointer' },
@@ -173,4 +185,4 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
 };
 
 export default RegulationTable;
-export { STATUS_COLOR, STATUS_ORDER };
+export { STATUS_TONE, STATUS_ORDER };

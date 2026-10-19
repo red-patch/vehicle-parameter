@@ -23,7 +23,7 @@ const ReportExportDropdown: React.FC<ReportExportDropdownProps> = ({ onExport, d
         trigger={['click']}
     >
         <Button icon={<ExportOutlined />} disabled={disabled}>
-            {label} <DownOutlined style={{ fontSize: 10 }} />
+            {label} <DownOutlined className="text-aux" />
         </Button>
     </Dropdown>
 );

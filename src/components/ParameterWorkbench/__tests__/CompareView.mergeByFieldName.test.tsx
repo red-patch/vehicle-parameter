@@ -80,6 +80,9 @@ describe('CompareView 按字段名合并', () => {
     await waitFor(() => expect(screen.getAllByText('迎风面积 (m²)').length).toBe(1));
     expect(screen.getByText('多组')).toBeInTheDocument();
     // 值一致 → 差异计数归零
-    expect(screen.getByText('差异 (0)')).toBeInTheDocument();
+    const diff = [...document.querySelectorAll('.ant-segmented-item-label')].find(el =>
+      el.textContent?.startsWith('差异'),
+    );
+    expect(diff?.textContent).toBe('差异0');
   }, 15000);
 });

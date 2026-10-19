@@ -1,9 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Table, Input, Tag, Skeleton, Empty, Typography, Tabs, Button, message, Modal, AutoComplete, Select, Switch, Dropdown } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import type { ColumnsType } from 'antd/es/table';
-import { SearchOutlined, SettingOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import ListToolbar, { FilterItem } from '../common/ListToolbar';
+import { SearchOutlined, SaveOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
+import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
+import StatusDot from '../common/StatusDot';
+import RowActions from '../common/RowActions';
+import { NUMERIC_COLUMN, PAGE_SIZE, pagePagination } from '../common/tablePresets';
 import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded, getEnumActiveFilter, setEnumActiveFilter, getAllCategoryPaths, getAllCategories, isEnumActive } from '../../utils/attributeEnums';
 import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
 import {
@@ -62,7 +66,7 @@ const ConfigManagerView: React.FC = () => {
     const [isCreatingNewEnum, setIsCreatingNewEnum] = useState(false);
     const [enumImportVisible, setEnumImportVisible] = useState(false);
     const [enumMeta, setEnumMeta] = useState<EnumMeta>({});
-    const [enumPageSize, setEnumPageSize] = useState(20);
+    const [enumPageSize, setEnumPageSize] = useState(PAGE_SIZE);
     const [filterModalVisible, setFilterModalVisible] = useState(false);
     const [editingFilter, setEditingFilter] = useState<{ categoryPaths: string[]; categories: string[] }>({ categoryPaths: [], categories: [] });
 
@@ -205,7 +209,7 @@ const ConfigManagerView: React.FC = () => {
 
     const handleSaveEnum = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         if (!editingKey.trim()) {
@@ -238,7 +242,7 @@ const ConfigManagerView: React.FC = () => {
 
     const handleSaveFields = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         try {
@@ -259,7 +263,7 @@ const ConfigManagerView: React.FC = () => {
 
     const handleSaveTagGroups = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         try {
@@ -282,7 +286,7 @@ const ConfigManagerView: React.FC = () => {
     };
 
     const openConfigFile = async (fileName: string) => {
-        if (!assetLibraryPath) { message.warning('请先设置资产库目录'); return; }
+        if (!assetLibraryPath) { warnLibraryPathMissing(); return; }
         try {
             const { openPath } = await import('@tauri-apps/plugin-opener');
             const fullPath = await join(assetLibraryPath, fileName);
@@ -311,7 +315,7 @@ const ConfigManagerView: React.FC = () => {
             key: 'fieldKey',
             width: 130,
             ellipsis: true,
-            render: (v: string) => v || <span className="text-4">-</span>,
+            render: (v: string) => v || <span className="text-3">—</span>,
         },
         {
             title: '已激活',
@@ -323,7 +327,8 @@ const ConfigManagerView: React.FC = () => {
                 { text: '未激活', value: false },
             ],
             onFilter: (value, record: EnumItem) => record.isActive === value,
-            render: (v: boolean) => v ? <Tag color="success" className="text-xs">已激活</Tag> : <span className="text-4">-</span>,
+            // 状态 = 圆点 + 文字（列表区设计语言 §9），不再整列绿底 Tag
+            render: (v: boolean) => v ? <StatusDot tone="success">已激活</StatusDot> : <StatusDot tone="neutral">未激活</StatusDot>,
         },
         {
             title: '属性类别',
@@ -334,7 +339,7 @@ const ConfigManagerView: React.FC = () => {
                 ? [...new Set(enumData.map(d => d.category).filter(Boolean))].map(v => ({ text: v, value: v }))
                 : undefined,
             onFilter: (value, record: EnumItem) => record.category === String(value),
-            render: (v: string) => v ? <Tag className="text-xs">{v}</Tag> : <span className="text-4">-</span>,
+            render: (v: string) => v ? <span className="text-2">{v}</span> : <span className="text-3">—</span>,
         },
         {
             title: '必填',
@@ -346,7 +351,7 @@ const ConfigManagerView: React.FC = () => {
                 { text: '否', value: '否' },
             ],
             onFilter: (value, record: EnumItem) => record.required === String(value),
-            render: (v: string) => v === '是' ? <Tag color="error" className="text-xs">是</Tag> : v === '否' ? <Tag className="text-xs">否</Tag> : <span className="text-4">-</span>,
+            render: (v: string) => v === '是' ? <StatusDot tone="warning">是</StatusDot> : v === '否' ? <span className="text-3">否</span> : <span className="text-3">—</span>,
         },
         {
             title: '所属类目',
@@ -358,15 +363,17 @@ const ConfigManagerView: React.FC = () => {
                 ? [...new Set(enumData.map(d => d.categoryPath).filter(Boolean))].map(v => ({ text: v, value: v }))
                 : undefined,
             onFilter: (value, record: EnumItem) => record.categoryPath === String(value),
-            render: (v: string) => v || <span className="text-4">-</span>,
+            render: (v: string) => v || <span className="text-3">—</span>,
         },
         {
             title: '枚举数',
             dataIndex: 'count',
             key: 'count',
             width: 70,
+            ...NUMERIC_COLUMN,
             sorter: (a: EnumItem, b: EnumItem) => a.count - b.count,
-            render: (count: number) => <Tag color={count > 0 ? 'success' : 'default'}>{count}</Tag>
+            // 数量是数值不是状态：右对齐的数字，0 降为三级文字
+            render: (count: number) => <span className={count > 0 ? 'text-1' : 'text-3'}>{count}</span>
         },
         {
             title: '枚举值预览',
@@ -379,30 +386,32 @@ const ConfigManagerView: React.FC = () => {
                 return (
                     <div className="flex flex-wrap gap-1">
                         {preview.map((v, i) => (
-                            <Tag key={i} className="text-xs max-w-[120px] overflow-hidden text-ellipsis">{v}</Tag>
+                            <Tag key={i} className="max-w-[120px] overflow-hidden text-ellipsis">{v}</Tag>
                         ))}
                         {hasMore && (
-                            <Tag color="default" className="text-xs">+{values.length - 5}</Tag>
+                            <span className="cell-sub tabular-nums self-center">+{values.length - 5}</span>
                         )}
                     </div>
                 );
             }
         },
         {
-            title: '',
+            title: '操作',
             key: 'action',
-            width: 60,
+            width: 64,
             render: (_: unknown, record: EnumItem) => (
-                <Button
-                    type="link"
-                    size="small"
-                    icon={<EditOutlined />}
-                    onClick={() => {
-                        setIsCreatingNewEnum(false);
-                        setEditingKey(record.name);
-                        setEditingValues([...record.values]);
-                        setEditModalVisible(true);
-                    }}
+                <RowActions
+                    actions={[{
+                        key: 'edit',
+                        label: '编辑枚举值',
+                        icon: <EditOutlined />,
+                        onClick: () => {
+                            setIsCreatingNewEnum(false);
+                            setEditingKey(record.name);
+                            setEditingValues([...record.values]);
+                            setEditModalVisible(true);
+                        },
+                    }]}
                 />
             )
         }
@@ -424,13 +433,8 @@ const ConfigManagerView: React.FC = () => {
 
     return (
         <ListToolbar
-            className="shadow-sm"
-            title={
-                <>
-                    <SettingOutlined className="text-brand" />
-                    <span className="font-semibold text-1">字段与词表</span>
-                </>
-            }
+            title="字段与词表"
+            count={{ shown: filteredData.length, total: enumData.length }}
             actions={
                 /* §5.2 Q19 判据「用户做完哪一步可以离开」：本页是配置页，
                    产出动作是「把字典/字段配置好并保存」——由各 Tab 内的保存承载；
@@ -441,19 +445,17 @@ const ConfigManagerView: React.FC = () => {
             }
             filters={
                 <>
-                    <FilterItem label="搜索">
-                        <SearchInput
-                            width="lg"
-                            placeholder="搜索字段名或枚举值"
-                            value={searchText}
-                            onChange={setSearchText}
-                        />
-                    </FilterItem>
+                    {/* 计数进标题行（count），不再是两个 Tag；搜索靠右、不带标签（§5.3） */}
+                    <span className="text-3 text-aux">
+                        已激活 <span className="tabular-nums">{enumData.filter(d => isEnumActive(d.name)).length}</span>
+                    </span>
                     <span className="ml-auto" />
-                    <Tag className="m-0">{enumData.length} 个字段</Tag>
-                    <Tag color="processing" className="m-0">
-                        {enumData.filter(d => isEnumActive(d.name)).length} 激活
-                    </Tag>
+                    <SearchInput
+                        width="lg"
+                        placeholder="搜索字段名或枚举值"
+                        value={searchText}
+                        onChange={setSearchText}
+                    />
                 </>
             }
             padded={false}
@@ -464,8 +466,20 @@ const ConfigManagerView: React.FC = () => {
                     label: '枚举字典配置',
                     children: (
                         <div>
-                            {/* Tab 内的动作行：≥3 个动作按 §5.1 收进下拉，只留 1 个 primary */}
+                            {/* Tab 内的动作行：≥3 个动作按 §5.1 收进下拉；溢出入口「更多」放在最后 */}
                             <div className="mb-4 flex items-center gap-2 flex-wrap">
+                                {/* 新增字典是过程动作（primary 只给产出/终点动作，§5.1）；同一行按钮同尺寸 */}
+                                <Button
+                                    icon={<PlusOutlined />}
+                                    onClick={() => {
+                                        setIsCreatingNewEnum(true);
+                                        setEditingKey('');
+                                        setEditingValues([]);
+                                        setEditModalVisible(true);
+                                    }}
+                                >
+                                    新增业务字典
+                                </Button>
                                 <Dropdown
                                     menu={{
                                         items: [
@@ -491,22 +505,10 @@ const ConfigManagerView: React.FC = () => {
                                     }}
                                     trigger={['click']}
                                 >
-                                    <Button size="small" icon={<MoreOutlined />}>
+                                    <Button icon={<MoreOutlined />}>
                                         更多
                                     </Button>
                                 </Dropdown>
-                                <Button
-                                    type="primary"
-                                    icon={<PlusOutlined />}
-                                    onClick={() => {
-                                        setIsCreatingNewEnum(true);
-                                        setEditingKey('');
-                                        setEditingValues([]);
-                                        setEditModalVisible(true);
-                                    }}
-                                >
-                                    新增业务字典
-                                </Button>
                             </div>
 
                             {filteredData.length === 0 ? (
@@ -516,20 +518,17 @@ const ConfigManagerView: React.FC = () => {
                                     columns={columns}
                                     dataSource={filteredData}
                                     rowKey="key"
-                                    pagination={{
+                                    pagination={pagePagination({
                                         pageSize: enumPageSize,
-                                        showSizeChanger: true,
-                                        pageSizeOptions: ['10', '20', '50', '100', '200'],
                                         onShowSizeChange: (_current: number, size: number) => setEnumPageSize(size),
-                                        showTotal: (total: number) => `共 ${total} 个字段`
-                                    }}
+                                    })}
                                     expandable={{
                                         expandedRowRender,
                                         expandedRowKeys,
                                         onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
                                         rowExpandable: () => true,
                                     }}
-                                    size="middle"
+                                    size="small"
                                 />
                             )}
                         </div>
@@ -541,10 +540,10 @@ const ConfigManagerView: React.FC = () => {
                     children: (
                         <div className="p-4 flex flex-col gap-6">
                             <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-5">
-                                <div className="rounded-md border border-default surface-container p-4">
+                                <div className="rounded-lg border border-default surface-container p-4">
                                     <div className="flex items-center justify-between gap-3 mb-3">
-                                        <div className="text-[16px] font-bold text-1">字段配置组</div>
-                                        <Button size="small" icon={<PlusOutlined />} onClick={() => setFieldGroupModal({ open: true, mode: 'create', value: '' })}>
+                                        <div className="text-title font-semibold text-1">字段配置组</div>
+                                        <Button icon={<PlusOutlined />} onClick={() => setFieldGroupModal({ open: true, mode: 'create', value: '' })}>
                                             新建组
                                         </Button>
                                     </div>
@@ -553,12 +552,12 @@ const ConfigManagerView: React.FC = () => {
                                         {fieldGroups.map((group) => (
                                             <div
                                                 key={group.id}
-                                                className={`rounded-xl px-3 py-2 border flex items-center justify-between gap-3 ${selectedFieldGroupId === group.id ? 'border-brand bg-brand-weak' : 'border-default hover:border-line'}`}
+                                                className={`rounded-md px-3 py-2 border flex items-center justify-between gap-3 ${selectedFieldGroupId === group.id ? 'border-brand bg-brand-weak' : 'border-default hover:border-line'}`}
                                                 onClick={() => setSelectedFieldGroupId(group.id)}
                                             >
                                                 <div className="min-w-0">
                                                     <div className="font-semibold text-1 truncate">{group.name}</div>
-                                                    <div className="text-xs text-3">字段数 {group.fields.length}</div>
+                                                    <div className="text-aux text-3">字段数 <span className="tabular-nums">{group.fields.length}</span></div>
                                                 </div>
                                                 <div className="flex items-center gap-1">
                                                     <Button
@@ -594,16 +593,19 @@ const ConfigManagerView: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="rounded-md border border-default surface-container p-4">
+                                <div className="rounded-lg border border-default surface-container p-4">
                                     {selectedFieldGroup ? (
                                         <>
                                             <div className="flex items-center justify-between gap-3 mb-3">
-                                                <div>
-                                                    <div className="text-[18px] font-bold text-1">{selectedFieldGroup.name}</div>
-                                                    <Text type="secondary">管理当前字段配置组中的字段集合</Text>
+                                                {/* 面板标题 = title 档 + 计数三级文字（与 ListToolbar 同形）；此前 18px 粗体 + 灰 Tag */}
+                                                <div className="min-w-0">
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className="text-title font-semibold text-1 truncate">{selectedFieldGroup.name}</span>
+                                                        <span className="text-aux text-3 tabular-nums">{selectedFieldGroup.fields.length}</span>
+                                                    </div>
+                                                    <div className="text-aux text-3">管理当前字段配置组中的字段集合</div>
                                                 </div>
-                                                <Tag color="default" className="m-0">字段数 {selectedFieldGroup.fields.length}</Tag>
-                                                <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_fields.json')}>配置文件</Button>
+                                                <Button icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_fields.json')}>配置文件</Button>
                                             </div>
 
                                             <div className="flex flex-wrap gap-2 mb-3">
@@ -623,7 +625,7 @@ const ConfigManagerView: React.FC = () => {
                                             </div>
 
                                             {selectedFieldGroup.fields.length > 0 ? (
-                                                <div className="rounded-xl border border-default overflow-hidden">
+                                                <div className="list-shell rounded-lg border border-default overflow-hidden">
                                                     <Table
                                                         size="small"
                                                         rowKey="key"
@@ -639,11 +641,17 @@ const ConfigManagerView: React.FC = () => {
                                                             {
                                                                 title: '操作',
                                                                 key: 'action',
-                                                                width: 100,
+                                                                width: 64,
                                                                 render: (_: unknown, row: FieldRow) => (
-                                                                    <Button type="link" danger onClick={() => removeFieldFromSelectedGroup(row.name)}>
-                                                                        删除
-                                                                    </Button>
+                                                                    <RowActions
+                                                                        actions={[{
+                                                                            key: 'remove',
+                                                                            label: '移出本组',
+                                                                            icon: <DeleteOutlined />,
+                                                                            danger: true,
+                                                                            onClick: () => removeFieldFromSelectedGroup(row.name),
+                                                                        }]}
+                                                                    />
                                                                 ),
                                                             },
                                                         ]}
@@ -660,7 +668,7 @@ const ConfigManagerView: React.FC = () => {
                             </div>
 
                             <div className="flex justify-end mt-2">
-                                <Button type="primary" size="large" aria-label="保存并应用" onClick={handleSaveFields} icon={<SettingOutlined />}>
+                                <Button type="primary" aria-label="保存并应用" onClick={handleSaveFields} icon={<SaveOutlined />}>
                                     保存并应用
                                 </Button>
                             </div>
@@ -926,7 +934,7 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
 
     const confirmPurgeTag = (tag: string) => {
         if (!assetLibraryPath) {
-            message.warning('请先设置资产库大目录');
+            warnLibraryPathMissing();
             return;
         }
         Modal.confirm({
@@ -975,36 +983,37 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
             <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-5">
                 <div className="rounded-md border border-default surface-container p-4">
                     <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="text-[16px] font-bold text-1">标签分组</div>
-                        <Button size="small" icon={<PlusOutlined />} onClick={onAddGroup}>新建分组</Button>
+                        <div className="text-title font-semibold text-1">标签分组</div>
+                        <Button icon={<PlusOutlined />} onClick={onAddGroup}>新建分组</Button>
                     </div>
                     <div className="space-y-2">
                         {groups.map(g => (
                             <div key={g.id}
-                                className={`rounded-xl px-3 py-2 border flex items-center justify-between gap-2 ${
+                                className={`rounded-md px-3 py-2 border flex items-center justify-between gap-2 ${
                                     selectedId === g.id ? 'border-brand bg-brand-weak' : 'border-default hover:border-line'
                                 }`}
                                 onClick={() => setSelectedId(g.id)}
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="font-semibold text-1 truncate">{g.name}</div>
-                                    <div className="text-xs text-3">标签数 {normalizeTagList(g.tags).length}</div>
+                                    <div className="text-aux text-3">标签数 {normalizeTagList(g.tags).length}</div>
                                 </div>
-                                <Button type="text" size="small" icon={<DeleteOutlined />} danger
+                                <Button type="text" size="small" icon={<DeleteOutlined />} aria-label="删除分组"
+                                    className="row-action row-action-danger"
                                     onClick={e => { e.stopPropagation(); handleRemoveGroup(g.id); }}
                                 />
                             </div>
                         ))}
                         {orphanTags.length > 0 && (
                             <div key={UNGROUPED_ID}
-                                className={`rounded-xl px-3 py-2 border flex items-center justify-between gap-2 ${
+                                className={`rounded-md px-3 py-2 border flex items-center justify-between gap-2 ${
                                     selectedId === UNGROUPED_ID ? 'border-brand bg-brand-weak' : 'border-dashed border-strong hover:border-line-strong'
                                 }`}
                                 onClick={() => setSelectedId(UNGROUPED_ID)}
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="font-semibold text-1 truncate">未分组</div>
-                                    <div className="text-xs text-3">{orphanTags.length} 个游离标签</div>
+                                    <div className="text-aux text-3">{orphanTags.length} 个游离标签</div>
                                 </div>
                             </div>
                         )}
@@ -1020,7 +1029,7 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
                             <>
                                 <div className="flex items-center justify-between gap-3 mb-3">
                                     <div className="flex items-center gap-2">
-                                        <div className="text-[18px] font-bold text-1">未分组</div>
+                                        <div className="text-title font-semibold text-1">未分组</div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Tag color="warning">游离标签 {orphanTags.length}</Tag>
@@ -1037,14 +1046,14 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
                                             }
                                             message.success('已归入默认分组');
                                         }} disabled={orphanTags.length === 0}>一键归入</Button>
-                                        <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
+                                        <Button icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
                                     </div>
                                 </div>
                                 {orphanTags.length > 0 ? (
                                     <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
                                         {orphanTags.map(tag => (
                                             <div key={tag} className="flex items-center gap-2 mb-1 w-full">
-                                                <Tag className="text-xs flex-1">{tag}</Tag>
+                                                <Tag className="flex-1">{tag}</Tag>
                                                 <Select
                                                     size="small"
                                                     style={{ width: 140 }}
@@ -1089,22 +1098,22 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
                                                 autoFocus
                                             />
                                         ) : (
-                                            <div className="text-[18px] font-bold text-1">{selected.name}</div>
+                                            <div className="text-title font-semibold text-1">{selected.name}</div>
                                         )}
                                         <Button type="text" size="small" icon={<EditOutlined />}
                                             onClick={() => { setRenaming(selected.id); setRenameValue(selected.name); }}
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs text-3">互斥</span>
+                                        <span className="text-aux text-3">互斥</span>
                                         <Switch size="small" checked={exclusiveGroups.includes(selected.id)}
                                             onChange={checked => {
                                                 if (checked) onExclusiveGroupsChange([...exclusiveGroups, selected.id]);
                                                 else onExclusiveGroupsChange(exclusiveGroups.filter(g => g !== selected.id));
                                             }}
                                         />
-                                        <Tag color="default">标签数 {normalizeTagList(selected.tags).length}</Tag>
-                                        <Button size="small" icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
+                                        <span className="text-aux text-3">标签数 <span className="tabular-nums">{normalizeTagList(selected.tags).length}</span></span>
+                                        <Button icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_asset_tag_groups.json')}>配置文件</Button>
                                     </div>
                                 </div>
 
@@ -1116,12 +1125,12 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
                                         placeholder="输入标签名称，回车添加"
                                         style={{ flex: 1, minWidth: 200 }}
                                     />
-                                    <Button type="primary" onClick={handleAddTag} disabled={!addInput.trim()}>添加</Button>
+                                    <Button onClick={handleAddTag} disabled={!addInput.trim()}>添加</Button>
                                 </div>
                                 {addInput && candidateTags.filter(t => t.includes(addInput)).length > 0 && (
                                     <div className="flex flex-wrap gap-1 mb-2">
                                         {candidateTags.filter(t => t.includes(addInput)).slice(0, 8).map(t => (
-                                            <Tag key={t} className="text-xs" onClick={() => { setAddInput(t); }}>{t}</Tag>
+                                            <Tag key={t} onClick={() => { setAddInput(t); }}>{t}</Tag>
                                         ))}
                                     </div>
                                 )}
@@ -1132,7 +1141,6 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
                                             <Tag
                                                 key={tag}
                                                 closable
-                                                className="text-xs"
                                                 onClose={(e) => {
                                                     e.preventDefault();
                                                     confirmPurgeTag(tag);
@@ -1148,12 +1156,12 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
 
                                 {candidateTags.length > 0 && (
                                     <div className="border-t border-default pt-3 mt-2">
-                                        <Text type="secondary" className="text-xs mb-2 block">
+                                        <Text type="secondary" className="text-aux mb-2 block">
                                             {selected?.id === UNGROUPED_ID ? '从已分组标签添加' : '从游离标签添加'}
                                         </Text>
                                         <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                                             {candidateTags.map(tag => (
-                                                <Tag key={tag} className="text-xs"
+                                                <Tag key={tag}
                                                     onClick={() => updateGroup(selected.id, g => ({ ...g, tags: normalizeTagList([...g.tags, tag]) }))}
                                                 >+ {tag}</Tag>
                                             ))}
@@ -1169,7 +1177,7 @@ const TagGroupsConfig: React.FC<TagGroupsConfigProps> = ({
             </div>
 
             <div className="flex justify-end mt-2">
-                <Button type="primary" size="large" onClick={onSave} icon={<SettingOutlined />}>保存并应用</Button>
+                <Button type="primary" onClick={onSave} icon={<SaveOutlined />}>保存并应用</Button>
             </div>
         </div>
     );
@@ -1183,7 +1191,7 @@ const EnumExpandedRow: React.FC<{ record: EnumItem }> = ({ record }) => {
     return (
         <div className="p-3 bg-surface-3 rounded">
             <div className="flex items-center gap-2 mb-2">
-                <Typography.Text type="secondary">全部枚举值 ({record.count} 个):</Typography.Text>
+                <Typography.Text type="secondary">全部枚举值（{record.count} 个）：</Typography.Text>
                 <SearchInput
                     width="sm"
                     placeholder="搜索枚举值"
@@ -1203,7 +1211,7 @@ const EnumExpandedRow: React.FC<{ record: EnumItem }> = ({ record }) => {
                         {v}
                     </Tag>
                 ))}
-                {filtered.length === 0 && <span className="text-xs text-3">无匹配</span>}
+                {filtered.length === 0 && <span className="text-aux text-3">无匹配</span>}
             </div>
         </div>
     );
@@ -1240,7 +1248,7 @@ const EnumEditPanel: React.FC<{ values: string[]; onChange: (v: string[]) => voi
     return (
         <div>
             <Text strong className="mb-1 block">允许的枚举值集合</Text>
-            <Text type="secondary" className="mb-2 block text-xs">代表这些选项是合规库内的绝对权威标准。</Text>
+            <Text type="secondary" className="mb-2 block text-aux">代表这些选项是合规库内的绝对权威标准。</Text>
 
             <div className="flex items-center gap-2 mb-3">
                 <SearchInput
@@ -1249,7 +1257,7 @@ const EnumEditPanel: React.FC<{ values: string[]; onChange: (v: string[]) => voi
                     value={search}
                     onChange={setSearch}
                 />
-                <span className="text-xs text-3">{values.length} 个</span>
+                <span className="text-aux text-3">{values.length} 个</span>
             </div>
 
             <div className="flex items-center gap-2 mb-3">

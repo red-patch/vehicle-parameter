@@ -32,28 +32,34 @@ describe('字段与词表 工具条（批次 6）', () => {
         expect(container.querySelector('.ant-card')).toBeNull();
     }, 15000);
 
-    it('页级搜索走 SearchInput（固定带搜索图标）', async () => {
+    it('页级搜索走 SearchInput（固定带搜索图标），不带「搜索：」标签（§5.3）', async () => {
         const { container } = render(<ConfigManagerView />);
-        expect(await screen.findByText('搜索：')).toBeInTheDocument();
+        expect(await screen.findByText('新增业务字典')).toBeInTheDocument();
+        expect(screen.queryByText('搜索：')).toBeNull();
         expect(container.querySelector('.ant-input-affix-wrapper .anticon-search')).not.toBeNull();
     }, 15000);
 
     it('计数在筛选段、导入在操作段（各自槽位）', async () => {
         render(<ConfigManagerView />);
-        expect(await screen.findByText(/个字段/)).toBeInTheDocument();
-        expect(screen.getByText(/激活/)).toBeInTheDocument();
+        expect(await screen.findByText('新增业务字典')).toBeInTheDocument();
+        // 计数是标题后的文字（§5.2），不再是「N 个字段」Tag
+        expect(document.querySelector('[data-slot="list-title"]')?.textContent).toBe('字段与词表');
+        expect(document.querySelector('[data-slot="list-count"]')?.textContent).toMatch(/^\d+( \/ \d+)?$/);
+        expect(screen.queryByText(/个字段/)).toBeNull();
+        expect(screen.getAllByText(/已激活/).length).toBeGreaterThan(0);
         expect(screen.getByRole('button', { name: /从 Excel 导入枚举/ })).toBeInTheDocument();
     }, 15000);
 
-    it('枚举字典 Tab 的动作收进下拉，Tab 内容区只留 1 个 primary（§5.1）', async () => {
+    it('枚举字典 Tab 的动作收进下拉；新增不是产出动作，不占 primary（§5.1）', async () => {
         const { container } = render(<ConfigManagerView />);
         expect(await screen.findByText('新增业务字典')).toBeInTheDocument();
         // 原先平铺的次级动作已收进「更多」
         expect(screen.queryByText('复制必填')).toBeNull();
         expect(screen.queryByText('激活配置')).toBeNull();
         expect(screen.getByRole('button', { name: /更多/ })).toBeInTheDocument();
-        // Tab 内容区里 primary 恰 1 个
+        // primary 只留给产出动作；本 Tab 是维护词表，没有产出 → 0 个
         const tabPane = container.querySelector('.ant-tabs-tabpane-active');
-        expect(tabPane?.querySelectorAll('.ant-btn-primary')).toHaveLength(1);
+        expect(tabPane?.querySelectorAll('.ant-btn-primary')).toHaveLength(0);
+        expect(screen.getByText('新增业务字典').closest('button')?.className).not.toContain('ant-btn-primary');
     }, 15000);
 });

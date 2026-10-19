@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Input, Form, Radio, Checkbox, Button, Space, Typography, message } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { FilePdfOutlined, FolderOpenOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -125,7 +126,7 @@ const AnnouncementImportModal: React.FC<AnnouncementImportModalProps> = ({
 
     const handleImport = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先在数据源面板设置资产库目录');
+            warnLibraryPathMissing();
             return;
         }
         if (!announceNo.trim()) {

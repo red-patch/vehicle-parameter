@@ -23,7 +23,7 @@ const Section = ({ title, defaultExpanded = false, valueSummary, icon, children 
             {icon}
             <span>{title}</span>
             {!expanded && valueSummary && (
-              <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>{valueSummary}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 400 }}>{valueSummary}</span>
             )}
           </span>
         ),

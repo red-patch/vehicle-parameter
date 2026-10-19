@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Drawer, Input, List, Button, message, Tooltip, Modal, Tag } from 'antd';
+import GuideEmpty from '../common/GuideEmpty';
+import { LIBRARY_PATH_MISSING_TEXT, openLibraryPathSettings } from '../../utils/libraryPathPrompt';
 import type { InputRef } from 'antd';
 import { CloudDownloadOutlined, SearchOutlined, FolderOpenOutlined, EditOutlined, DeleteOutlined, CheckOutlined, CloseOutlined, UndoOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { getAssetFiles, loadAssetFile, renameAssetFile, archiveAssetFile, loadAssetMeta, saveAssetMeta, type AssetMetaMap } from '../../utils/assetManager';
@@ -215,9 +217,10 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
             bodyStyle={{ padding: '16px 12px' }}
         >
             {!assetLibraryPath ? (
-                <div className="text-center mt-10 text-3">
-                    请先在应用右上角("设置")配置您的资产库路径
-                </div>
+                <GuideEmpty
+                    title={LIBRARY_PATH_MISSING_TEXT}
+                    action={<Button onClick={openLibraryPathSettings}>设置资产库目录</Button>}
+                />
             ) : (
                 <div className="flex flex-col h-full">
                     <Input
@@ -277,12 +280,12 @@ const AssetListDrawer: React.FC<AssetListDrawerProps> = ({ visible, onClose }) =
                                                             {item.replace('.json', '')}
                                                         </span>
                                                         {metaMap[item]?.status && (
-                                                            <span className="text-[10px] text-3 mt-0.5">
+                                                            <span className="text-caption text-3 mt-0.5">
                                                                 {metaMap[item]?.status === 'deprecated' && (
-                                                                    <Tag className="m-0 text-[10px] leading-[14px] px-1" color="error">废弃</Tag>
+                                                                    <Tag className="m-0" color="error">废弃</Tag>
                                                                 )}
                                                                 {metaMap[item]?.status === 'superseded' && (
-                                                                    <Tag className="m-0 text-[10px] leading-[14px] px-1" color="default">历史</Tag>
+                                                                    <Tag className="m-0" color="default">历史</Tag>
                                                                 )}
                                                             </span>
                                                         )}

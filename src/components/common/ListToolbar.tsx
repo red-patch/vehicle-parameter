@@ -1,4 +1,5 @@
 import React, { type ReactNode } from 'react';
+import { formatListCount, type ListCount } from './tablePresets';
 
 /**
  * 列表页容器 + 工具条（设计：docs/plans/2026-10-15-ui-构件规范-design.md §4.4）。
@@ -45,8 +46,10 @@ const withColon = (label: ReactNode): ReactNode => {
 export const FilterItem: React.FC<FilterItemProps> = ({ label, children, className = '' }) => (
     <div className={`flex items-center gap-2 ${className}`}>
         {label && (
+            // 标签是筛选控件的说明，不是标题：常规字重 + 二级文字（列表区设计语言 §5.3）。
+            // 此前半粗体，与面板标题（14/600）抢层级。
             <span
-                className="font-semibold text-2 whitespace-nowrap"
+                className="text-2 whitespace-nowrap"
                 style={{ fontSize: 'var(--fs-body)' }}
             >
                 {withColon(label)}
@@ -57,8 +60,16 @@ export const FilterItem: React.FC<FilterItemProps> = ({ label, children, classNa
 );
 
 export interface ListToolbarProps {
-    /** 标题区：字符串或节点（可含计数徽标、路径等） */
+    /**
+     * 标题区。**传字符串**时由组件统一排版（title 档 14/600、一级文字、无图标）——
+     * 此前各页标题 13/14/15px、400/600/700 字重各一，有的带图标、有的重复导航名。
+     * 传节点仅用于确需富内容的存量场景。
+     */
     title?: ReactNode;
+    /** 计数：紧跟标题的三级文字（`26` 或 `17 / 26`） */
+    count?: ListCount;
+    /** 标题后的补充信息（如库路径）；aux 档三级文字，超长截断 */
+    subtitle?: ReactNode;
     /** 右侧操作按钮区（导出/刷新/新建等） */
     actions?: ReactNode;
     /**
@@ -86,6 +97,8 @@ export interface ListToolbarProps {
 
 const ListToolbar: React.FC<ListToolbarProps> = ({
     title,
+    count,
+    subtitle,
     actions,
     filters,
     display,
@@ -95,7 +108,8 @@ const ListToolbar: React.FC<ListToolbarProps> = ({
     className = '',
     style,
 }) => {
-    const hasHead = Boolean(title || actions);
+    const hasHead = Boolean(title || actions || count !== undefined);
+    const countInfo = count !== undefined ? formatListCount(count) : null;
     const hasFilters = Boolean(filters);
     const hasDisplay = Boolean(display);
     const hasBody = Boolean(children);
@@ -105,18 +119,49 @@ const ListToolbar: React.FC<ListToolbarProps> = ({
 
     return (
         <div
-            className={`surface-container border border-default rounded-lg ${
+            className={`list-shell surface-container border border-default rounded-lg ${
                 fill ? 'flex flex-col min-h-0 overflow-hidden' : ''
             } ${className}`}
             style={style}
         >
             {hasHead && (
                 <div
-                    className={`flex items-center justify-between gap-3 px-3 py-2 shrink-0 ${
+                    className={`flex items-center justify-between gap-3 px-3 py-2 min-h-[48px] shrink-0 ${
                         hasFilters || hasDisplay || hasBody ? divider : ''
                     }`}
                 >
-                    <div className="min-w-0 flex items-center gap-2">{title}</div>
+                    <div className="min-w-0 flex items-baseline gap-2">
+                        {typeof title === 'string' ? (
+                            <span
+                                className="font-semibold text-1 whitespace-nowrap"
+                                style={{ fontSize: 'var(--fs-title)' }}
+                                data-slot="list-title"
+                            >
+                                {title}
+                            </span>
+                        ) : (
+                            title && <div className="min-w-0 flex items-center gap-2 self-center">{title}</div>
+                        )}
+                        {countInfo && (
+                            <span
+                                className="text-3 tabular-nums whitespace-nowrap"
+                                style={{ fontSize: 'var(--fs-aux)' }}
+                                title={countInfo.title}
+                                data-slot="list-count"
+                            >
+                                {countInfo.text}
+                            </span>
+                        )}
+                        {subtitle && (
+                            <span
+                                className="text-3 truncate min-w-0"
+                                style={{ fontSize: 'var(--fs-aux)' }}
+                                data-slot="list-subtitle"
+                            >
+                                {subtitle}
+                            </span>
+                        )}
+                    </div>
                     {actions && (
                         <div className="flex items-center gap-1.5 flex-shrink-0">{actions}</div>
                     )}

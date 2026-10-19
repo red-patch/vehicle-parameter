@@ -61,14 +61,18 @@ describe('法规标准 工具条（批次 4）', () => {
         const { container } = render(<RegulationLibrary />);
         const bar = container.querySelector('.surface-container.border.rounded-lg');
         expect(bar).not.toBeNull();
-        // 记录计数在 title 段
-        expect(bar!.textContent).toContain('记录（1）');
+        // 标题 + 计数（文字，不是「记录（1）」标签式拼接；列表区设计语言 §5.2）
+        expect(bar!.querySelector('[data-slot="list-title"]')?.textContent).toBe('法规标准');
+        expect(bar!.querySelector('[data-slot="list-count"]')?.textContent).toBe('1');
+        // 库路径降为副标题
+        expect(bar!.querySelector('[data-slot="list-subtitle"]')?.textContent).toContain('/tmp/reglib');
     });
 
     it('搜索走 SearchInput，全仓不再有 Input.Search（控件唯一形态）', () => {
         seed();
         render(<RegulationLibrary />);
-        expect(screen.getByText('搜索：')).toBeInTheDocument();
+        // 搜索靠右、不带「搜索：」标签（§5.3）
+        expect(screen.queryByText('搜索：')).toBeNull();
         // SearchInput 固定带搜索图标
         const icon = document.querySelector('.ant-input-affix-wrapper .anticon-search');
         expect(icon).not.toBeNull();
@@ -78,8 +82,9 @@ describe('法规标准 工具条（批次 4）', () => {
         seed();
         const { container } = render(<RegulationLibrary />);
         // 用 getAllByText：状态值的 chip 里也可能含相同字样
-        expect(screen.getAllByText('层级').length).toBeGreaterThan(0);
-        expect(screen.getAllByText('状态').length).toBeGreaterThan(0);
+        // 维度标签统一走 FilterItem（冒号由组件补）
+        expect(screen.getAllByText('层级：').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('状态：').length).toBeGreaterThan(0);
         // 定长枚举 → chips（chip-md 档）
         expect(container.querySelectorAll('.ant-tag.chip-md').length).toBeGreaterThan(0);
         // 复选框组已消失
@@ -94,15 +99,17 @@ describe('法规标准 工具条（批次 4）', () => {
         expect(head.querySelectorAll('.ant-btn-primary')).toHaveLength(0);
     });
 
-    it('刷新是图标按钮 + Tooltip，保存/设置/选择目录为 default', () => {
+    it('刷新是图标按钮 + Tooltip；保存平铺，低频的换目录 / 词表设置收进「更多」（§5.1）', () => {
         seed();
         const { container } = render(<RegulationLibrary />);
         const bar = container.querySelector('.surface-container.border.rounded-lg');
         const head = bar!.children[0];
         expect(head.querySelector('.anticon-reload')?.closest('button')).not.toBeNull();
-        expect(head.textContent).toContain('选择目录');
         expect(head.textContent).toContain('保存');
-        expect(head.textContent).toContain('设置');
+        expect(head.querySelector('button[aria-label="更多操作"]')).not.toBeNull();
+        // 低频动作不再平铺
+        expect(head.textContent).not.toContain('选择目录');
+        expect(head.textContent).not.toContain('设置');
         // 刷新按钮不带文字
         const reloadBtn = head.querySelector('.anticon-reload')!.closest('button')!;
         expect(reloadBtn.textContent ?? '').not.toContain('刷新');

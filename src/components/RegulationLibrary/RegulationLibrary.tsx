@@ -1,10 +1,10 @@
 import React from 'react';
-import { Alert, Button, Card, Empty, Input, Modal, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Dropdown, Input, Modal, Space, Tag, Tooltip, Typography, message } from 'antd';
 import {
     FolderOpenOutlined,
     ReloadOutlined,
     SaveOutlined,
-    ScanOutlined,
+    MoreOutlined,
     SettingOutlined,
 } from '@ant-design/icons';
 import { useRegulationStore } from '../../store/regulationStore';
@@ -21,7 +21,7 @@ import {
 import RegulationFilterPanel from './RegulationFilterPanel';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
-import { FilterItem } from '../common/ListToolbar';
+import GuideEmpty from '../common/GuideEmpty';
 import RegulationTable from './RegulationTable';
 import RegulationImportModal from './RegulationImportModal';
 import RegulationDetailDrawer from './RegulationDetailDrawer';
@@ -238,23 +238,15 @@ const RegulationLibrary: React.FC = () => {
                 )}
 
                 {!rootPath ? (
-                    <Card>
-                        <Empty
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description={
-                                <Space direction="vertical" size={4}>
-                                    <Text>还没有指定法规标准库目录</Text>
-                                    <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
-                                        选一个放着标准 PDF 的目录即可开始。文件仍留在原处，本工具只登记元数据。
-                                    </Text>
-                                </Space>
-                            }
-                        >
-                            <Button type="primary" onClick={() => void handlePick()}>
-                                选择法规标准库目录
-                            </Button>
-                        </Empty>
-                    </Card>
+                    // 前置条件未满足 → GuideEmpty（与公告归档 / 资产池同一构件；动作按钮 default，
+                    // primary 只留给产出/终点动作）
+                    <ListToolbar title="法规标准">
+                        <GuideEmpty
+                            title="还没有指定法规标准库目录"
+                            description="选一个放着标准 PDF 的目录即可开始。文件仍留在原处，本工具只登记元数据。"
+                            action={<Button onClick={() => void handlePick()}>选择法规标准库目录</Button>}
+                        />
+                    </ListToolbar>
                 ) : (
                     <>
                         {unregistered.length > 0 && (
@@ -278,36 +270,16 @@ const RegulationLibrary: React.FC = () => {
                         {/* 列表页外壳统一走 ListToolbar 三段（设计语言 §4.1/§4.3）：
                             此前是「无标题操作行 + 筛选 Card + 记录 Card」三块并列。 */}
                         <ListToolbar
-                            className="shadow-sm"
                             padded={false}
-                            title={
-                                <Space size={8} wrap>
-                                    <Space size={6}>
-                                        <ScanOutlined />
-                                        <span className="font-semibold text-1">记录（{filtered.length}）</span>
-                                        {filtered.length !== sidecar.records.length && (
-                                            <Text type="secondary" style={{ fontSize: 'var(--fs-aux)' }}>
-                                                / 共 {sidecar.records.length}
-                                            </Text>
-                                        )}
-                                    </Space>
-                                    {rootPath && (
-                                        <Text type="secondary" style={{ fontSize: 'var(--fs-aux)', fontWeight: 400 }}>
-                                            {rootPath}
-                                        </Text>
-                                    )}
-                                </Space>
-                            }
+                            title="法规标准"
+                            count={{ shown: filtered.length, total: sidecar.records.length }}
+                            subtitle={rootPath ? <span title={rootPath}>{rootPath}</span> : undefined}
                             actions={
                                 <>
                                     {/* §5.1：primary 只给产出/终点动作；本页主任务是浏览与治理，
                                         选择目录/刷新/保存/设置都是过程动作，一律 default */}
-                                    <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handlePick()}>
-                                        选择目录
-                                    </Button>
                                     <Tooltip title="把当前记录写回库目录下的 _regulations.json">
                                         <Button
-                                            size="small"
                                             icon={<SaveOutlined />}
                                             loading={saving}
                                             onClick={() => void persistSidecar()}
@@ -315,19 +287,26 @@ const RegulationLibrary: React.FC = () => {
                                             保存
                                         </Button>
                                     </Tooltip>
-                                    <Tooltip title="主题域词表设置">
-                                        <Button
-                                            size="small"
-                                            icon={<SettingOutlined />}
-                                            onClick={() => setVocabOpen(true)}
-                                        >
-                                            设置
-                                        </Button>
-                                    </Tooltip>
+                                    {/* §5.1：≥3 个过程动作时低频项收进「更多」（换目录、词表设置都不常用） */}
+                                    <Dropdown
+                                        trigger={['click']}
+                                        menu={{
+                                            items: [
+                                                { key: 'pick', icon: <FolderOpenOutlined />, label: '更换库目录' },
+                                                { key: 'vocab', icon: <SettingOutlined />, label: '主题域词表设置' },
+                                            ],
+                                            onClick: ({ key }) => {
+                                                if (key === 'pick') void handlePick();
+                                                else setVocabOpen(true);
+                                            },
+                                        }}
+                                    >
+                                        <Button icon={<MoreOutlined />} aria-label="更多操作" />
+                                    </Dropdown>
                                     <Tooltip title="重新扫描库目录">
                                         <Button
-                                            size="small"
                                             icon={<ReloadOutlined />}
+                                            aria-label="重新扫描库目录"
                                             disabled={!rootPath}
                                             loading={loading}
                                             onClick={() => void rescan()}
@@ -337,14 +316,7 @@ const RegulationLibrary: React.FC = () => {
                             }
                             filters={
                                 <>
-                                    <FilterItem label="搜索">
-                                        <SearchInput
-                                            width="lg"
-                                            placeholder="搜索标准号、名称、主题域"
-                                            value={filters.query}
-                                            onChange={q => setFilters({ query: q })}
-                                        />
-                                    </FilterItem>
+                                    {/* 筛选行顺序（列表区设计语言 §5.3）：维度筛选在左，搜索靠右、不带标签 */}
                                     <RegulationFilterPanel
                                         filters={filters}
                                         vocab={sidecar.vocab}
@@ -352,14 +324,17 @@ const RegulationLibrary: React.FC = () => {
                                         onChange={setFilters}
                                     />
                                     {filtersDirty && (
-                                        <Text
-                                            type="secondary"
-                                            style={{ fontSize: 'var(--fs-aux)', cursor: 'pointer' }}
-                                            onClick={resetFilters}
-                                        >
+                                        <Button type="link" size="small" className="px-0" onClick={resetFilters}>
                                             清除筛选
-                                        </Text>
+                                        </Button>
                                     )}
+                                    <span className="ml-auto" />
+                                    <SearchInput
+                                        width="md"
+                                        placeholder="搜索标准号、名称、主题域"
+                                        value={filters.query}
+                                        onChange={q => setFilters({ query: q })}
+                                    />
                                 </>
                             }
                         >

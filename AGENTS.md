@@ -72,8 +72,17 @@ npm run build      # tsc -b + vite build
 | 搜索框 | `common/SearchInput`（宽度只收 `sm\|md\|lg`） | `<Input.Search>`、裸 `Input` + `prefix={<SearchOutlined}`、拿 `TextArea` 当搜索框 |
 | 维度/快捷筛选 | `common/FacetChips`（`tone` 只收语义档） | `Tag.CheckableTag`、`Checkbox.Group`、变色主按钮、裸 `Tag` 变色 |
 | 视图 / 模式切换 | antd `Segmented` | `Radio.Group optionType="button"`（做同一件事的另一种写法） |
-| 筛选行的标签 | `common/FilterBar` 的 `<FilterItem label="搜索">`（**冒号由组件补，label 不写**） | `label="搜索:"`、自己拼冒号 |
+| 筛选行的标签 | `common/ListToolbar` 的 `<FilterItem label="层级">`（**冒号由组件补，label 不写**；只给维度，搜索框不带标签、靠右） | `label="搜索:"`、自己拼冒号、`搜索：` 标签 |
+| 列表计数 | `ListToolbar` 的 `count`（`26` / `17 / 26`）；短标签带数用 `common/CountLabel` | 「共 N 项」、`<Tag>已选 3 款</Tag>`、`全部 (26)` 括号拼接 |
+| 行内操作列 | `common/RowActions`（图标按钮 + Tooltip，>3 个自动收「更多」，删除传 `danger`/`confirm`） | `type="link"` 图标、红色 `danger` 垃圾桶常驻、裸 `Popconfirm` + `Button` |
+| 状态列 | `common/StatusDot`（`tone` 只收 5 个语义档） | antd 预设色 `<Tag color="green">`（暗色不翻转、整列涂满） |
+| 动态列标题（车型名等） | `common/ColumnTitle` + 列 `ellipsis: true`（`DataTable` 自动切 fixed 布局） | 长名直接当 `title`（表头折 3 行、列宽失控） |
+| 表格分页 | `common/tablePresets`：页面 `pagePagination()`（50），弹窗/抽屉 `compactPagination()`（20） | `pageSize: 数字字面量` |
 | 单元格文本 / 就地编辑 | `common/CellText`（只读态是文本，点开才变输入框） | 输入框常驻（会把行高撑开、与其他行不齐） |
+| 「还没选车型」前置提示 | `common/SelectVehiclesHint`（带「去车型资产选择」直达按钮） | 每页手写 `Alert message="请先在「车型资产」中选择车型"` |
+| 「资产库目录未设置」提示 | `utils/libraryPathPrompt`：toast 用 `warnLibraryPathMissing()`，空状态用 `LIBRARY_PATH_MISSING_TEXT` + `openLibraryPathSettings` | 自写文案（「数据源面板」已下线、「应用右上角」不准确），或只说不给入口 |
+| 引导型空状态（前置条件没满足） | `common/GuideEmpty`（一句现状 + 下一步按钮，按钮用 default） | 一行灰字没有出路；纯展示的「暂无数据」继续用 antd `Empty` |
+| 品牌色实色填充（白字） | `bg-brand-fill` / `border-brand-fill` | `bg-brand text-white`（暗色下 `--brand` 是浅色文字色，白字看不清） |
 
 **列表页工具条的 3 段槽位**（段序固定，不得调换；① ③ 可整段省略）：
 
@@ -114,13 +123,12 @@ npm run build      # tsc -b + vite build
 ```tsx
 <ListToolbar
     title="公告归档"
-    actions={<Button size="small">导入</Button>}
+    count={{ shown: filtered.length, total: all.length }}
+    actions={<Button>导入</Button>}
     filters={
         <>
-            <FilterItem label="搜索">
-                <SearchInput value={q} onChange={setQ} placeholder="搜索车型名" />
-            </FilterItem>
             <FacetChips options={[…] } value={chip} onChange={setChip} />
+            <SearchInput className="ml-auto" value={q} onChange={setQ} placeholder="搜索车型名" />
         </>
     }
     padded={false}   /* 表格贴边时传 false */
@@ -130,6 +138,8 @@ npm run build      # tsc -b + vite build
 ```
 
 - 详情与根因分析：[docs/plans/2026-10-15-ui-构件规范-design.md](docs/plans/2026-10-15-ui-构件规范-design.md)
+- **列表区度量**（行高 40 / 表头 36、密度只有一档、字号阶梯、工具条 32 / 表内 24、无竖线无投影）：[docs/plans/2026-10-17-列表区统一设计语言-design.md](docs/plans/2026-10-17-列表区统一设计语言-design.md)。
+  密度由 `themeConfig` 的 `TABLE_DENSITY` 统一（三种 `size` 取同值），**不要在页面上调 padding / 行高**；护栏 R11–R15 锁 `bordered`、`pageSize` 字面量、`shadow-sm`、低于阶梯的字号、未定义的 CSS 变量
 - **存量豁免**：护栏的 `LEGACY_EXEMPT` 列了 13 个落地前的老文件（仅剩 29 处），**只减不增**；改到哪个就顺手迁哪个，迁完从表里删掉。
 - 加了新的通用控件，请一并加进护栏 —— 规范不进护栏就等于没有规范。
 - 护栏是**文本级**的：抓得住「手搓写法」，抓不住「该用 FacetChips 却用了 Select」这类语义偏差；后者靠 review。

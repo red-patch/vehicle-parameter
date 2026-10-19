@@ -1,9 +1,12 @@
 import React from 'react';
-import { Button, Empty, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Empty, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-    AimOutlined, CopyOutlined, DeleteOutlined, FilePdfOutlined, ImportOutlined, LinkOutlined, ProfileOutlined, SwapOutlined,
+    AimOutlined, CopyOutlined, DeleteOutlined, FileAddOutlined, FilePdfOutlined, ImportOutlined, LinkOutlined, ProfileOutlined, SwapOutlined,
 } from '@ant-design/icons';
+import RowActions from '../common/RowActions';
+import StatusDot from '../common/StatusDot';
+import { NUMERIC_COLUMN } from '../common/tablePresets';
 import { normalizeAnnounceNo, type AnnouncementInfo } from '../../utils/announcementRecord';
 import {
     formatArchiveDate,
@@ -118,11 +121,11 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
                     return (
                         <Space size={6} wrap>
                             <span className={`font-medium ${group.unsorted ? 'text-warning' : ''}`}>{group.displayName}</span>
-                            <Text type="secondary" className="text-xs">
+                            <span className="cell-sub">
                                 {group.unsorted
                                     ? `${group.records.length} 条待认领`
                                     : `${group.announces.length} 公告号 · ${group.records.length} 记录`}
-                            </Text>
+                            </span>
                         </Space>
                     );
                 }
@@ -132,7 +135,7 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
                     return (
                         <Space size={6} wrap>
                             <Text code>{node.announceNo}</Text>
-                            {total > 1 && <Tag className="text-xs">{total} 批次</Tag>}
+                            {total > 1 && <span className="cell-sub">{total} 批次</span>}
                         </Space>
                     );
                 }
@@ -142,8 +145,8 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
                 return (
                     <Space size={6} wrap>
                         <span>{batchLabel(row.info)}</span>
-                        {row.isHead && <Tag color="processing" className="text-xs">最新</Tag>}
-                        {row.info.orphan && <Tag color="warning" className="text-xs">待认领</Tag>}
+                        {row.isHead && <Tag color="processing">最新</Tag>}
+                        {row.info.orphan && <Tag color="warning">待认领</Tag>}
                     </Space>
                 );
             },
@@ -154,14 +157,14 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
             width: 70,
             responsive: ['lg'],
             render: (_, row) => row.kind !== 'batch' ? null : row.info.hasPdf
-                ? <Tag icon={<FilePdfOutlined />} color="success">有</Tag>
-                : <Tag>无</Tag>,
+                ? <StatusDot tone="success">有</StatusDot>
+                : <StatusDot tone="neutral">无</StatusDot>,
         },
         {
             title: '参数数',
             key: 'paramCount',
             width: 70,
-            align: 'right' as const,
+            ...NUMERIC_COLUMN,
             responsive: ['xl'],
             render: (_, row) => row.kind === 'batch' ? row.info.paramCount : null,
         },
@@ -169,7 +172,7 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
             title: '关联资产',
             key: 'linked',
             width: 90,
-            align: 'right' as const,
+            ...NUMERIC_COLUMN,
             render: (_, row) => {
                 const count = row.kind === 'group'
                     ? row.group.linkedAssetCount
@@ -191,98 +194,74 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
         {
             title: '操作',
             key: 'actions',
-            width: 320,
+            width: 132,
+            // 行内操作统一走 RowActions（列表区设计语言 §8）：图标按钮 + Tooltip，
+            // 至多露出 2 个，其余进「更多」；删除常态中性、悬停转红。此前列宽 320、
+            // 链接/图标/带字三种按钮混排。
             render: (_, row) => {
                 if (row.kind === 'group') {
                     return (
-                        <Space size={0}>
-                            <Tooltip title={row.group.linkedAssetCount === 0 ? '该车型暂无关联资产' : '跳转工作台，按该车型全部公告号过滤'}>
-                                <Button
-                                    type="link"
-                                    size="small"
-                                    icon={<LinkOutlined />}
-                                    disabled={row.group.linkedAssetCount === 0}
-                                    onClick={() => onViewGroupLinked(row.group)}
-                                >
-                                    关联资产
-                                </Button>
-                            </Tooltip>
-                            <Button
-                                type="link"
-                                size="small"
-                                icon={<ImportOutlined />}
-                                disabled={row.group.unsorted}
-                                onClick={() => onImportForGroup(row.group.displayName)}
-                            >
-                                导入公告
-                            </Button>
-                        </Space>
+                        <RowActions
+                            actions={[
+                                {
+                                    key: 'linked',
+                                    label: '关联资产：跳转工作台，按该车型全部公告号过滤',
+                                    icon: <LinkOutlined />,
+                                    disabled: row.group.linkedAssetCount === 0,
+                                    disabledReason: '该车型暂无关联资产',
+                                    onClick: () => onViewGroupLinked(row.group),
+                                },
+                                {
+                                    key: 'import',
+                                    label: '导入公告',
+                                    icon: <ImportOutlined />,
+                                    disabled: row.group.unsorted,
+                                    onClick: () => onImportForGroup(row.group.displayName),
+                                },
+                            ]}
+                        />
                     );
                 }
                 if (row.kind === 'announce') {
                     const total = 1 + row.node.history.length;
                     return (
-                        <Space size={0}>
-                            <Button
-                                type="link"
-                                size="small"
-                                icon={<ImportOutlined />}
-                                onClick={() => onImportNewBatch(row.group.displayName, row.node.announceNo)}
-                            >
-                                导入新批次
-                            </Button>
-                            <Tooltip title={total < 2 ? '该公告号只有一条批次' : '对比两批次的参数差异'}>
-                                <Button
-                                    type="link"
-                                    size="small"
-                                    icon={<SwapOutlined />}
-                                    disabled={total < 2}
-                                    onClick={() => onCompareBatches(row.group, row.node)}
-                                >
-                                    对比批次
-                                </Button>
-                            </Tooltip>
-                        </Space>
+                        <RowActions
+                            actions={[
+                                {
+                                    key: 'import-batch',
+                                    label: '导入新批次',
+                                    icon: <ImportOutlined />,
+                                    onClick: () => onImportNewBatch(row.group.displayName, row.node.announceNo),
+                                },
+                                {
+                                    key: 'compare',
+                                    label: '对比两批次的参数差异',
+                                    icon: <SwapOutlined />,
+                                    disabled: total < 2,
+                                    disabledReason: '该公告号只有一条批次',
+                                    onClick: () => onCompareBatches(row.group, row.node),
+                                },
+                            ]}
+                        />
                     );
                 }
                 if (row.kind === 'history') return null;
 
                 const info = row.info;
                 return (
-                    <Space size={0}>
-                        {info.orphan ? (
-                            <Button type="link" size="small" onClick={() => onClaimOrphan(info)}>
-                                认领建档
-                            </Button>
-                        ) : (
-                            <Tooltip title={info.hasPdf ? '打开公告 PDF' : '该记录没有 PDF'}>
-                                <Button type="link" size="small" icon={<FilePdfOutlined />} disabled={!info.hasPdf} onClick={() => onOpenPdf(info)} />
-                            </Tooltip>
-                        )}
-                        <Tooltip title={info.hasPdf ? '复制 PDF 到剪贴板，可直接粘贴发给他人' : '该记录没有 PDF'}>
-                            <Button type="link" size="small" icon={<CopyOutlined />} disabled={!info.hasPdf} onClick={() => onCopyPdf(info)} />
-                        </Tooltip>
-                        <Tooltip title={info.paramCount > 0 ? '查看公告参数' : '该记录没有参数'}>
-                            <Button
-                                type="link"
-                                size="small"
-                                icon={<ProfileOutlined />}
-                                disabled={info.orphan || info.paramCount === 0}
-                                onClick={() => onViewParams(info)}
-                            >
-                                参数
-                            </Button>
-                        </Tooltip>
-                        <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onViewLinked(info)}>
-                            关联资产
-                        </Button>
-                    <Tooltip title="在文件夹中定位">
-                        <Button type="link" size="small" icon={<AimOutlined />} onClick={() => onReveal(info)} />
-                    </Tooltip>
-                        <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => onDelete(info)}>
-                            删除
-                        </Button>
-                    </Space>
+                    <RowActions
+                        maxVisible={info.orphan ? 1 : 2}
+                        actions={[
+                            info.orphan
+                                ? { key: 'claim', label: '认领建档', icon: <FileAddOutlined />, showLabel: true, onClick: () => onClaimOrphan(info) }
+                                : { key: 'pdf', label: '打开公告 PDF', icon: <FilePdfOutlined />, disabled: !info.hasPdf, disabledReason: '该记录没有 PDF', onClick: () => onOpenPdf(info) },
+                            { key: 'params', label: '查看公告参数', icon: <ProfileOutlined />, disabled: info.orphan || info.paramCount === 0, disabledReason: '该记录没有参数', onClick: () => onViewParams(info) },
+                            { key: 'linked', label: '关联资产', icon: <LinkOutlined />, onClick: () => onViewLinked(info) },
+                            { key: 'copy', label: '复制 PDF 到剪贴板', icon: <CopyOutlined />, disabled: !info.hasPdf, onClick: () => onCopyPdf(info) },
+                            { key: 'reveal', label: '在文件夹中定位', icon: <AimOutlined />, onClick: () => onReveal(info) },
+                            { key: 'delete', label: '删除', icon: <DeleteOutlined />, danger: true, onClick: () => onDelete(info) },
+                        ]}
+                    />
                 );
             },
         },

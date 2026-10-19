@@ -1,5 +1,5 @@
 import React from 'react';
-import { ConfigProvider, message, Skeleton, theme } from 'antd';
+import { ConfigProvider, Empty, message, Skeleton, theme } from 'antd';
 import ErrorBoundary from './components/ErrorBoundary';
 import zhCN from 'antd/locale/zh_CN';
 import MainLayout from './components/Layout/MainLayout';
@@ -10,6 +10,15 @@ import { useSettingsStore, FONT_SCALE_PX } from './store/settingsStore';
 import { compareSheets } from './utils/comparator';
 import { getThemeConfig } from './theme/themeConfig';
 import { useShallow } from 'zustand/react/shallow';
+
+/**
+ * 全局构件默认（设计：docs/plans/2026-10-17-列表区统一设计语言-design.md §2）。
+ * - 按钮不自动插空格：antd 会把两字中文按钮渲染成「查 询」，与其它按钮字距不一
+ * - 空状态一律简版插画：此前 17 处大插画 + 18 处简版混用，同一个「暂无」两种分量
+ * 模块级常量，避免 ConfigProvider 每次渲染拿到新对象引用
+ */
+const BUTTON_CONFIG = { autoInsertSpace: false } as const;
+const EMPTY_CONFIG = { image: Empty.PRESENTED_IMAGE_SIMPLE };
 
 const ParameterWorkbench = React.lazy(() => import('./components/ParameterWorkbench/ParameterWorkbench'));
 const AnnouncementQuery = React.lazy(() => import('./components/AnnouncementQuery/AnnouncementQuery'));
@@ -36,6 +45,14 @@ const MemoAnnouncement: React.FC<{ onOpenWorkbench?: () => void }> = ({ onOpenWo
 );
 const MemoRegulationLibrary = React.memo(() => <RegulationLibrary />);
 const MemoConfigManager = React.memo(() => <ConfigManagerView />);
+/** active 只在进出本页时变化：设计器的快捷键据此只在可见时绑定（见 useDesignerHotkeys） */
+const MemoVehicleDesigner = React.memo(({ active }: { active: boolean }) => <VehicleDesigner active={active} />);
+
+/**
+ * 页面外边距：工作台与法规标准的根容器自带 p-4，这里给其余顶层页补齐同一档，
+ * 让 8 个页面的内容区与窗口边缘距离一致（此前 5 页 32px、3 页 16px）。
+ */
+const PAGE_GUTTER = 'p-4';
 
 const App: React.FC = () => {
   const { baseFile, targetFile, setDiffResult, compareMode, pendingGlobalSearch } = useVehicleStore(useShallow(state => ({
@@ -111,6 +128,8 @@ const App: React.FC = () => {
     <ConfigProvider
       locale={zhCN}
       theme={themeConfig}
+      button={BUTTON_CONFIG}
+      empty={EMPTY_CONFIG}
     >
       <ErrorBoundary>
         <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
@@ -130,7 +149,7 @@ const App: React.FC = () => {
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
+            <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
               <MemoAnnouncement onOpenWorkbench={() => handleTabChange('pool')} />
             </div>
           </React.Suspense>
@@ -142,14 +161,14 @@ const App: React.FC = () => {
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
+            <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'dict' ? undefined : 'none' }}>
               <MemoConfigManager />
             </div>
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: activeTab === 'designer' ? undefined : 'none' }}>
-              <VehicleDesigner />
+            <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'designer' ? undefined : 'none' }}>
+              <MemoVehicleDesigner active={activeTab === 'designer'} />
             </div>
           </React.Suspense>
 

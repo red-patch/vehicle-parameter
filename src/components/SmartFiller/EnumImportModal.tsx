@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Modal, Button, message, Select, Table, Tag, Spin, Statistic, Divider } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import type { ColumnsType } from 'antd/es/table';
 import { FolderOpenOutlined, FileExcelOutlined, ReloadOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
@@ -7,6 +8,7 @@ import { join } from '@tauri-apps/api/path';
 import SearchInput from '../common/SearchInput';
 import { readFirstSheetRowsFromPathAsync } from '../../utils/excelParserAsync';
 import { buildEnumRows } from '../../utils/enumImportRowMapping';
+import { compactPagination } from '../common/tablePresets';
 
 
 interface EnumImportModalProps {
@@ -218,7 +220,7 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
     }, [fieldGroups, rawData.length]);
 
     const handleImport = async () => {
-        if (!assetLibraryPath) { message.error('请先设置资产库目录'); return; }
+        if (!assetLibraryPath) { warnLibraryPathMissing('error'); return; }
         if (mapping.fieldNameCol === '无' || mapping.enumValueCol === '无') {
             message.error('请先配置字段名称列和枚举值列的映射');
             return;
@@ -447,9 +449,8 @@ const EnumImportModal: React.FC<EnumImportModalProps> = ({ open, onClose, assetL
                                 dataSource={filteredGroups}
                                 columns={tableColumns}
                                 size="small"
-                                pagination={{ pageSize: 50, showSizeChanger: false, showTotal: t => `共 ${t} 个字段` }}
+                                pagination={compactPagination()}
                                 scroll={{ x: 900, y: 400 }}
-                                bordered
                                 rowKey="fieldName"
                                 expandable={{
                                     expandedRowRender: record => <ExpandedEnumValues record={record} />,

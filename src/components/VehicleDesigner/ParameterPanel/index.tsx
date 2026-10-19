@@ -20,10 +20,10 @@ const readonlyRowStyle: React.CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  backgroundColor: '#fff',
+  backgroundColor: 'var(--surface-2)',
   padding: 8,
   borderRadius: 8,
-  border: '1px solid #e2e8f0',
+  border: '1px solid var(--border-default)',
   marginBottom: 8,
 };
 
@@ -58,7 +58,7 @@ const ParameterPanel = ({
           <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>
             整车长度(计算)
           </Typography.Text>
-          <span style={{ fontFamily: 'monospace', fontWeight: 700, color: params.overallLength > params.chassisLength ? '#ea580c' : '#1e293b' }}>
+          <span style={{ fontFamily: 'monospace', fontWeight: 700, color: params.overallLength > params.chassisLength ? 'var(--warning-text)' : 'var(--text-1)' }}>
             {Math.round(params.overallLength)}mm
           </span>
         </div>
@@ -66,7 +66,7 @@ const ParameterPanel = ({
           <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>
             整车宽度(计算)
           </Typography.Text>
-          <span style={{ fontFamily: 'monospace', color: '#1e293b' }}>{Math.round(params.overallWidth)}mm</span>
+          <span style={{ fontFamily: 'monospace', color: 'var(--text-1)' }}>{Math.round(params.overallWidth)}mm</span>
         </div>
         <InputGroup
           label="整车高度"
@@ -176,9 +176,9 @@ const ParameterPanel = ({
           />
         </div>
         <div style={{ marginTop: 8, marginBottom: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 500, color: '#475569', marginBottom: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 500, color: 'var(--text-2)', marginBottom: 4 }}>
             <span>轮胎规格</span>
-            <span style={{ fontFamily: 'monospace', color: '#2563eb' }}>R={Math.round(params.wheelRadius)}mm</span>
+            <span style={{ fontFamily: 'monospace', color: 'var(--brand)' }}>R={Math.round(params.wheelRadius)}mm</span>
           </div>
           <Input
             value={params.tireSpec}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Upload, Modal, Checkbox, Button, message, Tooltip, Input, Tag, Select, Table, Segmented } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
+import { DownOutlined, PlusOutlined, UpOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { openWorkbookAsync, parseHandleAsync, releaseWorkbookHandle } from '../../utils/excelParserAsync';
@@ -16,12 +17,16 @@ import { buildSupersedeMeta } from '../../utils/assetGovernance';
 import { ensureTagsInDefaultGroup, getAssetTagGroupsSync } from '../../utils/assetTagGroups';
 import { clearImportTransients } from '../../utils/importTransients';
 import TagSelector from '../common/TagSelector';
+import { MODAL_TABLE_SCROLL_Y, NUMERIC_COLUMN, pagePagination } from '../common/tablePresets';
+import SearchInput from '../common/SearchInput';
+import CountLabel from '../common/CountLabel';
+import StatusDot, { type StatusTone } from '../common/StatusDot';
 
 /** 判定 → 徽章/选项元数据 */
-const VERDICT_META = {
-  new: { label: '新增', color: 'success' },
-  updated: { label: '更新已有', color: 'warning' },
-  suspect: { label: '疑似重复', color: 'error' },
+const VERDICT_META: Record<'new' | 'updated' | 'suspect', { label: string; tone: StatusTone }> = {
+  new: { label: '新增', tone: 'success' },
+  updated: { label: '更新已有', tone: 'warning' },
+  suspect: { label: '疑似重复', tone: 'danger' },
 };
 const DECISION_OPTIONS = {
   new: [{ value: 'save', label: '保存入库' }, { value: 'skip', label: '跳过' }],
@@ -153,7 +158,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
   };
 
   const handleConfirmSave = async () => {
-    if (!assetLibraryPath) { message.error('请先设置资产库路径'); return; }
+    if (!assetLibraryPath) { warnLibraryPathMissing('error'); return; }
     const selected = pendingProducts.filter(p => p.checked !== false && (p.decision ?? 'save') !== 'skip');
     if (selected.length === 0) { message.warning('请至少选择一个要保存的车型（处理方式为「跳过」的不会保存）'); return; }
 
@@ -423,31 +428,27 @@ const FileManager: React.FC<FileManagerProps> = () => {
             </Button>,
           ]}
         >
-          <div style={{ marginBottom: 8, fontSize: 13, color: 'var(--text-2)' }}>
+          <div className="mb-3 text-body text-2">
             解析发现 {pendingProducts.length} 个车型，已与资产库查重。点分类查看，逐行或批量处理：
           </div>
 
-          {/* 统计 + 分类筛选 + 搜索 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+          {/* 筛选行（列表区设计语言 §5.3）：维度在左、搜索在右；工具条控件一律 default 32 */}
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
             <Segmented
-              size="small"
               value={verdictFilter}
               onChange={v => setVerdictFilter(v as 'all' | 'new' | 'updated' | 'suspect')}
               options={[
-                { label: `全部 ${verdictCounts.all}`, value: 'all' },
-                { label: `新增 ${verdictCounts.new}`, value: 'new' },
-                { label: `更新已有 ${verdictCounts.updated}`, value: 'updated' },
-                { label: `疑似重复 ${verdictCounts.suspect}`, value: 'suspect' },
+                { label: <CountLabel label="全部" count={verdictCounts.all} />, value: 'all' },
+                { label: <CountLabel label="新增" count={verdictCounts.new} />, value: 'new' },
+                { label: <CountLabel label="更新已有" count={verdictCounts.updated} />, value: 'updated' },
+                { label: <CountLabel label="疑似重复" count={verdictCounts.suspect} />, value: 'suspect' },
               ]}
             />
-            <Input
-              size="small"
-              allowClear
-              prefix={<SearchOutlined style={{ color: 'var(--text-3)' }} />}
-              placeholder="搜索车型名 / 文件名..."
+            <SearchInput
+              className="ml-auto"
+              placeholder="搜索车型名 / 文件名"
               value={confirmSearch}
-              onChange={e => setConfirmSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 160, maxWidth: 260 }}
+              onChange={setConfirmSearch}
             />
           </div>
 
@@ -482,11 +483,8 @@ const FileManager: React.FC<FileManagerProps> = () => {
             size="small"
             rowKey={r => String(r.__idx)}
             dataSource={confirmTableRows}
-            pagination={{
-              pageSize: 50, size: 'small', showSizeChanger: true, pageSizeOptions: [20, 50, 100, 200],
-              showTotal: t => `共 ${t} 条`,
-            }}
-            scroll={{ y: 380 }}
+            pagination={pagePagination()}
+            scroll={{ y: MODAL_TABLE_SCROLL_Y }}
             rowSelection={{
               selectedRowKeys: pendingProducts.flatMap((p, i) => (p.checked !== false ? [String(i)] : [])),
               onChange: (keys) => {
@@ -501,43 +499,47 @@ const FileManager: React.FC<FileManagerProps> = () => {
             }}
             columns={[
               {
+                // 一格一行（§7）：参数数原先叠在车型名下方（行高 52），拆成独立数字列
                 title: '车型',
                 dataIndex: 'name',
-                width: 230,
-                ellipsis: true,
+                width: 190,
+                ellipsis: { showTitle: false },
                 render: (_, prod) => (
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={prod.name}>{prod.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-3)' }}>{prod.count} 个参数</div>
-                  </div>
+                  <Tooltip title={prod.name} placement="topLeft">
+                    <span className="block truncate">{prod.name}</span>
+                  </Tooltip>
                 ),
+              },
+              {
+                title: '参数',
+                dataIndex: 'count',
+                width: 56,
+                ...NUMERIC_COLUMN,
               },
               {
                 title: '判定',
                 key: 'verdict',
-                width: 90,
+                width: 96,
                 render: (_, prod) => prod.verdict ? (
-                  <Tag color={VERDICT_META[prod.verdict].color} className="m-0" style={{ fontSize: 11 }}>
-                    {VERDICT_META[prod.verdict].label}
-                  </Tag>
-                ) : <span style={{ fontSize: 11, color: 'var(--text-3)' }}>—</span>,
+                  <StatusDot tone={VERDICT_META[prod.verdict].tone}>{VERDICT_META[prod.verdict].label}</StatusDot>
+                ) : <span className="text-3">—</span>,
               },
               {
+                // 980 宽弹窗里各列加起来超宽时，无宽度的这一列被挤到 0（实测只剩「判」一个字）
                 title: '判定说明 / diff',
                 key: 'reason',
+                width: 130,
                 ellipsis: true,
                 render: (_, prod) => (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
                     {prod.identical && (
-                      <Tag className="m-0" style={{ fontSize: 10, flexShrink: 0 }}>内容一致</Tag>
+                      <Tag className="m-0" style={{ flexShrink: 0 }}>内容一致</Tag>
                     )}
                     <Tooltip title={prod.reason}>
-                      <span style={{ fontSize: 11, color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {prod.reason || ''}
-                      </span>
+                      <span className="text-3 truncate">{prod.reason || ''}</span>
                     </Tooltip>
                     {(prod.matchedFiles?.length ?? 0) > 0 && (
-                      <Button size="small" type="link" style={{ fontSize: 11, padding: 0, flexShrink: 0 }} onClick={() => openDiff(prod)}>
+                      <Button size="small" type="link" className="p-0 flex-shrink-0" onClick={() => openDiff(prod)}>
                         diff
                       </Button>
                     )}
@@ -547,12 +549,12 @@ const FileManager: React.FC<FileManagerProps> = () => {
               {
                 title: '处理',
                 key: 'decision',
-                width: 145,
+                width: 140,
                 render: (_, prod) => prod.verdict ? (
                   <Select
                     size="small"
                     value={prod.decision ?? 'save'}
-                    style={{ width: 132 }}
+                    style={{ width: 124 }}
                     onChange={value => {
                       const next = [...pendingProducts];
                       next[prod.__idx] = { ...next[prod.__idx], decision: value };
@@ -565,7 +567,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
               {
                 title: '文件名',
                 key: 'customName',
-                width: 200,
+                width: 180,
                 render: (_, prod) => (
                   <Input
                     size="small"
@@ -584,7 +586,6 @@ const FileManager: React.FC<FileManagerProps> = () => {
               {
                 title: '标签',
                 key: 'tags',
-                width: 150,
                 render: (_, prod) => (
                   <TagSelector
                     selected={prod.tags || []}
@@ -605,7 +606,7 @@ const FileManager: React.FC<FileManagerProps> = () => {
               },
             ]}
           />
-          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-3)' }}>
+          <div className="mt-2 text-aux text-3">
             仅保存至资产库，不自动加入待分析工作区（需要分析时在资产面板筛选后「⚡新增到工作区」）；处理方式为「跳过」的不会保存。
           </div>
         </Modal>
@@ -654,18 +655,16 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
   };
 
   return (
-    <div style={{
-      marginBottom: 8, padding: '8px 10px',
-      background: 'var(--surface-3)', borderRadius: 8,
-      border: '1px solid var(--border-default)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'default' }}>
-          <Checkbox checked={allChecked} onChange={e => onSelectAll(e.target.checked)} />
-          <span>全选 ({checkedCount}/{total})</span>
-        </label>
-        <Button size="small" onClick={() => setExpanded(!expanded)}>
-          {expanded ? '收起批量操作' : '批量操作 ▼'}
+    // 批量栏是筛选行下的一条普通工具行，不再自带灰底框（框中框）
+    <div className="mb-2">
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* 与表头勾选不同：这里作用于全部分类（含当前筛选外的行） */}
+        <Checkbox checked={allChecked} indeterminate={checkedCount > 0 && !allChecked}
+          onChange={e => onSelectAll(e.target.checked)}>
+          全选 <span className="text-3 tabular-nums">已选 {checkedCount} / {total}</span>
+        </Checkbox>
+        <Button onClick={() => setExpanded(!expanded)} icon={expanded ? <UpOutlined /> : <DownOutlined />} iconPosition="end">
+          批量操作
         </Button>
       </div>
 
@@ -673,16 +672,15 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* 批量加标签 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap', width: 60 }}>批量标签</span>
+            <span className="text-2 whitespace-nowrap" style={{ width: 64 }}>批量标签</span>
             <Input
-              size="small"
               value={batchTagInput}
               onChange={e => setBatchTagInput(e.target.value)}
               onPressEnter={handleApplyTag}
               placeholder="输入标签，逗号/空格分隔"
               style={{ flex: 1, minWidth: 120 }}
             />
-            <Button size="small" type="primary" onClick={handleApplyTag} disabled={!batchTagInput.trim()}>
+            <Button onClick={handleApplyTag} disabled={!batchTagInput.trim()}>
               应用到已选
             </Button>
             {allImportTags.length > 0 && (() => {
@@ -701,20 +699,20 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
               <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto" style={{ marginTop: 4 }}>
                 {grouped.map(g => (
                   <div key={g.id} className="flex items-start gap-1" style={{ marginBottom: 2 }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>{g.name}</span>
+                    <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>{g.name}</span>
                     <div className="flex flex-wrap gap-1">
                       {g.tags.map(t => (
-                        <Tag key={t} className="" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                        <Tag key={t} className="" style={{ margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
                       ))}
                     </div>
                   </div>
                 ))}
                 {ungrouped.length > 0 && (
                   <div className="flex items-start gap-1">
-                    <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>未分组</span>
+                    <span style={{ fontSize: 'var(--fs-caption)', color: 'var(--text-3)', whiteSpace: 'nowrap', marginTop: 2, minWidth: 48 }}>未分组</span>
                     <div className="flex flex-wrap gap-1">
                       {ungrouped.map(t => (
-                        <Tag key={t} className="" style={{ fontSize: 10, margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
+                        <Tag key={t} className="" style={{ margin: 0 }} onClick={() => onBatchTag([t])}>+{t}</Tag>
                       ))}
                     </div>
                   </div>
@@ -726,24 +724,22 @@ const BatchOperationsBar: React.FC<BatchOperationsBarProps> = ({
 
           {/* 批量命名 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, color: 'var(--text-2)', whiteSpace: 'nowrap', width: 60 }}>批量命名</span>
+            <span className="text-2 whitespace-nowrap" style={{ width: 64 }}>批量命名</span>
             <Input
-              size="small"
               value={prefixInput}
               onChange={e => setPrefixInput(e.target.value)}
               placeholder="前缀"
               style={{ width: 100 }}
             />
-            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>文件名</span>
+            <span className="text-3">文件名</span>
             <Input
-              size="small"
               value={suffixInput}
               onChange={e => setSuffixInput(e.target.value)}
               placeholder="后缀"
               style={{ width: 100 }}
             />
-            <span style={{ fontSize: 11, color: 'var(--text-3)' }}>.json</span>
-            <Button size="small" type="primary" onClick={handleApplyRename}
+            <span className="text-3">.json</span>
+            <Button onClick={handleApplyRename}
               disabled={!prefixInput && !suffixInput}>
               应用到已选
             </Button>

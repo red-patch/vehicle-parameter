@@ -8,6 +8,7 @@ import {
     type RegulationVocab,
     type UnregisteredFile,
 } from '../../utils/regulationTypes';
+import { compactPagination } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -283,7 +284,7 @@ const RegulationImportModal: React.FC<Props> = ({ open, files, vocab, existing, 
                 rowSelection={rowSelection}
                 columns={columns}
                 dataSource={recognized}
-                pagination={recognized.length > 20 ? { pageSize: 20, showSizeChanger: false } : false}
+                pagination={compactPagination()}
                 locale={{ emptyText: '没有识别出标准号的文件' }}
             />
 
@@ -310,11 +311,7 @@ const RegulationImportModal: React.FC<Props> = ({ open, files, vocab, existing, 
                                         rowSelection={rowSelection}
                                         columns={columns}
                                         dataSource={unrecognized}
-                                        pagination={
-                                            unrecognized.length > 20
-                                                ? { pageSize: 20, showSizeChanger: false }
-                                                : false
-                                        }
+                                        pagination={compactPagination()}
                                         locale={{ emptyText: '—' }}
                                     />
                                 </>

@@ -47,9 +47,10 @@ describe('数据体检 工具条（批次 5）', () => {
         expect(screen.getByText('体检参数')).toBeInTheDocument();
     });
 
-    it('搜索走 SearchInput（固定带搜索图标）', () => {
+    it('搜索走 SearchInput（固定带搜索图标），不带「搜索：」标签（列表区设计语言 §5.3）', () => {
         const { container } = renderIt();
-        expect(screen.getByText('搜索：')).toBeInTheDocument();
+        expect(screen.queryByText('搜索：')).toBeNull();
+        expect(screen.getByPlaceholderText('搜索参数名、分组或参数值')).toBeInTheDocument();
         expect(container.querySelector('.ant-input-affix-wrapper .anticon-search')).not.toBeNull();
     });
 
@@ -58,8 +59,11 @@ describe('数据体检 工具条（批次 5）', () => {
         expect(screen.getByText('快捷：')).toBeInTheDocument();
         // FacetChips 渲染 chip-md 的 Tag
         expect(container.querySelectorAll('.ant-tag.chip-md').length).toBeGreaterThan(0);
-        // 「完全合规/发现异常」以 chip 呈现，而非默认选中态的实心主按钮
-        expect(screen.getByText('完全合规')).toBeInTheDocument();
+        // 异常状态以 chip 呈现，而非默认选中态的实心主按钮。
+        // 测试环境无资产目录 → 词表为空 → 不判字段名，chip 显示「未配置词表」且不可点
+        const chip = screen.getByText('未配置词表').closest('.ant-tag')!;
+        expect(chip.getAttribute('aria-disabled')).toBe('true');
+        expect(screen.queryByText('发现异常')).toBeNull();
     });
 
     it('保存按钮不再硬编码 Tailwind 调色板色（绕过 token）', () => {

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Select, Typography } from 'antd';
+import { Select } from 'antd';
+import { FilterItem } from '../common/ListToolbar';
 import FacetChips from '../common/FacetChips';
 import { STATUS_ORDER, type RegulationFilters, type RegulationVocab } from '../../utils/regulationTypes';
 
-const { Text } = Typography;
 
 interface Props {
     filters: RegulationFilters;
@@ -31,24 +31,20 @@ const RegulationFilterPanel: React.FC<Props> = ({ filters, vocab, statusCounts, 
         .sort((a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9))
         .map(s => ({ value: s, label: s, count: statusCounts[s] }));
 
-    const rowLabel = { fontSize: 'var(--fs-aux)' } as const;
-
     return (
         <>
             {vocab.levels.length > 0 && (
-                <div className="flex items-center gap-2">
-                    <Text type="secondary" style={rowLabel}>层级</Text>
+                <FilterItem label="层级">
                     <FacetChips
                         multiple
                         options={vocab.levels.map(l => ({ value: l, label: l }))}
                         value={filters.levels}
                         onChange={v => onChange({ levels: v })}
                     />
-                </div>
+                </FilterItem>
             )}
 
-            <div className="flex items-center gap-2">
-                <Text type="secondary" style={rowLabel}>主题域</Text>
+            <FilterItem label="主题域">
                 <Select
                     mode="multiple"
                     allowClear
@@ -58,18 +54,17 @@ const RegulationFilterPanel: React.FC<Props> = ({ filters, vocab, statusCounts, 
                     onChange={v => onChange({ domains: v })}
                     options={vocab.domains.map(d => ({ label: d, value: d }))}
                 />
-            </div>
+            </FilterItem>
 
             {statusOptions.length > 0 && (
-                <div className="flex items-center gap-2">
-                    <Text type="secondary" style={rowLabel}>状态</Text>
+                <FilterItem label="状态">
                     <FacetChips
                         multiple
                         options={statusOptions}
                         value={filters.statuses}
                         onChange={v => onChange({ statuses: v })}
                     />
-                </div>
+                </FilterItem>
             )}
         </>
     );

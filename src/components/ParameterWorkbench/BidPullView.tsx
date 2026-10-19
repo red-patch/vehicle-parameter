@@ -3,8 +3,8 @@
 // 行 = 投标目标字段（规则），列 = 车型；支持多来源组合（如 外扩尺寸 = 长×宽×高）、
 // 逐来源候选手选、单元格手工修正，最终导出 CSV / Excel
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Empty, Input, Popover, Select, Space, Spin, Tag } from 'antd';
-import { ClearOutlined, DownloadOutlined, EditOutlined, FileExcelOutlined, SettingOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Dropdown, Empty, Input, Popover, Select, Space, Spin, Tag } from 'antd';
+import { ClearOutlined, DownloadOutlined, DownOutlined, EditOutlined, ExportOutlined, FileExcelOutlined, SettingOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import * as XLSX from 'xlsx';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -17,7 +17,11 @@ import { getVehicleProductName } from '../../utils/vehicleInstance';
 import ProductSourceSelector from './ProductSourceSelector';
 import BidMappingDrawer from './BidMappingDrawer';
 import DataTable from '../common/DataTable';
+import ListToolbar from '../common/ListToolbar';
+import GuideEmpty from '../common/GuideEmpty';
 import RepairableValue from '../common/RepairableValue';
+import ColumnTitle from '../common/ColumnTitle';
+import StatusDot from '../common/StatusDot';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 
 interface BidPullViewProps {
@@ -263,13 +267,16 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
             key: 'target',
             fixed: 'left' as const,
             width: 160,
-            render: (text: string) => <b>{text}</b>,
+            ellipsis: true,
+            // 首列与其他列表的名称列同权重：正文色常规字重（不加粗）
+            render: (text: string) => <span className="text-1">{text}</span>,
         },
         ...vehicles.map((v) => ({
-            title: getVehicleProductName(v.name),
+            title: <ColumnTitle>{getVehicleProductName(v.name)}</ColumnTitle>,
             dataIndex: v.name,
             key: v.name,
-            width: 220,
+            width: 240,
+            ellipsis: true,
             render: (_: unknown, record: PullRow) => {
                 const { override, composed } = cellInfo(record.rule, v.name);
                 const editButton = (
@@ -281,13 +288,15 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                     />
                 );
 
+                // 状态只标「需要注意的」（§9）：自动命中是常态不加标记；
+                // 组合 = 分类（中性 Tag），缺项 / 已修正 = 状态（圆点）
                 if (override !== undefined) {
                     return (
-                        <span className="flex items-center gap-1">
-                            <Tag color="blue" style={{ marginRight: 0, fontSize: 10, lineHeight: '16px' }}>已修正</Tag>
-                            <span className="flex-1 truncate">{override}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <StatusDot tone="info">已修正</StatusDot>
+                            <span className="flex-1 min-w-0 truncate" title={override}>{override}</span>
                             {editButton}
-                        </span>
+                        </div>
                     );
                 }
 
@@ -298,24 +307,20 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                 if (composed.ready) {
                     const isCombined = record.rule.sources.length > 1;
                     return (
-                        <span className="flex items-center gap-1">
-                            <Tag color="success" style={{ marginRight: 0, fontSize: 10, lineHeight: '16px' }}>
-                                {isCombined ? '组合' : '自动'}
-                            </Tag>
-                            <span className="flex-1 truncate">{composed.text}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            {isCombined && <Tag className="m-0">组合</Tag>}
+                            <span className="flex-1 min-w-0 truncate" title={composed.text}>{composed.text}</span>
                             {editButton}
-                        </span>
+                        </div>
                     );
                 }
 
                 return (
-                    <span className="flex items-center gap-1">
-                        <Tag color="warning" style={{ marginRight: 0, fontSize: 10, lineHeight: '16px' }}>
-                            缺{composed.missingCount}项
-                        </Tag>
-                        <span className="flex-1 truncate text-warning-text">{composed.text || '-'}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <StatusDot tone="warning">缺 {composed.missingCount} 项</StatusDot>
+                        <span className="flex-1 min-w-0 truncate text-3" title={composed.text}>{composed.text || '—'}</span>
                         {editButton}
-                    </span>
+                    </div>
                 );
             },
         })),
@@ -329,26 +334,29 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
         const detailColumns = [
             { title: '来源字段', dataIndex: 'source', key: 'source', width: 180, fixed: 'left' as const,
               render: (_: unknown, record: { source: string; index: number }) => (
-                  <span className="font-mono text-xs">{`{${record.index}} `}{record.source}</span>
+                  <span className="font-mono text-aux">{`{${record.index}} `}{record.source}</span>
               ) },
             ...vehicles.map((v) => ({
-                title: getVehicleProductName(v.name),
+                title: <ColumnTitle>{getVehicleProductName(v.name)}</ColumnTitle>,
                 dataIndex: v.name,
                 key: v.name,
                 width: 240,
+                ellipsis: true,
                 render: (_: unknown, record: { source: string; index: number }) => {
                     const resolution = row.cells.get(v.name)?.[record.index];
-                    if (!resolution) return <span className="text-3">-</span>;
+                    if (!resolution) return <span className="text-3">—</span>;
 
                     if (resolution.status === 'auto' || resolution.status === 'picked') {
+                        // 与主表同一套标记（§9）：精确命中不标；别名 = 中性 Tag；手选 = 状态圆点
                         return (
-                            <span className="flex items-center gap-1">
-                                <Tag color={resolution.status === 'picked' ? 'blue' : 'success'}
-                                     style={{ marginRight: 0, fontSize: 10, lineHeight: '16px' }}>
-                                    {resolution.status === 'picked' ? '手选' : resolution.matchType === 'alias' ? '别名' : '命中'}
-                                </Tag>
-                                <span className="text-xs text-3 mr-1">{resolution.resolvedName}</span>
-                                <b>{String(resolution.value ?? '')}</b>
+                            <span className="flex items-center gap-1.5 min-w-0">
+                                {resolution.status === 'picked' ? (
+                                    <StatusDot tone="info">手选</StatusDot>
+                                ) : resolution.matchType === 'alias' ? (
+                                    <Tag className="m-0">别名</Tag>
+                                ) : null}
+                                <span className="cell-sub truncate">{resolution.resolvedName}</span>
+                                <span className="text-1 truncate">{String(resolution.value ?? '')}</span>
                             </span>
                         );
                     }
@@ -420,8 +428,6 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                 dataSource={detailRows}
                 rowKey="key"
                 pagination={false}
-                bordered
-                size="small"
             />
         );
     };
@@ -439,7 +445,7 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                 />
             )}
 
-            <Card className="shadow-sm flex-shrink-0" size="small">
+            <Card className="flex-shrink-0" size="small">
                 <Space direction="vertical" className="w-full">
                     <div className="flex items-start gap-4">
                         <div className="flex-1 min-w-[220px]">
@@ -461,62 +467,84 @@ const BidPullView: React.FC<BidPullViewProps> = ({ onGoRepair }) => {
                             />
                         </div>
                         <div className="flex-[1.4] min-w-[220px]">
-                            <div className="mb-2 font-medium">2. 已选车型 ({localSelection.length})</div>
+                            <div className="mb-2 font-medium">
+                                2. 已选车型 <span className="text-3 text-aux font-normal tabular-nums">{localSelection.length}</span>
+                            </div>
                             <ProductSourceSelector
                                 value={localSelection}
                                 onChange={names => setLocalSelection(Array.isArray(names) ? names : names ? [names] : [])}
                                 placeholder="选择要取数的车型"
                             />
                         </div>
-                        <div className="flex flex-col gap-2 mt-8">
-                            <Button icon={<DownloadOutlined />} onClick={handleExportCsv} disabled={!hasResult}>
-                                导出 CSV
-                            </Button>
-                            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel} disabled={!hasResult}>
-                                导出 Excel
-                            </Button>
-                            {hasOverrides && (
-                                <Button icon={<ClearOutlined />} onClick={() => setOverrides({})}>
-                                    清除修正
-                                </Button>
-                            )}
-                        </div>
                     </div>
                 </Space>
             </Card>
 
-            <div className="flex-1 overflow-auto border border-default rounded relative surface-container" style={{ minHeight: 400 }}>
-                <Spin spinning={isCalculating} tip="正在按关联方案取数...">
-                    <div className="h-full flex flex-col p-3">
-                        {hasResult ? (
-                            <DataTable
-                                columns={columns}
-                                dataSource={evaluation.rows}
-                                rowKey="key"
-                                className="custom-organized-table"
-                                scrollY="calc(100vh - 460px)"
-                                bordered
-                                expandable={{
-                                    expandedRowRender: renderExpanded,
-                                    rowExpandable: (record) => record.rule.sources.length > 0,
-                                }}
-                                locale={{
-                                    emptyText: <Empty description="暂无取数结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                                }}
-                            />
-                        ) : (
-                            <Empty
-                                description={
-                                    !activeScheme || activeScheme.rules.length === 0
-                                        ? '当前方案暂无字段规则，点击「管理方案」配置投标字段与来源映射'
-                                        : '选择方案与车型后自动生成取数矩阵'
-                                }
-                                className="mt-10"
-                            />
+            {/* 结果区走列表外壳（列表区设计语言 §4）：导出从输入卡移到结果标题行——
+                动作跟着它作用的对象走；导出是本页的产出动作，故为唯一 primary（§5.1）。 */}
+            <ListToolbar
+                className="flex-1 min-h-0"
+                fill
+                padded={false}
+                title="取数结果"
+                count={hasResult ? evaluation.rows.length : undefined}
+                actions={
+                    <>
+                        {hasOverrides && (
+                            <Button icon={<ClearOutlined />} onClick={() => setOverrides({})}>
+                                清除修正
+                            </Button>
                         )}
-                    </div>
+                        <Dropdown
+                            trigger={['click']}
+                            disabled={!hasResult}
+                            menu={{
+                                items: [
+                                    { key: 'csv', icon: <DownloadOutlined />, label: 'CSV' },
+                                    { key: 'xlsx', icon: <FileExcelOutlined />, label: 'Excel' },
+                                ],
+                                onClick: ({ key }) => (key === 'csv' ? handleExportCsv() : handleExportExcel()),
+                            }}
+                        >
+                            <Button type="primary" icon={<ExportOutlined />} disabled={!hasResult}>
+                                导出 <DownOutlined />
+                            </Button>
+                        </Dropdown>
+                    </>
+                }
+            >
+                <Spin spinning={isCalculating} tip="正在按关联方案取数…">
+                    {hasResult ? (
+                        <DataTable
+                            columns={columns}
+                            dataSource={evaluation.rows}
+                            rowKey="key"
+                            className="custom-organized-table"
+                            scrollY="calc(100vh - 460px)"
+                            expandable={{
+                                expandedRowRender: renderExpanded,
+                                rowExpandable: (record) => record.rule.sources.length > 0,
+                            }}
+                            locale={{
+                                emptyText: <Empty description="暂无取数结果" />,
+                            }}
+                        />
+                    ) : (
+                        <GuideEmpty
+                            title={
+                                !activeScheme || activeScheme.rules.length === 0
+                                    ? '当前方案暂无字段规则'
+                                    : '选择方案与车型后自动生成取数矩阵'
+                            }
+                            description={
+                                !activeScheme || activeScheme.rules.length === 0
+                                    ? '点击「管理方案」配置投标字段与来源映射'
+                                    : undefined
+                            }
+                        />
+                    )}
                 </Spin>
-            </div>
+            </ListToolbar>
 
             <BidMappingDrawer
                 open={drawerOpen}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Checkbox, Collapse, Input, Modal, Progress, Segmented, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import type { ColumnsType } from 'antd/es/table';
 import { DesktopOutlined, DownloadOutlined, FileSearchOutlined, FolderOpenOutlined, ScanOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
@@ -30,6 +31,7 @@ import {
     type PdfCandidate,
     type PdfScanProgress,
 } from '../../utils/announcementScan';
+import { compactPagination } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -257,7 +259,7 @@ const AnnouncementBatchImportModal: React.FC<AnnouncementBatchImportModalProps> 
     /** 批量归档：逐份落盘，替换/并存策略与单文件导入一致（Q12） */
     const startImport = async () => {
         if (!assetLibraryPath) {
-            message.warning('请先在数据源面板设置资产库目录');
+            warnLibraryPathMissing();
             return;
         }
         const selected = editableRows.filter(i => checked.has(i.candidate.path));
@@ -581,7 +583,7 @@ const AnnouncementBatchImportModal: React.FC<AnnouncementBatchImportModalProps> 
                         rowKey={i => i.candidate.path}
                         columns={columns}
                         dataSource={displayRows}
-                        pagination={{ pageSize: 15, showSizeChanger: false }}
+                        pagination={compactPagination()}
                         rowSelection={{
                             selectedRowKeys: [...checked],
                             onChange: keys => setChecked(new Set(keys as string[])),

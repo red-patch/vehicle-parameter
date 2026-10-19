@@ -10,7 +10,7 @@ import { getProductData } from '../../store/vehicleSelectors';
 import { useShallow } from 'zustand/react/shallow';
 import Fuse from 'fuse.js';
 import type { MatchItem } from '../../types';
-import { CheckCircleOutlined, DownloadOutlined, EditOutlined, DatabaseOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined, BulbOutlined, DownOutlined } from '@ant-design/icons';
+import { DownloadOutlined, EditOutlined, DatabaseOutlined, CloudUploadOutlined, WarningOutlined, CopyOutlined, BulbOutlined, DownOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import { preloadEnumData, getEnumValuesSync, isEnumDataLoaded } from '../../utils/attributeEnums';
 import { buildRepairContext, getAssetBackedSourceFile } from '../ParameterWorkbench/quickRepair';
@@ -447,14 +447,9 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
            此前是「手写 flex 标题行 + ListToolbar 只当筛选行」两套壳并存，
            正是 R7 抓到的半成品状态。 */
         <ListToolbar
-            className="mt-8"
-            title={
-                <>
-                    <CheckCircleOutlined className="text-success" />
-                    <span className="font-semibold text-1">匹配结果预览</span>
-                    <Tag className="m-0">{filteredResults.length}/{matchResults.length}</Tag>
-                </>
-            }
+            className="mt-3"
+            title="匹配结果"
+            count={{ shown: filteredResults.length, total: matchResults.length }}
             actions={
                 <>
                     {/* §5.1：≥3 个动作收进下拉，标题行只留 1 个 primary */}
@@ -492,7 +487,7 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                         trigger={['click']}
                     >
                         <Button>
-                            导出 <DownOutlined style={{ fontSize: 10 }} />
+                            导出 <DownOutlined className="text-aux" />
                         </Button>
                     </Dropdown>
                     <Button
@@ -551,16 +546,6 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
             }
             filters={
                     <>
-                        <FilterItem label="搜索">
-                            <SearchInput
-                                multiline
-                                width="lg"
-                                hint="支持换行搜索多个"
-                                placeholder="搜索参数名、匹配名或值"
-                                value={searchText}
-                                onChange={setSearchText}
-                            />
-                        </FilterItem>
                         <FilterItem label="匹配度">
                             <Select
                                 value={confidenceFilter}
@@ -601,6 +586,16 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 onChange={v => setQuickFilter(v === 'enum_mismatch' ? 'enum_mismatch' : 'none')}
                             />
                         </FilterItem>
+                        {/* 筛选行顺序（列表区设计语言 §5.3）：维度筛选在左，搜索靠右、不带标签 */}
+                        <span className="ml-auto" />
+                        <SearchInput
+                            multiline
+                            width="lg"
+                            hint="支持换行搜索多个"
+                            placeholder="搜索参数名、匹配名或值"
+                            value={searchText}
+                            onChange={setSearchText}
+                        />
                     </>
                 }
             padded={false}

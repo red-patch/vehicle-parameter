@@ -1,10 +1,12 @@
 import React, { type ReactNode } from 'react';
 import { version } from '../../../package.json';
 import { Layout as AntLayout, Menu, Tooltip, Button } from 'antd';
-import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, BookOutlined, SunOutlined, MoonOutlined, SettingOutlined, CarOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, DiffOutlined, FormOutlined, SafetyCertificateOutlined, GlobalOutlined, BookOutlined, SunOutlined, MoonOutlined, SettingOutlined, CarOutlined, SearchOutlined } from '@ant-design/icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useGlobalSearchStore } from '../../store/globalSearchStore';
+import { formatShortcut } from '../../constants/shortcuts';
 import { reloadCustomFields } from '../../utils/fieldLists';
 import { reloadBidMappings } from '../../utils/bidFieldMapping';
 import { preloadEnumData } from '../../utils/attributeEnums';
@@ -12,6 +14,7 @@ import { reloadCustomAssetTagGroups } from '../../utils/assetTagGroups';
 import SettingsModal from '../Settings/SettingsModal';
 import GlobalSearchModal from '../GlobalSearch/GlobalSearchModal';
 import { APP_NAME } from '../../constants/app';
+import { findSaveButton, findSearchInput, findTopmostCloseButton, isInsideOverlay } from '../../utils/hotkeyScope';
 
 const { Header, Content, Footer } = AntLayout;
 
@@ -83,44 +86,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
 
     // 窗口尺寸/位置记忆由 tauri-plugin-window-state 在 Rust 侧自动处理
 
-    // 全局键盘快捷键
+    // 全局键盘快捷键（注册表：constants/shortcuts.ts 的 global.*）
+    // 所有模块常驻挂载、display:none 切换，所以目标一律走 hotkeyScope：
+    // 只认可见元素，有弹层时只在最顶层弹层内找（见 utils/hotkeyScope.ts 文件头）。
     React.useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             const isCmd = e.metaKey || e.ctrlKey;
-            // Cmd/Ctrl + S: 触发保存（冒泡到当前激活的 save 按钮）
-            if (isCmd && e.key === 's') {
+            const key = e.key.toLowerCase();
+            // Cmd/Ctrl + S：点当前可见的「保存」按钮
+            // （始终 preventDefault：避免 webview 弹「保存网页」）
+            if (isCmd && !e.shiftKey && key === 's') {
                 e.preventDefault();
-                // 寻找页面上第一个 type="primary" 且文本含"保存"的按钮并点击
-                const saveBtn = document.querySelector<HTMLButtonElement>(
-                    'button.ant-btn-primary:not(.ant-btn-background-ghost)'
-                );
-                saveBtn?.click();
+                findSaveButton()?.click();
+                return;
             }
-            // Cmd/Ctrl + F: 聚焦搜索框
-            if (isCmd && e.key === 'f') {
+            // Cmd/Ctrl + F：聚焦当前页面（或最顶层弹层）的搜索框
+            if (isCmd && !e.shiftKey && key === 'f') {
                 e.preventDefault();
-                const searchInput = document.querySelector<HTMLInputElement>(
-                    'input[placeholder*="搜索"], input[placeholder*="Search"]'
-                );
+                const searchInput = findSearchInput();
                 searchInput?.focus();
                 searchInput?.select();
+                return;
             }
-            // Cmd/Ctrl + W: 关闭最顶层的 Modal/Drawer
-            if (isCmd && e.key === 'w') {
+            // Cmd/Ctrl + W：关闭最顶层的 Modal/Drawer（macOS 上由系统菜单关窗，此绑定不生效）
+            if (isCmd && key === 'w') {
                 e.preventDefault();
-                const closeBtn = document.querySelector<HTMLButtonElement>(
-                    '.ant-modal-close, .ant-drawer-close'
-                );
-                if (closeBtn) { closeBtn.click(); return; }
-                // 如果没有 Modal，回到上一个 tab（就是之前的 pool tab）
-                // 在 macOS 上 Cmd+W 关标签页是标准行为
+                findTopmostCloseButton()?.click();
+                return;
             }
-            // Escape: 关闭最顶层的 Modal/Drawer
+            // Escape：焦点在弹层内时 antd 自己会关，这里只兜底「焦点不在弹层里」的情况，
+            // 且只关最顶层一层——否则叠两层弹层时一次 Esc 会关掉两层。
             if (e.key === 'Escape') {
-                const closeBtn = document.querySelector<HTMLButtonElement>(
-                    '.ant-modal-close, .ant-drawer-close'
-                );
-                closeBtn?.click();
+                if (e.defaultPrevented || isInsideOverlay(e.target)) return;
+                findTopmostCloseButton()?.click();
             }
         };
         window.addEventListener('keydown', handler);
@@ -138,7 +136,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                     >
                         {APP_NAME}
                     </span>
-                    <span data-tauri-drag-region className="font-mono text-xs text-3 tabular-nums whitespace-nowrap">v{version}</span>
+                    {/* 窄窗口让位给导航（版本号在设置面板里也能看到） */}
+                    <span data-tauri-drag-region className="hidden xl:inline font-mono text-xs text-3 tabular-nums whitespace-nowrap">v{version}</span>
                 </div>
                 <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center justify-end gap-2">
                     <div data-testid="top-nav-scroll" data-tauri-drag-region className="top-nav-scroll min-w-0 flex-1 overflow-x-auto">
@@ -151,6 +150,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab = 'workbenc
                             onClick={(info) => onTabChange && onTabChange(info.key)}
                         />
                     </div>
+                    {/* ⌘K 全局搜索此前只有快捷键、没有可见入口 */}
+                    <Tooltip title={`全局搜索（${formatShortcut('mod+k')}）`}>
+                        <Button
+                            type="text"
+                            size="small"
+                            data-testid="open-global-search"
+                            aria-label="全局搜索"
+                            onClick={() => useGlobalSearchStore.getState().open()}
+                            icon={<SearchOutlined className="text-2" />}
+                        />
+                    </Tooltip>
                     <Tooltip title={isDarkMode ? '亮色模式' : '暗色模式'}>
                         <Button
                             type="text"

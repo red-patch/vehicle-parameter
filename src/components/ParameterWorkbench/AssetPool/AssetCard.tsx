@@ -87,7 +87,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
                     w-6 h-6 rounded-md border flex items-center justify-center flex-shrink-0
                     transition-colors duration-150
                     ${isActive
-                        ? 'bg-brand border-brand text-white hover:opacity-90'
+                        ? 'bg-brand-fill border-brand-fill text-white hover:opacity-90'
                         : 'surface-container border-line-strong text-3 hover:border-brand hover:text-brand'
                     }
                 `}
@@ -292,7 +292,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
                             w-6 h-6 rounded-md border flex items-center justify-center flex-shrink-0
                             transition-colors duration-150
                             ${isActive
-                                ? 'bg-brand border-brand text-white hover:opacity-90'
+                                ? 'bg-brand-fill border-brand-fill text-white hover:opacity-90'
                                 : 'surface-container border-line-strong text-3 hover:border-brand hover:text-brand'
                             }
                         `}

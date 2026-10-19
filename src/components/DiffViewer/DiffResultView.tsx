@@ -11,6 +11,7 @@ import SearchInput from '../common/SearchInput';
 import { FilterItem } from '../common/ListToolbar';
 import { countUniqueModified, countUniqueParameters, exportDiffReport } from '../../utils/diffReport';
 import type { ReportFormat } from '../../utils/reportExport';
+import { pagePagination } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -339,9 +340,8 @@ const DiffResultView: React.FC = () => {
                                 dataSource={filteredModified}
                                 columns={modifiedColumns}
                                 rowKey="id"
-                                pagination={{ pageSize: 10 }}
+                                pagination={pagePagination()}
                                 size="small"
-                                bordered
                             />
                         </div>
                     )}
@@ -385,9 +385,8 @@ const DiffResultView: React.FC = () => {
                         dataSource={filteredModified}
                         columns={modifiedColumns}
                         rowKey="id"
-                        pagination={{ pageSize: 20 }}
+                        pagination={pagePagination()}
                         size="small"
-                        bordered
                         rowClassName={(record) => {
                              const isRequired = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
                              return isRequired ? 'required-row' : '';
@@ -428,9 +427,8 @@ const DiffResultView: React.FC = () => {
                 dataSource={filteredMiitData}
                 columns={miitColumns}
                 rowKey="key"
-                pagination={{ pageSize: 20 }}
+                pagination={pagePagination()}
                 size="small"
-                bordered
                 rowClassName={(record) => {
                     const isRequired = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
                     
@@ -451,7 +449,6 @@ const DiffResultView: React.FC = () => {
 
     return (
         <ListToolbar
-            className="shadow-sm"
             title={<span className="font-semibold text-1">比对统计</span>}
             actions={
                 /* §5.1：导出是本页的产出动作，primary 位置留它；

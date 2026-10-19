@@ -42,21 +42,21 @@ const PoolPane: React.FC<{ onGoCompare: () => void }> = React.memo(({ onGoCompar
     );
 });
 
-const ComparePane: React.FC<{ onGoRepair: () => void }> = React.memo(({ onGoRepair }) => (
+const ComparePane: React.FC<{ onGoRepair: () => void; onGoPool: () => void }> = React.memo(({ onGoRepair, onGoPool }) => (
     <React.Suspense fallback={<Skeleton active />}>
-        <CompareView onGoRepair={onGoRepair} />
+        <CompareView onGoRepair={onGoRepair} onGoPool={onGoPool} />
     </React.Suspense>
 ));
 
-const SmartFillPane: React.FC<{ onGoRepair: () => void }> = React.memo(({ onGoRepair }) => (
+const SmartFillPane: React.FC<{ onGoRepair: () => void; onGoPool: () => void }> = React.memo(({ onGoRepair, onGoPool }) => (
     <React.Suspense fallback={<Skeleton active />}>
-        <SmartFillView onGoRepair={onGoRepair} />
+        <SmartFillView onGoRepair={onGoRepair} onGoPool={onGoPool} />
     </React.Suspense>
 ));
 
-const PurifyPane: React.FC<{ onReturnToSource: (sourceModule: RepairSourceModule) => void }> = React.memo(({ onReturnToSource }) => (
+const PurifyPane: React.FC<{ onReturnToSource: (sourceModule: RepairSourceModule) => void; onGoPool: () => void }> = React.memo(({ onReturnToSource, onGoPool }) => (
     <React.Suspense fallback={<Skeleton active />}>
-        <DataPurifyView onReturnToSource={onReturnToSource} />
+        <DataPurifyView onReturnToSource={onReturnToSource} onGoPool={onGoPool} />
     </React.Suspense>
 ));
 
@@ -85,6 +85,7 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         [setActiveTab],
     );
     const handleGoCompare = useCallback(() => setActiveTab('compare'), [setActiveTab]);
+    const handleGoPool = useCallback(() => setActiveTab('pool'), [setActiveTab]);
 
     const items: { key: WorkbenchTabKey; label: React.ReactNode; children: React.ReactNode }[] = useMemo(() => [
         {
@@ -95,20 +96,20 @@ const ParameterWorkbench: React.FC<ParameterWorkbenchProps> = ({
         {
             key: 'compare',
             label: <span className="flex items-center gap-1.5"><DiffOutlined /> 版本对比</span>,
-            children: <ComparePane onGoRepair={handleGoRepair} />
+            children: <ComparePane onGoRepair={handleGoRepair} onGoPool={handleGoPool} />
         },
         {
             key: 'fill',
             label: <span className="flex items-center gap-1.5"><FormOutlined /> 智能填报</span>,
-            children: <SmartFillPane onGoRepair={handleGoRepair} />
+            children: <SmartFillPane onGoRepair={handleGoRepair} onGoPool={handleGoPool} />
         },
         {
             key: 'purify',
             label: <span className="flex items-center gap-1.5"><SafetyCertificateOutlined /> 数据体检与修复</span>,
-            children: <PurifyPane onReturnToSource={handleReturnToModule} />
+            children: <PurifyPane onReturnToSource={handleReturnToModule} onGoPool={handleGoPool} />
         }
         // 注意：不依赖 activeTab——切换 tab 不应重建任何 pane 的元素树
-    ], [handleGoRepair, handleReturnToModule, handleGoCompare]);
+    ], [handleGoRepair, handleReturnToModule, handleGoCompare, handleGoPool]);
 
     // 懒挂载：激活过的 tab 才渲染，之后保活
     React.useEffect(() => {

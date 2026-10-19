@@ -85,9 +85,9 @@ const AssetAliasBatchModal: React.FC<AssetAliasBatchModalProps> = ({
                 <br />
                 派生不出的（电量缺失等）已列出但默认不勾选，可手工补一个。
             </div>
-            <div className="max-h-[420px] overflow-y-auto custom-scrollbar border border-[var(--border)] rounded-lg">
+            <div className="max-h-[420px] overflow-y-auto custom-scrollbar border border-default rounded-lg">
                 <table className="w-full text-[12px]">
-                    <thead className="sticky top-0 bg-[var(--bg)] text-3">
+                    <thead className="sticky top-0 bg-surface-2 text-3">
                         <tr>
                             <th className="w-10 py-2"></th>
                             <th className="text-left py-2 px-2">原名</th>
@@ -96,7 +96,7 @@ const AssetAliasBatchModal: React.FC<AssetAliasBatchModalProps> = ({
                     </thead>
                     <tbody>
                         {suggestions.map(s => (
-                            <tr key={s.fileName} className="border-t border-[var(--border)]">
+                            <tr key={s.fileName} className="border-t border-default">
                                 <td className="py-1.5 text-center">
                                     <Checkbox
                                         checked={checked.has(s.fileName)}

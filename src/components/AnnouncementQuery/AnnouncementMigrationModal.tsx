@@ -8,6 +8,7 @@ import {
     runAnnouncementMigration,
     type MigrationCandidate,
 } from '../../utils/announcementMigration';
+import { MODAL_TABLE_SCROLL_Y } from '../common/tablePresets';
 
 const { Text, Paragraph } = Typography;
 
@@ -105,7 +106,7 @@ const AnnouncementMigrationModal: React.FC<AnnouncementMigrationModalProps> = ({
                 dataSource={candidates}
                 loading={collecting}
                 pagination={false}
-                scroll={{ y: 360 }}
+                scroll={{ y: MODAL_TABLE_SCROLL_Y }}
                 rowSelection={{
                     selectedRowKeys,
                     onChange: keys => setSelectedRowKeys(keys),

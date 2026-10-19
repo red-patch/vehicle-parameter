@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Input, Button, message, Empty, Space, Upload, Spin, Select, Alert, Tag } from 'antd';
-import { DownloadOutlined, ClearOutlined, UploadOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ClearOutlined, UploadOutlined } from '@ant-design/icons';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -13,6 +13,10 @@ import { downloadCsv } from '../../utils/downloadCsv';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
 import DataTable from '../common/DataTable';
+import ListToolbar from '../common/ListToolbar';
+import SearchInput from '../common/SearchInput';
+import GuideEmpty from '../common/GuideEmpty';
+import ColumnTitle from '../common/ColumnTitle';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
 import { getVehicleProductName } from '../../utils/vehicleInstance';
 
@@ -245,13 +249,15 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
             key: 'targetField',
             fixed: 'left' as const,
             width: 150,
-            render: (text: string) => <b>{text}</b>
+            ellipsis: true,
+            render: (text: string) => <span className="text-1">{text}</span>
         },
         ...selectedVehicles.map(v => ({
-            title: getVehicleProductName(v.name),
+            title: <ColumnTitle>{getVehicleProductName(v.name)}</ColumnTitle>,
             dataIndex: v.name,
             key: v.name,
-            width: 200,
+            width: 220,
+            ellipsis: true,
             render: (text: string | number | undefined, record: OrganizedRow) => {
                 const matchResult = record._matches?.get(v.name);
                 const sourceFileName = assetSourceByProduct.get(v.name);
@@ -294,13 +300,16 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                     );
                 }
 
-                // 精确/别名匹配 → 值 + 绿色标签
-                if (matchResult && matchResult.matchType !== 'none' && text !== undefined) {
-                    return (
-                        <span>
-                            <Tag color="success" style={{ marginRight: 4, fontSize: 10, lineHeight: '16px' }}>精确</Tag>
-                            {text}
+                // 命中 → 值本身。精确命中是常态，不再给每格挂绿色「精确」标签（整列涂满 = 颜色成了填充，§9）；
+                // 别名命中是分类信息，用中性 Tag 提示「值来自别名字段」。空串走下方「—」分支
+                if (matchResult && matchResult.matchType !== 'none' && text !== undefined && text !== '') {
+                    return matchResult.matchType === 'alias' ? (
+                        <span className="flex items-center gap-1.5 min-w-0">
+                            <Tag className="m-0">别名</Tag>
+                            <span className="truncate" title={String(text)}>{text}</span>
                         </span>
+                    ) : (
+                        <span title={String(text)}>{text}</span>
                     );
                 }
 
@@ -308,7 +317,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 if (!text) {
                     return sourceFileName ? (
                         <RepairableValue
-                            value={<span className="text-3">-</span>}
+                            value={<span className="text-3">—</span>}
                             repairable={true}
                             hint="点击修复源数据"
                             onRepair={() => {
@@ -317,7 +326,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                 onGoRepair?.();
                             }}
                         />
-                    ) : <span className="text-3">-</span>;
+                    ) : <span className="text-3">—</span>;
                 }
                 return text;
             }
@@ -333,14 +342,14 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                     message={`正在同步 ${pendingSelectionCount} 款待整理车型数据，完成后会自动参与整理`}
                 />
             )}
-            <Card className="shadow-sm flex-shrink-0" size="small">
+            <Card className="flex-shrink-0" size="small">
                 <Space direction="vertical" className="w-full">
                     <div className="flex items-start gap-4">
                         <div className="flex-[2]">
                             <div className="mb-2 font-medium flex items-center gap-3">
-                                1. 目标字段列表 (支持逗号、换行分隔)
+                                1. 目标字段列表（支持逗号、换行分隔）
                                 <a 
-                                    className="text-xs font-normal text-brand"
+                                    className="text-aux font-normal text-brand"
                                     onClick={() => setTargetFields("整备质量, 最高车速, 轴距, 外形尺寸长, 发动机型号")}
                                 >
                                     填入示例
@@ -374,7 +383,7 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                                         return false;
                                     }}
                                 >
-                                    <a className="text-xs font-normal text-brand"><UploadOutlined /> 从文件导入</a>
+                                    <a className="text-aux font-normal text-brand"><UploadOutlined /> 从文件导入</a>
                                 </Upload>
                             </div>
                             <TextArea 
@@ -385,7 +394,9 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                             />
                         </div>
                         <div className="flex-1">
-                            <div className="mb-2 font-medium">2. 已选待整理车型 ({localSelection.length})</div>
+                            <div className="mb-2 font-medium">
+                                2. 已选待整理车型 <span className="text-3 text-aux font-normal tabular-nums">{localSelection.length}</span>
+                            </div>
                             <ProductSourceSelector 
                                 value={localSelection}
                                 onChange={names => setLocalSelection(Array.isArray(names) ? names : names ? [names] : [])}
@@ -401,44 +412,54 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 </Space>
             </Card>
 
-            <div className="flex-1 overflow-auto border border-default rounded relative surface-container" style={{ minHeight: 400 }}>
-                <Spin spinning={isCalculating} tip="正在智能解析字段...">
-                    <div className="h-full flex flex-col p-3">
-                        {organizedData.length > 0 || isCalculating ? (
-                            <>
-                                <div className="mb-3 flex justify-between items-center">
-                                    <h3 className="font-bold">整理结果</h3>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            size="small"
-                                            style={{ width: 200 }}
-                                            placeholder="搜索参数名或值..."
-                                            prefix={<SearchOutlined className="text-3" />}
-                                            value={multiSearch}
-                                            onChange={e => setMultiSearch(e.target.value)}
-                                            allowClear
-                                        />
-                                        <Button icon={<DownloadOutlined />} onClick={handleDownload} disabled={isCalculating}>导出 CSV</Button>
-                                    </div>
-                                </div>
-                                <DataTable 
-                                    columns={columns}
-                                    dataSource={filteredData}
-                                    rowKey="key"
-                                    className="custom-organized-table"
-                                    scrollY="calc(100vh - 460px)"
-                                    bordered
-                                    locale={{
-                                        emptyText: isCalculating ? <div style={{ height: 100 }} /> : <Empty description="暂无整理结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                                    }}
-                                />
-                            </>
-                        ) : (
-                            <Empty description="暂无整理结果" className="mt-10" />
-                        )}
-                    </div>
+            {/* 结果区走列表外壳（列表区设计语言 §4）：此前手写 <h3> 标题 + 手搓搜索框 + 带边框表 */}
+            <ListToolbar
+                className="flex-1 min-h-0"
+                fill
+                padded={false}
+                title="整理结果"
+                count={organizedData.length > 0 ? { shown: filteredData.length, total: organizedData.length } : undefined}
+                actions={
+                    <Button
+                        type="primary"
+                        icon={<DownloadOutlined />}
+                        onClick={handleDownload}
+                        disabled={isCalculating || organizedData.length === 0}
+                    >
+                        导出 CSV
+                    </Button>
+                }
+                filters={
+                    organizedData.length > 0 ? (
+                        <>
+                            <span className="ml-auto" />
+                            <SearchInput
+                                width="sm"
+                                placeholder="搜索参数名或值"
+                                value={multiSearch}
+                                onChange={setMultiSearch}
+                            />
+                        </>
+                    ) : undefined
+                }
+            >
+                <Spin spinning={isCalculating} tip="正在智能解析字段…">
+                    {organizedData.length > 0 || isCalculating ? (
+                        <DataTable
+                            columns={columns}
+                            dataSource={filteredData}
+                            rowKey="key"
+                            className="custom-organized-table"
+                            scrollY="calc(100vh - 460px)"
+                            locale={{
+                                emptyText: isCalculating ? <div style={{ height: 100 }} /> : <Empty description="暂无整理结果" />
+                            }}
+                        />
+                    ) : (
+                        <GuideEmpty title="暂无整理结果" description="填写目标字段并选择车型后自动整理" />
+                    )}
                 </Spin>
-            </div>
+            </ListToolbar>
         </div>
     );
 };

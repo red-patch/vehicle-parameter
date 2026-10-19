@@ -51,6 +51,15 @@ export default {
       // 字体族 / 字号阶梯 / tabular-nums：全部来自专家 tokens（v4.1 字体方案），
       // 含 text-caption…text-hero 命名字号类（自带行高与字重）
       ...obsidianBlue.theme,
+      // 命名字号类（text-caption…text-hero）改读 --fs-* 变量：数值仍以 tokens 为准
+      // （index.css :root 与之同值），但能随「设置 → 界面字号」三档缩放。
+      // 此前它们是写死的 px，界面字号设置只对 antd 生效、对 Tailwind 文字无效。
+      fontSize: Object.fromEntries(
+        Object.entries(obsidianBlue.theme.fontSize).map(([name, [, opts]]) => [
+          name,
+          [`var(--fs-${name})`, opts],
+        ]),
+      ),
       boxShadow: {
         'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
         'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
