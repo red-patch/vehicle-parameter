@@ -22,6 +22,26 @@ import { formatListCount, type ListCount } from './tablePresets';
  *
  * 只传 `filters`、不传 children 时退化为一条筛选带（等价旧 `FilterBar`）。
  * 本构件只管**三段怎么摆**；控件形态由 SearchInput / FacetChips / FilterItem 决定。
+ *
+ * 典型用法（列表页整页外壳；② 改「数据集合」，③ 只改「呈现方式」，二者不混）：
+ *
+ * ```tsx
+ * <ListToolbar
+ *     title="公告归档"
+ *     count={{ shown: filtered.length, total: all.length }}
+ *     actions={<Button>导入</Button>}
+ *     filters={
+ *         <>
+ *             <FacetChips options={[…]} value={chip} onChange={setChip} />
+ *             <SearchInput className="ml-auto" value={q} onChange={setQ} placeholder="搜索车型名" />
+ *         </>
+ *     }
+ *     display={<Switch … />}
+ *     padded={false}   // 表格贴边时传 false
+ * >
+ *     <DataTable … />
+ * </ListToolbar>
+ * ```
  */
 
 /**
