@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useMemo, useEffect, useRef, useSyncExternalStore } from 'react';
 import { Select, Button, Input, Tooltip, Popover, message, Alert } from 'antd';
 import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { FilterItem } from '../common/ListToolbar';
@@ -11,7 +11,8 @@ import { SaveOutlined, WarningOutlined, DeleteOutlined, PlusOutlined, EditOutlin
 import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
-import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName } from '../../utils/attributeEnums';
+import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName, subscribeEnumData, getEnumDataVersion } from '../../utils/attributeEnums';
+import { summarizePurifyAnomalies, buildAnomalyChips, buildDictHint } from './purifyAnomaly';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import Fuse from 'fuse.js';
 import type { VehicleParameter } from '../../types';
@@ -74,20 +75,27 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource, onGoP
     const [isExistingAsset, setIsExistingAsset] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    // 字典变更（资产目录挂载 / 字段与词表导入）→ 版本号 +1 → 下方派生全部重算
+    const enumVersion = useSyncExternalStore(subscribeEnumData, getEnumDataVersion);
+
     // 动态计算标准字段集（仅限枚举字典）
-    const { standardFieldsFuse } = useMemo(() => {
+    const { allStandardFields, standardFieldsFuse } = useMemo(() => {
         const fields = enumLoaded ? getAllAttributeNames() : [];
         const fuse = new Fuse(fields.map(f => ({ name: f })), {
             keys: ['name'],
             threshold: 0.6,
         });
         return { allStandardFields: fields, standardFieldsFuse: fuse };
-    }, [enumLoaded]);
+    // enumVersion 不在函数体内读取，但字典内容随它变化 → 必须作为重算信号
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [enumLoaded, enumVersion]);
+    /** 字典为空（未配置 / 未载入）时不判字段名：否则每个参数名都会被标成「不在词表」 */
+    const dictReady = allStandardFields.length > 0;
 
     // 过滤状态
     const [filterGroup, setFilterGroup] = useState<string | undefined>(undefined);
     const [paramSearch, setParamSearch] = useState('');
-    const [quickFilter, setQuickFilter] = useState<'none' | 'system' | 'quality' | 'anomaly' | 'diff'>('none');
+    const [quickFilter, setQuickFilter] = useState<'none' | 'anomaly' | 'name' | 'value' | 'diff'>('none');
     const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
     const [manualValueRows, setManualValueRows] = useState<Set<string>>(new Set());
 
@@ -286,12 +294,12 @@ type PurifyRow = VehicleParameter & {
     const prevNameKeys = useRef('');
     const nameFixesCache = useRef<Map<string, string[]>>(new Map());
     const augmentedParams = useMemo(() => {
-        const nameKey = purifyParams.map(p => `${p.id}:${p.name}`).join('|');
+        const nameKey = `${enumVersion}#` + purifyParams.map(p => `${p.id}:${p.name}`).join('|');
         if (nameKey !== prevNameKeys.current) {
             prevNameKeys.current = nameKey;
             nameFixesCache.current = new Map();
             purifyParams.forEach(p => {
-                if (isKnownAttributeName(p.name) || !p.name.trim()) {
+                if (!dictReady || isKnownAttributeName(p.name) || !p.name.trim()) {
                     nameFixesCache.current.set(p.id, []);
                     return;
                 }
@@ -307,7 +315,7 @@ type PurifyRow = VehicleParameter & {
             const reference = matchReference(p, referenceIndex);
             return {
                 ...p,
-                isNameStandard: isKnownAttributeName(p.name),
+                isNameStandard: !dictReady || isKnownAttributeName(p.name),
                 nameFixes: nameFixesCache.current.get(p.id) || [],
                 enums,
                 hasEnums,
@@ -316,7 +324,7 @@ type PurifyRow = VehicleParameter & {
                 diff: computeRowDiff(p, reference),
             };
         });
-    }, [purifyParams, enumLoaded, referenceIndex]);
+    }, [purifyParams, enumLoaded, enumVersion, dictReady, standardFieldsFuse, referenceIndex]);
 
     // 提取所有可用的分组用于下拉菜单
     const availableGroups = useMemo(() => {
@@ -347,10 +355,10 @@ type PurifyRow = VehicleParameter & {
             
             // 快捷过滤器（仅保留「仅异常」与「仅看差异」，其他通过字段组下拉实现）
             if (quickFilter === 'anomaly') {
-                const isNameHealthy = p.isNameStandard;
-                const isValueHealthy = !p.isEnumMismatch;
-                return !(isNameHealthy && isValueHealthy);
+                return !p.isNameStandard || p.isEnumMismatch;
             }
+            if (quickFilter === 'name') return !p.isNameStandard;
+            if (quickFilter === 'value') return p.isEnumMismatch;
             if (quickFilter === 'diff') {
                 return !!p.diff;
             }
@@ -383,7 +391,20 @@ type PurifyRow = VehicleParameter & {
         return [...targets, ...others];
     }, [filteredParams, targetFieldName]);
 
-    const anomalyCount = augmentedParams.filter(p => !p.isNameStandard || p.isEnumMismatch).length;
+    const anomaly = useMemo(
+        () => summarizePurifyAnomalies(augmentedParams, allStandardFields.length),
+        [augmentedParams, allStandardFields.length]
+    );
+    const dictHint = buildDictHint(anomaly);
+    // 词表覆盖不足时，逐行标橙等于整列标橙——信号失效。改为弱化标记（图标仍可点开看推荐），
+    // 由顶部提示说明原因；主动筛「字段名不在词表」时恢复强调。
+    const muteNameFlags = anomaly.lowCoverage && quickFilter !== 'name';
+    // 修完最后一项后对应 chip 会消失：此时退出该筛选，避免停在一张空表上
+    useEffect(() => {
+        if ((quickFilter === 'name' && anomaly.nameCount === 0) || (quickFilter === 'value' && anomaly.valueCount === 0)) {
+            setQuickFilter('none');
+        }
+    }, [quickFilter, anomaly.nameCount, anomaly.valueCount]);
 
     // columns memo：引用稳定（handler 均 useCallback 化），避免每次击键/过滤触发全表重渲染
     const columns = useMemo(() => [
@@ -441,7 +462,7 @@ type PurifyRow = VehicleParameter & {
                 return (
                     <div className="flex items-center gap-1 min-w-0">
                         <span
-                            className={`cell-edit-text ${isNonStandard ? 'text-warning-text' : 'text-1'}`}
+                            className={`cell-edit-text ${isNonStandard && !muteNameFlags ? 'text-warning-text' : 'text-1'}`}
                             title={record.name || '点击输入参数名'}
                             onClick={() => openCell(record.id, 'name')}
                         >
@@ -472,7 +493,10 @@ type PurifyRow = VehicleParameter & {
                                     )
                                 }
                             >
-                                <WarningOutlined className="text-warning hover:text-[color:var(--warning-text)] text-[13px] flex-shrink-0" />
+                                <WarningOutlined
+                                    title="不在字段词表中，点击查看推荐字段名"
+                                    className={`${muteNameFlags ? 'text-3' : 'text-warning'} hover:text-[color:var(--warning-text)] text-[13px] flex-shrink-0`}
+                                />
                             </Popover>
                         )}
                     </div>
@@ -626,7 +650,7 @@ type PurifyRow = VehicleParameter & {
                 />
             )
         }
-    ], [handleUpdateParam, manualValueRows, handleDeleteParam, handleSyncParam, diffById, editingCell, openCell, closeCell]);
+    ], [handleUpdateParam, manualValueRows, handleDeleteParam, handleSyncParam, diffById, editingCell, openCell, closeCell, muteNameFlags]);
 
     return (
         <div className="h-full flex flex-col gap-3">
@@ -660,6 +684,9 @@ type PurifyRow = VehicleParameter & {
                         }
                     />
                 </div>
+            )}
+            {dictHint && (
+                <Alert type="info" showIcon closable message={dictHint} />
             )}
             {/* 列表页外壳统一走 ListToolbar 三段（设计语言 §4.1/§4.3）：
                 此前是 FilterBar 的「筛选在左 + 操作在右，挤同一行」。 */}
@@ -783,12 +810,7 @@ type PurifyRow = VehicleParameter & {
                         <FilterItem label="快捷">
                             <FacetChips
                                 options={[
-                                    {
-                                        value: 'anomaly',
-                                        label: anomalyCount > 0 ? '发现异常' : '完全合规',
-                                        count: anomalyCount > 0 ? anomalyCount : undefined,
-                                        tone: anomalyCount > 0 ? 'warning' : undefined,
-                                    },
+                                    ...buildAnomalyChips(anomaly),
                                     ...(effectiveReferenceProduct
                                         ? [{
                                               value: 'diff',

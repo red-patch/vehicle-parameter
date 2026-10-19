@@ -21,6 +21,28 @@ let enumMetaCache: Record<string, EnumFieldMeta> | null = null;
 // 标准化名称到原始名称的映射
 let normalizedNameMap: Map<string, string> | null = null;
 
+// 字典版本：每次 preloadEnumData 完成后 +1，供视图订阅后重算（useSyncExternalStore）。
+// 此前视图只在挂载时读一次字典：若先于资产目录的字典载入或在「字段与词表」改了字典，
+// 体检页仍按旧（甚至空）字典把字段名全判为「不在词表」。
+let enumDataVersion = 0;
+const enumDataListeners = new Set<() => void>();
+
+/** 当前字典版本号（快照，供 useSyncExternalStore） */
+export function getEnumDataVersion(): number {
+    return enumDataVersion;
+}
+
+/** 订阅字典变更；返回退订函数 */
+export function subscribeEnumData(listener: () => void): () => void {
+    enumDataListeners.add(listener);
+    return () => { enumDataListeners.delete(listener); };
+}
+
+function notifyEnumDataChanged(): void {
+    enumDataVersion++;
+    enumDataListeners.forEach(listener => listener());
+}
+
 // 激活过滤器配置：用户勾选的所属类目 + 属性类别
 let activeFilterConfig: { categoryPaths: string[]; categories: string[] } | null = null;
 
@@ -159,6 +181,7 @@ export async function preloadEnumData(libraryPath?: string): Promise<void> {
         enumMetaCache = {};
         activeFilterConfig = null;
     }
+    notifyEnumDataChanged();
 }
 
 /**
