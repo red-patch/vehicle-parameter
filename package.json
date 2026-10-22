@@ -7,13 +7,15 @@
     "stats": "node scripts/stats.js",
     "start": "./scripts/start.sh",
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "tauri",
     "release": "./scripts/release.sh",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
