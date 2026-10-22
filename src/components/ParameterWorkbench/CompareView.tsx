@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Checkbox, Empty, Segmented, message, Select, Spin, Tooltip } from 'antd';
+import { Button, Checkbox, Empty, Segmented, message, Select, Spin, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -95,6 +95,9 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
     const pendingSelectionCount = useMemo(() => {
         return Array.from(selectionStates.values()).filter((state) => state.status === 'pending').length;
     }, [selectionStates]);
+
+    /** 「清除筛选」只看筛选行（差异视图/字段组/搜索）；③ 段两个显示开关不算 */
+    const filtersActive = diffFilter !== 'all' || fieldGroupFilter !== 'all' || searchText.trim() !== '';
 
     // 过滤后的数据
     const filteredData = useMemo(() => {
@@ -370,6 +373,16 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                                 style={{ width: 180 }}
                             />
                         </FilterItem>
+                        {filtersActive && (
+                            <Button
+                                type="link"
+                                size="small"
+                                className="px-0"
+                                onClick={() => { setDiffFilter('all'); setFieldGroupFilter('all'); setSearchText(''); }}
+                            >
+                                清除筛选
+                            </Button>
+                        )}
                         <span className="ml-auto" />
                         <SearchInput
                             width="sm"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAnomalyChips, buildDictHint, summarizePurifyAnomalies } from '../purifyAnomaly';
+import { buildAnomalyChips, buildDictHint, hasPurifyFilters, summarizePurifyAnomalies } from '../purifyAnomaly';
 
 const row = (isNameStandard: boolean, isEnumMismatch = false) => ({ isNameStandard, isEnumMismatch });
 
@@ -29,10 +29,21 @@ describe('数据体检异常汇总', () => {
         expect(buildAnomalyChips(s).map(c => c.value)).toEqual(['value']);
     });
 
-    it('全部合规：「完全合规」', () => {
+    it('全部合规：「完全合规」是状态说明，不可点（点它只会把表筛空）', () => {
         const s = summarizePurifyAnomalies([row(true), row(true)], 20);
-        expect(buildAnomalyChips(s)).toEqual([{ value: 'anomaly', label: '完全合规' }]);
+        expect(buildAnomalyChips(s)).toEqual([{ value: 'anomaly', label: '完全合规', disabled: true }]);
         expect(buildDictHint(s)).toBeNull();
+    });
+
+    it('「清除筛选」只认筛选态：搜索/分组/字段组/快捷任一非默认即算有筛选', () => {
+        const base = { quick: 'none', paramSearch: '', group: undefined, fieldGroup: 'all' };
+        expect(hasPurifyFilters(base)).toBe(false);
+        expect(hasPurifyFilters({ ...base, quick: 'name' })).toBe(true);
+        expect(hasPurifyFilters({ ...base, paramSearch: '  轴距 ' })).toBe(true);
+        expect(hasPurifyFilters({ ...base, group: '基本参数' })).toBe(true);
+        expect(hasPurifyFilters({ ...base, fieldGroup: 'core' })).toBe(true);
+        // 纯空格不算筛选
+        expect(hasPurifyFilters({ ...base, paramSearch: '   ' })).toBe(false);
     });
 
     it('真实数据回归：词表 6 个字段、503 个参数 501 个不在词表 → 判定覆盖不足并说明不是数据错', () => {

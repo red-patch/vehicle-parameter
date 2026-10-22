@@ -12,7 +12,7 @@ import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getEnumValuesSync, isEnumDataLoaded, preloadEnumData, getAllAttributeNames, isKnownAttributeName, subscribeEnumData, getEnumDataVersion } from '../../utils/attributeEnums';
-import { summarizePurifyAnomalies, buildAnomalyChips, buildDictHint } from './purifyAnomaly';
+import { summarizePurifyAnomalies, buildAnomalyChips, buildDictHint, hasPurifyFilters } from './purifyAnomaly';
 import { getFieldGroupsSync } from '../../utils/fieldLists';
 import Fuse from 'fuse.js';
 import type { VehicleParameter } from '../../types';
@@ -406,6 +406,20 @@ type PurifyRow = VehicleParameter & {
         }
     }, [quickFilter, anomaly.nameCount, anomaly.valueCount]);
 
+    // 「重置筛选」：此前快速筛选只能进不能出（选中后唯一的退路是刷新页面）
+    const filtersActive = hasPurifyFilters({
+        quick: quickFilter,
+        paramSearch,
+        group: filterGroup,
+        fieldGroup: fieldGroupFilter,
+    });
+    const resetFilters = useCallback(() => {
+        setQuickFilter('none');
+        setParamSearch('');
+        setFilterGroup(undefined);
+        setFieldGroupFilter('all');
+    }, []);
+
     // columns memo：引用稳定（handler 均 useCallback 化），避免每次击键/过滤触发全表重渲染
     const columns = useMemo(() => [
         {
@@ -774,6 +788,34 @@ type PurifyRow = VehicleParameter & {
                             />
                         </FilterItem>
 
+                        {/* 快捷筛选是筛选（改变可见行集合），归 ② 段；此前误放在 ③ 显示选项段，
+                            与「分组」「字段组」混排，用户找不到它、也找不到退路。
+                            清除筛选 = link 按钮，仅在有筛选时出现（列表区设计语言 §5.3）。 */}
+                        <FilterItem label="快捷">
+                            <FacetChips
+                                clearable
+                                options={[
+                                    ...buildAnomalyChips(anomaly),
+                                    ...(effectiveReferenceProduct
+                                        ? [{
+                                              value: 'diff',
+                                              label: '仅看差异',
+                                              count: diffFieldNames.length,
+                                              disabled: diffFieldNames.length === 0 && quickFilter !== 'diff',
+                                          }]
+                                        : []),
+                                ]}
+                                value={quickFilter === 'none' ? '' : quickFilter}
+                                onChange={v => setQuickFilter((v || 'none') as typeof quickFilter)}
+                            />
+                        </FilterItem>
+                        {/* chip 现在能再点一次取消，但仍需要「一键回全量」的出口——
+                            筛选分散在筛选行与显示选项行两处时，逐个点掉不现实。 */}
+                        {filtersActive && (
+                            <Button type="link" size="small" className="px-0" onClick={resetFilters}>
+                                清除筛选
+                            </Button>
+                        )}
                         <span className="ml-auto" />
                         <SearchInput
                             width="md"
@@ -784,9 +826,9 @@ type PurifyRow = VehicleParameter & {
                     </>
                 }
                 display={
-                    /* ③ 显示选项：分组/字段组与两个快捷筛选都只改「呈现什么」，
-                       不改数据集合本身，按 §4.1 归属此段。
-                       快捷筛选由「变色主按钮」改为 FacetChips（规范禁项）。 */
+                    /* ③ 显示选项：分组/字段组只改「呈现什么」，按 §4.1 归属此段。
+                       快捷筛选**是筛选**（改变可见行集合），此前误放在本段；已移回
+                       筛选行——§4.1 的原话是「② 改数据集合，③ 只改呈现方式」。 */
                     <>
                         <FilterItem label="分组">
                             <Select
@@ -805,23 +847,6 @@ type PurifyRow = VehicleParameter & {
                                 value={fieldGroupFilter}
                                 onChange={setFieldGroupFilter}
                                 options={fieldGroupOptions}
-                            />
-                        </FilterItem>
-                        <FilterItem label="快捷">
-                            <FacetChips
-                                options={[
-                                    ...buildAnomalyChips(anomaly),
-                                    ...(effectiveReferenceProduct
-                                        ? [{
-                                              value: 'diff',
-                                              label: '仅看差异',
-                                              count: diffFieldNames.length,
-                                              disabled: diffFieldNames.length === 0 && quickFilter !== 'diff',
-                                          }]
-                                        : []),
-                                ]}
-                                value={quickFilter === 'none' ? '' : quickFilter}
-                                onChange={v => setQuickFilter((v || 'none') as typeof quickFilter)}
                             />
                         </FilterItem>
                     </>

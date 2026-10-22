@@ -432,6 +432,11 @@ const MultiVehicleView: React.FC<MultiVehicleViewProps> = ({ onGoRepair }) => {
                 filters={
                     organizedData.length > 0 ? (
                         <>
+                            {multiSearch.trim() !== '' && (
+                                <Button type="link" size="small" className="px-0" onClick={() => setMultiSearch('')}>
+                                    清除筛选
+                                </Button>
+                            )}
                             <span className="ml-auto" />
                             <SearchInput
                                 width="sm"

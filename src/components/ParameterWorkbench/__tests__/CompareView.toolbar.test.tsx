@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildVehicleInstanceKey } from '../../../utils/vehicleInstance';
 import type { SheetData } from '../../../types';
@@ -106,6 +106,33 @@ describe('CompareView 结果工具条（批次 3）', () => {
         // SearchInput 固定带搜索图标（非裸 Input 的写法）
         const searchWrap = document.querySelector('.ant-input-affix-wrapper .anticon-search');
         expect(searchWrap).not.toBeNull();
+    }, 15000);
+
+    it('「清除筛选」仅在筛选行非默认时出现，点了回到全量（§5.3）', async () => {
+        const { default: CompareView } = await import('../CompareView');
+        seed();
+        render(<CompareView />);
+        await screen.findByText('整备质量');
+
+        // 用查询而不是 getByText：按钮不渲染时 antd/Tailwind 仍会留下一个空 span
+        const clearButton = () => screen.queryByText('清除筛选')?.closest('button') ?? null;
+
+        // 两车值不同 → 页面自动切「只看差异」（CompareView 的既有行为），
+        // 因此首屏本就处于筛选态，「清除筛选」应在
+        expect(clearButton()).not.toBeNull();
+
+        fireEvent.click(clearButton()!);
+        // 回到「全部」+ 无条件可清
+        expect(clearButton()).toBeNull();
+
+        // 再次切到「差异」算筛选 → 按钮回来
+        fireEvent.click(screen.getByText(/^差异/));
+        expect(clearButton()).not.toBeNull();
+        fireEvent.click(clearButton()!);
+
+        // 显示开关（隐藏无值字段）不属于筛选，不应唤醒清除按钮
+        fireEvent.click(screen.getByLabelText(/隐藏无值字段/));
+        expect(clearButton()).toBeNull();
     }, 15000);
 
     it('标题段显示计数：已选车型数与「显示 / 总数」（§5.2 计数是文字不是标签）', async () => {

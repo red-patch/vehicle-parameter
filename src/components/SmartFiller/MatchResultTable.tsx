@@ -440,6 +440,18 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
         });
     }, [filteredResults, enumLoaded]);
 
+    // 「清除筛选」：与数据体检同一套退出机制（列表区设计语言 §5.3）
+    const filtersActive = quickFilter !== 'none'
+        || Boolean(searchText.trim())
+        || confidenceFilter !== 'all'
+        || statusFilter !== 'all';
+    const resetFilters = () => {
+        setQuickFilter('none');
+        setSearchText('');
+        setConfidenceFilter('all');
+        setStatusFilter('all');
+    };
+
     if (!matchResults.length) return null;
 
     return (
@@ -571,9 +583,11 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                             />
                         </FilterItem>
 
-                        {/* V3.1: 快捷筛选 → 统一为 chip，不再用变色主按钮 */}
+                        {/* V3.1: 快捷筛选 → 统一为 chip，不再用变色主按钮。
+                            clearable：再点一次即取消——此前选中后没有回到全量的入口。 */}
                         <FilterItem label="快捷">
                             <FacetChips
+                                clearable
                                 options={[
                                     {
                                         value: 'enum_mismatch',
@@ -586,6 +600,11 @@ const MatchResultTable: React.FC<MatchResultTableProps> = ({ productName, onGoRe
                                 onChange={v => setQuickFilter(v === 'enum_mismatch' ? 'enum_mismatch' : 'none')}
                             />
                         </FilterItem>
+                        {filtersActive && (
+                            <Button type="link" size="small" className="px-0" onClick={resetFilters}>
+                                清除筛选
+                            </Button>
+                        )}
                         {/* 筛选行顺序（列表区设计语言 §5.3）：维度筛选在左，搜索靠右、不带标签 */}
                         <span className="ml-auto" />
                         <SearchInput

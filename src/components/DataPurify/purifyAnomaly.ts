@@ -62,13 +62,19 @@ export function summarizePurifyAnomalies(
     };
 }
 
-/** 快捷筛选 chip：两类异常分开计数，色调与表格内标记一致（参数名橙 / 参数值红） */
+/**
+ * 快捷筛选 chip：两类异常分开计数，色调与表格内标记一致（参数名橙 / 参数值红）。
+ *
+ * 「未配置词表」「完全合规」是**状态说明**，不是筛选项：选中它们会把表筛成空表，
+ * 而它们描述的对象恰恰是「没有可筛的东西」。故标为 disabled——文案仍要出现，
+ * 否则用户会以为筛选项丢了（设计语言 §9.1）。
+ */
 export function buildAnomalyChips(summary: PurifyAnomalySummary): FacetOption[] {
     if (!summary.dictReady) {
         return [{ value: 'anomaly', label: '未配置词表', disabled: true }];
     }
     if (summary.total === 0) {
-        return [{ value: 'anomaly', label: '完全合规' }];
+        return [{ value: 'anomaly', label: '完全合规', disabled: true }];
     }
     const chips: FacetOption[] = [];
     if (summary.nameCount > 0) {
@@ -78,6 +84,22 @@ export function buildAnomalyChips(summary: PurifyAnomalySummary): FacetOption[] 
         chips.push({ value: 'value', label: '枚举值不合法', count: summary.valueCount, tone: 'danger' });
     }
     return chips;
+}
+
+/**
+ * 当前快速筛选是否「有东西可恢复」——决定「重置筛选」是否出现（列表区设计语言 §5.3）。
+ * 只看本页自己持有的筛选；待体检车型/参考车型是「看哪台车」，不是筛选，不在此列。
+ */
+export function hasPurifyFilters(state: {
+    quick: string;
+    paramSearch: string;
+    group?: string;
+    fieldGroup: string;
+}): boolean {
+    return state.quick !== 'none'
+        || Boolean(state.paramSearch.trim())
+        || Boolean(state.group)
+        || state.fieldGroup !== 'all';
 }
 
 /** 体检页顶部的词表提示；null = 不需要提示 */
