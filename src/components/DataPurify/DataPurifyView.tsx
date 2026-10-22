@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useMemo, useEffect, useRef, useSyncExternalStore } from 'react';
-import { Select, Button, Input, Tooltip, Popover, message, Alert } from 'antd';
+import { Select, Button, Input, Tooltip, message, Alert } from 'antd';
 import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import { FilterItem } from '../common/ListToolbar';
 import ListToolbar from '../common/ListToolbar';
@@ -168,7 +168,14 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource, onGoP
         }
     }, [selectedProduct, selectedProductState, assetLibraryPath, currentAssetFileName, selectedProductName]);
 
-    const handleUpdateParam = useCallback((id: string, field: keyof VehicleParameter, value: string | number) => {
+    /**
+     * 参数值 / 参数分组就地修改。
+     *
+     * 参数名刻意不可写（`docs/plans/2026-10-19-参数名只读-design.md`）：它是跨车型
+     * 比对、字段组取数、公告比对的键，在这里改名会在资产里造出同义重复字段。
+     * 类型上就收窄到这两列，防止以后再被顺手放开。
+     */
+    const handleUpdateParam = useCallback((id: string, field: 'group' | 'value', value: string | number) => {
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         setPurifyParams((prev: VehicleParameter[]) => prev.map(p => p.id === id ? { ...p, [field]: value, updatedAt: nowStr } : p));
     }, []);
@@ -177,28 +184,40 @@ const DataPurifyView: React.FC<DataPurifyViewProps> = ({ onReturnToSource, onGoP
         setPurifyParams((prev: VehicleParameter[]) => prev.filter(p => p.id !== id));
     }, []);
 
-    /** 视同更新：把参考车型的参数名/值/分组写入 ids 指定的行（不写 updatedAt） */
+    /** 视同更新：把参考车型的参数值/分组写入 ids 指定的行（参数名只读，不写 updatedAt） */
     const handleSyncParam = useCallback((ids: Set<string>, diffById: Map<string, RowDiff>) => {
         setPurifyParams((prev: VehicleParameter[]) => applySyncToParams(prev, ids, diffById));
     }, []);
 
-    // 单元格内联编辑：同时只有一个单元格处于编辑态（参数分组 / 参数名共用）
-    const [editingCell, setEditingCell] = useState<{ id: string; field: 'group' | 'name' | 'value' } | null>(null);
-    const openCell = useCallback((id: string, field: 'group' | 'name' | 'value') => setEditingCell({ id, field }), []);
+    // 单元格内联编辑：同时只有一个单元格处于编辑态（参数分组 / 参数值共用；参数名只读）
+    const [editingCell, setEditingCell] = useState<{ id: string; field: 'group' | 'value' } | null>(null);
+    const openCell = useCallback((id: string, field: 'group' | 'value') => setEditingCell({ id, field }), []);
     const closeCell = useCallback(() => setEditingCell(null), []);
 
+    /** 新增行：参数名只能取自受控词表，不允许自由造名 */
+    const [newParamName, setNewParamName] = useState('');
+
     const handleAddParam = () => {
+        const name = newParamName.trim();
+        if (!name) return;
         const nowStr = new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         const newParam: VehicleParameter = {
             id: `new-${Date.now()}`,
             group: '新增参数',
-            name: '',
+            name,
             value: '',
             productName: selectedProductName,
             updatedAt: nowStr
         };
+        setNewParamName('');
         setPurifyParams([newParam, ...purifyParams]);
     };
+
+    /** 新增行的候选名：只有受控词表。自由造名会造出同义重复字段 */
+    const addParamNameOptions = useMemo(
+        () => allStandardFields.map(name => ({ value: name, label: name })),
+        [allStandardFields]
+    );
 
     const handleSaveToAsset = async (fileName: string, options?: { returnToSource?: boolean; clearTask?: boolean }) => {
         if (!assetLibraryPath) return;
@@ -458,60 +477,25 @@ type PurifyRow = VehicleParameter & {
             key: 'name',
             width: 220,
             render: (_: unknown, record: PurifyRow) => {
-                const isEditing = editingCell?.id === record.id && editingCell.field === 'name';
                 const isNonStandard = !record.isNameStandard && !!record.name;
-                if (isEditing) {
-                    return (
-                        <Input
-                            autoFocus
-                            size="small"
-                            value={record.name}
-                            onChange={e => handleUpdateParam(record.id, 'name', e.target.value)}
-                            onBlur={closeCell}
-                            onPressEnter={closeCell}
-                            placeholder="输入参数名"
-                        />
-                    );
-                }
+                // 参数名只读（`docs/plans/2026-10-19-参数名只读-design.md`）：它是跨车型比对、
+                // 字段组取数、公告比对的键，本页只告警不就地改名。修正走源数据。
+                const nameTitle = isNonStandard
+                    ? `不在字段词表中。${record.nameFixes.length > 0 ? `可能是：${record.nameFixes.join('、')}` : ''}`
+                    : record.name;
                 return (
                     <div className="flex items-center gap-1 min-w-0">
                         <span
-                            className={`cell-edit-text ${isNonStandard && !muteNameFlags ? 'text-warning-text' : 'text-1'}`}
-                            title={record.name || '点击输入参数名'}
-                            onClick={() => openCell(record.id, 'name')}
+                            className={`cell-plain ${isNonStandard && !muteNameFlags ? 'text-warning-text' : 'text-1'}`}
+                            title={nameTitle}
                         >
-                            {record.name || <span className="text-3">未命名</span>}
+                            {record.name || <span className="text-3">（空）</span>}
                         </span>
                         {isNonStandard && (
-                            <Popover
-                                trigger="click"
-                                placement="bottom"
-                                title="推荐的标准字段名"
-                                content={
-                                    record.nameFixes.length > 0 ? (
-                                        <div className="flex flex-col gap-1 max-w-[240px]">
-                                            {record.nameFixes.map((fix: string) => (
-                                                <Button
-                                                    key={fix}
-                                                    type="text"
-                                                    size="small"
-                                                    className="text-left"
-                                                    onClick={() => handleUpdateParam(record.id, 'name', fix)}
-                                                >
-                                                    {fix}
-                                                </Button>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-xs text-3">无匹配的推荐字段名</div>
-                                    )
-                                }
-                            >
-                                <WarningOutlined
-                                    title="不在字段词表中，点击查看推荐字段名"
-                                    className={`${muteNameFlags ? 'text-3' : 'text-warning'} hover:text-[color:var(--warning-text)] text-[13px] flex-shrink-0`}
-                                />
-                            </Popover>
+                            <WarningOutlined
+                                title="不在字段词表中"
+                                className={`${muteNameFlags ? 'text-3' : 'text-warning'} text-[13px] flex-shrink-0`}
+                            />
                         )}
                     </div>
                 );
@@ -715,7 +699,23 @@ type PurifyRow = VehicleParameter & {
                                 onSyncAll={() => handleSyncParam(new Set(diffById.keys()), diffById)}
                             />
                         )}
-                        <Button icon={<PlusOutlined />} onClick={handleAddParam}>
+                        {/* 新增行的名字只能从字段词表选：自由造名正是本页要杜绝的同义重复来源 */}
+                        <Select
+                            size="small"
+                            style={{ width: 200 }}
+                            showSearch
+                            value={newParamName || undefined}
+                            onChange={setNewParamName}
+                            options={addParamNameOptions}
+                            placeholder={dictReady ? '从字段词表选参数名' : '未配置字段词表'}
+                            disabled={!dictReady}
+                            optionFilterProp="label"
+                        />
+                        <Button
+                            icon={<PlusOutlined />}
+                            onClick={handleAddParam}
+                            disabled={!dictReady || !newParamName.trim()}
+                        >
                             手动新增参数
                         </Button>
                         <Button

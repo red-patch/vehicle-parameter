@@ -87,7 +87,6 @@ describe('computeRowDiff', () => {
     it('值不同 → 差异（valueDiffers）', () => {
         const d = computeRowDiff(p({ id: 'a', name: '倒车影像', value: '选装', group: '智能化配置' }), ref);
         expect(d?.valueDiffers).toBe(true);
-        expect(d?.nameDiffers).toBe(false);
         expect(d?.groupDiffers).toBe(false);
     });
 
@@ -96,18 +95,15 @@ describe('computeRowDiff', () => {
         expect(d?.valueDiffers).toBe(true);
     });
 
-    it('值相同但名字带空格 → 仅 nameDiffers', () => {
+    it('值相同但名字带空格 → 非差异（参数名只读，不参与判据）', () => {
         const d = computeRowDiff(p({ id: 'a', name: '倒车影像 ', value: '标配', group: '智能化配置' }), ref);
-        expect(d).not.toBeNull();
-        expect(d?.valueDiffers).toBe(false);
-        expect(d?.nameDiffers).toBe(true);
+        expect(d).toBeNull();
     });
 
     it('分组不同 → 仅 groupDiffers', () => {
         const d = computeRowDiff(p({ id: 'a', name: '倒车影像', value: '标配', group: '其他配置' }), ref);
         expect(d?.groupDiffers).toBe(true);
         expect(d?.valueDiffers).toBe(false);
-        expect(d?.nameDiffers).toBe(false);
     });
 
     it('三项全同 → 非差异', () => {
@@ -119,13 +115,13 @@ describe('computeRowDiff', () => {
 describe('buildSyncPatch', () => {
     const ref = p({ id: 'r1', name: '倒车影像', value: '标配（地上铁设备具备能力）', group: '智能化配置' });
 
-    it('三字段齐全', () => {
+    it('只写值与分组，不写参数名（参数名只读）', () => {
         const row = p({ id: 'a', name: '倒车影像 ', value: '', group: '新增参数' });
         expect(buildSyncPatch(row, ref)).toEqual({
-            name: '倒车影像',
             value: '标配（地上铁设备具备能力）',
             group: '智能化配置',
         });
+        expect('name' in buildSyncPatch(row, ref)).toBe(false);
     });
 
     it('不写 updatedAt —— 批量视同不是人工逐条校对', () => {
@@ -156,7 +152,8 @@ describe('applySyncToParams', () => {
     it('只更新传入 ids 的行，其余行原样保留', () => {
         const next = applySyncToParams(rows, new Set(['a']), diffIds);
         expect(next[0].value).toBe('标配');
-        expect(next[0].name).toBe('倒车影像');
+        // 参数名只读：参考车型叫「倒车影像」，本行带空格的原名不被改写
+        expect(next[0].name).toBe('倒车影像 ');
         // b 也在这个 diffById 里，但不该被碰到 —— 这正是行内按钮的语义
         expect(next[1].value).toBe('9');
         expect(next[1].name).toBe('货厢容积(m³)');
@@ -167,10 +164,12 @@ describe('applySyncToParams', () => {
         expect(applySyncToParams(rows, new Set(), diffIds)).toEqual(rows);
     });
 
-    it('传全部差异 id 时才整表对齐（全量按钮的语义）', () => {
+    it('传全部差异 id 时才整表对齐（全量按钮的语义），参数名仍不动', () => {
         const next = applySyncToParams(rows, new Set(diffIds.keys()), diffIds);
         expect(next[0].value).toBe('标配');
         expect(next[1].value).toBe('12.5');
+        expect(next[0].name).toBe('倒车影像 ');
+        expect(next[1].name).toBe('货厢容积(m³)');
         expect(next[2]).toEqual(rows[2]);
     });
 
