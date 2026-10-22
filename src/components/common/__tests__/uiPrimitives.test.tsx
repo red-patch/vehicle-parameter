@@ -119,6 +119,42 @@ describe('FacetChips', () => {
         expect(screen.getByText('18')).toBeInTheDocument();
     });
 
+    it('单选 clearable：再点已选项回传空串（= 取消筛选）', () => {
+        const onChange = vi.fn();
+        render(<FacetChips clearable options={options} value="a" onChange={onChange} />);
+        fireEvent.click(screen.getByText('发现异常'));
+        expect(onChange).toHaveBeenCalledWith('');
+    });
+
+    it('单选默认不可取消：再点已选项无反应（保持向后兼容）', () => {
+        const onChange = vi.fn();
+        render(<FacetChips options={options} value="a" onChange={onChange} />);
+        fireEvent.click(screen.getByText('发现异常'));
+        expect(onChange).toHaveBeenCalledWith('a');
+    });
+
+    it('语义档文字用 --*-text 变体（--warning 等图形层色在白底 12px 上读不清）', () => {
+        render(
+            <FacetChips
+                options={[{ value: 'w', label: '警示项', tone: 'warning' }]}
+                value=""
+                onChange={() => {}}
+            />,
+        );
+        const chip = screen.getByText('警示项').closest('.ant-tag')!;
+        expect(chip.className).toContain('text-warning-text');
+        expect(chip.className).not.toMatch(/text-warning(?!-text)/);
+    });
+
+    it('选中态带对勾图标，未选中不带（可切换的可供性）', () => {
+        const { container } = render(<FacetChips options={options} value="a" onChange={() => {}} />);
+        const selected = screen.getByText('发现异常').closest('.ant-tag')!;
+        const unselected = screen.getByText('有差异').closest('.ant-tag')!;
+        expect(selected.querySelector('.anticon-check')).not.toBeNull();
+        expect(unselected.querySelector('.anticon-check')).toBeNull();
+        expect(container.querySelectorAll('.anticon-check')).toHaveLength(1);
+    });
+
     it('chip 尺寸统一走 chip-md（aux 档 12px）', () => {
         const { container } = render(<FacetChips options={options} value="a" onChange={() => {}} />);
         expect(container.querySelectorAll('.chip-md')).toHaveLength(2);

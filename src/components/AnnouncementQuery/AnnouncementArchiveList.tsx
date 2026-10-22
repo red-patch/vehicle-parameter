@@ -143,6 +143,9 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
     );
     const groups = useMemo(() => buildAnnouncementTree(filtered, linkedAssets), [filtered, linkedAssets]);
 
+    /** 「清除筛选」只在这一行有筛选时出现（视图切换「分组/平铺」是呈现方式，不算筛选） */
+    const filtersActive = chip !== 'all' || search.trim() !== '';
+
     // 搜索时全展开命中路径；清空搜索回到用户手动展开态（当前实现：回到全折叠）
     const searching = search.trim() !== '';
     const effectiveExpanded = searching ? collectExpandableKeys(groups) : expandedKeys;
@@ -342,11 +345,19 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                             { label: '平铺', value: 'flat' },
                         ]}
                     />
+                    {/* clearable：再点已选中的 chip 回到「全部」——
+                        此前选中「无 PDF」后，唯一可见的恢复入口就是自己再找「全部」 */}
                     <FacetChips
+                        clearable
                         options={ARCHIVE_CHIPS.map(c => ({ value: c.key, label: c.label }))}
                         value={chip}
-                        onChange={v => setChip(v as ArchiveChip)}
+                        onChange={v => setChip((v || 'all') as ArchiveChip)}
                     />
+                    {filtersActive && (
+                        <Button type="link" size="small" className="px-0" onClick={() => { setChip('all'); setSearch(''); setExpandedKeys([]); }}>
+                            清除筛选
+                        </Button>
+                    )}
                     <span className="ml-auto" />
                     <SearchInput
                         width="sm"

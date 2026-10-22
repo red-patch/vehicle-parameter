@@ -280,6 +280,16 @@ const LIST_RULES = [
     { id: 'R13', re: /\bshadow-sm\b/g, fix: '去掉 shadow-sm（面板 = 描边 + 圆角 8，无投影，§4）' },
     // R14 阶梯外字号：最小档 caption = 11px；10px 及以下来自 antd 算法值或手写魔法数
     { id: 'R14', re: /text-\[(?:[0-9]|10)px\]|fontSize:\s*(?:[0-9]|10)\b|fontSize:\s*'(?:[0-9]|10)px'/g, fix: 'text-caption / var(--fs-caption)（字号阶梯最小 11px，§2.2）' },
+    // R16 无退路的筛选：单选 chip 不给 clearable，选中后就没有可见的恢复入口。
+    // 只锁「单选」调用点——多选天然可点掉，不需要开关。
+    // 属性可能跨多行（options 常写多行），故「标签起点 → 下一个 <FacetChips」之间
+    // 都算同一个标签；不用 `[^>]*`，那会在 options 里的 `=>` 处提前断掉。
+    // 见 docs/plans/2026-10-19-快捷筛选-chip-可恢复-design.md §2。
+    {
+        id: 'R16',
+        re: /<FacetChips\b(?!(?:(?!<FacetChips)[\s\S]){0,400}?\b(?:clearable|multiple)\b)/g,
+        fix: '单选 FacetChips 传 clearable（再点已选项 = 取消筛选）',
+    },
 ] as const;
 
 /**

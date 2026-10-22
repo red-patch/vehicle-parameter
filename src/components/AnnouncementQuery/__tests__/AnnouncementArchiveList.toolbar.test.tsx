@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // zustand persist 依赖 localStorage；本环境 Node 的 --localstorage-file 桩缺 setItem，
@@ -74,6 +74,20 @@ describe('公告归档 工具条', () => {
         expect(screen.getByText('平铺')).toBeInTheDocument();
         expect(screen.getByText('全部')).toBeInTheDocument();
         expect(screen.getByText('有关联资产')).toBeInTheDocument();
+    });
+
+    it('快捷 chips 可取消：再点已选项回到「全部」，并有「清除筛选」出口', () => {
+        render(<AnnouncementArchiveList />);
+        // 初始（全部 + 无搜索）不显示「清除筛选」
+        expect(screen.queryByText('清除筛选')).toBeNull();
+
+        fireEvent.click(screen.getByText('无 PDF'));
+        expect(screen.getByText('清除筛选')).toBeInTheDocument();
+
+        // 再点一次同一个 chip = 取消，而不是原地不动
+        fireEvent.click(screen.getByText('无 PDF'));
+        // 公告列表为空时仍然只有「全部」这一个选中态；清除入口随之消失
+        expect(screen.queryByText('清除筛选')).toBeNull();
     });
 
     it('三段结构：标题行 + 筛选行（两条分隔线）', () => {

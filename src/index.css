@@ -357,7 +357,12 @@
   line-height: 20px;
   padding: 0 8px;
   border-radius: 6px;
+  /* 未选中的 chip 是浅底浅描边，不加悬停反馈时「能不能点」完全靠猜；
+     与 .cell-edit-text 同一档过渡（0.12s） */
+  transition: color 0.12s var(--ease-ui), border-color 0.12s var(--ease-ui),
+              background-color 0.12s var(--ease-ui);
 }
+.ant-tag.chip-md:not(.tag-checked):hover { background-color: var(--surface-2); }
 
 /* 差异图例色条（结果页常驻图例用） */
 .legend-bar { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }

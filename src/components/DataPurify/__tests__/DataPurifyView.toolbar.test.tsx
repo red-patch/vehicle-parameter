@@ -66,6 +66,15 @@ describe('数据体检 工具条（批次 5）', () => {
         expect(screen.queryByText('发现异常')).toBeNull();
     });
 
+    it('快捷筛选落在 ② 筛选行，不在 ③ 显示选项行（它改变可见行集合）', () => {
+        const { container } = renderIt();
+        const bar = container.querySelector('.surface-container.border.rounded-lg')!;
+        const [, filterRow, displayRow] = [...bar.children];
+        expect(filterRow.textContent).toContain('快捷');
+        expect(displayRow.textContent).toContain('分组');
+        expect(displayRow.textContent).not.toContain('快捷');
+    });
+
     it('保存按钮不再硬编码 Tailwind 调色板色（绕过 token）', () => {
         const { container } = renderIt();
         const html = container.innerHTML;
@@ -79,10 +88,10 @@ describe('数据体检 工具条（批次 5）', () => {
         const bar = container.querySelector('.surface-container.border.rounded-lg')!;
         // 三段 + 主体（表格）相邻 → 3 条分隔线
         expect(bar.querySelectorAll('.border-b')).toHaveLength(3);
-        // 显示选项段含分组/字段组/快捷
+        // 显示选项段含分组/字段组（只改呈现方式）
         const rows = [...bar.children];
         const displayRow = rows[2];
         expect(displayRow.textContent).toContain('分组');
-        expect(displayRow.textContent).toContain('快捷');
+        expect(displayRow.textContent).toContain('字段组');
     });
 });
