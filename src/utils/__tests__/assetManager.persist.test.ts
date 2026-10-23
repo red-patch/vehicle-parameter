@@ -37,8 +37,24 @@ describe('saveAssetFile createdAt 保真', () => {
         expect(written.updatedAt).not.toBe(OLD);
     });
 
-    it('未传 createdAt 时按新建处理（现状不变）', async () => {
-        await saveAssetFile(LIB, 'a.json', 'A', []);
+    it('未传 createdAt 时按新建处理：createdAt 与 updatedAt 同一时刻', async () => {
+        // 时钟必须「走起来」：真实毫秒太粗，两次 new Date() 常落在同一 ms，
+        // 分两次取时间戳的实现会蒙混过关（2026-10-23 在 CI 上就这样漏过一次，
+        // 随后又在别的机器上红）——这里让每次取时间都前进 1ms，差异必现。
+        let tick = Date.parse('2026-10-23T00:00:00.000Z');
+        const realDate = Date;
+        const spy = vi.spyOn(globalThis, 'Date');
+        // 无参调用（取当前时刻）每次前进 1ms；带参调用原样委派
+        (spy as unknown as { mockImplementation: (fn: unknown) => void }).mockImplementation(
+            (arg?: unknown) => (arg === undefined ? new realDate((tick += 1)) : new realDate(arg as string)),
+        );
+
+        try {
+            await saveAssetFile(LIB, 'a.json', 'A', []);
+        } finally {
+            spy.mockRestore();
+        }
+
         const written = JSON.parse(files.get('/lib/a.json')!);
         expect(Date.parse(written.createdAt)).not.toBeNaN();
         expect(written.createdAt).toBe(written.updatedAt);

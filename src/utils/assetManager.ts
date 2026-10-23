@@ -34,12 +34,15 @@ export const saveAssetFile = async (
     const finalFileName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
     const fullPath = await join(libraryPath, finalFileName);
 
+    // 新建时 createdAt 与 updatedAt 必须同一时刻：分两次取 new Date() 会跨毫秒，
+    // 把「刚建的文件」记成「创建早于更新」（护栏见 assetManager.persist.test.ts）
+    const now = new Date().toISOString();
     const data: AssetFileFormat = {
         version: '1.0',
         productName,
         // 覆盖式写入会丢原创建时间；调用方（读-改-写）应传入旧值保真，未传则按新建处理
-        createdAt: createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: createdAt || now,
+        updatedAt: now,
         parameters
     };
 
