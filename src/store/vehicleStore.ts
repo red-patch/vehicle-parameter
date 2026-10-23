@@ -117,6 +117,13 @@ export interface VehicleStore {
 
     // 智能填报模式：单车填报 | 多车取数（字段关联）| 自由多车整理（原「多车型管理」）
     smartFillMode: 'single' | 'bidPull' | 'freeMulti';
+    /**
+     * 字段组模式下逐车型保存的人工修正值：车型 → 字段名 → 值。
+     * 切车型时 matchResults 会被重建，修正值必须单独按车型存，
+     * 否则「修完 A 切到 B」的成果全丢，也谈不上视同。
+     */
+    smartFillManualByProduct: Record<string, Record<string, string>>;
+    setProductManualValue: (product: string, field: string, value: string | null) => void;
     setSmartFillMode: (mode: 'single' | 'bidPull' | 'freeMulti') => void;
     // 多车取数当前使用的关联方案 id（持久化，下次进入自动载入）
     bidPullSchemeId: string | null;
@@ -645,6 +652,15 @@ export const useVehicleStore = create<VehicleStore>()(
 
     smartFillMode: 'single',
     setSmartFillMode: (mode) => set({ smartFillMode: mode }),
+    smartFillManualByProduct: {},
+    setProductManualValue: (product, field, value) => set((state) => {
+        const forProduct = { ...(state.smartFillManualByProduct[product] ?? {}) };
+        if (value === null) delete forProduct[field];
+        else forProduct[field] = value;
+        return {
+            smartFillManualByProduct: { ...state.smartFillManualByProduct, [product]: forProduct },
+        };
+    }),
     bidPullSchemeId: null,
     setBidPullSchemeId: (id) => set({ bidPullSchemeId: id }),
 
@@ -682,6 +698,7 @@ export const useVehicleStore = create<VehicleStore>()(
         smartFillRequirements: state.smartFillRequirements,
         multiVehicleFields: state.multiVehicleFields,
         smartFillMode: state.smartFillMode,
+        smartFillManualByProduct: state.smartFillManualByProduct,
         bidPullSchemeId: state.bidPullSchemeId,
         assetLibraryPath: state.assetLibraryPath,
         activeAssets: state.activeAssets,

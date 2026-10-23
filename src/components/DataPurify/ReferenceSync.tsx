@@ -21,13 +21,12 @@ export const ReferenceProductSelect: React.FC<{
     />
 );
 
-/** 行内「视同」按钮：把参考车型的参数名/值/分组写进当前行 */
+/** 行内「视同」按钮：把参考车型的参数值/分组写进当前行（参数名只读，不参与） */
 export const RowSyncButton: React.FC<{
     diff: RowDiff;
     onSync: () => void;
 }> = ({ diff, onSync }) => {
     const parts: string[] = [];
-    if (diff.nameDiffers) parts.push('参数名');
     if (diff.valueDiffers) parts.push('参数值');
     if (diff.groupDiffers) parts.push('分组');
     return (
@@ -39,7 +38,7 @@ export const RowSyncButton: React.FC<{
     );
 };
 
-/** 全量同步：一次把所有差异行的参数名/值/分组对齐到参考车型 */
+/** 全量同步：一次把所有差异行的参数值/分组对齐到参考车型（参数名只读，不参与） */
 export const SyncAllButton: React.FC<{
     diffFieldNames: string[];
     onSyncAll: () => void;
@@ -53,7 +52,7 @@ export const SyncAllButton: React.FC<{
     }
     return (
         <Popconfirm
-            title={`将按参考车型覆盖 ${diffFieldNames.length} 个字段的参数名、参数值与分组`}
+            title={`将按参考车型覆盖 ${diffFieldNames.length} 个字段的参数值与分组`}
             description={
                 <div className="max-h-[240px] overflow-auto text-[12px] text-3 flex flex-col gap-0.5">
                     {diffFieldNames.map((name, i) => (

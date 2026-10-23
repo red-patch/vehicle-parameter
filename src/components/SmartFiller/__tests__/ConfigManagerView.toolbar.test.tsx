@@ -15,8 +15,10 @@ vi.mock('../../store/vehicleStore', () => ({
     useVehicleStore: () => ({ assetLibraryPath: '/tmp/assets' }),
 }));
 
-vi.mock('../../../utils/fieldLists', () => ({
+vi.mock('../../../utils/fieldLists', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../../utils/fieldLists')>()),
     getFieldGroupsSync: () => [{ id: 'g1', name: '系统必填字段', fields: ['快充'] }],
+    getExportFormatsSync: () => [],
     reloadCustomFields: vi.fn(),
 }));
 

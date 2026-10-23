@@ -33,10 +33,15 @@ export const matchReference = (row: VehicleParameter, index: ReferenceIndex | nu
     return index.exact.get(name) || index.normalized.get(normalizeFieldKey(name)) || null;
 };
 
-/** 一行与参考车型之间的差异维度；全同或无参考则返回 null（非差异行） */
+/**
+ * 一行与参考车型之间的差异维度；全同或无参考则返回 null（非差异行）
+ *
+ * 只看值与分组：**参数名只读**（`2026-10-19-参数名只读-design.md`）。
+ * 参数名是跨车型比对、字段组取数、公告比对的键，体检页改它会在资产里
+ * 造出同义重复字段，且漂移无溯源。名字只能来自导入的源数据。
+ */
 export interface RowDiff {
     reference: VehicleParameter;
-    nameDiffers: boolean;
     valueDiffers: boolean;
     groupDiffers: boolean;
 }
@@ -46,16 +51,15 @@ export const computeRowDiff = (row: VehicleParameter, reference: VehicleParamete
     // 参考车型自己没填值的字段不作为差异依据，避免把空覆盖到当前车型
     if (String(reference.value ?? '').trim() === '') return null;
 
-    const nameDiffers = (row.name || '') !== (reference.name || '');
     const valueDiffers = String(row.value ?? '').trim() !== String(reference.value ?? '').trim();
     const groupDiffers = (row.group || '') !== (reference.group || '');
 
-    if (!nameDiffers && !valueDiffers && !groupDiffers) return null;
-    return { reference, nameDiffers, valueDiffers, groupDiffers };
+    if (!valueDiffers && !groupDiffers) return null;
+    return { reference, valueDiffers, groupDiffers };
 };
 
 /**
- * 「视同更新」写入内容：参数名 + 参数值 + 分组（不动 id）
+ * 「视同更新」写入内容：参数值 + 分组（不动 id，也不动 name）
  *
  * 刻意不写 updatedAt：全量视同会一次刷满整表，而那个时间戳在界面上表达的是
  * 「人工逐条校对过」，批量采纳参考车型并不具备这层含义。
@@ -63,8 +67,7 @@ export const computeRowDiff = (row: VehicleParameter, reference: VehicleParamete
 export const buildSyncPatch = (
     _row: VehicleParameter,
     reference: VehicleParameter
-): Pick<VehicleParameter, 'name' | 'value' | 'group'> => ({
-    name: reference.name,
+): Pick<VehicleParameter, 'value' | 'group'> => ({
     value: reference.value,
     group: reference.group,
 });

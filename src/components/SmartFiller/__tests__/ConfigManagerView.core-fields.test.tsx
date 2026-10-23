@@ -8,11 +8,13 @@ vi.mock('../../store/vehicleStore', () => ({
 }))
 
 // v4.5.5 起字段组默认为空、由 custom_fields.json 动态加载；测试里给确定性数据
-vi.mock('../../../utils/fieldLists', () => ({
+vi.mock('../../../utils/fieldLists', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../utils/fieldLists')>()),
   getFieldGroupsSync: () => [
     { id: 'system-required', name: '系统必填字段', fields: ['快充'] },
     { id: 'quality-check', name: '质量验车字段', fields: [] },
   ],
+  getExportFormatsSync: () => [],
   reloadCustomFields: vi.fn(),
 }))
 
@@ -30,7 +32,8 @@ describe('ConfigManagerView core fields tab', () => {
     expect(screen.getByText('字段配置组')).toBeInTheDocument()
     expect(screen.getAllByText('系统必填字段').length).toBeGreaterThan(0)
     expect(screen.getAllByText('质量验车字段').length).toBeGreaterThan(0)
-    expect(screen.getAllByPlaceholderText('搜索或输入字段名称').length).toBeGreaterThan(0)
+    // 措辞已改：这个输入是「要加入本组的字段名」，不是表格筛选
+    expect(screen.getAllByPlaceholderText('输入要加入本组的字段名').length).toBeGreaterThan(0)
     expect(screen.getByText('快充')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '保存并应用' })).toBeInTheDocument()
   }, 15000)
