@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Table, Tag, Checkbox, Dropdown, Button, Space, message } from 'antd';
 import { SettingOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { VehicleParameter } from '../../types';
-import { isFieldRequired } from '../../assets/requiredFields';
+import type { RequiredBaseline } from '../../utils/requiredBaseline';
 import type { ColumnsType } from 'antd/es/table';
 import * as XLSX from 'xlsx';
 import SearchInput from '../common/SearchInput';
@@ -11,9 +11,15 @@ import { PAGE_SIZE, pagePagination } from '../common/tablePresets';
 
 interface ParametersTableProps {
     data: VehicleParameter[];
+    /**
+     * 必填基准（来自当前字段组的 `required`）。为 `null` 时**不出现必填列**，
+     * 复制/导出的表头也不带「是否必填」——没有基准就没有必填可言。
+     */
+    requiredBaseline?: RequiredBaseline | null;
 }
 
-const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
+const ParametersTable: React.FC<ParametersTableProps> = ({ data, requiredBaseline = null }) => {
+    const isRequired = (name: string) => requiredBaseline?.has(name) ?? false;
     // V3.0: 改为多字段搜索（换行分隔）
     const [searchText, setSearchText] = useState('');
     const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
@@ -70,12 +76,16 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 fixed: 'left',
                 sorter: (a, b) => a.name.localeCompare(b.name),
             },
-            {
+        ];
+
+        // 必填列只在有基准时出现；没有基准就整列收起（不给每行画一个无意义的「-」）
+        if (requiredBaseline) {
+            cols.push({
                 title: '必填',
                 key: 'isRequired',
                 width: 60,
                 render: (_: unknown, record: { name: string }) => {
-                    const required = isFieldRequired(record.name);
+                    const required = isRequired(record.name);
                     return required ? <Tag color="warning">是</Tag> : <span className="text-3">-</span>;
                 },
                 filters: [
@@ -83,11 +93,11 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                     { text: '选填', value: false },
                 ],
                 onFilter: (value: unknown, record: { name: string }) => {
-                    const required = isFieldRequired(record.name);
+                    const required = isRequired(record.name);
                     return required === value;
                 },
-            }
-        ];
+            });
+        }
 
         // CRITICAL FIX: If only 1 product (or none), use simple 参数值 column
         if (products.length <= 1) {
@@ -112,7 +122,8 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         }
 
         return { tableData: rows, productColumns: cols, allProductNames: products };
-    }, [data]);
+        // isRequired 由 requiredBaseline 派生，跟着它变；两者一起进依赖才不违背渲染完整性
+    }, [data, requiredBaseline, isRequired]);
 
     // Initialize visible columns when product columns change (only on first load)
     useEffect(() => {
@@ -185,12 +196,13 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         }
 
         const columnsToExport = visibleColumns.length > 0 ? visibleColumns : allProductNames;
-        const headers = ['分组', '参数名', '是否必填', ...columnsToExport];
-        
+        // 有基准才带「是否必填」列，否则导出的表头与页面上看到的列一致
+        const headers = ['分组', '参数名', ...(requiredBaseline ? ['是否必填'] : []), ...columnsToExport];
+
         const rows = filteredData.map(item => [
             item.group,
             item.name,
-            isFieldRequired(item.name) ? '必填' : '选填',
+            ...(requiredBaseline ? [isRequired(item.name) ? '必填' : '选填'] : []),
             ...columnsToExport.map(col => String(item[col] || ''))
         ]);
 
@@ -210,13 +222,17 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
         }
 
         const columnsToExport = visibleColumns.length > 0 ? visibleColumns : allProductNames;
-        const headers = ['分组', '参数名', '是否必填', ...(columnsToExport.length > 0 ? columnsToExport : ['参数值'])];
-        
+        const headers = [
+            '分组', '参数名',
+            ...(requiredBaseline ? ['是否必填'] : []),
+            ...(columnsToExport.length > 0 ? columnsToExport : ['参数值']),
+        ];
+
         const rows = filteredData.map(item => [
             item.group,
             item.name,
-            isFieldRequired(item.name) ? '必填' : '选填',
-            ...(columnsToExport.length > 0 
+            ...(requiredBaseline ? [isRequired(item.name) ? '必填' : '选填'] : []),
+            ...(columnsToExport.length > 0
                 ? columnsToExport.map(col => String(item[col] || ''))
                 : [String(item.value || '')])
         ]);
@@ -281,8 +297,7 @@ const ParametersTable: React.FC<ParametersTableProps> = ({ data }) => {
                 size="small"
                 scroll={{ x: 'max-content' }}
                 rowClassName={(record) => {
-                    const isRequired = isFieldRequired(record.name);
-                    if (!isRequired) return '';
+                    if (!isRequired(record.name)) return '';
                     
                     // Check if value is considered empty: 空值、"-"、"NA"
                     const isEmpty = (val: unknown) => 

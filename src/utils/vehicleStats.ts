@@ -1,5 +1,5 @@
-import { isFieldRequired } from '../assets/requiredFields';
 import type { VehicleParameter } from '../types';
+import type { RequiredBaseline } from './requiredBaseline';
 
 /**
  * 车辆完成度统计（纯函数）：完成率 / 参数总数 / 有效值 / 空值 / 分组完成度 / 必填缺失。
@@ -26,10 +26,13 @@ const isFilled = (param: VehicleParameter): boolean =>
 
 /**
  * @param params 参数明细（为空时退化到 fallback 的扫描计数，保持旧抽屉的口径）
+ * @param fallback 无明细时的扫描计数
+ * @param requiredBaseline 必填基准（当前字段组）；`null` = 没有基准，缺失清单为空
  */
 export function buildVehicleStats(
     params: VehicleParameter[],
     fallback?: { totalParams: number; filledParams: number },
+    requiredBaseline?: RequiredBaseline | null,
 ): VehicleStats {
     const total = params.length || fallback?.totalParams || 0;
     const filled = params.length > 0
@@ -37,10 +40,9 @@ export function buildVehicleStats(
         : (fallback?.filledParams ?? 0);
     const empty = Math.max(0, total - filled);
     const fillRate = total > 0 ? Math.round((filled / total) * 100) : 0;
-    const requiredMissing = params.filter(param => {
-        const value = String(param.value ?? '').trim();
-        return isFieldRequired(param.name) && value === '';
-    });
+    const requiredMissing = requiredBaseline
+        ? params.filter(param => requiredBaseline.has(param.name) && String(param.value ?? '').trim() === '')
+        : [];
 
     const groupMap = new Map<string, { total: number; filled: number }>();
     params.forEach(param => {

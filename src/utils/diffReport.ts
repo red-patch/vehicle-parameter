@@ -4,7 +4,6 @@
  */
 import type { DiffResult, VehicleParameter } from '../types';
 import { APP_NAME } from '../constants/app';
-import { isFieldRequired } from '../assets/requiredFields';
 import {
     buildMarkdownTable,
     buildReportFileBase,
@@ -24,8 +23,17 @@ export interface DiffReportInput {
     targetFileName: string;
     /** 对比模式说明，如「仅公告号数据对比」 */
     modeLabel?: string;
+    /** 必填基准命中的字段名；`null` / 省略 = 无基准，报告不标必填 */
+    requiredFieldNames?: string[] | null;
     generatedAt?: Date;
 }
+
+/** 必填判定只认调用方给的基准集合；`null` = 没有基准，一律不标 */
+const makeRequiredCheck = (names: string[] | null | undefined) => {
+    if (!names) return () => false;
+    const set = new Set(names.map((n) => String(n).replace(/\s+/g, '').toLowerCase()));
+    return (name: string) => set.has(String(name ?? '').replace(/\s+/g, '').toLowerCase());
+};
 
 const EMPTY_TEXT = '-';
 const text = (value: string | number | undefined): string => {
@@ -51,9 +59,11 @@ export const buildDiffReportHtml = ({
     baseFileName,
     targetFileName,
     modeLabel,
+    requiredFieldNames,
     generatedAt = new Date(),
 }: DiffReportInput): string => {
     const { added, removed, modified, unchanged } = result;
+    const isFieldRequired = makeRequiredCheck(requiredFieldNames);
 
     const renderTable = (headers: string[], widths: (string | undefined)[], rows: string[]) =>
         buildReportTable({ headers, widths, bodyRows: rows, emptyText: '无数据' });

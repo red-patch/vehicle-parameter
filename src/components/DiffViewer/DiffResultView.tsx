@@ -4,7 +4,7 @@ import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import ParametersTable from './ParametersTable';
 import type { CompareMode } from '../../types';
-import { isFieldRequired } from '../../assets/requiredFields';
+import { useRequiredBaseline } from '../../hooks/useRequiredBaseline';
 import ReportExportDropdown from '../common/ReportExportDropdown';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
@@ -23,6 +23,10 @@ const DiffResultView: React.FC = () => {
         compareMode: state.compareMode,
         setCompareMode: state.setCompareMode,
     })));
+    // 旧版对比页没有自己的字段组选择：必填基准跟随全局设置；
+    // 未设置时不出现必填列（不再回落到内置清单）
+    const requiredBaseline = useRequiredBaseline();
+    const isFieldRequired = (name: string) => requiredBaseline?.has(name) ?? false;
     const [selectedSheet, setSelectedSheet] = useState<string>('all');
     const [modifiedSearchText, setModifiedSearchText] = useState<string>('');
     const [miitSearchText, setMiitSearchText] = useState<string>('');
@@ -161,6 +165,15 @@ const DiffResultView: React.FC = () => {
                 baseFileName: baseFile.fileName,
                 targetFileName: targetFile.fileName,
                 modeLabel: compareMode === 'miit' ? '仅公告号数据对比' : undefined,
+                // 报告里的必填标记跟随全局基准；没有基准就一条也不标
+                requiredFieldNames: requiredBaseline
+                    ? Array.from(new Set([
+                        ...(filteredDiff?.added ?? []).map(p => p.name),
+                        ...(filteredDiff?.removed ?? []).map(p => p.name),
+                        ...(filteredDiff?.modified ?? []).flatMap(m => [m.oldParam.name, m.newParam.name]),
+                        ...(filteredDiff?.unchanged ?? []).map(p => p.name),
+                    ])).filter(n => requiredBaseline.has(n))
+                    : null,
             });
             hide();
             message.success(`报告已导出：${fileName}`);
@@ -209,7 +222,7 @@ const DiffResultView: React.FC = () => {
                 return isDifferent ? <Text type="warning">{text}</Text> : <Text type="secondary">{text}</Text>;
             }
         },
-        {
+        ...(requiredBaseline ? [{
             title: '是否必填',
             key: 'isRequired',
             width: 80,
@@ -225,7 +238,7 @@ const DiffResultView: React.FC = () => {
                 const required = isFieldRequired(record.oldParam.name) || isFieldRequired(record.newParam.name);
                 return required === value;
             },
-        },
+        }] : []),
         {
             title: '基准值',
             dataIndex: ['oldParam', 'value'],
@@ -297,7 +310,7 @@ const DiffResultView: React.FC = () => {
                 return <Text>{text}</Text>;
             }
         },
-        {
+        ...(requiredBaseline ? [{
             title: '是否必填',
             key: 'isRequired',
             width: 80,
@@ -313,7 +326,7 @@ const DiffResultView: React.FC = () => {
                 const required = isFieldRequired(record.targetName) || isFieldRequired(record.baseName);
                 return required === value;
             },
-        },
+        }] : []),
     ];
 
     const items = [
@@ -352,7 +365,7 @@ const DiffResultView: React.FC = () => {
                             <h4 className="text-success mb-2 font-bold flex items-center gap-2">
                                 <Badge status="success" /> {compareMode === 'miit' ? '缺失' : '新增'} ({added.length})
                             </h4>
-                            <ParametersTable data={added} />
+                            <ParametersTable data={added} requiredBaseline={requiredBaseline} />
                         </div>
                     )}
 
@@ -362,7 +375,7 @@ const DiffResultView: React.FC = () => {
                             <h4 className="text-danger mb-2 font-bold flex items-center gap-2">
                                 <Badge status="error" /> 移除 ({removed.length})
                             </h4>
-                            <ParametersTable data={removed} />
+                            <ParametersTable data={removed} requiredBaseline={requiredBaseline} />
                         </div>
                     )}
                 </div>
@@ -398,12 +411,12 @@ const DiffResultView: React.FC = () => {
         {
             key: 'added',
             label: compareMode === 'miit' ? `缺失 (${added.length})` : `新增 (${added.length})`,
-            children: <ParametersTable data={added} />
+            children: <ParametersTable data={added} requiredBaseline={requiredBaseline} />
         },
         {
             key: 'removed',
             label: `移除 (${removed.length})`,
-            children: <ParametersTable data={removed} />
+            children: <ParametersTable data={removed} requiredBaseline={requiredBaseline} />
         }
     ];
 

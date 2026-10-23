@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useVehicleParams } from '../../hooks/useVehicleParams';
 import { buildVehicleStats } from '../../utils/vehicleStats';
+import { useRequiredBaseline } from '../../hooks/useRequiredBaseline';
 import { buildVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { getAssetDisplayName } from '../../utils/assetNaming';
 import { buildAliasSource, resolveAssetDisplayName } from '../../utils/assetAlias';
@@ -34,6 +35,8 @@ const AssetSummaryCard: React.FC<AssetSummaryCardProps> = ({ fileName, snapshot,
         selectedProductNames: state.selectedProductNames,
     })));
 
+    // 缺必填以全局必填基准（当前字段组）为准；未设基准时不显示缺必填
+    const requiredBaseline = useRequiredBaseline();
     const info = useMemo(() => snapshot.infos.find(i => i.fileName === fileName) ?? null, [snapshot.infos, fileName]);
     const tags = snapshot.tags[fileName] || [];
     const metaStatus = snapshot.meta[fileName]?.status;
@@ -42,7 +45,10 @@ const AssetSummaryCard: React.FC<AssetSummaryCardProps> = ({ fileName, snapshot,
     const isActive = Boolean(instanceKey && selectedProductNames.includes(instanceKey));
 
     const params = useVehicleParams(instanceKey);
-    const stats = useMemo(() => buildVehicleStats(params, info ?? undefined), [params, info]);
+    const stats = useMemo(
+        () => buildVehicleStats(params, info ?? undefined, requiredBaseline),
+        [params, info, requiredBaseline],
+    );
 
     const allTags = useMemo(() => {
         const set = new Set<string>();

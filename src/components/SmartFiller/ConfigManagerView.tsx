@@ -133,6 +133,8 @@ const ConfigManagerView: React.FC = () => {
         assetFiles,
         currentSmartFillProduct,
         selectedProductNames,
+        requiredBaselineGroupId,
+        setRequiredBaselineGroupId,
     } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
@@ -142,6 +144,8 @@ const ConfigManagerView: React.FC = () => {
         assetFiles: state.assetFiles,
         currentSmartFillProduct: state.currentSmartFillProduct,
         selectedProductNames: state.selectedProductNames,
+        requiredBaselineGroupId: state.requiredBaselineGroupId,
+        setRequiredBaselineGroupId: state.setRequiredBaselineGroupId,
     })));
 
     /** 「取值来源」下拉的候选：当前参考车型的资产字段；没选车时退化为字段组并集 */
@@ -651,10 +655,30 @@ const ConfigManagerView: React.FC = () => {
                                                 onClick={() => setSelectedFieldGroupId(group.id)}
                                             >
                                                 <div className="min-w-0">
-                                                    <div className="font-semibold text-1 truncate">{group.name}</div>
-                                                    <div className="text-aux text-3">字段数 <span className="tabular-nums">{group.fields.length}</span></div>
+                                                    <div className="font-semibold text-1 truncate">
+                                                        {group.name}
+                                                        {requiredBaselineGroupId === group.id && (
+                                                            <span className="ml-2 align-middle text-aux text-brand">必填基准</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-aux text-3">
+                                                        字段数 <span className="tabular-nums">{group.fields.length}</span>
+                                                        {' · '}必填 <span className="tabular-nums">{group.required?.length ?? 0}</span>
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center gap-1">
+                                                    {/* 必填基准：版本对比、资产池「缺必填」、报告导出都读它，故在此一处设定 */}
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        title="以本组勾选的「必填」作为全应用的必填判定基准；再点一次取消"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setRequiredBaselineGroupId(requiredBaselineGroupId === group.id ? null : group.id);
+                                                        }}
+                                                    >
+                                                        {requiredBaselineGroupId === group.id ? '取消基准' : '设为必填基准'}
+                                                    </Button>
                                                     <Button
                                                         type="link"
                                                         size="small"
@@ -673,6 +697,8 @@ const ConfigManagerView: React.FC = () => {
                                                         disabled={fieldGroups.length <= 1}
                                                         onClick={(event) => {
                                                             event.stopPropagation();
+                                                            // 删掉的正是基准组：一并清空，否则全应用会拿一个不存在的基准去判必填
+                                                            if (requiredBaselineGroupId === group.id) setRequiredBaselineGroupId(null);
                                                             setFieldGroups((prev) => {
                                                                 const next = prev.filter((item) => item.id !== group.id);
                                                                 setSelectedFieldGroupId(next[0]?.id || '');

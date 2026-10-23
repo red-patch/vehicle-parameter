@@ -49,7 +49,7 @@ import {
     buildSupersedeMeta, pickGroupAlias, sanitizeGroupName, normalizeGroupKey, buildGroupRenameMeta,
     type UnconvergedCar, type VehicleGroup,
 } from '../../../utils/assetGovernance';
-import { isFieldRequired } from '../../../assets/requiredFields';
+import { useRequiredBaseline } from '../../../hooks/useRequiredBaseline';
 import { getProductData } from '../../../store/vehicleSelectors';
 import {
     resolveAssetFacets, loadFacetVocab, loadFacetValues, saveFacetVocab, saveFacetValues,
@@ -129,6 +129,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
     })));
     const snapshot = useAssetLibrarySnapshot();
+    // 缺必填以全局必填基准（当前字段组）为准；未设基准时卡片不显示缺必填
+    const requiredBaseline = useRequiredBaseline();
 
     // ===== 筛选状态 =====
     const [searchKeyword, setSearchKeyword] = useState('');
@@ -779,15 +781,13 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         setStatusSelection([]);
     }, []);
 
-    // ===== 计算缺必填数 =====
+    // ===== 计算缺必填数 =====（没有必填基准时不计数，卡片也就不会显示这个 chip）
     const getRequiredMissingCount = useCallback((info: AssetFileInfo) => {
+        if (!requiredBaseline) return 0;
         const instanceKey = buildVehicleInstanceKey('asset', info.fileName, info.productName);
         const params = getProductData(uploadedFiles, instanceKey, assetFiles);
-        return params.filter(p => {
-            const value = String(p.value ?? '').trim();
-            return isFieldRequired(p.name) && value === '';
-        }).length;
-    }, [uploadedFiles, assetFiles]);
+        return params.filter(p => requiredBaseline.has(p.name) && String(p.value ?? '').trim() === '').length;
+    }, [uploadedFiles, assetFiles, requiredBaseline]);
 
     // ===== 激活/移出工作集 =====
     const handleToggleActive = useCallback((info: AssetFileInfo) => {

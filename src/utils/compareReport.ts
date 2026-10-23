@@ -2,7 +2,6 @@
  * 车型参数对比报告（参数工作台 · 对比视图）的 HTML / Markdown 构建。
  * 纯函数，方便测试；文件保存走 reportExport.saveTextReport。
  */
-import { isFieldRequired } from '../assets/requiredFields';
 import { APP_NAME } from '../constants/app';
 import {
     buildMarkdownTable,
@@ -35,6 +34,11 @@ export type CompareReportRow = {
 export interface CompareReportInput {
     rows: CompareReportRow[];
     columns: CompareReportColumn[];
+    /**
+     * 必填基准命中的字段名（来自当前选定的字段组）。
+     * `null` / 省略 = 没有基准，报告不写必填标记——不再有内置必填清单可查。
+     */
+    requiredFieldNames?: string[] | null;
     generatedAt?: Date;
 }
 
@@ -50,11 +54,24 @@ const diffCount = (rows: CompareReportRow[]) => rows.filter((r) => r.hasDiff).le
 const isEmptyRow = (row: CompareReportRow, columns: CompareReportColumn[]) =>
     columns.every((c) => String(row[c.key] ?? '').trim() === '');
 
-export const buildCompareReportHtml = ({ rows, columns, generatedAt = new Date() }: CompareReportInput): string => {
+/** 必填判定只认调用方给的基准集合；`null` = 没有基准，一律不标 */
+const makeRequiredCheck = (names: string[] | null | undefined) => {
+    if (!names) return () => false;
+    const set = new Set(names.map((n) => String(n).replace(/\s+/g, '').toLowerCase()));
+    return (name: string) => set.has(String(name ?? '').replace(/\s+/g, '').toLowerCase());
+};
+
+export const buildCompareReportHtml = ({
+    rows,
+    columns,
+    requiredFieldNames,
+    generatedAt = new Date(),
+}: CompareReportInput): string => {
     const visible = rows.filter((r) => !isEmptyRow(r, columns));
     const total = visible.length;
     const diff = diffCount(visible);
     const same = total - diff;
+    const isRequired = makeRequiredCheck(requiredFieldNames);
 
     const { display, numbered, hasNumbered } = buildVehicleDisplayHeaders(columns.map((c) => c.label));
 
@@ -63,7 +80,7 @@ export const buildCompareReportHtml = ({ rows, columns, generatedAt = new Date()
         // 分组/参数名收窄为固定宽度，车型列平分剩余宽度，两两对齐便于逐列对比
         widths: ['72px', '18%', ...columns.map(() => undefined)],
         bodyRows: items.map((row) => {
-            const required = isFieldRequired(row.name)
+            const required = isRequired(row.name)
                 ? '<span class="rp-required">必填</span>'
                 : '';
             const cells = columns
@@ -115,11 +132,17 @@ export const buildCompareReportHtml = ({ rows, columns, generatedAt = new Date()
     });
 };
 
-export const buildCompareReportMarkdown = ({ rows, columns, generatedAt = new Date() }: CompareReportInput): string => {
+export const buildCompareReportMarkdown = ({
+    rows,
+    columns,
+    requiredFieldNames,
+    generatedAt = new Date(),
+}: CompareReportInput): string => {
     const visible = rows.filter((r) => !isEmptyRow(r, columns));
     const total = visible.length;
     const diff = diffCount(visible);
     const same = total - diff;
+    const isRequired = makeRequiredCheck(requiredFieldNames);
 
     const { display, numbered, hasNumbered } = buildVehicleDisplayHeaders(columns.map((c) => c.label));
     const headers = ['分组', '参数名', ...display];
@@ -128,7 +151,7 @@ export const buildCompareReportMarkdown = ({ rows, columns, generatedAt = new Da
         if (items.length === 0) return '无数据。';
         const tableRows = items.map((row) => [
             escapeMarkdownCell(row.group),
-            escapeMarkdownCell(isFieldRequired(row.name) ? `${row.name}（必填）` : row.name),
+            escapeMarkdownCell(isRequired(row.name) ? `${row.name}（必填）` : row.name),
             ...columns.map((c) => escapeMarkdownCell(cellText(row[c.key]))),
         ]);
         return buildMarkdownTable(headers, tableRows);

@@ -13,6 +13,8 @@ const mockState = {
   setPurifyProduct: vi.fn(),
   setRepairContext: vi.fn(),
   fieldGroupsVersion: 0,
+  requiredBaselineGroupId: null as string | null,
+  setRequiredBaselineGroupId: vi.fn(),
 };
 
 vi.mock('../../../store/vehicleStore', () => ({

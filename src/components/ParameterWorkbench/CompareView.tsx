@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Button, Checkbox, Empty, Segmented, message, Select, Spin, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import SelectVehiclesHint from '../common/SelectVehiclesHint';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import ProductSourceSelector from './ProductSourceSelector';
-import { isFieldRequired } from '../../assets/requiredFields';
+import { buildRequiredBaseline } from '../../utils/requiredBaseline';
 import { buildRepairContext, getAssetBackedSourceFile } from './quickRepair';
 import RepairableValue from '../common/RepairableValue';
 import DiffLegend from '../common/DiffLegend';
@@ -49,7 +49,16 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
     // 资产别名解析（只影响显示文案：表头/导出；不参与实例键与身份）
     const { resolver: aliasResolver } = useAssetAliasResolver();
     const [searchText, setSearchText] = useState('');
-    const [fieldGroupFilter, setFieldGroupFilter] = useState<string>('all');
+    /**
+     * 字段组 = 必填基准（全局唯一一份，存 store）：
+     * 选组 → 既筛出行集合，又用该组勾选的「必填」判定必填列；
+     * 不选（`null`）→ 必填列 / 「必填」分段 / 隐藏无值豁免一律不出现。
+     */
+    const { requiredBaselineGroupId, setRequiredBaselineGroupId } = useVehicleStore(useShallow(state => ({
+        requiredBaselineGroupId: state.requiredBaselineGroupId,
+        setRequiredBaselineGroupId: state.setRequiredBaselineGroupId,
+    })));
+    const fieldGroupFilter = requiredBaselineGroupId ?? 'all';
     const [hideEmpty, setHideEmpty] = useState(true);
     // 按字段名合并（忽略分组）：解决同字段因导入归属总成不同被拆成两行、显出假差异
     const [mergeByFieldName, setMergeByFieldName] = useState(false);
@@ -99,6 +108,25 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
     /** 「清除筛选」只看筛选行（差异视图/字段组/搜索）；③ 段两个显示开关不算 */
     const filtersActive = diffFilter !== 'all' || fieldGroupFilter !== 'all' || searchText.trim() !== '';
 
+    /**
+     * 必填基准 = 当前选中的字段组（同一份数据：选组既筛行又定必填）。
+     * 选「全部字段」时没有基准：必填列、「必填」分段、隐藏无值豁免一律不出现。
+     */
+    const requiredBaseline = useMemo(
+        () => buildRequiredBaseline(requiredBaselineGroupId),
+        [requiredBaselineGroupId, fieldGroupsVersion],
+    );
+    const isRequired = useCallback(
+        (name: string) => requiredBaseline?.has(name) ?? false,
+        [requiredBaseline],
+    );
+
+    // 基准组被取消（切回「全部字段」）时，「必填」视图失去意义——回落「全部」，
+    // 否则分段选中项已不存在、列表会被筛成空表却不解释原因。
+    useEffect(() => {
+        if (!requiredBaseline) setDiffFilter(prev => (prev === 'required' ? 'all' : prev));
+    }, [requiredBaseline]);
+
     // 过滤后的数据
     const filteredData = useMemo(() => {
         let data = comparisonData;
@@ -108,10 +136,10 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
             const fieldSet = new Set(fieldGroup.fields);
             data = data.filter((row) => fieldSet.has(row.name));
         }
-        
-        // 默认隐藏全空行；必填行豁免——待填报项不能被藏掉
+
+        // 默认隐藏全空行；必填行豁免——待填报项不能被藏掉（没有基准时无豁免）
         if (hideEmpty) {
-            data = data.filter(r => r.hasAnyValue || isFieldRequired(r.name));
+            data = data.filter(r => r.hasAnyValue || isRequired(r.name));
         }
 
         // 差异/一致/必填过滤
@@ -120,7 +148,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
         } else if (diffFilter === 'same') {
             data = data.filter(r => !r.hasDiff);
         } else if (diffFilter === 'required') {
-            data = data.filter(r => isFieldRequired(r.name));
+            data = data.filter(r => isRequired(r.name));
         }
 
         // 搜索过滤
@@ -134,7 +162,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
         }
 
         return data;
-    }, [comparisonData, diffFilter, hideEmpty, searchText, localSelection, fieldGroupFilter, fieldGroupsVersion]);
+    }, [comparisonData, diffFilter, hideEmpty, searchText, localSelection, fieldGroupFilter, fieldGroupsVersion, isRequired]);
 
     const fieldGroupOptions = useMemo(
         () => [{ value: 'all', label: '全部字段' }, ...getFieldGroupsSync().map((group) => ({ value: group.id, label: group.name }))],
@@ -189,15 +217,20 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                 width: 160,
                 fixed: 'left',
             },
-            {
+        ];
+
+        // 必填列只在选定字段组（= 必填基准）时出现：没有基准就没有「必填」这回事，
+        // 整列收起比给每一行画「—」更诚实（V5.6 起不再有内置必填清单）。
+        if (requiredBaseline) {
+            dynamicCols.push({
                 title: '必填',
                 key: 'required',
                 width: 60,
                 fixed: 'left',
                 render: (_: unknown, record: { name: string }) =>
-                    isFieldRequired(record.name) ? <StatusDot tone="warning">是</StatusDot> : <span className="text-3">—</span>,
-            }
-        ];
+                    isRequired(record.name) ? <StatusDot tone="warning">是</StatusDot> : <span className="text-3">—</span>,
+            });
+        }
 
         localSelection.forEach(instanceKey => {
             dynamicCols.push({
@@ -230,21 +263,21 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
         });
 
         return dynamicCols;
-    }, [localSelection, selectionDisplayLabels]);
+    }, [localSelection, selectionDisplayLabels, requiredBaseline, isRequired]);
 
     const { diffCount, sameCount, requiredCount } = useMemo(() => {
         let diff = 0, same = 0, req = 0;
         comparisonData.forEach(r => {
             if (r.hasDiff) diff++; else same++;
-            if (isFieldRequired(r.name)) req++;
+            if (isRequired(r.name)) req++;
         });
         return { diffCount: diff, sameCount: same, requiredCount: req };
-    }, [comparisonData]);
+    }, [comparisonData, isRequired]);
 
     // 勾选「隐藏无值字段」后实际被藏掉的行数：全空且非必填
     const emptyHideableCount = useMemo(
-        () => comparisonData.filter(r => !r.hasAnyValue && !isFieldRequired(r.name)).length,
-        [comparisonData]
+        () => comparisonData.filter(r => !r.hasAnyValue && !isRequired(r.name)).length,
+        [comparisonData, isRequired]
     );
 
     // 表体高度实测：卡片自身永不滚动（overflow-hidden），表体是唯一纵向滚动容器，
@@ -298,6 +331,10 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                     key: n,
                     label: selectionDisplayLabels.get(n)?.shortLabel || getVehicleProductName(n),
                 })),
+                // 报告里的「必填」标记与页面同源；没有基准就整列不写
+                requiredFieldNames: requiredBaseline
+                    ? comparisonData.filter(r => isRequired(r.name)).map(r => r.name)
+                    : null,
             });
             hide();
             message.success(`报告已导出：${fileName}`);
@@ -361,14 +398,19 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                                 { label: <CountLabel label="全部" count={comparisonData.length} />, value: 'all' },
                                 { label: <CountLabel label="差异" count={diffCount} />, value: 'diff' },
                                 { label: <CountLabel label="一致" count={sameCount} />, value: 'same' },
-                                { label: <CountLabel label="必填" count={requiredCount} />, value: 'required' },
+                                // 「必填」分段只在选定字段组时才有意义（无基准时每一项都是 0）
+                                ...(requiredBaseline
+                                    ? [{ label: <CountLabel label="必填" count={requiredCount} />, value: 'required' }]
+                                    : []),
                             ]}
                         />
                         <DiffLegend />
                         <FilterItem label="字段组">
                             <Select
-                                value={fieldGroupFilter}
-                                onChange={setFieldGroupFilter}
+                                title="选中的字段组同时决定必填判定：只认该组勾选的「必填」；选「全部字段」时不判定必填"
+                                /* 基准组可能已被删（别处删组/换了库）——此时按「全部字段」显示，不留一个对不上的 id */
+                                value={requiredBaseline ? requiredBaseline.groupId : 'all'}
+                                onChange={(v: string) => setRequiredBaselineGroupId(v === 'all' ? null : v)}
                                 options={fieldGroupOptions}
                                 style={{ width: 180 }}
                             />
@@ -378,7 +420,7 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                                 type="link"
                                 size="small"
                                 className="px-0"
-                                onClick={() => { setDiffFilter('all'); setFieldGroupFilter('all'); setSearchText(''); }}
+                                onClick={() => { setDiffFilter('all'); setRequiredBaselineGroupId(null); setSearchText(''); }}
                             >
                                 清除筛选
                             </Button>
