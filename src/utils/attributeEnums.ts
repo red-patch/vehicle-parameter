@@ -324,3 +324,44 @@ export function getEnumValuesSync(attributeName: string): string[] {
 export function isEnumDataLoaded(): boolean {
     return enumCache !== null;
 }
+
+/**
+ * 把单个值补进某字段的词表并落盘（导出预检「加入词表」用）。
+ *
+ * 与 ConfigManagerView 的整体保存不同：这里只增不改，且**只在该字段已有词表时**
+ * 追加——字段没有词表说明本地从没定义过它的值域，凭空建一条会把「无法判断」
+ * 伪装成「已定义」，反而误导后续校验。
+ *
+ * @returns 是否真的写入（字段不在词表 / 值已存在 → false）
+ */
+export async function addEnumValue(
+    libraryPath: string | null,
+    fieldName: string,
+    value: string,
+): Promise<boolean> {
+    const trimmed = value.trim();
+    if (!libraryPath || !trimmed || !enumCache) return false;
+
+    // 用词表里的原始键名落盘：`getEnumValuesSync` 支持归一化查找，但落盘必须与原键一致
+    let originalKey: string | null = enumCache.has(fieldName) ? fieldName : null;
+    if (!originalKey) {
+        const normalized = normalizeName(fieldName);
+        for (const key of enumCache.keys()) {
+            if (normalizeName(key) === normalized) { originalKey = key; break; }
+        }
+    }
+    if (!originalKey) return false;
+
+    const existing = enumCache.get(originalKey) ?? [];
+    if (existing.includes(trimmed)) return false;
+
+    const updated = [...existing, trimmed];
+    enumCache.set(originalKey, updated);
+
+    const dict: Record<string, string[]> = {};
+    for (const [key, values] of enumCache.entries()) dict[key] = values;
+    await writeTextFile(await join(libraryPath, 'custom_enums.json'), JSON.stringify(dict, null, 2));
+
+    notifyEnumDataChanged();
+    return true;
+}

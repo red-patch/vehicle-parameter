@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VPW · Git 开发模式体检</title>
+<style>
+  :root{
+    --bg:#faf9f6; --card:#ffffff; --ink:#16181d; --muted:#6b7280;
+    --line:#e4e2dc; --line-soft:#efeee9;
+    --blue:#2f5ef2; --purple:#7c4dff; --teal:#0f8b8d; --orange:#d97706;
+    --pink:#d6336c; --green:#1f7a4d; --gray:#8b8f98;
+    --bad:#c0392b; --warn:#b26b00; --ok:#1f7a4d;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#121316; --card:#1a1c21; --ink:#e9e9ec; --muted:#9aa0aa;
+      --line:#2b2e36; --line-soft:#23262c;
+      --blue:#7b98ff; --purple:#a98bff; --teal:#3fc0c2; --orange:#f0a952;
+      --pink:#f06b9b; --green:#5cc98d; --gray:#8b8f98;
+      --bad:#ef7a6b; --warn:#e0a23c; --ok:#5cc98d;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; line-height:1.65;
+    padding:44px 24px 80px;
+  }
+  .wrap{max-width:1120px;margin:0 auto}
+
+  /* ---------- header ---------- */
+  header{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:34px}
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:14px
+  }
+  h1{font-size:38px;line-height:1.2;margin:0 0 10px;letter-spacing:-.02em;font-weight:650}
+  h1 em{font-style:normal;color:var(--blue)}
+  .sub{color:var(--muted);font-size:15px;margin:0;max-width:760px}
+  .meta{
+    display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;
+    font-family:var(--mono);font-size:11.5px
+  }
+  .meta span{
+    border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--muted)
+  }
+
+  /* ---------- layout ---------- */
+  section{margin-bottom:52px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:18px}
+  .sec-num{
+    font-family:var(--mono);font-size:11px;color:var(--blue);
+    border:1px solid currentColor;border-radius:4px;padding:1px 6px;letter-spacing:.05em
+  }
+  h2{font-size:19px;margin:0;letter-spacing:-.01em;font-weight:600}
+  .sec-note{margin-left:auto;font-size:12px;color:var(--muted)}
+  h3{font-size:13px;margin:0 0 12px;font-weight:600;letter-spacing:.02em;color:var(--muted);text-transform:uppercase}
+  p{margin:0 0 12px}
+  .lead{font-size:15.5px;color:var(--ink)}
+
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:20px 22px
+  }
+  @media (max-width:860px){
+    .g2,.g3{grid-template-columns:1fr}
+    h1{font-size:28px}
+    body{padding:28px 16px 60px}
+  }
+
+  /* ---------- verdict ---------- */
+  .verdict{
+    background:var(--card);border:1px solid var(--line);border-left:3px solid var(--warn);
+    border-radius:8px;padding:22px 26px
+  }
+  .verdict .k{font-family:var(--mono);font-size:11px;color:var(--warn);letter-spacing:.12em;text-transform:uppercase}
+  .verdict p{margin:8px 0 0;font-size:16.5px;line-height:1.6}
+  .verdict strong{color:var(--ink);font-weight:650;background:linear-gradient(transparent 62%, rgba(178,107,0,.18) 62%)}
+
+  /* ---------- stats ---------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .stat{background:var(--card);padding:18px 20px}
+  .stat .n{font-family:var(--mono);font-size:30px;line-height:1.1;letter-spacing:-.03em}
+  .stat .n small{font-size:13px;color:var(--muted);margin-left:2px}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:6px}
+  .stat.bad .n{color:var(--bad)}
+  .stat.warn .n{color:var(--warn)}
+  @media (max-width:860px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+  /* ---------- chart ---------- */
+  .chart{display:flex;align-items:flex-end;gap:10px;height:210px;padding-top:18px;border-bottom:1px solid var(--line)}
+  .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative}
+  .bar{width:100%;max-width:54px;border-radius:3px 3px 0 0;background:var(--blue);opacity:.85;min-height:2px;transition:.2s}
+  .col.hot .bar{background:var(--orange);opacity:1}
+  .col.zero .bar{background:var(--line);opacity:1}
+  .val{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:5px}
+  .col.hot .val{color:var(--orange);font-weight:600}
+  .axis{display:flex;gap:10px;margin-top:8px}
+  .axis div{flex:1;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  /* ---------- era band ---------- */
+  .eras{display:grid;grid-template-columns:1.15fr 1fr 1.25fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+  .era{padding:20px 22px;border-right:1px solid var(--line);position:relative}
+  .era:last-child{border-right:0}
+  .era .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+  .era .range{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin:6px 0 10px}
+  .era .name{font-size:15px;font-weight:600;margin-bottom:6px}
+  .era .desc{font-size:12.5px;color:var(--muted);line-height:1.55}
+  .era .big{font-family:var(--mono);font-size:22px;margin-top:12px}
+  .era:nth-child(1) .tag,.era:nth-child(1) .big{color:var(--bad)}
+  .era:nth-child(2) .tag,.era:nth-child(2) .big{color:var(--gray)}
+  .era:nth-child(3) .tag,.era:nth-child(3) .big{color:var(--green)}
+  .era::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:currentColor;opacity:.15}
+  @media (max-width:860px){.eras{grid-template-columns:1fr}.era{border-right:0;border-bottom:1px solid var(--line)}}
+
+  /* ---------- svg graph ---------- */
+  .graphcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px 10px;overflow-x:auto}
+  .graphcard svg{display:block;min-width:960px;width:100%;height:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:16px;padding:12px 4px 6px;font-size:11.5px;color:var(--muted)}
+  .legend i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:6px}
+  .legend .dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--ink);background:var(--card)}
+
+  /* ---------- tables ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{
+    text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--muted);font-weight:500;
+    padding:0 12px 9px 0;border-bottom:1px solid var(--line)
+  }
+  td{padding:11px 12px 11px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  td.mono,.mono{font-family:var(--mono);font-size:12px}
+  .pill{
+    display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;
+    border:1px solid currentColor;white-space:nowrap;font-family:var(--mono)
+  }
+  .p-bad{color:var(--bad)} .p-warn{color:var(--warn)} .p-ok{color:var(--ok)} .p-mute{color:var(--muted)}
+
+  /* ---------- problems ---------- */
+  .prob{display:flex;gap:18px;padding:18px 0;border-bottom:1px solid var(--line-soft)}
+  .prob:last-child{border-bottom:0;padding-bottom:4px}
+  .prob .rank{
+    font-family:var(--mono);font-size:12px;color:var(--muted);
+    min-width:30px;padding-top:2px
+  }
+  .prob h4{margin:0 0 6px;font-size:15px;font-weight:600}
+  .prob p{margin:0 0 8px;font-size:13px;color:var(--muted)}
+  .prob .fix{font-size:12.5px;color:var(--ink)}
+  .prob .fix b{color:var(--blue);font-weight:600}
+  .sev{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:1px 7px;border-radius:4px;margin-left:8px;vertical-align:2px}
+  .s1{background:rgba(192,57,43,.12);color:var(--bad)}
+  .s2{background:rgba(178,107,0,.14);color:var(--warn)}
+  .s3{background:rgba(107,114,128,.14);color:var(--muted)}
+
+  /* ---------- recommendation ---------- */
+  .recs{counter-reset:r}
+  .rec{
+    display:grid;grid-template-columns:34px 1fr;gap:14px;
+    padding:16px 0;border-bottom:1px solid var(--line-soft)
+  }
+  .rec:last-child{border-bottom:0;padding-bottom:0}
+  .rec .num{
+    counter-increment:r;font-family:var(--mono);font-size:12px;color:var(--blue);
+    width:26px;height:26px;border:1px solid var(--blue);border-radius:50%;
+    display:flex;align-items:center;justify-content:center
+  }
+  .rec .num::before{content:counter(r,decimal-leading-zero)}
+  .rec h4{margin:2px 0 4px;font-size:14.5px;font-weight:600}
+  .rec p{margin:0;font-size:13px;color:var(--muted)}
+
+  footer{
+    margin-top:60px;padding-top:20px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px
+  }
+  .kbd{font-family:var(--mono);font-size:12px;background:var(--line-soft);padding:1px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Repository Retrospective · red-patch/vehicle-parameter</div>
+  <h1>这套 Git 流程不是「乱」，<br>是 <em>三套流程并存</em></h1>
+  <p class="sub">2025-12-30 首版到 2026-10-17，共 224 个提交落进 main、51 个发布 tag、6 个 PR。
+     直推、本地合并、PR 三种做法各占一段，旧做法没有正式退役，所以看起来杂乱。</p>
+  <div class="meta">
+    <span>HEAD · chore/fix-release-script</span>
+    <span>main · 44f180a</span>
+    <span>ruleset 生效 2026-10-13 14:49</span>
+    <span>38 个活跃日 / 291 个自然日</span>
+  </div>
+</header>
+
+<section>
+  <div class="verdict">
+    <div class="k">结论</div>
+    <p>真正需要改的只有两条：<strong>统一合并策略</strong>、<strong>发版失败时不要新增 patch tag</strong>。
+       直推问题已经被 10-13 的分支保护规则解决，剩下的分支命名和提交前缀只是整洁度问题。</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">01</span><h2>四个数字看全貌</h2></div>
+  <div class="stats">
+    <div class="stat"><div class="n">224</div><div class="l">落进 main 的提交</div></div>
+    <div class="stat bad"><div class="n">158<small>/224</small></div><div class="l">规则生效前进入 main</div></div>
+    <div class="stat warn"><div class="n">3<small>种</small></div><div class="l">合并方式混用</div></div>
+    <div class="stat warn"><div class="n">7<small>个</small></div><div class="l">同一天打出的 tag（07-03）</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">02</span><h2>提交节奏：长期低频，十月爆发</h2>
+    <span class="sec-note">全部引用 · 按月 · 含未合并分支</span>
+  </div>
+  <div class="card">
+    <div class="chart">
+      <div class="col"><div class="val">4</div><div class="bar" style="height:5px"></div></div>
+      <div class="col"><div class="val">10</div><div class="bar" style="height:13px"></div></div>
+      <div class="col"><div class="val">4</div><div class="bar" style="height:5px"></div></div>
+      <div class="col"><div class="val">20</div><div class="bar" style="height:26px"></div></div>
+      <div class="col"><div class="val">5</div><div class="bar" style="height:7px"></div></div>
+      <div class="col"><div class="val">34</div><div class="bar" style="height:45px"></div></div>
+      <div class="col zero"><div class="val">0</div><div class="bar" style="height:2px"></div></div>
+      <div class="col"><div class="val">8</div><div class="bar" style="height:11px"></div></div>
+      <div class="col zero"><div class="val">0</div><div class="bar" style="height:2px"></div></div>
+      <div class="col"><div class="val">6</div><div class="bar" style="height:8px"></div></div>
+      <div class="col hot"><div class="val">136</div><div class="bar" style="height:180px"></div></div>
+    </div>
+    <div class="axis">
+      <div>25/12</div><div>26/01</div><div>02</div><div>03</div><div>04</div>
+      <div>05</div><div>06</div><div>07</div><div>08</div><div>09</div><div>10</div>
+    </div>
+    <p style="margin-top:18px;font-size:13px;color:var(--muted)">
+      十月十天里 136 个提交，占全部历史的 60%。10-12 单日 31 个是峰值。
+      其余月份最长连续空档 32 天（06 月）。这种节奏不是问题，它说明项目是「集中冲刺 + 长间歇」，
+      但意味着每次回到代码库都要重新对齐规范 —— 这正是旧流程残留的原因。
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">03</span><h2>三个阶段：流程是被逐步加上的</h2></div>
+  <div class="eras">
+    <div class="era">
+      <div class="tag">Phase 1 · 直推</div>
+      <div class="range">2025-12-30 → 2026-05-25</div>
+      <div class="name">无分支期</div>
+      <div class="desc">所有改动直接 commit 到 main。只有 2026-03-17 一次本地分支合并（<span class="mono">codex/git'ta'g'</span>，引号是误触）。</div>
+      <div class="big">77 提交</div>
+    </div>
+    <div class="era">
+      <div class="tag">Phase 2 · 间歇</div>
+      <div class="range">2026-07-03 → 2026-09-29</div>
+      <div class="name">本地合并期</div>
+      <div class="desc">开始用 <span class="mono">merge:</span> 和 <span class="mono">Merge branch</span>，但合完直接推 main，没有 PR，也没有 CI 门禁。</div>
+      <div class="big">14 提交</div>
+    </div>
+    <div class="era">
+      <div class="tag">Phase 3 · 规则化</div>
+      <div class="range">2026-10-08 → 2026-10-17</div>
+      <div class="name">PR + 分支保护期</div>
+      <div class="desc">10-13 装上 ruleset（required check <span class="mono">check</span>、禁强推、禁删）。之后 5 个 PR 合并，1 个关闭后重开。</div>
+      <div class="big">136 提交</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="sec-num">04</span><h2>分支地图：十月到底发生了什么</h2>
+    <span class="sec-note">示意 · 横轴为日期，纵向为分支泳道</span>
+  </div>
+  <div class="graphcard">
+    <svg viewBox="0 0 1120 440" role="img" aria-label="十月分支与合并示意图">
+      <defs>
+        <marker id="arrowTeal" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
+          <path d="M0,0 L6,3.5 L0,7 z" fill="var(--teal)"/>
+        </marker>
+        <marker id="arrowOrange" markerWidth="7" markerHeight="7" refX="5.5" refY="3.5" orient="auto">
+          <path d="M0,0 L6,3.5 L0,7 z" fill="var(--orange)"/>
+        </marker>
+      </defs>
+
+      <!-- date grid -->
+      <g stroke="var(--line-soft)" stroke-width="1">
+        <line x1="110" y1="24" x2="110" y2="386"/>
+        <line x1="210" y1="24" x2="210" y2="386"/>
+        <line x1="360" y1="24" x2="360" y2="386"/>
+        <line x1="500" y1="24" x2="500" y2="386"/>
+        <line x1="640" y1="24" x2="640" y2="386"/>
+        <line x1="730" y1="24" x2="730" y2="386"/>
+        <line x1="880" y1="24" x2="880" y2="386"/>
+        <line x1="1020" y1="24" x2="1020" y2="386"/>
+      </g>
+      <g font-family="var(--mono)" font-size="10" fill="var(--muted)">
+        <text x="110" y="404" text-anchor="middle">10-08</text>
+        <text x="210" y="404" text-anchor="middle">10-09</text>
+        <text x="360" y="404" text-anchor="middle">10-12</text>
+        <text x="500" y="404" text-anchor="middle">10-13</text>
+        <text x="640" y="404" text-anchor="middle">10-14</text>
+        <text x="730" y="404" text-anchor="middle">10-15</text>
+        <text x="880" y="404" text-anchor="middle">10-16</text>
+        <text x="1020" y="404" text-anchor="middle">10-17</text>
+      </g>
+
+      <!-- main line -->
+      <line x1="34" y1="350" x2="1096" y2="350" stroke="var(--ink)" stroke-width="2.5"/>
+      <text x="38" y="372" font-family="var(--mono)" font-size="11" fill="var(--ink)" font-weight="600">main</text>
+
+      <!-- lane 1: regulation library (merge commit, 10-08 → 10-09) -->
+      <path d="M110,350 C110,76 122,66 148,66 L182,66 C198,66 202,90 206,340"
+            fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="152" y="58" font-family="var(--mono)" font-size="11" fill="var(--blue)">feat/regulation-library-p0</text>
+
+      <!-- lane 2: asset panel redesign v2 (local merge, 10-12 → 10-13) -->
+      <path d="M360,350 C360,116 372,106 398,106 L474,106 C492,106 496,130 498,340"
+            fill="none" stroke="var(--purple)" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="402" y="98" font-family="var(--mono)" font-size="11" fill="var(--purple)">feature/asset-panel-redesign-v2</text>
+
+      <!-- lane 3: vehicle designer (PR #2 closed on 10-12, reopened → #3 squash 10-13) -->
+      <path d="M374,350 C374,156 386,146 412,146 L458,146"
+            fill="none" stroke="var(--teal)" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M458,146 C486,146 494,160 496,340"
+            fill="none" stroke="var(--teal)" stroke-width="2.2" stroke-linecap="round"
+            marker-end="url(#arrowTeal)"/>
+      <text x="414" y="132" font-family="var(--mono)" font-size="11" fill="var(--teal)">feature/vehicle-designer-migration</text>
+      <g stroke="var(--gray)" stroke-width="2">
+        <line x1="461" y1="139" x2="473" y2="153"/>
+        <line x1="473" y1="139" x2="461" y2="153"/>
+      </g>
+      <text x="392" y="168" font-family="var(--mono)" font-size="9.5" fill="var(--gray)">#2 关闭 → #3 重开</text>
+
+      <!-- lane 4: asset pool fluid iter (squash, 10-13 → 10-14) -->
+      <path d="M500,350 C500,196 512,186 538,186 L604,186"
+            fill="none" stroke="var(--orange)" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M604,186 C630,186 638,210 640,340"
+            fill="none" stroke="var(--orange)" stroke-width="2.2" stroke-linecap="round"
+            marker-end="url(#arrowOrange)"/>
+      <text x="542" y="178" font-family="var(--mono)" font-size="11" fill="var(--orange)">feature/asset-pool-fluid-iter</text>
+
+      <!-- lane 5: list page design language (merge commit, 10-16) -->
+      <path d="M786,350 C786,236 798,226 824,226 L844,226"
+            fill="none" stroke="var(--pink)" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M844,226 C866,226 874,250 878,340"
+            fill="none" stroke="var(--pink)" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="828" y="218" font-family="var(--mono)" font-size="11" fill="var(--pink)">feat/list-page-design-language</text>
+
+      <!-- lane 6: lessons l6 (merge commit, 10-16 → 10-17) -->
+      <path d="M862,350 C862,276 874,266 900,266 L984,266"
+            fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M984,266 C1008,266 1014,290 1016,340"
+            fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="906" y="246" font-family="var(--mono)" font-size="11" fill="var(--green)">docs/lessons-l6</text>
+
+      <!-- lane 7: release script (open PR, no merge yet) -->
+      <path d="M1016,350 C1016,338 1024,330 1044,330 L1100,330"
+            fill="none" stroke="var(--gray)" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"/>
+      <text x="1104" y="386" text-anchor="end" font-family="var(--mono)" font-size="9.5" fill="var(--gray)">chore/fix-release-script（未合并）</text>
+
+      <!-- merge / squash nodes on main -->
+      <g fill="var(--card)" stroke-width="2">
+        <circle cx="206" cy="350" r="5" stroke="var(--blue)"/>
+        <circle cx="498" cy="350" r="5" stroke="var(--purple)"/>
+        <circle cx="496" cy="350" r="5" stroke="var(--teal)"/>
+        <circle cx="640" cy="350" r="5" stroke="var(--orange)"/>
+        <circle cx="878" cy="350" r="5" stroke="var(--pink)"/>
+        <circle cx="1016" cy="350" r="5" stroke="var(--green)"/>
+      </g>
+
+      <!-- main commit density ticks -->
+      <g stroke="var(--ink)" stroke-width="1" opacity=".35">
+        <line x1="90" y1="346" x2="90" y2="354"/><line x1="125" y1="346" x2="125" y2="354"/>
+        <line x1="160" y1="346" x2="160" y2="354"/><line x1="195" y1="346" x2="195" y2="354"/>
+        <line x1="280" y1="346" x2="280" y2="354"/><line x1="330" y1="346" x2="330" y2="354"/>
+        <line x1="420" y1="346" x2="420" y2="354"/><line x1="455" y1="346" x2="455" y2="354"/>
+        <line x1="560" y1="346" x2="560" y2="354"/><line x1="600" y1="346" x2="600" y2="354"/>
+        <line x1="690" y1="346" x2="690" y2="354"/><line x1="760" y1="346" x2="760" y2="354"/>
+        <line x1="820" y1="346" x2="820" y2="354"/><line x1="940" y1="346" x2="940" y2="354"/>
+        <line x1="980" y1="346" x2="980" y2="354"/><line x1="1060" y1="346" x2="1060" y2="354"/>
+      </g>
+    </svg>
+    <div class="legend">
+      <span><i style="background:var(--ink)"></i>main 主干</span>
+      <span><i style="background:var(--purple)"></i>本地 merge（保留双父）</span>
+      <span><i style="background:var(--teal)"></i>squash（压成单父）</span>
+      <span><span class="dot" style="display:inline-block;margin-right:6px"></span>合并落点</span>
+      <span>虚线 = 未合并</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">05</span><h2>合并方式：三种写法并存</h2></div>
+  <div class="card" style="padding:6px 22px 14px">
+    <table>
+      <thead>
+        <tr><th style="width:20%">方式</th><th style="width:30%">用在哪</th><th>后果</th><th style="width:16%">判断</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Squash（单父）</td>
+          <td class="mono">PR #3 #4</td>
+          <td>分支历史被压平，只剩一条主干提交</td>
+          <td><span class="pill p-warn">不统一</span></td>
+        </tr>
+        <tr>
+          <td>Merge commit（双父）</td>
+          <td class="mono">PR #5 #6</td>
+          <td>保留分支拓扑，可追溯</td>
+          <td><span class="pill p-ok">推荐</span></td>
+        </tr>
+        <tr>
+          <td>本地 merge 后直推</td>
+          <td class="mono">10-09 / 10-13 / 03-17</td>
+          <td>绕过 PR 与 CI 审查</td>
+          <td><span class="pill p-bad">已过时</span></td>
+        </tr>
+        <tr>
+          <td>手写 merge 信息</td>
+          <td class="mono">120f6a4 · 8d89f3c · 3bd0e9d</td>
+          <td>格式与 GitHub 自动生成不一致，<span class="mono">git log --grep</span> 难统一</td>
+          <td><span class="pill p-warn">不统一</span></td>
+        </tr>
+        <tr>
+          <td>PR #1</td>
+          <td class="mono">2026-04-30</td>
+          <td>合并提交在本地已查不到（10-13 清理历史时重写）</td>
+          <td><span class="pill p-mute">无法核对</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">06</span><h2>发布：tag 被当成重试按钮</h2></div>
+  <div class="grid g2">
+    <div class="card">
+      <h3>数量</h3>
+      <table>
+        <tr><td>tag 总数</td><td class="mono" style="text-align:right">51</td></tr>
+        <tr><td>GitHub Release</td><td class="mono" style="text-align:right">44</td></tr>
+        <tr><td>没有 Release 的 tag</td><td class="mono" style="text-align:right;color:var(--warn)">7</td></tr>
+        <tr><td>轻量 tag / 附注 tag</td><td class="mono" style="text-align:right">14 / 37</td></tr>
+      </table>
+      <p style="margin-top:14px;font-size:12px;color:var(--muted)">
+        无 Release：<span class="mono">v1.2 v1.5 v3.0.1 v4.4.2 v4.5.2 v4.5.13 v4.12.0</span>
+      </p>
+    </div>
+    <div class="card">
+      <h3>最典型的一天 · 2026-07-03</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">
+        一天连打 7 个 tag，全部是 Windows 打包配置的来回试错：
+      </p>
+      <div class="mono" style="font-size:12px;line-height:2">
+        v4.5.10 → v4.5.11 → v4.5.12 → v4.5.13 →<br>
+        v4.5.14 → v4.5.15 → v4.5.16
+      </div>
+      <p style="margin-top:12px;font-size:12.5px;color:var(--muted)">
+        WiX 与 NSIS 之间反复切换，每个补丁都发了正式版本号。
+        用户侧看到的是 7 个「新版本」，实际产品行为没有变化。
+      </p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>版本号写法</h3>
+    <div class="row" style="display:flex;flex-wrap:wrap;gap:10px;font-family:var(--mono);font-size:12px">
+      <span class="pill p-warn">v1.2</span><span class="pill p-warn">v1.5</span><span class="pill p-warn">v3.0</span>
+      <span class="pill p-ok">v1.3.0</span><span class="pill p-ok">v2.0.0</span><span class="pill p-ok">v4.13.0</span>
+      <span class="pill p-mute">v4.4.6 缺失</span>
+    </div>
+    <p style="margin-top:14px;font-size:13px;color:var(--muted);margin-bottom:0">
+      两位与三位混用；编号不连续（<span class="mono">v4.4.5 → v4.4.7</span>）。
+      对语义化版本工具与排序脚本都不友好。
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">07</span><h2>分支命名：六套前缀</h2></div>
+  <div class="card" style="padding:6px 22px 14px">
+    <table>
+      <thead><tr><th style="width:34%">实际名称</th><th style="width:16%">前缀</th><th style="width:18%">来源</th><th>判断</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">feat/list-page-design-language</td><td class="mono">feat/</td><td>手写</td><td><span class="pill p-ok">规范</span></td></tr>
+        <tr><td class="mono">docs/lessons-l6</td><td class="mono">docs/</td><td>手写</td><td><span class="pill p-ok">规范</span></td></tr>
+        <tr><td class="mono">chore/fix-release-script</td><td class="mono">chore/</td><td>手写</td><td><span class="pill p-ok">规范</span></td></tr>
+        <tr><td class="mono">feature/asset-panel-redesign-v2</td><td class="mono">feature/</td><td>手写</td><td><span class="pill p-warn">与 feat/ 重复</span></td></tr>
+        <tr><td class="mono">feature/vehicle-designer-migration</td><td class="mono">feature/</td><td>手写</td><td><span class="pill p-warn">与 feat/ 重复</span></td></tr>
+        <tr><td class="mono">claude/competent-germain-a3e8e5</td><td class="mono">claude/</td><td>工具生成</td><td><span class="pill p-bad">无业务含义</span></td></tr>
+        <tr><td class="mono">codex/git'ta'g'</td><td class="mono">codex/</td><td>工具生成</td><td><span class="pill p-bad">含非法引号</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:14px;font-size:13px;color:var(--muted)">
+    <span class="mono">feat/</span> 与 <span class="mono">feature/</span> 是同一意图的两种写法 —— 这正是 AGENTS.md 里
+    「同一个意图只允许一种写法」想禁止的情况，只不过发生在分支层而不是 UI 层。
+  </p>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">08</span><h2>问题排序</h2></div>
+  <div class="card" style="padding:4px 22px 16px">
+
+    <div class="prob">
+      <div class="rank">01</div>
+      <div>
+        <h4>合并策略没有定过 <span class="sev s1">高</span></h4>
+        <p>Squash 与 merge commit 各用两次，同一仓库的 <span class="mono">git log</span> 有两种形状。新人无从判断该跟哪一种。</p>
+        <div class="fix"><b>改法：</b>选一种写进 AGENTS.md。建议 merge commit —— 本项目 PR 数量少、单个 PR 体积大（#5 约 9.5k 行），保留分支边界更有用。</div>
+      </div>
+    </div>
+
+    <div class="prob">
+      <div class="rank">02</div>
+      <div>
+        <h4>发布失败用新 tag 兜底 <span class="sev s1">高</span></h4>
+        <p>打包配置错误用 <span class="mono">v4.5.11 … v4.5.16</span> 六个版本号消化，版本号语义被稀释。</p>
+        <div class="fix"><b>改法：</b>同一版本重打 tag（<span class="mono">git tag -f</span> + 重跑 workflow），只有产品行为变化才升 patch。</div>
+      </div>
+    </div>
+
+    <div class="prob">
+      <div class="rank">03</div>
+      <div>
+        <h4>直推 main 的历史 <span class="sev s3">已解决</span></h4>
+        <p>158 个提交无 PR。10-13 的 ruleset 已挡住新直推（required check、禁强推、禁删，无 bypass）。</p>
+        <div class="fix"><b>状态：</b>不需要动历史。旧提交保持原样是正确选择。</div>
+      </div>
+    </div>
+
+    <div class="prob">
+      <div class="rank">04</div>
+      <div>
+        <h4>分支前缀四套 + 工具前缀两套 <span class="sev s2">中</span></h4>
+        <p>同一意图两种写法（feat/ 与 feature/），工具生成的分支名不能表达业务。</p>
+        <div class="fix"><b>改法：</b>只留 <span class="mono">feat/ fix/ docs/ chore/</span>；AI 会话开分支时手动指定前缀。</div>
+      </div>
+    </div>
+
+    <div class="prob">
+      <div class="rank">05</div>
+      <div>
+        <h4>发布提交写法不统一 <span class="sev s3">低</span></h4>
+        <p>216 条提交里 179 条符合 conventional commits，37 条不符合，几乎全是 <span class="mono">v4.x.y - feat: …</span> 形式。</p>
+        <div class="fix"><b>改法：</b>新脚本已写 <span class="mono">chore(release): v$VERSION</span>，保持即可，不追改历史。</div>
+      </div>
+    </div>
+
+    <div class="prob">
+      <div class="rank">06</div>
+      <div>
+        <h4>tag 有轻量有附注 <span class="sev s3">低</span></h4>
+        <p>14 个轻量、37 个附注。<span class="mono">git describe</span> 与 <span class="mono">git tag -n</span> 的行为不一致。</p>
+        <div class="fix"><b>改法：</b>发布脚本统一用 <span class="mono">git tag -a</span>。</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">09</span><h2>按这个顺序改</h2></div>
+  <div class="card" style="padding:8px 22px 20px">
+    <div class="recs">
+      <div class="rec"><div class="num"></div><div>
+        <h4>定合并策略，写进 AGENTS.md</h4>
+        <p>一行规则 + 一次 GitHub 设置即可，收益最大。</p>
+      </div></div>
+      <div class="rec"><div class="num"></div><div>
+        <h4>发版失败改 tag，不改版本号</h4>
+        <p>在 <span class="kbd">scripts/release.sh</span> 里加一个 <span class="mono">--retag</span> 分支，避免下次又靠升 patch 解决。</p>
+      </div></div>
+      <div class="rec"><div class="num"></div><div>
+        <h4>分支前缀收敛到四个</h4>
+        <p>在 AGENTS.md 写清 <span class="mono">feat/ fix/ docs/ chore/</span>，AI 会话按此开分支。</p>
+      </div></div>
+      <div class="rec"><div class="num"></div><div>
+        <h4>发布提交与 tag 命令统一</h4>
+        <p><span class="mono">chore(release): vX.Y.Z</span> + 附注 tag，现有脚本已基本到位。</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>数据来源：git rev-list / git for-each-ref / gh api rulesets · 2026-10-17</span>
+  <span>224 commits · 51 tags · 6 PRs · 2 authors</span>
+</footer>
+
+</div>
+</body>
+</html>

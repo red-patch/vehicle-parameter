@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Button, Input, message, Segmented, Space, Alert, Upload, Select } from 'antd';
 import { ClearOutlined, UploadOutlined } from '@ant-design/icons';
 import SelectVehiclesHint from '../common/SelectVehiclesHint';
-import { getFieldGroupsSync } from '../../utils/fieldLists';
+import { getFieldGroupsSync, getExportFormatsSync, type ExportFormat, type FieldGroupConfigItem } from '../../utils/fieldLists';
 import { readFirstSheetRowsAsync } from '../../utils/excelParserAsync';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useShallow } from 'zustand/react/shallow';
 import ProductSourceSelector from './ProductSourceSelector';
 import { findMatches } from '../../utils/matcher';
+import { getProductData } from '../../store/vehicleSelectors';
 import MatchResultTable from '../SmartFiller/MatchResultTable';
 import BidPullView from './BidPullView';
 import MultiVehicleView from './MultiVehicleView';
@@ -36,7 +37,8 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
         activeAssets,
         fieldGroupsVersion,
         smartFillMode,
-        setSmartFillMode
+        setSmartFillMode,
+        manualByProduct,
     } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         setMatchResults: state.setMatchResults,
@@ -51,6 +53,7 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
         fieldGroupsVersion: state.fieldGroupsVersion,
         smartFillMode: state.smartFillMode,
         setSmartFillMode: state.setSmartFillMode,
+        manualByProduct: state.smartFillManualByProduct,
     })));
     // 自动清理：已在主工作区中移除的车型，同步清除本模块参考车型
     useEffect(() => {
@@ -118,6 +121,29 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
     const handleClear = () => {
         setRequirementsText('');
         setMatchResults([]);
+    };
+
+    // 导出格式下拉：选格式 → 自动切到它绑定的字段组（格式不存字段）
+    const [selectedFormatId, setSelectedFormatId] = useState<string | null>(null);
+    const exportFormats = useMemo<ExportFormat[]>(
+        () => getExportFormatsSync(),
+        [fieldGroupsVersion],
+    );
+    const selectedFormat = exportFormats.find(f => f.id === selectedFormatId) ?? null;
+    const activeGroup = useMemo<FieldGroupConfigItem | null>(
+        () => getFieldGroupsSync().find(group => group.id === selectedFieldGroupId) ?? null,
+        [selectedFieldGroupId, fieldGroupsVersion],
+    );
+
+    const handleApplyFormat = (formatId: string | null) => {
+        setSelectedFormatId(formatId);
+        const format = exportFormats.find(f => f.id === formatId);
+        if (!format) return;
+        const group = getFieldGroupsSync().find(g => g.id === format.fieldGroupId);
+        if (!group) { message.warning('该格式引用的字段组已不存在，请到「字段与词表」修正'); return; }
+        setSelectedFieldGroupId(group.id);
+        setRequirementsText(group.fields.join('\n'));
+        message.success(`已套用「${format.name}」：${group.fields.length} 个字段`);
     };
 
     const fieldGroupOptions = useMemo(
@@ -201,6 +227,15 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
                                     allowClear
                                     className="min-w-[180px]"
                                 />
+                                <Select
+                                    size="small"
+                                    value={selectedFormatId ?? undefined}
+                                    onChange={handleApplyFormat}
+                                    options={exportFormats.map(f => ({ value: f.id, label: f.name }))}
+                                    placeholder={exportFormats.length ? '导出格式' : '未配置导出格式'}
+                                    allowClear
+                                    className="min-w-[160px]"
+                                />
                                 <Upload
                                     accept=".xlsx,.xls,.csv"
                                     showUploadList={false}
@@ -241,7 +276,17 @@ const SmartFillView: React.FC<SmartFillViewProps> = ({ onGoRepair, onGoPool }) =
             </Card>
 
             <div className="flex-1 overflow-auto">
-                {matchResults.length > 0 && <MatchResultTable productName={referenceProduct} onGoRepair={onGoRepair} />}
+                {matchResults.length > 0 && (
+                    <MatchResultTable
+                        productName={referenceProduct}
+                        onGoRepair={onGoRepair}
+                        fieldGroup={activeGroup}
+                        exportFormat={selectedFormat}
+                        candidateProducts={selectedProductNames}
+                        readProductManualValues={product => manualByProduct[product] ?? {}}
+                        readProductLibrary={product => getProductData(uploadedFiles, product, assetFiles)}
+                    />
+                )}
             </div>
             </>
             )}

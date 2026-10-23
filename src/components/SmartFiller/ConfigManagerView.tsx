@@ -1,15 +1,25 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Table, Input, Tag, Skeleton, Empty, Typography, Tabs, Button, message, Modal, AutoComplete, Select, Switch, Dropdown } from 'antd';
+import { Table, Input, Tag, Skeleton, Empty, Typography, Tabs, Button, message, Modal, AutoComplete, Select, Switch, Dropdown, Checkbox, Radio } from 'antd';
 import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
 import type { ColumnsType } from 'antd/es/table';
 import { SearchOutlined, SaveOutlined, EditOutlined, PlusOutlined, FileExcelOutlined, FileTextOutlined, CopyOutlined, DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
 import StatusDot from '../common/StatusDot';
+import FacetChips from '../common/FacetChips';
 import RowActions from '../common/RowActions';
 import { NUMERIC_COLUMN, PAGE_SIZE, pagePagination } from '../common/tablePresets';
-import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded, getEnumActiveFilter, setEnumActiveFilter, getAllCategoryPaths, getAllCategories, isEnumActive } from '../../utils/attributeEnums';
-import { getFieldGroupsSync, reloadCustomFields, type FieldGroupConfigItem } from '../../utils/fieldLists';
+import { preloadEnumData, getAllAttributeNames, getEnumValuesSync, isEnumDataLoaded, getEnumActiveFilter, setEnumActiveFilter, getAllCategoryPaths, getAllCategories, isEnumActive, getEnumDataVersion, subscribeEnumData } from '../../utils/attributeEnums';
+import { useSyncExternalStore } from 'react';
+import {
+    getFieldGroupsSync,
+    reloadCustomFields,
+    saveFieldGroups,
+    getExportFormatsSync,
+    type FieldGroupConfigItem,
+    type ExportFormat,
+    type FieldSourceRule,
+} from '../../utils/fieldLists';
 import {
     getAssetTagGroupsSync,
     reloadCustomAssetTagGroups,
@@ -25,6 +35,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { join } from '@tauri-apps/api/path';
 import { parseFieldBatchInput } from './coreFieldRules';
+import FieldSourceEditor from './FieldSourceEditor';
+import ExportFormatTab from './ExportFormatTab';
+import { getProductData } from '../../store/vehicleSelectors';
+import FieldGroupImportModal from './FieldGroupImportModal';
+import { appendField, appendFields, applyImportedFields, reorderFields, resolveGroupFields, setRequiredFor, summarizeResolved, withSource, type FieldStatus } from '../../utils/fieldMapping';
 import EnumImportModal from './EnumImportModal';
 
 const { Text } = Typography;
@@ -53,6 +68,12 @@ interface EnumMeta {
 interface FieldRow {
     key: string;
     name: string;
+    /** 解析后的取值来源（可能多个） */
+    sources: string[];
+    suggested?: boolean;
+    rule?: FieldSourceRule;
+    status: FieldStatus;
+    required: boolean;
 }
 
 const ConfigManagerView: React.FC = () => {
@@ -71,6 +92,17 @@ const ConfigManagerView: React.FC = () => {
     const [editingFilter, setEditingFilter] = useState<{ categoryPaths: string[]; categories: string[] }>({ categoryPaths: [], categories: [] });
 
     const [fieldGroups, setFieldGroups] = useState<FieldGroupConfigItem[]>(getFieldGroupsSync());
+    const [exportFormats, setExportFormats] = useState<ExportFormat[]>(getExportFormatsSync());
+    const [importModalOpen, setImportModalOpen] = useState(false);
+    const [reorderModalOpen, setReorderModalOpen] = useState(false);
+    /** 字段表格的筛选（与上方「搜索或输入字段名称」的加入字段用途分开） */
+    const [fieldFilter, setFieldFilter] = useState<'all' | 'required' | 'unmapped' | 'pending'>('all');
+    const [fieldRowSearch, setFieldRowSearch] = useState('');
+    const [requiredModalOpen, setRequiredModalOpen] = useState(false);
+    const [requiredDraft, setRequiredDraft] = useState('');
+    const [requiredMode, setRequiredMode] = useState<'set' | 'clear'>('set');
+    // 词表热更新（字段与词表内编辑）后，取值来源的状态分档要重算
+    const enumVersionForFields = useSyncExternalStore(subscribeEnumData, getEnumDataVersion);
     const [selectedFieldGroupId, setSelectedFieldGroupId] = useState<string>(getFieldGroupsSync()[0]?.id || 'system-required');
     const [tagGroups, setTagGroups] = useState<TagGroupItem[]>(getAssetTagGroupsSync().groups);
     const [editExclusiveGroups, setEditExclusiveGroups] = useState<string[]>(getAssetTagGroupsSync().exclusiveGroups || []);
@@ -92,12 +124,41 @@ const ConfigManagerView: React.FC = () => {
 
 
 
-    const { assetLibraryPath, bumpAssetTagGroupsVersion, bumpFieldGroupsVersion, bumpAssetVersion } = useVehicleStore(useShallow(state => ({
+    const {
+        assetLibraryPath,
+        bumpAssetTagGroupsVersion,
+        bumpFieldGroupsVersion,
+        bumpAssetVersion,
+        uploadedFiles,
+        assetFiles,
+        currentSmartFillProduct,
+        selectedProductNames,
+    } = useVehicleStore(useShallow(state => ({
         assetLibraryPath: state.assetLibraryPath,
         bumpAssetTagGroupsVersion: state.bumpAssetTagGroupsVersion,
         bumpFieldGroupsVersion: state.bumpFieldGroupsVersion,
         bumpAssetVersion: state.bumpAssetVersion,
+        uploadedFiles: state.uploadedFiles,
+        assetFiles: state.assetFiles,
+        currentSmartFillProduct: state.currentSmartFillProduct,
+        selectedProductNames: state.selectedProductNames,
     })));
+
+    /** 「取值来源」下拉的候选：当前参考车型的资产字段；没选车时退化为字段组并集 */
+    const sourceCandidateFields = useMemo(() => {
+        const product = currentSmartFillProduct ?? selectedProductNames[0];
+        const fromProduct = product ? getProductData(uploadedFiles, product, assetFiles) : [];
+        const names = fromProduct.length > 0
+            ? fromProduct.map(p => p.name)
+            : fieldGroups.flatMap(group => group.fields);
+        return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    }, [currentSmartFillProduct, selectedProductNames, uploadedFiles, assetFiles, fieldGroups]);
+
+    /** 当前参考车型的参数（用于展示解析后的取值来源） */
+    const sourceLibrary = useMemo(() => {
+        const product = currentSmartFillProduct ?? selectedProductNames[0];
+        return product ? getProductData(uploadedFiles, product, assetFiles) : [];
+    }, [currentSmartFillProduct, selectedProductNames, uploadedFiles, assetFiles]);
 
     useEffect(() => {
         const init = async () => {
@@ -109,6 +170,7 @@ const ConfigManagerView: React.FC = () => {
                 }
                 const nextFieldGroups = getFieldGroupsSync();
                 setFieldGroups(nextFieldGroups);
+                setExportFormats(getExportFormatsSync());
                 setSelectedFieldGroupId(nextFieldGroups[0]?.id || 'system-required');
                 const tagGroupsConfig = getAssetTagGroupsSync();
                 setTagGroups(tagGroupsConfig.groups);
@@ -174,10 +236,51 @@ const ConfigManagerView: React.FC = () => {
         [fieldGroups, selectedFieldGroupId]
     );
 
-    const selectedFieldRows = useMemo<FieldRow[]>(
-        () => (selectedFieldGroup?.fields || []).map((field) => ({ key: field, name: field })),
-        [selectedFieldGroup]
+    /** 每行的取值来源由 utils/fieldMapping 统一解析（与导出口径完全一致） */
+    const resolvedFieldRows = useMemo(
+        () => (selectedFieldGroup
+            ? resolveGroupFields(selectedFieldGroup, sourceLibrary, getEnumValuesSync)
+            : []),
+        // enumVersionForFields 是订阅号：词表变了必须重算，即便它没出现在表达式里
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [selectedFieldGroup, sourceLibrary, enumVersionForFields],
     );
+
+    const fieldSummary = useMemo(() => summarizeResolved(resolvedFieldRows), [resolvedFieldRows]);
+
+    const selectedFieldRows = useMemo<FieldRow[]>(
+        () => resolvedFieldRows.map((row) => ({
+            key: row.field,
+            name: row.field,
+            sources: row.sources,
+            suggested: row.suggested,
+            rule: selectedFieldGroup?.sources?.[row.field],
+            status: row.status,
+            required: row.required,
+        })),
+        [resolvedFieldRows, selectedFieldGroup],
+    );
+
+    /** 表格展示用的行：在「加入字段」工具条之外，单独提供筛选与搜索 */
+    const visibleFieldRows = useMemo<FieldRow[]>(() => {
+        const keyword = fieldRowSearch.trim().toLowerCase();
+        return selectedFieldRows.filter(row => {
+            if (fieldFilter === 'required' && !row.required) return false;
+            if (fieldFilter === 'unmapped' && row.status !== 'unmapped') return false;
+            if (fieldFilter === 'pending' && row.status !== 'low_confidence') return false;
+            if (!keyword) return true;
+            return row.name.toLowerCase().includes(keyword)
+                || row.sources.some(s => s.toLowerCase().includes(keyword));
+        });
+    }, [selectedFieldRows, fieldFilter, fieldRowSearch]);
+
+    const fieldRowStats = useMemo(() => ({
+        total: selectedFieldRows.length,
+        required: selectedFieldRows.filter(r => r.required).length,
+        unmapped: selectedFieldRows.filter(r => r.status === 'unmapped').length,
+        pending: selectedFieldRows.filter(r => r.status === 'low_confidence').length,
+    }), [selectedFieldRows]);
+
 
     const updateSelectedFieldGroup = (updater: (group: FieldGroupConfigItem) => FieldGroupConfigItem) => {
         if (!selectedFieldGroup) return;
@@ -185,12 +288,8 @@ const ConfigManagerView: React.FC = () => {
     };
 
     const addFieldToSelectedGroup = (field: string) => {
-        const trimmed = field.trim();
-        if (!trimmed) return;
-        updateSelectedFieldGroup((group) => ({
-            ...group,
-            fields: Array.from(new Set([...group.fields, trimmed])).sort((left, right) => left.localeCompare(right, 'zh-CN')),
-        }));
+        // 追加到末尾、不重排：模板顺序即导出行号，重排会让回执行号全错位
+        updateSelectedFieldGroup((group) => appendField(group, field));
     };
 
     const removeFieldFromSelectedGroup = (field: string) => {
@@ -246,11 +345,7 @@ const ConfigManagerView: React.FC = () => {
             return;
         }
         try {
-            const fieldDict = {
-                groups: fieldGroups,
-            };
-            const fieldPath = await join(assetLibraryPath, 'custom_fields.json');
-            await writeTextFile(fieldPath, JSON.stringify(fieldDict, null, 2));
+            await saveFieldGroups(assetLibraryPath, fieldGroups, exportFormats);
 
             message.success('字段规则更新成功！已持久化并执行热重载。');
             await reloadCustomFields(assetLibraryPath);
@@ -603,17 +698,27 @@ const ConfigManagerView: React.FC = () => {
                                                         <span className="text-title font-semibold text-1 truncate">{selectedFieldGroup.name}</span>
                                                         <span className="text-aux text-3 tabular-nums">{selectedFieldGroup.fields.length}</span>
                                                     </div>
-                                                    <div className="text-aux text-3">管理当前字段配置组中的字段集合</div>
+                                                    <div className="text-aux text-3">
+                                                        管理当前字段配置组中的字段集合
+                                                        <span className="ml-2">
+                                                            已确定来源 <span className="tabular-nums">{fieldSummary.resolved}</span> / {fieldSummary.total}
+                                                            {fieldSummary.unmapped > 0 && <span className="text-danger ml-2">未匹配 {fieldSummary.unmapped}</span>}
+                                                            {fieldSummary.lowConfidence > 0 && <span className="text-warning ml-2">待确认 {fieldSummary.lowConfidence}</span>}
+                                                            {fieldSummary.required > 0 && <span className="ml-2">必填 {fieldSummary.required}</span>}
+                                                            {fieldSummary.requiredMissing > 0 && <span className="text-danger ml-2">必填未填 {fieldSummary.requiredMissing}</span>}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                                 <Button icon={<FileTextOutlined />} onClick={() => openConfigFile('custom_fields.json')}>配置文件</Button>
                                             </div>
 
+                                            {/* 加字段工具条：这里的输入是「要新增的字段」，不是筛选 */}
                                             <div className="flex flex-wrap gap-2 mb-3">
                                                 <AutoComplete
                                                     value={fieldSearch}
                                                     onChange={setFieldSearch}
                                                     options={candidateFields.map((field) => ({ value: field }))}
-                                                    placeholder="搜索或输入字段名称"
+                                                    placeholder="输入要加入本组的字段名"
                                                     className="flex-1 min-w-[320px]"
                                                 >
                                                     <Input prefix={<SearchOutlined className="text-3" />} />
@@ -621,7 +726,49 @@ const ConfigManagerView: React.FC = () => {
                                                 <Button onClick={() => { addFieldToSelectedGroup(fieldSearch); setFieldSearch(''); }}>加入字段</Button>
                                                 <Button onClick={() => setFieldCreateModal({ open: true, value: '' })} icon={<PlusOutlined />}>新建字段</Button>
                                                 <Button onClick={() => setFieldBatchModal({ open: true, value: '' })}>批量导入</Button>
+                                                <Button onClick={() => setRequiredModalOpen(true)}>批量设必填</Button>
+                                                <Button
+                                                    icon={<FileExcelOutlined />}
+                                                    onClick={() => setImportModalOpen(true)}
+                                                >
+                                                    从 Excel 更新
+                                                </Button>
+                                                <Button onClick={() => setReorderModalOpen(true)}>
+                                                    按模板重排
+                                                </Button>
                                                 <Button danger onClick={clearSelectedFieldGroup}>清空本组</Button>
+                                            </div>
+
+                                            {/* 表格筛选：需要「只看必填」「只看未匹配」这类视图时用，与上面的加字段输入无关 */}
+                                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                                                <FacetChips
+                                                    clearable
+                                                    options={[
+                                                        { value: 'all', label: '全部', count: fieldRowStats.total },
+                                                        { value: 'required', label: '必填', count: fieldRowStats.required },
+                                                        { value: 'unmapped', label: '未匹配', count: fieldRowStats.unmapped, tone: fieldRowStats.unmapped > 0 ? 'danger' : undefined },
+                                                        { value: 'pending', label: '待确认', count: fieldRowStats.pending, tone: fieldRowStats.pending > 0 ? 'warning' : undefined },
+                                                    ]}
+                                                    value={fieldFilter}
+                                                    onChange={v => setFieldFilter((v || 'all') as typeof fieldFilter)}
+                                                />
+                                                {(fieldFilter !== 'all' || fieldRowSearch.trim() !== '') && (
+                                                    <Button
+                                                        type="link"
+                                                        size="small"
+                                                        className="px-0"
+                                                        onClick={() => { setFieldFilter('all'); setFieldRowSearch(''); }}
+                                                    >
+                                                        清除筛选
+                                                    </Button>
+                                                )}
+                                                <span className="ml-auto" />
+                                                <SearchInput
+                                                    width="md"
+                                                    placeholder="筛选字段名或取值来源"
+                                                    value={fieldRowSearch}
+                                                    onChange={setFieldRowSearch}
+                                                />
                                             </div>
 
                                             {selectedFieldGroup.fields.length > 0 ? (
@@ -630,13 +777,44 @@ const ConfigManagerView: React.FC = () => {
                                                         size="small"
                                                         rowKey="key"
                                                         pagination={false}
-                                                        dataSource={selectedFieldRows}
+                                                        dataSource={visibleFieldRows}
                                                         columns={[
                                                             {
                                                                 title: '字段名称',
                                                                 dataIndex: 'name',
                                                                 key: 'name',
-                                                                render: (value: string) => value,
+                                                                ellipsis: true,
+                                                                render: (value: string) => (
+                                                                    <span className="text-1" title={value}>{value}</span>
+                                                                ),
+                                                            },
+                                                            {
+                                                                title: '必填',
+                                                                key: 'required',
+                                                                width: 64,
+                                                                render: (_: unknown, row: FieldRow) => (
+                                                                    <Checkbox
+                                                                        checked={row.required}
+                                                                        aria-label={`${row.name} 是否必填`}
+                                                                        onChange={e => updateSelectedFieldGroup(group =>
+                                                                            setRequiredFor(group, [row.name], e.target.checked))}
+                                                                    />
+                                                                ),
+                                                            },
+                                                            {
+                                                                title: '取值来源',
+                                                                key: 'source',
+                                                                ellipsis: true,
+                                                                render: (_: unknown, row: FieldRow) => (
+                                                                    <FieldSourceEditor
+                                                                        resolved={row.sources}
+                                                                        suggested={row.suggested}
+                                                                        rule={row.rule}
+                                                                        candidates={sourceCandidateFields}
+                                                                        onChange={(rule) => updateSelectedFieldGroup(group =>
+                                                                            withSource(group, row.name, rule))}
+                                                                    />
+                                                                ),
                                                             },
                                                             {
                                                                 title: '操作',
@@ -673,7 +851,47 @@ const ConfigManagerView: React.FC = () => {
                                 </Button>
                             </div>
 
+                            {selectedFieldGroup && (
+                                <FieldGroupImportModal
+                                    open={importModalOpen}
+                                    group={selectedFieldGroup}
+                                    onCancel={() => setImportModalOpen(false)}
+                                    onApply={async (fields, mode) => {
+                                        // 先更新状态，再立刻落盘——导入是显式动作，不该等用户再点一次保存。
+                                        // 必填标记按字段名保留（见 applyImportedFields），覆盖导入不会清掉。
+                                        const nextGroups = fieldGroups.map(g =>
+                                            g.id === selectedFieldGroup.id ? applyImportedFields(g, fields, mode) : g);
+                                        setFieldGroups(nextGroups);
+                                        if (assetLibraryPath) {
+                                            await saveFieldGroups(assetLibraryPath, nextGroups, exportFormats);
+                                            bumpFieldGroupsVersion();
+                                        }
+                                    }}
+                                />
+                            )}
+
                         </div>
+                    )
+                },
+                {
+                    key: 'export-formats',
+                    label: '导出格式',
+                    children: (
+                        <ExportFormatTab
+                            formats={exportFormats}
+                            groups={fieldGroups}
+                            onChange={setExportFormats}
+                            onSave={async (nextFormats) => {
+                                if (!assetLibraryPath) {
+                                    warnLibraryPathMissing();
+                                    throw new Error('asset library path missing');
+                                }
+                                await saveFieldGroups(assetLibraryPath, fieldGroups, nextFormats);
+                                // 热重载后缓存里的格式才是最新的，填报页靠 fieldGroupsVersion 重算
+                                await reloadCustomFields(assetLibraryPath);
+                                bumpFieldGroupsVersion();
+                            }}
+                        />
                     )
                 },
                 {
@@ -748,11 +966,88 @@ const ConfigManagerView: React.FC = () => {
             </Modal>
 
             <Modal
+                title="按模板顺序重排"
+                open={reorderModalOpen}
+                onCancel={() => setReorderModalOpen(false)}
+                onOk={async () => {
+                    try {
+                        const { open } = await import('@tauri-apps/plugin-dialog');
+                        const selected = await open({
+                            multiple: false,
+                            filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }],
+                            title: '选择车上云模板 Excel',
+                        });
+                        if (!selected || typeof selected !== 'string') return;
+                        const { readFirstSheetRowsFromPathAsync } = await import('../../utils/excelParserAsync');
+                        const { rows } = await readFirstSheetRowsFromPathAsync(selected);
+                        const { extractTemplateFields } = await import('./coreFieldImport');
+                        const { fields } = extractTemplateFields(rows);
+                        if (fields.length === 0) { message.warning('未从第一列读到字段名'); return; }
+                        updateSelectedFieldGroup(group => reorderFields(group, fields));
+                        message.success(`已按模板顺序重排（模板 ${fields.length} 项）`);
+                        setReorderModalOpen(false);
+                    } catch (err) {
+                        console.error(err);
+                        message.error(`重排失败：${(err as Error).message}`);
+                    }
+                }}
+                okText="选择模板并重排"
+                cancelText="取消"
+                destroyOnHidden
+            >
+                <div className="flex flex-col gap-2 mt-4 text-2">
+                    <div>选择一份模板 Excel，把当前字段组按它的顺序排列。</div>
+                    <div className="text-aux text-3">
+                        只调整顺序，不改字段、不动必填与来源映射；模板里没有的字段会保留在末尾。
+                    </div>
+                    <div className="text-aux text-3">
+                        顺序决定导出行号。车上云回执按行号报错，顺序乱了回执就对不上字段。
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                title="批量设置必填"
+                open={requiredModalOpen}
+                onOk={() => {
+                    const fields = parseFieldBatchInput(requiredDraft)
+                    if (fields.length === 0) { message.warning('请先粘贴字段名'); return; }
+                    updateSelectedFieldGroup(group => setRequiredFor(group, fields, requiredMode === 'set'))
+                    const hit = new Set(selectedFieldGroup?.fields ?? [])
+                    const missed = fields.filter(f => !hit.has(f))
+                    message.success(
+                        `已${requiredMode === 'set' ? '标记' : '取消'} ${fields.length - missed.length} 个字段的必填`
+                        + (missed.length ? `；${missed.length} 个不在本组内，已忽略` : ''),
+                    )
+                    setRequiredDraft('')
+                    setRequiredModalOpen(false)
+                }}
+                onCancel={() => setRequiredModalOpen(false)}
+                okText="应用"
+                destroyOnHidden
+            >
+                <div className="flex flex-col gap-3 mt-4">
+                    <div className="text-aux text-3">每行一个字段名，支持换行 / 分号分隔；只作用于本组已有的字段</div>
+                    <Radio.Group value={requiredMode} onChange={e => setRequiredMode(e.target.value)}>
+                        <Radio value="set">设为必填</Radio>
+                        <Radio value="clear">取消必填</Radio>
+                    </Radio.Group>
+                    <Input.TextArea
+                        rows={8}
+                        autoFocus
+                        placeholder="粘贴字段名列表"
+                        value={requiredDraft}
+                        onChange={e => setRequiredDraft(e.target.value)}
+                    />
+                </div>
+            </Modal>
+
+            <Modal
                 title="批量导入字段"
                 open={fieldBatchModal.open}
                 onOk={() => {
                     const fields = parseFieldBatchInput(fieldBatchModal.value)
-                    fields.forEach((field) => addFieldToSelectedGroup(field))
+                    updateSelectedFieldGroup((group) => appendFields(group, fields))
                     setFieldBatchModal({ open: false, value: '' })
                 }}
                 onCancel={() => setFieldBatchModal({ open: false, value: '' })}
