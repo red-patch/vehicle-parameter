@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { message, Button, Popover } from 'antd';
-import { ClusterOutlined } from '@ant-design/icons';
+import { ClearOutlined, ClusterOutlined } from '@ant-design/icons';
 import { useShallow } from 'zustand/react/shallow';
 import AssetSidebar from './AssetSidebar';
 import AssetFilterBar from './AssetFilterBar';
@@ -12,6 +12,7 @@ import AssetPoolEmptyState from './AssetPoolEmptyState';
 import { resolveAssetPoolEmptyKind } from './assetPoolEmptyKind';
 import { useAssetPoolHotkeys } from './useAssetPoolHotkeys';
 import { useSaveViewMenuEvent } from './useSaveViewMenuEvent';
+import { useClearWorkspace } from './useClearWorkspace';
 import AssetInspector from '../AssetInspector';
 import AssetBatchTagBar from '../AssetBatchTagBar';
 import GovernanceReportModal from '../GovernanceReportModal';
@@ -164,6 +165,8 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         });
     }, []);
     const [cartExpanded, setCartExpanded] = useState(false);
+    // 胶囊上的「清空」与浮层头部的「清空」共用（一次点击 + 5 秒撤销）
+    const clearWorkspace = useClearWorkspace();
     const [aliasBatchOpen, setAliasBatchOpen] = useState(false);
     // 车型组重命名（写 meta.groupName；只改组头显示名，不改文件名）
     const [groupRename, setGroupRename] = useState<{ open: boolean; groupKey: string | null; name: string }>({ open: false, groupKey: null, name: '' });
@@ -1443,14 +1446,29 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
             {activeFileNames.size > 0 && (
                 <div className="fixed bottom-6 right-6 z-50">
                     {!cartExpanded ? (
-                        <button
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-brand-fill text-white shadow-popover hover:opacity-90 transition-opacity"
-                            onClick={() => setCartExpanded(true)}
-                        >
-                            <span className="w-2 h-2 rounded-full bg-white opacity-80" />
-                            <span className="text-body font-medium">{activeFileNames.size} 台车</span>
-                            <span className="text-caption opacity-80">· 去对比 →</span>
-                        </button>
+                        // 胶囊 = 主体（展开浮层）+ 尾部清空键。清空键做在胶囊上，
+                        // 是因为「整理工作集」的高频动作不该先展开再点（用户反馈：要点两次）。
+                        // 不用 Popconfirm 兜底：撤销放在 toast 里（useClearWorkspace）。
+                        <div className="flex items-stretch rounded-full bg-brand-fill text-white shadow-popover overflow-hidden">
+                            <button
+                                className="flex items-center gap-2 pl-4 pr-3 py-2.5 hover:opacity-90 transition-opacity"
+                                onClick={() => setCartExpanded(true)}
+                                title="展开已选工作集"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-white opacity-80" />
+                                <span className="text-body font-medium">{activeFileNames.size} 台车</span>
+                                <span className="text-caption opacity-80">· 去对比 →</span>
+                            </button>
+                            <button
+                                className="flex items-center justify-center w-9 border-l border-white/25 text-white/75 hover:text-white hover:bg-white/15 transition-colors duration-150"
+                                style={{ transitionTimingFunction: 'var(--ease-ui)' }}
+                                onClick={clearWorkspace}
+                                title="清空工作集"
+                                aria-label="清空工作集"
+                            >
+                                <ClearOutlined className="text-[12px]" />
+                            </button>
+                        </div>
                     ) : (
                         <div className="relative">
                             {/* 透明点击层（点面板外收起；不用深色遮罩，保持列表可见=浮动本意） */}
