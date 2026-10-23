@@ -9,6 +9,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useVehicleParams } from '../../hooks/useVehicleParams';
 import { buildVehicleStats } from '../../utils/vehicleStats';
+import { useRequiredBaseline } from '../../hooks/useRequiredBaseline';
 import { buildVehicleDisplayLabels, parseVehicleInstanceKey } from '../../utils/vehicleInstance';
 import { getAssetDisplayName } from '../../utils/assetNaming';
 import { buildAliasSource, resolveAssetDisplayName } from '../../utils/assetAlias';
@@ -60,8 +61,13 @@ const AssetInspector: React.FC<AssetInspectorProps> = ({ open, instanceKey, snap
     const isActive = Boolean(instanceKey && selectedProductNames.includes(instanceKey))
         || Boolean(fileName && activeAssets.includes(fileName));
 
+    // 缺必填以全局必填基准（当前字段组）为准；未设基准时缺失清单为空
+    const requiredBaseline = useRequiredBaseline();
     const params = useVehicleParams(open ? instanceKey : null);
-    const stats = useMemo(() => buildVehicleStats(params, info ?? undefined), [params, info]);
+    const stats = useMemo(
+        () => buildVehicleStats(params, info ?? undefined, requiredBaseline),
+        [params, info, requiredBaseline],
+    );
     const displayLabels = useMemo(
         () => (instanceKey ? buildVehicleDisplayLabels([instanceKey]).get(instanceKey) : null),
         [instanceKey],

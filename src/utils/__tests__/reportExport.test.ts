@@ -195,8 +195,22 @@ describe('车辆参数对比报告（版本差分）', () => {
         expect(html).toContain('移除参数');
         expect(html).toContain('rp-val-old');
         expect(html).toContain('rp-val-new');
-        expect(html).toContain('必填'); // 车身颜色在必填清单中
         expect(html).toContain('基准.xlsx');
+        // 没有必填基准时报告不标必填（必填改为字段组驱动，不再有内置清单）；
+        // 样式表里始终有 .rp-required 规则，所以数标签出现次数而不是搜类名
+        expect(html.match(/class="rp-required"/g)).toBeNull();
+    });
+
+    it('有必填基准时只标基准命中的字段', () => {
+        const html = buildDiffReportHtml({
+            result,
+            baseFileName: '基准.xlsx',
+            targetFileName: '新版.xlsx',
+            requiredFieldNames: ['车身颜色'],
+            generatedAt: new Date(2026, 8, 26),
+        });
+        // 只标命中项：非基准字段（车辆品牌）不该带标记
+        expect(html.match(/class="rp-required"/g)?.length).toBe(1);
     });
 
     it('参数名变更时展示 旧名 → 新名', () => {

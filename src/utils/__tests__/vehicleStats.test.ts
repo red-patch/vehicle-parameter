@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildVehicleStats } from '../vehicleStats';
 import type { VehicleParameter } from '../../types';
+import type { RequiredBaseline } from '../requiredBaseline';
+
+/** 必填基准现在是“当前字段组”，测试里显式给一份，不再依赖内置清单 */
+const baseline = (names: string[]): RequiredBaseline => ({
+    groupId: 'g1',
+    groupName: '测试组',
+    has: (name) => Boolean(name) && names.includes(name as string),
+});
 
 const p = (id: string, group: string, name: string, value: string | undefined): VehicleParameter =>
     ({ id, group, name, value } as VehicleParameter);
@@ -32,15 +40,19 @@ describe('buildVehicleStats', () => {
         expect(stats.groups).toEqual([]);
     });
 
-    it('collects required-missing params by required field registry', () => {
+    it('collects required-missing params by the given baseline', () => {
         const stats = buildVehicleStats([
             p('1', '电池', '动力电池包电量（kWh）', ''),
             p('2', '基础信息', '车辆型号', 'DXA5030XXYBEV1'),
-        ]);
-        // 「动力电池包电量（kWh）」是必填字段且值为空 → 进缺失清单；「车辆型号」已填 → 不进
-        const missingNames = stats.requiredMissing.map(param => param.name);
-        expect(missingNames).toContain('动力电池包电量（kWh）');
-        expect(missingNames).not.toContain('车辆型号');
+            p('3', '电池', '电芯品牌', ''),
+        ], undefined, baseline(['动力电池包电量（kWh）']));
+        // 基准里的字段且值为空 → 进缺失清单；基准外（电芯品牌）即使为空也不算
+        expect(stats.requiredMissing.map(param => param.name)).toEqual(['动力电池包电量（kWh）']);
+    });
+
+    it('has no required-missing list when no baseline is set', () => {
+        const stats = buildVehicleStats([p('1', '电池', '动力电池包电量（kWh）', '')]);
+        expect(stats.requiredMissing).toEqual([]);
     });
 
     it('handles all-empty params without dividing by zero', () => {

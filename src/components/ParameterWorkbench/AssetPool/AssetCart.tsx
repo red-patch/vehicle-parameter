@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useVehicleStore } from '../../../store/vehicleStore';
 import { useAssetLibrarySnapshot } from '../../../hooks/useAssetLibrarySnapshot';
 import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam } from '../../../utils/vehicleInstance';
-import { isFieldRequired } from '../../../assets/requiredFields';
+import { useRequiredBaseline } from '../../../hooks/useRequiredBaseline';
 import { getProductData } from '../../../store/vehicleSelectors';
 import { buildAliasSource, resolveAssetDisplayName } from '../../../utils/assetAlias';
 import AssetCartCard from './AssetCartCard';
@@ -44,6 +44,8 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
     })));
     const snapshot = useAssetLibrarySnapshot();
     const clearWorkspace = useClearWorkspace();
+    // 缺必填以全局必填基准（当前字段组）为准；未设基准时一律记 0
+    const requiredBaseline = useRequiredBaseline();
 
     // 工作集 = 本地 Excel 车 + 资产车，再按 selectedProductNames 过滤
     // （与胶囊计数同口径；原 VehicleListPanel 语义）
@@ -76,7 +78,7 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
                 if (param.value !== undefined && param.value !== null && String(param.value).trim() !== '') {
                     row.filledParams += 1;
                 }
-                if (isFieldRequired(param.name) && String(param.value ?? '').trim() === '') {
+                if (requiredBaseline?.has(param.name) && String(param.value ?? '').trim() === '') {
                     row.requiredMissing += 1;
                 }
             });
@@ -91,7 +93,9 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
                     key: instanceKey, fileName: info.fileName, productName: info.productName,
                     displayName: resolveAssetDisplayName(info, aliasSource),
                     totalParams: info.totalParams, filledParams: info.filledParams,
-                    requiredMissing: params.filter(p => isFieldRequired(p.name) && String(p.value ?? '').trim() === '').length,
+                    requiredMissing: requiredBaseline
+                        ? params.filter(p => requiredBaseline.has(p.name) && String(p.value ?? '').trim() === '').length
+                        : 0,
                     source: 'asset',
                 });
             }
@@ -99,7 +103,7 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
 
         // 3) 只保留在工作集（selectedProductNames）中的
         return Array.from(byKey.values()).filter(v => selectedProductNames.includes(v.key));
-    }, [snapshot.infos, aliasSource, uploadedFiles, assetFiles, selectedProductNames]);
+    }, [snapshot.infos, aliasSource, uploadedFiles, assetFiles, selectedProductNames, requiredBaseline]);
 
     // 点车卡：资产车反向定位；本地 Excel 车无左栏目标，仅选中
     const handleCardClick = useCallback((source: 'asset' | 'excel', fileName: string) => {

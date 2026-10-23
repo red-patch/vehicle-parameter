@@ -115,6 +115,14 @@ export interface VehicleStore {
     setSmartFillProduct: (name: string | null) => void;
     setBidPullProducts: (names: string[]) => void;
 
+    /**
+     * 必填基准组：以「字段与词表」里哪个字段组的 `required` 判定必填。
+     * `null` = 不启用，界面上必填列/必填筛选整体不出现。
+     * 全局一份：版本对比、资产池缺必填、报告导出读同一个基准，避免各页各说各话。
+     */
+    requiredBaselineGroupId: string | null;
+    setRequiredBaselineGroupId: (groupId: string | null) => void;
+
     // 智能填报模式：单车填报 | 多车取数（字段关联）| 自由多车整理（原「多车型管理」）
     smartFillMode: 'single' | 'bidPull' | 'freeMulti';
     /**
@@ -650,6 +658,9 @@ export const useVehicleStore = create<VehicleStore>()(
     setSmartFillProduct: (name) => set({ currentSmartFillProduct: name }),
     setBidPullProducts: (names) => set({ currentBidPullProducts: names }),
 
+    requiredBaselineGroupId: null,
+    setRequiredBaselineGroupId: (groupId) => set({ requiredBaselineGroupId: groupId }),
+
     smartFillMode: 'single',
     setSmartFillMode: (mode) => set({ smartFillMode: mode }),
     smartFillManualByProduct: {},
@@ -700,6 +711,7 @@ export const useVehicleStore = create<VehicleStore>()(
         smartFillMode: state.smartFillMode,
         smartFillManualByProduct: state.smartFillManualByProduct,
         bidPullSchemeId: state.bidPullSchemeId,
+        requiredBaselineGroupId: state.requiredBaselineGroupId,
         assetLibraryPath: state.assetLibraryPath,
         activeAssets: state.activeAssets,
         purifyReferenceProduct: state.purifyReferenceProduct,
