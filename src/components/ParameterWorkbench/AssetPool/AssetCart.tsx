@@ -9,6 +9,7 @@ import { isFieldRequired } from '../../../assets/requiredFields';
 import { getProductData } from '../../../store/vehicleSelectors';
 import { buildAliasSource, resolveAssetDisplayName } from '../../../utils/assetAlias';
 import AssetCartCard from './AssetCartCard';
+import { useClearWorkspace } from './useClearWorkspace';
 
 /**
  * 右栏购物车（设计文档 2026-10-13-asset-panel-redesign-v2 §4.3）：
@@ -42,6 +43,7 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
         assetFiles: state.assetFiles,
     })));
     const snapshot = useAssetLibrarySnapshot();
+    const clearWorkspace = useClearWorkspace();
 
     // 工作集 = 本地 Excel 车 + 资产车，再按 selectedProductNames 过滤
     // （与胶囊计数同口径；原 VehicleListPanel 语义）
@@ -126,13 +128,9 @@ const AssetCart: React.FC<AssetCartProps> = ({ onFocusFile, onLocateAsset, onGoC
         }
     }, [activeVehicles, setCompareProducts, onGoCompare]);
 
-    // 清空工作区（资产车 + 本地车一起清）
-    const handleClearAll = useCallback(() => {
-        activeVehicles.forEach(v => {
-            if (v.source === 'asset') removeActiveAsset(v.fileName, v.productName);
-        });
-        setSelectedProductNames([]);
-    }, [activeVehicles, removeActiveAsset, setSelectedProductNames]);
+    // 清空工作区（资产车 + 本地车一起清）——与胶囊上的清空键同一动作，
+    // 一次性清空 + toast 可撤销（逐个 removeActiveAsset 会触发 N 次磁盘同步）
+    const handleClearAll = clearWorkspace;
 
     return (
         <div className="h-full flex flex-col surface-container">

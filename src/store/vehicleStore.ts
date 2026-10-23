@@ -6,6 +6,18 @@ import { DEFAULT_POOL_SIDEBAR_WIDTH, DEFAULT_POOL_WORKSPACE_HEIGHT } from '../ut
 import { buildVehicleInstanceKey, getVehicleInstanceMetaFromParam, parseVehicleInstanceKey, type VehicleInstanceMeta } from '../utils/vehicleInstance';
 import { remapAssetSelectionKeys } from '../utils/assetKeyHeal';
 
+/** 清空工作集前的快照：撤销时原样回填，保证「清空」可逆 */
+export interface ActiveWorkspaceSnapshot {
+    activeAssets: string[];
+    selectedProductNames: string[];
+    currentPurifyProduct: string | null;
+    purifyReferenceProduct: string | null;
+    currentCompareProducts: string[];
+    currentMultiVehicleProducts: string[];
+    currentBidPullProducts: string[];
+    currentSmartFillProduct: string | null;
+}
+
 export interface VehicleStore {
     baseFile: SheetData | null;
     targetFile: SheetData | null;
@@ -78,6 +90,14 @@ export interface VehicleStore {
     addActiveAsset: (fileName: string, productName: string) => void;
     removeActiveAsset: (fileName: string, productName: string) => void;
     renameActiveAsset: (oldFileName: string, newFileName: string, newProductName: string) => void;
+    /**
+     * 清空工作集（资产车 + 本地车 + 各模块选中），返回清空前快照供「撤销」。
+     * 与 removeActiveAsset 逐个删等价，但一次性落库：逐个删会触发 N 次
+     * AssetDataSynchronizer 同步（每次都读写磁盘），且中间态可能把仍有引用的
+     * 模块选中剪掉——撤销也回不来。
+     */
+    clearActiveWorkspace: () => ActiveWorkspaceSnapshot;
+    restoreActiveWorkspace: (snapshot: ActiveWorkspaceSnapshot) => void;
     // 资产数据行的 productName 与会话选择 key 漂移时的自愈（见 utils/assetKeyHeal）
     healAssetSelectionKeys: (canonicalByFileName: Record<string, string>) => void;
 
@@ -127,6 +147,18 @@ export interface VehicleStore {
     bidMappingsVersion: number;
     bumpBidMappingsVersion: () => void;
 }
+
+/** 只取工作集相关字段：清空 / 撤销走同一份结构，避免两边漏字段 */
+const takeWorkspaceSnapshot = (state: ActiveWorkspaceSnapshot): ActiveWorkspaceSnapshot => ({
+    activeAssets: [...state.activeAssets],
+    selectedProductNames: [...state.selectedProductNames],
+    currentPurifyProduct: state.currentPurifyProduct,
+    purifyReferenceProduct: state.purifyReferenceProduct,
+    currentCompareProducts: [...state.currentCompareProducts],
+    currentMultiVehicleProducts: [...state.currentMultiVehicleProducts],
+    currentBidPullProducts: [...state.currentBidPullProducts],
+    currentSmartFillProduct: state.currentSmartFillProduct,
+});
 
 
 export const useVehicleStore = create<VehicleStore>()(
@@ -495,6 +527,34 @@ export const useVehicleStore = create<VehicleStore>()(
             currentBidPullProducts: state.currentBidPullProducts.filter(n => n !== removedKey),
             currentSmartFillProduct: state.currentSmartFillProduct === removedKey ? null : state.currentSmartFillProduct,
         };
+    }),
+    clearActiveWorkspace: () => {
+        // 快照在同一个 set 里取：zustand 的 set 是同步的，取到的就是清空前的状态
+        let snapshot: ActiveWorkspaceSnapshot;
+        set((state) => {
+            snapshot = takeWorkspaceSnapshot(state);
+            return {
+                activeAssets: [],
+                selectedProductNames: [],
+                currentPurifyProduct: null,
+                purifyReferenceProduct: null,
+                currentCompareProducts: [],
+                currentMultiVehicleProducts: [],
+                currentBidPullProducts: [],
+                currentSmartFillProduct: null,
+            };
+        });
+        return snapshot!;
+    },
+    restoreActiveWorkspace: (snapshot) => set({
+        activeAssets: snapshot.activeAssets,
+        selectedProductNames: snapshot.selectedProductNames,
+        currentPurifyProduct: snapshot.currentPurifyProduct,
+        purifyReferenceProduct: snapshot.purifyReferenceProduct,
+        currentCompareProducts: snapshot.currentCompareProducts,
+        currentMultiVehicleProducts: snapshot.currentMultiVehicleProducts,
+        currentBidPullProducts: snapshot.currentBidPullProducts,
+        currentSmartFillProduct: snapshot.currentSmartFillProduct,
     }),
     renameActiveAsset: (oldFileName, newFileName, newProductName) => set((state) => {
         const oldProductName = state.assetFiles.find(file => file.fileName === oldFileName)?.data[0]?.productName
