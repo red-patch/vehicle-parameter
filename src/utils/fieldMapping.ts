@@ -68,7 +68,7 @@ const isEmptyValue = (value: unknown): boolean =>
  * 解析一个字段组里每个字段的取值来源。
  *
  * 优先级：**人工配置的来源 > 唯一确定 > 模糊建议（不确认也照常显示，但标黄）**。
- * 模糊建议照常给值是因为导出前预检会明确标出「待确认」，不会静默当作正确。
+ * 模糊建议照常给值是因为配置面板会明确标出「待确认」，不会静默当作正确。
  */
 export function resolveGroupFields(
     group: FieldGroupConfigItem,
