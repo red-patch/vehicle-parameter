@@ -140,7 +140,9 @@ const ListToolbar: React.FC<ListToolbarProps> = ({
     return (
         <div
             className={`list-shell surface-container border border-default rounded-lg ${
-                fill ? 'flex flex-col min-h-0 overflow-hidden' : ''
+                // flex-1：外层是钉高页面里的纵向 flex，外壳要吃掉剩余高度；
+                // min-h-0 + overflow-hidden：内容再高也不能把外壳撑破，否则表体量不准
+                fill ? 'flex flex-col flex-1 min-h-0 overflow-hidden' : ''
             } ${className}`}
             style={style}
         >
@@ -195,7 +197,11 @@ const ListToolbar: React.FC<ListToolbarProps> = ({
             {/* ③ 显示选项：只改「呈现方式」不改「数据集合」，故与筛选分开成段（§4.1） */}
             {hasDisplay && <div className={`${rowCls} ${hasBody ? divider : ''}`}>{display}</div>}
             {hasBody && (
-                <div className={`${padded ? 'p-3' : ''} ${fill ? 'flex-1 min-h-0 flex flex-col' : ''}`}>
+                <div
+                    className={`${padded ? 'p-3' : ''} ${
+                        fill ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : ''
+                    }`}
+                >
                     {children}
                 </div>
             )}

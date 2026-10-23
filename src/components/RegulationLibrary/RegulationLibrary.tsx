@@ -19,6 +19,7 @@ import {
     type RegulationRecord,
 } from '../../utils/regulationTypes';
 import RegulationFilterPanel from './RegulationFilterPanel';
+import { useViewportPaneHeight } from '../../hooks/useViewportPaneHeight';
 import ListToolbar from '../common/ListToolbar';
 import SearchInput from '../common/SearchInput';
 import GuideEmpty from '../common/GuideEmpty';
@@ -59,6 +60,12 @@ const RegulationLibrary: React.FC = () => {
     const [selected, setSelected] = React.useState<RegulationRecord | null>(null);
     const [vocabOpen, setVocabOpen] = React.useState(false);
     const [newDomain, setNewDomain] = React.useState('');
+
+    // 视口钉高（设计 2026-10-23-列表页表头固定 §2）：页面不再整页滚动，
+    // 表头固定、只有表体内部滚动。外壳 MainLayout 是整页滚动，高度链在 Content 处断开，
+    // 只能按「视口高 − 页面顶 − Footer」反推（与资产池 PoolPane 同一范式）。
+    const paneRef = React.useRef<HTMLDivElement>(null);
+    const paneHeight = useViewportPaneHeight(paneRef);
 
     // 记录被删除/编辑后，抽屉里那份是旧对象——按身份+版本回查当前值
     const selectedLive = React.useMemo(() => {
@@ -226,15 +233,22 @@ const RegulationLibrary: React.FC = () => {
         filters.query.trim() !== '';
 
     return (
-        <div className="p-4" style={{ height: '100%', overflow: 'auto' }}>
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <div
+            ref={paneRef}
+            className="p-4 flex flex-col"
+            style={paneHeight ? { height: paneHeight } : { height: '100%' }}
+        >
+            {/* 纵向 flex 链：告警条按内容高、列表外壳吃掉剩余高度（fill 的前提） */}
+            <div className="flex flex-col gap-3 flex-1 min-h-0">
                 {error && (
-                    <Alert
-                        type={error.includes('桌面端') ? 'info' : 'error'}
-                        showIcon
-                        closable
-                        message={error}
-                    />
+                    <div className="shrink-0">
+                        <Alert
+                            type={error.includes('桌面端') ? 'info' : 'error'}
+                            showIcon
+                            closable
+                            message={error}
+                        />
+                    </div>
                 )}
 
                 {!rootPath ? (
@@ -248,28 +262,33 @@ const RegulationLibrary: React.FC = () => {
                         />
                     </ListToolbar>
                 ) : (
-                    <>
+                    // 列表外壳需要吃掉剩余高度（fill），故这一段本身是 flex 纵向容器
+                    <div className="flex flex-col gap-3 flex-1 min-h-0">
                         {unregistered.length > 0 && (
-                            <Alert
-                                type="warning"
-                                showIcon
-                                message={`发现 ${unregistered.length} 个未登记文件`}
-                                description={
-                                    <Space size={8} wrap>
-                                        <Text style={{ fontSize: 'var(--fs-aux)' }}>
-                                            盘上有、库里还没有的文件。登记后才会进入列表。
-                                        </Text>
-                                        <Button size="small" type="primary" onClick={() => setImportOpen(true)}>
-                                            查看并登记
-                                        </Button>
-                                    </Space>
-                                }
-                            />
+                            <div className="shrink-0">
+                                <Alert
+                                    type="warning"
+                                    showIcon
+                                    message={`发现 ${unregistered.length} 个未登记文件`}
+                                    description={
+                                        <Space size={8} wrap>
+                                            <Text style={{ fontSize: 'var(--fs-aux)' }}>
+                                                盘上有、库里还没有的文件。登记后才会进入列表。
+                                            </Text>
+                                            <Button size="small" type="primary" onClick={() => setImportOpen(true)}>
+                                                查看并登记
+                                            </Button>
+                                        </Space>
+                                    }
+                                />
+                            </div>
                         )}
 
                         {/* 列表页外壳统一走 ListToolbar 三段（设计语言 §4.1/§4.3）：
-                            此前是「无标题操作行 + 筛选 Card + 记录 Card」三块并列。 */}
+                            此前是「无标题操作行 + 筛选 Card + 记录 Card」三块并列。
+                            fill：表头固定、只有表体滚动（2026-10-23-列表页表头固定 §2） */}
                         <ListToolbar
+                            fill
                             padded={false}
                             title="法规标准"
                             count={{ shown: filtered.length, total: sidecar.records.length }}
@@ -339,14 +358,15 @@ const RegulationLibrary: React.FC = () => {
                             }
                         >
                             <RegulationTable
+                                fill
                                 records={filtered}
                                 loading={loading}
                                 onOpen={rec => setSelected(rec)}
                             />
                         </ListToolbar>
-                    </>
+                    </div>
                 )}
-            </Space>
+            </div>
 
             <RegulationImportModal
                 open={importOpen}

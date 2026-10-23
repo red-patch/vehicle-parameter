@@ -3,6 +3,7 @@ import { ConfigProvider, Empty, message, Skeleton, theme } from 'antd';
 import ErrorBoundary from './components/ErrorBoundary';
 import zhCN from 'antd/locale/zh_CN';
 import MainLayout from './components/Layout/MainLayout';
+import { ModuleActiveContext } from './hooks/useModuleActive';
 import LegacyDiffPanel from './components/DiffViewer/LegacyDiffPanel';
 import { useVehicleStore } from './store/vehicleStore';
 import { useThemeStore } from './store/themeStore';
@@ -134,11 +135,15 @@ const App: React.FC = () => {
       <ErrorBoundary>
         <MainLayout activeTab={activeTab} onTabChange={handleTabChange}>
 
-          {/* 所有模块保持挂载，用 display:none 切换，避免顶层菜单切换的 mount/unmount 开销 */}
+          {/* 所有模块保持挂载，用 display:none 切换，避免顶层菜单切换的 mount/unmount 开销。
+              隐藏期间量不到布局（见 hooks/useModuleActive），故把「本页可见」显式传给页面：
+              按视口/容器取高度的 hook 据此在切页时重量。 */}
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: WORKBENCH_TABS.includes(activeTab as WorkbenchTab) ? undefined : 'none' }}>
-              <MemoWorkbench activeTab={workbenchTab} onTabChange={handleTabChange} />
-            </div>
+            <ModuleActiveContext.Provider value={WORKBENCH_TABS.includes(activeTab as WorkbenchTab)}>
+              <div className="vp-fade-in" style={{ display: WORKBENCH_TABS.includes(activeTab as WorkbenchTab) ? undefined : 'none' }}>
+                <MemoWorkbench activeTab={workbenchTab} onTabChange={handleTabChange} />
+              </div>
+            </ModuleActiveContext.Provider>
           </React.Suspense>
 
           {/* Legacy Tabs (Hidden from Menu but logic kept for safety) */}
@@ -149,15 +154,19 @@ const App: React.FC = () => {
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
-              <MemoAnnouncement onOpenWorkbench={() => handleTabChange('pool')} />
-            </div>
+            <ModuleActiveContext.Provider value={activeTab === 'announcement'}>
+              <div className={`vp-fade-in ${PAGE_GUTTER}`} style={{ display: activeTab === 'announcement' ? undefined : 'none' }}>
+                <MemoAnnouncement onOpenWorkbench={() => handleTabChange('pool')} />
+              </div>
+            </ModuleActiveContext.Provider>
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>
-            <div className="vp-fade-in" style={{ display: activeTab === 'regulation' ? undefined : 'none' }}>
-              <MemoRegulationLibrary />
-            </div>
+            <ModuleActiveContext.Provider value={activeTab === 'regulation'}>
+              <div className="vp-fade-in" style={{ display: activeTab === 'regulation' ? undefined : 'none' }}>
+                <MemoRegulationLibrary />
+              </div>
+            </ModuleActiveContext.Provider>
           </React.Suspense>
 
           <React.Suspense fallback={<Skeleton active />}>

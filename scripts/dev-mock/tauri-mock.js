@@ -16,6 +16,9 @@
  * 可选预置（在页面脚本执行前设置，如 Playwright 的 addInitScript）：
  *   window.__VPW_MOCK_FILES__ = { 'custom_enums.json': { 车身颜色: ['白色'] } }
  *   键是资产库内的相对路径，值是文本或可 JSON 序列化的对象。
+ *   window.__VPW_MOCK_REGULATIONS__ / __VPW_MOCK_ANNOUNCEMENTS__ = 记录数组
+ *   法规库与公告归档的列表数据（这两个域的扫描命令只在 Rust 侧实现，没有 JS 回退；
+ *   不预置时法规库会报「仅在桌面端可用」、公告归档为空）。
  * 调试：window.__VPW_MOCK_FS__ 可直接查看/改写内存文件。
  */
 (() => {
@@ -107,7 +110,40 @@
         // 抛错 → 应用走前端 JS 回退（逐个读写资产 JSON），正好落在上面的内存文件系统里
         scan_asset_library: () => { throw new Error('[tauri-mock] 走前端回退'); },
         save_assets_batch: () => { throw new Error('[tauri-mock] 走前端回退'); },
-        scan_regulations: () => ({ rootExists: false, records: [], unregistered: [], sidecarExists: false }),
+        // 法规库 / 公告归档的扫描只在 Rust 侧实现（无 JS 回退），这里用可选预置数据顶上，
+        // 否则浏览器预览里这两页无法验证（法规库直接报「仅在桌面端可用」）。
+        scan_regulations: () => {
+            const records = window.__VPW_MOCK_REGULATIONS__ || [];
+            const vocab = window.__VPW_MOCK_REGULATION_VOCAB__ || { levels: [], domains: [], sites: [] };
+            return {
+                rootExists: records.length > 0,
+                root: '/mock/reglib',
+                records,
+                unregistered: [],
+                sidecarExists: records.length > 0,
+                vocab,
+            };
+        },
+        read_regulation_sidecar: () => ({
+            version: '1.0',
+            rootPath: '/mock/reglib',
+            vocab: window.__VPW_MOCK_REGULATION_VOCAB__ || { levels: [], domains: [], sites: [] },
+            sites: [],
+            records: window.__VPW_MOCK_REGULATIONS__ || [],
+        }),
+        write_regulation_sidecar: () => '/mock/reglib/_regulations.json',
+        scan_announcements: () => (window.__VPW_MOCK_ANNOUNCEMENTS__ || []).map(r => ({
+            jsonFile: `${r.announceNo}_${r.batch}.json`,
+            announceNo: r.announceNo,
+            batch: r.batch ?? null,
+            vehicleName: r.vehicleName ?? null,
+            importedAt: r.importedAt ?? null,
+            sourceUrl: r.sourceUrl ?? null,
+            hasPdf: !!r.pdfFile,
+            pdfFile: r.pdfFile ?? null,
+            paramCount: (r.parameters ?? []).length,
+            orphan: false,
+        })),
         mobile_server_status: () => ({ running: false, enabled: false, port: 0, devices: [] }),
     };
 

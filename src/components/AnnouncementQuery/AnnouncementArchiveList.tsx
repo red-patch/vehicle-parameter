@@ -299,7 +299,10 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
 
     return (
         <>
+        {/* fill：外壳吃掉页面纵向 flex 的剩余高度，表头固定、只有表体滚动。
+            调用方（公告中心）的根节点必须是「钉高的 flex 纵向容器」，否则 fill 无处可吃。 */}
         <ListToolbar
+            fill
             title="公告归档"
             count={assetLibraryPath ? { shown: filtered.length, total: infos.length } : undefined}
             actions={
@@ -382,6 +385,7 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                 <>
                     {view === 'grouped' ? (
                         <AnnouncementGroupedTable
+                            fill
                             groups={groups}
                             linkedAssets={linkedAssets}
                             expandedKeys={effectiveExpanded}
@@ -400,6 +404,7 @@ const AnnouncementArchiveList: React.FC<AnnouncementArchiveListProps> = ({ onOpe
                         />
                     ) : (
                         <AnnouncementFlatTable
+                            fill
                             infos={filtered}
                             linkedAssets={linkedAssets}
                             loading={loading}

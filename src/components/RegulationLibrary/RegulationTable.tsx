@@ -1,5 +1,5 @@
 import React from 'react';
-import { Empty, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Empty, Space, Tag, Tooltip, Typography } from 'antd';
 import {
     ExclamationCircleOutlined,
     FileExcelOutlined,
@@ -18,7 +18,8 @@ import {
     type RegulationRecord,
 } from '../../utils/regulationTypes';
 import StatusDot, { type StatusTone } from '../common/StatusDot';
-import { NUMERIC_COLUMN, pagePagination } from '../common/tablePresets';
+import DataTable from '../common/DataTable';
+import { NUMERIC_COLUMN } from '../common/tablePresets';
 
 const { Text } = Typography;
 
@@ -26,6 +27,11 @@ interface Props {
     records: RegulationRecord[];
     loading?: boolean;
     onOpen: (record: RegulationRecord) => void;
+    /**
+     * 撑满外层剩余高度：表头固定、只有表体滚动（设计 2026-10-23-列表页表头固定 §2）。
+     * 需要外层是 flex 纵向容器（ListToolbar 的 `fill` 会提供）。
+     */
+    fill?: boolean;
 }
 
 /**
@@ -65,7 +71,7 @@ const IssueIcon: React.FC<{ record: RegulationRecord }> = ({ record }) => {
  *
  * 同身份多版本时主行显示最新版，并在标准号后标注「共 N 版」——版本链细节在详情抽屉里。
  */
-const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
+const RegulationTable: React.FC<Props> = ({ records, loading, onOpen, fill = false }) => {
     const chains = React.useMemo(() => buildVersionChains(records), [records]);
 
     const columns: ColumnsType<RegulationRecord> = [
@@ -93,6 +99,10 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
         {
             title: '名称',
             dataIndex: 'title',
+            // 标准名可以很长（真实数据里成段标题常见）：列宽由列定义决定、超出即截断，
+            // 悬停看全名。不给 ellipsis 的话固定表头布局下本列按内容自然宽测量，
+            // 会把整张表撑得比容器还宽（实测 1257 vs 1136 → 横向滚动条）。
+            ellipsis: true,
             render: (t: string) => <Text ellipsis={{ tooltip: t }}>{t || '—'}</Text>,
         },
         {
@@ -156,13 +166,12 @@ const RegulationTable: React.FC<Props> = ({ records, loading, onOpen }) => {
     ];
 
     return (
-        <Table<RegulationRecord>
-            size="small"
+        <DataTable<RegulationRecord>
+            fill={fill}
             rowKey={rec => `${rec.standardNo}@${rec.year ?? ''}`}
             loading={loading}
             columns={columns}
             dataSource={records}
-            pagination={pagePagination()}
             onRow={rec => ({
                 onClick: () => onOpen(rec),
                 style: { cursor: 'pointer' },
