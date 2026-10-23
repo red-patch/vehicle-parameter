@@ -89,3 +89,17 @@ Loop B（工作树体检）/ Loop C（陈旧物清理）发现异常时，顺带
 - **产品名落点表** ← 产品名 10 处落点 + 拉丁后缀不可省 + `identifier` 不可改（原 `AGENTS.md` §产品名落点；2026-10-19 清单移至 `docs/产品名落点.md`，`identifier` 一条留在 `AGENTS.md` 红线）。成因同 L-1 一类的"多落点/跨平台"返工。
 - **已知坑：README 是模板原文 / `交互优化设计方案.md` 部分陈旧** ← 重复踩到"文档与仓库现状脱节"，与 L-4 同类。（2026-10-19：README 已重写，该条删除；陈旧说明移入 `交互优化设计方案.md` 文件头。）
 - **已知坑：`tauri dev` 旧二进制 / dev 性能放大百倍 / mock 反复新建拖垮 jsdom / worktree 陈旧快照** ← 环境类，与 L-2/L-3 的"验证环境不对齐"同类。
+
+### L-8: CI 的检查项必须与本地 `check` 同义，否则「绿」是假的
+
+- 原因：`main` 的服务端保护规则只认一项名叫 `check` 的检查，而 CI 的 `check` job 实际只跑 lint / typecheck / test 三项，**没有 `npm run build`**；本地 `npm run check` 是四项。两者同名不同义，导致「CI 绿」并不代表「能构建」——`tsc -b`、vite 打包、Tauri 配置层面的问题全都拦不住。此前没有自动合并，靠人手动把关还能兜住；一旦开自动合并，等于让构建不过的代码直接进主干。
+- 证据：`.github/workflows/build.yml` 的 `check` job（2026-10-23 之前）无 Build 步骤；`gh api repos/<owner>/<repo>/rulesets` 显示 `required_status_checks: ["check"]`；本地 `package.json` 的 `check` 为 lint → typecheck → test → build。修订于 2026-10-23（补 Build 步骤）。
+- Seen 1×（2026-10-23）。
+- 关联：与 L-7 同源——都是「验证命令与实际保障范围不一致」。对策是把 CI 的 job 步骤与 `npm run check` 对齐并写在 AGENTS.md「提交与 PR」里，改 CI 时不能把 build 拿掉。
+
+### L-9: 打包安装要在 `origin/main` 的干净 worktree 里跑，不能读当前工作区
+
+- 原因：`npm run tauri build` 打的是**当前工作区**。本仓库常有多个 AI 会话并行改同一工作树，工作区可能停在未合并分支上、或混着别的会话没提交的在制品——打出来的 `.app` 是几方代码的混合物，而使用者以为验的是 `main`。这个问题不会报错，只会让人拿着错误的包去判断「这版有没有修好」。
+- 证据：2026-10-23 为验证必填改造在共享工作区直接跑 `npx tauri build --bundles app`，当时工作区在 `feat/pinned-table-header` 且含另一会话 26 个未提交改动。随后改为 `scripts/ship-local.sh`：从 `origin/main` 建临时 worktree 打包，实测 13 分 31 秒出 20MB 的 `.app`。
+- Seen 1×（2026-10-23）。
+- 关联：与 L-5「本地绿 ≠ HEAD 绿」同一类——**验证环境与被验证对象不对齐**。L-5 是「工作区文件掩盖漏提交」，本条是「工作区改动污染产物」。

@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "release": "./scripts/release.sh",
+    "ship:local": "./scripts/ship-local.sh",
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },

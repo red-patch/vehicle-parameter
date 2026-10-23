@@ -10,7 +10,12 @@ on:
   pull_request:
 
 jobs:
-  # lint + typecheck + test：非 tag 的 push / PR 都跑（tag 推送走下面的打包 job）
+  # lint + typecheck + test + build：非 tag 的 push / PR 都跑（tag 推送走下面的打包 job）
+  #
+  # build 必须在这里跑：脚本 `npm run check` 是四步（lint→typecheck→test→build），
+  # 而这条 job 的名字就是 main 保护规则要求的那项检查（context "check"）。
+  # 少跑 build 时，tsc -b / vite 打包 / 配置层面的错误拦不住，却照样能被判为「绿」——
+  # 一旦开了自动合并，等于让没构建过的代码进主干（LESSONS L-7 同类：假绿）。
   check:
     if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
@@ -35,6 +40,10 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      # 与本地 `npm run check` 的第四步对齐：tsc -b 全量构建 + vite 打包
+      - name: Build
+        run: npm run build
 
   build-windows:
     if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
