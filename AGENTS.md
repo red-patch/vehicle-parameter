@@ -48,6 +48,28 @@ npm run check      # lint → typecheck → test → build 一次跑完（CI 必
 - commit 用 `type(scope): 中文摘要`，需要时加「— 补充」；type 取 feat / fix / refactor / test / docs / chore / style，scope 用模块名（`asset-pool`、`data-purify`、`ui`、`release`…）
 - 新建文件和引用它的改动同批提交（L-5）
 - PR 描述写：改了什么、为什么、跑了哪些检查（没跑的写「未跑」）
+- **合并方式**：PR 建好后开自动合并（squash），CI 的 `check` 一绿就自动进 `main`：
+  ```bash
+  gh pr merge <号> --squash --auto --delete-branch
+  ```
+  `check` 现在与本地 `npm run check` 同义（lint → typecheck → test → **build**），
+  所以「CI 绿」就等于「能构建」，自动合并才站得住。改 CI 时别把 build 步骤拿掉。
+
+## 本地用上最新代码
+
+改完 bug 想在本地验证，按代价从低到高选一条，**别一上来就打包**：
+
+| 想知道什么 | 命令 | 耗时 |
+|---|---|---|
+| 界面/交互对不对 | `npm run dev:mock`（浏览器开 `http://localhost:5173`） | 秒级热更新 |
+| 真实 Tauri 内核（文件系统、Rust 命令） | 在干净 worktree 里 `npm run tauri dev` | 首次编译后热重载 |
+| 装到 `/Applications` 当日常工具用 | `npm run ship:local` | 约 10-15 分钟 |
+
+`ship:local` 会从 **`origin/main`** 建临时 worktree 打包再安装，**不读当前工作区**——
+所以工作区里别的会话没提交的东西不会混进装好的 app。它不动当前分支、不碰未提交改动。
+不要在工作区直接跑 `npm run tauri build`：那样打出来的是当前工作区（可能混着多个会话的在制品）的混合物。
+
+正式发布（bump 版本号 + 打 tag + CI 出 Release）走 `scripts/release.sh`，属红线，agent 不执行。
 
 ## 执行纪律
 
@@ -80,7 +102,7 @@ npm run check      # lint → typecheck → test → build 一次跑完（CI 必
 | `src/workers/` | Web Worker（解析等重计算） |
 | `src/utils/` | 纯函数工具，优先把逻辑放这里方便测试 |
 | `src-tauri/` | Rust 后端、Tauri 配置、capabilities 权限 |
-| `scripts/` | 在用：`release.sh`、`start.sh`、`dev-mock/`；`debug_*` / `test_*` / `verify_*` 多为一次性验证脚本 |
+| `scripts/` | 在用：`release.sh`（正式发布）、`ship-local.sh`（本地打包安装）、`start.sh`、`dev-mock/`；`debug_*` / `test_*` / `verify_*` 多为一次性验证脚本 |
 | `docs/` | PRD.md、User_Manual.md、ADR、设计方案、测试数据 |
 
 ## 大文件（改动需格外小心）
