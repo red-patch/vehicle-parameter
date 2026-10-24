@@ -9,9 +9,11 @@
  *   调用方不必在每个单元格控件上再写 size="small"
  * - 密度（行高 / 内边距 / 字号）不由本组件决定，由 themeConfig 的 TABLE_DENSITY 统一
  */
+import { useRef } from 'react';
 import { ConfigProvider, Table } from 'antd';
 import type { TableProps } from 'antd';
 import { pagePagination, PAGE_SIZE } from './tablePresets';
+import { useTableBodyHeight } from '../../hooks/useTableBodyHeight';
 
 type DataTableProps<T extends object = Record<string, unknown>> = Omit<TableProps<T>, 'scroll'> & {
   /** 纵向滚动高度（像素或 CSS 值，如 400 或 "calc(100vh - 300px)"） */
@@ -24,6 +26,12 @@ type DataTableProps<T extends object = Record<string, unknown>> = Omit<TableProp
   hideSizeChanger?: boolean;
   /** 开启 antd 虚拟滚动（行数大的表；需配合 scrollY 且列宽为数字） */
   virtual?: boolean;
+  /**
+   * 撑满外层剩余高度，表头固定、只有表体滚动（设计 2026-10-23-列表页表头固定 §2）。
+   * 需要外层是 flex 纵向容器（ListToolbar 的 `fill` 会提供），高度由外层决定、
+   * 本组件实测后交给 `scroll.y`；显式传 `scrollY` 时以 `scrollY` 为准。
+   */
+  fill?: boolean;
 };
 
 export default function DataTable<T extends object = Record<string, unknown>>({
@@ -32,11 +40,17 @@ export default function DataTable<T extends object = Record<string, unknown>>({
   pageSize = PAGE_SIZE,
   hideSizeChanger = false,
   virtual = false,
+  fill = false,
   size = 'small',
   pagination,
   tableLayout,
   ...rest
 }: DataTableProps<T>) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  // fill 时高度来自外层 flex 链；未量到（首帧 / 隐藏页签）先不传 scroll.y，表按内容自然高
+  const measuredY = useTableBodyHeight(wrapRef);
+  const resolvedY = scrollY ?? (fill ? measuredY : undefined);
+
   const mergedPagination: TableProps<T>['pagination'] =
     pagination === false
       ? false
@@ -57,7 +71,7 @@ export default function DataTable<T extends object = Record<string, unknown>>({
       : scrollX;
   const mergedScroll: TableProps<T>['scroll'] = {
     ...(resolvedX ? { x: resolvedX } : {}),
-    ...(scrollY !== undefined ? { y: scrollY } : {}),
+    ...(resolvedY !== undefined ? { y: resolvedY } : {}),
   };
 
   // 声明了 ellipsis 的列要按列宽截断，表格必须是 fixed 布局。antd 在「有固定列 + scroll.x=max-content」
@@ -67,14 +81,16 @@ export default function DataTable<T extends object = Record<string, unknown>>({
 
   return (
     <ConfigProvider componentSize="small">
-      <Table<T>
-        size={size}
-        pagination={mergedPagination}
-        scroll={mergedScroll}
-        virtual={virtual}
-        tableLayout={mergedLayout}
-        {...rest}
-      />
+      <div ref={wrapRef} className={fill ? 'flex-1 min-h-0 overflow-hidden' : undefined}>
+        <Table<T>
+          size={size}
+          pagination={mergedPagination}
+          scroll={mergedScroll}
+          virtual={virtual}
+          tableLayout={mergedLayout}
+          {...rest}
+        />
+      </div>
     </ConfigProvider>
   );
 }

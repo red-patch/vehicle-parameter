@@ -1,11 +1,12 @@
 import React from 'react';
-import { Empty, Space, Table, Tag, Typography } from 'antd';
+import { Empty, Space, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
     AimOutlined, CopyOutlined, DeleteOutlined, FileAddOutlined, FilePdfOutlined, ImportOutlined, LinkOutlined, ProfileOutlined, SwapOutlined,
 } from '@ant-design/icons';
 import RowActions from '../common/RowActions';
 import StatusDot from '../common/StatusDot';
+import DataTable from '../common/DataTable';
 import { NUMERIC_COLUMN } from '../common/tablePresets';
 import { normalizeAnnounceNo, type AnnouncementInfo } from '../../utils/announcementRecord';
 import {
@@ -36,6 +37,8 @@ interface AnnouncementGroupedTableProps {
     onImportForGroup: (vehicleName: string) => void;
     onImportNewBatch: (vehicleName: string, announceNo: string) => void;
     onCompareBatches: (group: VehicleGroup, node: AnnounceNode) => void;
+    /** 撑满外层剩余高度：表头固定、只有表体滚动（设计 2026-10-23-列表页表头固定 §2） */
+    fill?: boolean;
 }
 
 type TreeRow =
@@ -69,6 +72,7 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
     onImportForGroup,
     onImportNewBatch,
     onCompareBatches,
+    fill = false,
 }) => {
     const rows: TreeRow[] = groups.map(group => {
         if (group.unsorted) {
@@ -268,8 +272,8 @@ const AnnouncementGroupedTable: React.FC<AnnouncementGroupedTableProps> = ({
     ];
 
     return (
-        <Table<TreeRow>
-            size="small"
+        <DataTable<TreeRow>
+            fill={fill}
             rowKey={r => r.key}
             columns={columns}
             dataSource={rows}

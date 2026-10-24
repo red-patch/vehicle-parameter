@@ -1,12 +1,13 @@
 import React from 'react';
-import { Empty, Space, Table, Tag, Typography } from 'antd';
+import { Empty, Space, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
     AimOutlined, CopyOutlined, DeleteOutlined, FileAddOutlined, FilePdfOutlined, LinkOutlined, ProfileOutlined,
 } from '@ant-design/icons';
 import RowActions from '../common/RowActions';
 import StatusDot from '../common/StatusDot';
-import { NUMERIC_COLUMN, pagePagination } from '../common/tablePresets';
+import DataTable from '../common/DataTable';
+import { NUMERIC_COLUMN } from '../common/tablePresets';
 import { normalizeAnnounceNo, type AnnouncementInfo } from '../../utils/announcementRecord';
 import { describeLinkedAsset, formatArchiveDate, type JoinedAsset } from '../../utils/announcementGrouping';
 
@@ -24,6 +25,8 @@ interface AnnouncementFlatTableProps {
     onReveal: (info: AnnouncementInfo) => void;
     onDelete: (info: AnnouncementInfo) => void;
     onClaimOrphan: (info: AnnouncementInfo) => void;
+    /** 撑满外层剩余高度：表头固定、只有表体滚动（设计 2026-10-23-列表页表头固定 §2） */
+    fill?: boolean;
 }
 
 /** 平铺视图（辅助视图，行为与旧版一致）：一行 = 一条记录，全字段直读 */
@@ -38,6 +41,7 @@ const AnnouncementFlatTable: React.FC<AnnouncementFlatTableProps> = ({
     onReveal,
     onDelete,
     onClaimOrphan,
+    fill = false,
 }) => {
     const sorted = React.useMemo(() => {
         const list = infos.filter(i => !i.orphan).sort((a, b) =>
@@ -109,13 +113,12 @@ const AnnouncementFlatTable: React.FC<AnnouncementFlatTableProps> = ({
     ];
 
     return (
-        <Table<AnnouncementInfo>
-            size="small"
+        <DataTable<AnnouncementInfo>
+            fill={fill}
             rowKey={r => r.jsonFile || `pdf:${r.pdfFile}`}
             columns={columns}
             dataSource={sorted}
             loading={loading}
-            pagination={pagePagination()}
             locale={{ emptyText: <Empty description="暂无归档公告" /> }}
             expandable={{
                 rowExpandable: info => (linkedAssets.get(normalizeAnnounceNo(info.announceNo))?.length ?? 0) > 0,

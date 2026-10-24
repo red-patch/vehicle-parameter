@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Input, Button, Card, Typography, Space, Alert, message, notification, Steps, Drawer } from 'antd';
+import { Input, Button, Typography, Space, Alert, message, notification, Drawer } from 'antd';
 import { warnLibraryPathMissing } from '../../utils/libraryPathPrompt';
-import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined, FilePdfOutlined, GlobalOutlined, FileTextOutlined, ToolOutlined, DownOutlined } from '@ant-design/icons';
+import { SearchOutlined, ImportOutlined, CheckCircleOutlined, CopyOutlined, DownloadOutlined, SaveOutlined, CarOutlined, FilePdfOutlined, GlobalOutlined, FileTextOutlined, ToolOutlined } from '@ant-design/icons';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { useAnnouncementStore } from '../../store/announcementStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -27,7 +27,7 @@ import {
 } from '../../utils/announcementParamParse';
 import { probeNewPdfs } from '../../utils/announcementScan';
 import AnnouncementArchiveList from './AnnouncementArchiveList';
-import { useScrollCollapse } from '../../hooks/useScrollCollapse';
+import { useViewportPaneHeight } from '../../hooks/useViewportPaneHeight';
 import AnnouncementImportModal from './AnnouncementImportModal';
 import AnnouncementPickupPrompt from './AnnouncementPickupPrompt';
 
@@ -111,15 +111,14 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
     const [previewOpen, setPreviewOpen] = useState(false);
     // 提取工具（书签安装）抽屉：装一次就不再需要，降级为按需打开
     const [bookmarkOpen, setBookmarkOpen] = useState(false);
-    // 顶部查询/导入区：主体是下方公告归档，滚过它即收起（布局优化 2026-10-15）
-    const headerRef = React.useRef<HTMLDivElement>(null);
-    const scrolledCollapsed = useScrollCollapse(headerRef);
-    // 收起态下手动展开：用户主动要看就留住，滚回顶部时自然复位
-    const [manualOpen, setManualOpen] = useState(false);
-    React.useEffect(() => {
-        if (!scrolledCollapsed) setManualOpen(false);
-    }, [scrolledCollapsed]);
-    const headerCollapsed = scrolledCollapsed && !manualOpen;
+    // 粘贴导入抽屉（2026-10-23-列表页表头固定 §3）：粘贴是低频动作，不该长期占掉半屏——
+    // 主体是下方公告归档。与「提取工具」「数据预览」同族，按需打开。
+    const [pasteOpen, setPasteOpen] = useState(false);
+    // 页面钉视口（同上 §2）：顶部一行操作区按内容高，归档列表吃掉剩余高度，
+    // 表头固定、只有表体内部滚动。外壳整页滚动，高度链在 Content 处断开，只能反推。
+    const paneRef = React.useRef<HTMLDivElement>(null);
+    // 底部留白 = Content 的 p-4 + App 外层包装的 p-4（本页自身不带 p-4）＝ 32，即默认值
+    const paneHeight = useViewportPaneHeight(paneRef);
 
     React.useEffect(() => {
         if (bookmarkLinkRef.current) {
@@ -202,12 +201,15 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
                 });
             } catch { /* 静默：检查失败不影响使用 */ }
         };
-        import('@tauri-apps/api/window').then(({ getCurrentWindow }) =>
-            getCurrentWindow().listen('tauri://focus', () => { void runCheck(); }),
-        ).then(fn => {
-            if (disposed) fn();
-            else unlisten = fn;
-        });
+        // 非桌面环境（浏览器预览 / jsdom 测试）没有 Tauri 运行时，`getCurrentWindow()`
+        // 会同步抛错——不拦就是一个 unhandled rejection，测试进程直接报错退出。
+        import('@tauri-apps/api/window')
+            .then(({ getCurrentWindow }) => getCurrentWindow().listen('tauri://focus', () => { void runCheck(); }))
+            .then(fn => {
+                if (disposed) fn();
+                else unlisten = fn;
+            })
+            .catch(() => { /* 没有窗口事件源：只保留首帧与切回应用之外的检查 */ });
         void runCheck();
         return () => {
             disposed = true;
@@ -328,6 +330,7 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
             setImportJson('');
             // 引导 PDF 归档（Q10）：参数与 PDF 是两个独立动作；预览随导入自动展开
             setPickupVisible(true);
+            setPasteOpen(false);
             setPreviewOpen(true);
         } catch {
             message.error('解析JSON失败，请检查粘贴内容');
@@ -466,114 +469,62 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
     ];
 
     return (
-        <div className="space-y-4">
-            {/* 顶部操作区：可滚动的两块——它们是工作台入口，主体是下方公告归档。
-                下滑浏览归档时收起成一条摘要，把版面让给列表（布局优化 2026-10-15 Q1）。 */}
-            <div ref={headerRef} className="space-y-4">
-                {headerCollapsed ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <Steps
-                            size="small"
-                            current={miitData ? 3 : 0}
-                            items={[
-                                { title: '查询公告号' },
-                                { title: '提取数据' },
-                                { title: '导入数据' },
-                            ]}
-                            style={{ flex: 1, minWidth: 280 }}
-                        />
-                        <Button size="small" type="text" onClick={() => setManualOpen(true)}>
-                            展开操作区 <DownOutlined />
-                        </Button>
-                    </div>
-                ) : (
-                    <>
-                        <Steps
-                            size="small"
-                            current={miitData ? 3 : 0}
-                            items={[
-                                { title: '查询公告号', description: '输入公告号，本地优先' },
-                                { title: '提取数据', description: '在详情页使用书签脚本' },
-                                { title: '导入数据', description: '粘贴JSON并解析' },
-                            ]}
-                            className="mb-2"
-                        />
-
-            {/* 顶部紧凑操作区：查询 + 粘贴导入（主体是下方公告归档） */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card title="查询公告号" size="small">
-                    <Space.Compact style={{ width: '100%' }}>
-                        <Input
-                            placeholder="请输入车辆公告号"
-                            value={announcementNo}
-                            onChange={(e) => setAnnouncementNo(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            suffix={<SearchOutlined className="text-3" />}
-                        />
-                        <Button
-                            type="primary"
-                            onClick={handleQuery}
-                            disabled={!announcementNo.trim()}
-                        >
-                            查询
-                        </Button>
-                    </Space.Compact>
-                    <div className="flex flex-wrap items-center gap-2 mt-3">
-                        <Text type="secondary" className="text-aux">示例：</Text>
-                        {exampleNumbers.map((item) => (
-                            <Button
-                                key={item.label}
-                                size="small"
-                                type="dashed"
-                                title={item.desc}
-                                onClick={() => setAnnouncementNo(item.label)}
-                            >
-                                {item.label}
-                            </Button>
-                        ))}
-                    </div>
-                </Card>
-
-                <Card
-                    title="粘贴导入"
-                    size="small"
-                    extra={
-                        <Space size={4}>
-                            {miitData && (
-                                <Button size="small" icon={<FileTextOutlined />} onClick={() => setPreviewOpen(true)}>
-                                    数据预览（{miitData.data.length}）
-                                </Button>
-                            )}
-                            <Button size="small" icon={<ToolOutlined />} onClick={() => setBookmarkOpen(true)}>
-                                提取工具
-                            </Button>
-                        </Space>
-                    }
-                >
-                    <TextArea
-                        rows={3}
-                        placeholder="粘贴书签脚本复制的JSON数据..."
-                        value={importJson}
-                        onChange={(e) => setImportJson(e.target.value)}
-                        className="mb-3"
+        // 钉视口（设计 2026-10-23-列表页表头固定 §2/§3）：整页不再滚动，只有归档表体滚。
+        // 外层包装（App）已带 p-4，故底部只需再让 16px。
+        <div
+            ref={paneRef}
+            className="flex flex-col gap-3"
+            style={paneHeight ? { height: paneHeight } : undefined}
+        >
+            {/* 顶部操作区压成一行（布局 2026-10-23 §3）：
+                查询是主入口留在行内，粘贴导入是低频动作收进抽屉，Agent 工具同样按需打开。
+                此前是 Steps + 两张 Card 常驻约 290px，把 800px 高的窗口吃掉四成。 */}
+            <div className="shrink-0 flex flex-wrap items-center gap-2">
+                <Space.Compact style={{ width: 360, maxWidth: '100%' }}>
+                    <Input
+                        placeholder="输入车辆公告号，本地优先"
+                        value={announcementNo}
+                        onChange={(e) => setAnnouncementNo(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        suffix={<SearchOutlined className="text-3" />}
                     />
                     <Button
                         type="primary"
-                        block
-                        icon={<ImportOutlined />}
-                        onClick={handleImport}
-                        disabled={!importJson.trim()}
+                        onClick={handleQuery}
+                        disabled={!announcementNo.trim()}
                     >
-                        解析并导入
+                        查询
                     </Button>
-                </Card>
-            </div>
-                    </>
+                </Space.Compact>
+                <Text type="secondary" className="text-aux whitespace-nowrap">示例：</Text>
+                {exampleNumbers.map((item) => (
+                    <Button
+                        key={item.label}
+                        size="small"
+                        type="dashed"
+                        title={item.desc}
+                        onClick={() => setAnnouncementNo(item.label)}
+                    >
+                        {item.label}
+                    </Button>
+                ))}
+                <span className="ml-auto" />
+                {miitData && (
+                    <Button icon={<FileTextOutlined />} onClick={() => setPreviewOpen(true)}>
+                        数据预览（{miitData.data.length}）
+                    </Button>
                 )}
+                <Button icon={<ImportOutlined />} onClick={() => setPasteOpen(true)}>
+                    粘贴导入
+                </Button>
+                <Button icon={<ToolOutlined />} onClick={() => setBookmarkOpen(true)}>
+                    提取工具
+                </Button>
             </div>
 
             {/* 查询本地命中：不跳浏览器，原地给出本地归档出口（Q11） */}
             {localHits && (
+                <div className="shrink-0">
                 <Alert
                     type="success"
                     showIcon
@@ -630,9 +581,10 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
                         </div>
                     }
                 />
+                </div>
             )}
 
-            {/* 主体：公告归档（公告中心的核心工作面） */}
+            {/* 主体：公告归档（公告中心的核心工作面）；吃掉剩余高度，表头固定 */}
             <AnnouncementArchiveList onOpenWorkbench={onOpenWorkbench} />
 
             {/* 数据预览抽屉：仅在解析出数据时打开，不再长期占版面 */}
@@ -681,6 +633,46 @@ const AnnouncementQuery: React.FC<AnnouncementQueryProps> = ({ onOpenWorkbench }
                         <ParametersTable data={miitData.data} />
                     </div>
                 )}
+            </Drawer>
+
+            {/* 粘贴导入抽屉（布局 2026-10-23 §3）：原先常驻一张 Card，占掉首屏近三分之一。
+                流程说明（① 查询 ② 提取 ③ 导入）随粘贴入口一起放进来——需要时能看到，不需要时不占版面。 */}
+            <Drawer
+                title="粘贴导入"
+                open={pasteOpen}
+                onClose={() => setPasteOpen(false)}
+                width={480}
+                destroyOnHidden
+            >
+                <div className="space-y-3">
+                    <div className="text-aux text-2 leading-relaxed">
+                        <div>① 在「查询公告号」里输入公告号，打开工信部公告详情页；</div>
+                        <div>② 用下方「提取工具」安装的书签提取参数（会自动复制 JSON）；</div>
+                        <div>③ 回到这里粘贴，解析后即可保存到公告中心或设为比对版本。</div>
+                    </div>
+                    <Button
+                        size="small"
+                        icon={<ToolOutlined />}
+                        onClick={() => setBookmarkOpen(true)}
+                    >
+                        提取工具
+                    </Button>
+                    <TextArea
+                        rows={8}
+                        placeholder="粘贴书签脚本复制的JSON数据..."
+                        value={importJson}
+                        onChange={(e) => setImportJson(e.target.value)}
+                    />
+                    <Button
+                        type="primary"
+                        block
+                        icon={<ImportOutlined />}
+                        onClick={handleImport}
+                        disabled={!importJson.trim()}
+                    >
+                        解析并导入
+                    </Button>
+                </div>
             </Drawer>
 
             {/* 提取工具抽屉：书签安装是一次性动作，按需打开 */}
