@@ -103,3 +103,13 @@ Loop B（工作树体检）/ Loop C（陈旧物清理）发现异常时，顺带
 - 证据：2026-10-23 为验证必填改造在共享工作区直接跑 `npx tauri build --bundles app`，当时工作区在 `feat/pinned-table-header` 且含另一会话 26 个未提交改动。随后改为 `scripts/ship-local.sh`：从 `origin/main` 建临时 worktree 打包，实测 13 分 31 秒出 20MB 的 `.app`。
 - Seen 1×（2026-10-23）。
 - 关联：与 L-5「本地绿 ≠ HEAD 绿」同一类——**验证环境与被验证对象不对齐**。L-5 是「工作区文件掩盖漏提交」，本条是「工作区改动污染产物」。
+
+### L-10: PR 合并必须带 `--delete-branch`；squash 后本地分支要用 tree 指纹判定再删
+
+- 原因：两处叠加，各自都能独立造成「分支越攒越多」。
+  1. **合并时漏了 `--delete-branch`**：这个 flag 同时删本地和远端分支。2026-10-23 合并 #17 时写成了 `--delete-branch=false`（想表达「不删」），远端 `feat/pinned-table-header` 因此留着。
+  2. **squash 让 `git branch -d` 失效**：squash 合并会重写提交哈希，主干上的新提交与分支 tip 不是同一对象，git 据此判定「未合并」并拒绝删除；于是即便人想清，也得先确认内容一致再用 `-D`——这个「先确认」的成本让人干脆不动。
+  两条同时成立，`chore/ship-flow`（远端已 gone）与 `feat/pinned-table-header` 就都留了下来。
+- 证据：2026-10-24 执行 `git branch -vv` 见两者：`chore/ship-flow` 标记 `origin/chore/ship-flow: gone`、`feat/pinned-table-header` 标记 `ahead 3, behind 1`；`git diff main feat/pinned-table-header` 为空、`chore/ship-flow` 的 tip tree 等于 `4dcd56c` 的 tree。
+- Seen 1×（2026-10-24）。
+- 关联：与 L-8 同源——**规则写了但执行时被改写/绕过**。对策是把「收尾」做成一个命令：新增 `scripts/prune-merged-branches.sh`，用 **tree 指纹**（squash 提交与分支 tip 的 tree 逐字节相同）判定内容是否已进 `origin/main`，默认 dry-run、`--apply` 才删、未匹配的一律保留。`AGENTS.md`「提交与 PR」已写入这两条。

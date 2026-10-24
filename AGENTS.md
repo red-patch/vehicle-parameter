@@ -54,6 +54,12 @@ npm run check      # lint → typecheck → test → build 一次跑完（CI 必
   ```
   `check` 现在与本地 `npm run check` 同义（lint → typecheck → test → **build**），
   所以「CI 绿」就等于「能构建」，自动合并才站得住。改 CI 时别把 build 步骤拿掉。
+- **`--delete-branch` 不能省**：它同时删**本地和远端**同名分支。省掉（或写成
+  `--delete-branch=false`）会让远端分支留在 `origin`，本地分支也留在仓库里——见 L-10。
+- **合并后收尾**：`bash scripts/prune-merged-branches.sh` 先看，`--apply` 再删。
+  squash 会重写提交哈希，`git branch -d` 会以「未合并」拒绝，所以脚本用
+  **tree 指纹**判定内容是否已进 `origin/main`（squash 提交与分支 tip 的 tree 逐字节相同），
+  找不到才当作未合并保留。加 `--remote` 一并清理远端残留。
 
 ## 本地用上最新代码
 
@@ -102,7 +108,7 @@ npm run check      # lint → typecheck → test → build 一次跑完（CI 必
 | `src/workers/` | Web Worker（解析等重计算） |
 | `src/utils/` | 纯函数工具，优先把逻辑放这里方便测试 |
 | `src-tauri/` | Rust 后端、Tauri 配置、capabilities 权限 |
-| `scripts/` | 在用：`release.sh`（正式发布）、`ship-local.sh`（本地打包安装）、`start.sh`、`dev-mock/`；`debug_*` / `test_*` / `verify_*` 多为一次性验证脚本 |
+| `scripts/` | 在用：`release.sh`（正式发布）、`ship-local.sh`（本地打包安装）、`prune-merged-branches.sh`（清理已合并分支）、`start.sh`、`dev-mock/`；`debug_*` / `test_*` / `verify_*` 多为一次性验证脚本 |
 | `docs/` | PRD.md、User_Manual.md、ADR、设计方案、测试数据 |
 
 ## 大文件（改动需格外小心）
