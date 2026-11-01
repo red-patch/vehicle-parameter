@@ -440,12 +440,51 @@ pub struct MobileStatus {
     pub paused: bool,
     pub device_count: usize,
     pub public_url: Option<String>,
+    /// 自建中继状态（未配置时 configured=false）
+    pub relay: crate::mobile_relay::RelayStatus,
 }
 
 fn global_state() -> Arc<State> {
     GLOBAL
         .get_or_init(|| Arc::new(State::new(None)))
         .clone()
+}
+
+/// 资产库目录（中继配置要跟着资产库走，同 `_mobile_devices.json`）
+pub(crate) fn current_library_path() -> Option<PathBuf> {
+    global_state().library_path()
+}
+
+/// 界面已知资产库目录时先告诉后端（服务可能还没启动，中继配置要先能读出来）
+pub(crate) fn remember_library_path(dir: &Path) {
+    let state = global_state();
+    let changed = {
+        let Ok(mut g) = state.library.lock() else {
+            return;
+        };
+        if g.as_deref() == Some(dir) {
+            false
+        } else {
+            *g = Some(dir.to_path_buf());
+            true
+        }
+    };
+    if changed {
+        if let Ok(mut devices) = state.devices.lock() {
+            *devices = load_registry(dir);
+        }
+    }
+}
+
+/// 服务端口（中继 agent 转发用）
+pub(crate) fn running_port() -> Option<u16> {
+    running_port_slot().lock().ok().and_then(|g| *g)
+}
+
+/// 配对链接实际使用的公网地址：中继启用时以中继为准，否则用手填地址
+fn effective_public_url(state: &State) -> Option<String> {
+    crate::mobile_relay::public_url()
+        .or_else(|| state.public_url.lock().ok().and_then(|g| g.clone()))
 }
 
 /// 启动只读服务（幂等：已启动则返回既有端口）。`libraryPath` 为资产库目录。
@@ -473,6 +512,8 @@ pub async fn start_mobile_server(library_path: String) -> Result<u16, String> {
     if let Ok(mut g) = running_port_slot().lock() {
         *g = Some(port);
     }
+    // 中继配置跟着资产库走；启用中就自动连上（幂等，重复启动只重连）
+    crate::mobile_relay::load_and_start(Path::new(&library_path), port);
     Ok(port)
 }
 
@@ -499,7 +540,17 @@ pub async fn set_mobile_server_enabled(enabled: bool) -> Result<(), String> {
 
 /// 服务状态（供界面显示「正在对手机开放」指示）
 #[tauri::command]
-pub async fn mobile_server_status() -> Result<MobileStatus, String> {
+pub async fn mobile_server_status(library_path: Option<String>) -> Result<MobileStatus, String> {
+    // 界面已经知道资产库目录时先同步过来：服务可能还没启动，
+    // 但中继配置在磁盘上，得能显示出来（否则重启后像是丢了）
+    if let Some(raw) = library_path.as_deref() {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            let dir = PathBuf::from(trimmed);
+            remember_library_path(&dir);
+            crate::mobile_relay::ensure_loaded(&dir);
+        }
+    }
     let state = global_state();
     let port = running_port_slot().lock().ok().and_then(|g| *g);
     Ok(MobileStatus {
@@ -507,7 +558,8 @@ pub async fn mobile_server_status() -> Result<MobileStatus, String> {
         port,
         paused: state.paused.load(Ordering::SeqCst),
         device_count: state.devices.lock().map(|d| d.len()).unwrap_or(0),
-        public_url: state.public_url.lock().ok().and_then(|g| g.clone()),
+        public_url: effective_public_url(&state),
+        relay: crate::mobile_relay::status(),
     })
 }
 
@@ -531,7 +583,7 @@ pub async fn create_mobile_pairing_code() -> Result<PairingCodeInfo, String> {
     } else {
         return Err("内部状态不可用".to_string());
     }
-    let public_url = state.public_url.lock().ok().and_then(|g| g.clone());
+    let public_url = effective_public_url(&state);
     Ok(PairingCodeInfo {
         pair_url: public_url.map(|u| format!("{u}/?pair={code}")),
         code,
@@ -556,6 +608,20 @@ pub async fn revoke_all_mobile_devices() -> Result<usize, String> {
 // ============================================================
 // 测试
 // ============================================================
+
+/// 测试专用：用真实 State 起一个只读服务（端口由系统分配）
+#[cfg(test)]
+pub(crate) fn spawn_test_server(library: Option<PathBuf>) -> u16 {
+    start_server(Arc::new(State::new(library)), 0).expect("测试服务应能启动")
+}
+
+/// 测试专用：登记服务端口（中继 agent 从中取转发目标）
+#[cfg(test)]
+pub(crate) fn set_running_port_for_test(port: u16) {
+    if let Ok(mut g) = running_port_slot().lock() {
+        *g = Some(port);
+    }
+}
 
 #[cfg(test)]
 mod tests {
