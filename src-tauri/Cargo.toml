@@ -42,3 +42,12 @@ tiny_http = "0.12"
 base64 = "0.22"
 getrandom = "0.2"
 percent-encoding = "2"
+# 自建中继（alma-relay 协议）：桌面出站 WSS，手机经中继访问 127.0.0.1 服务。
+# 中继只转发请求，不新增写路径；本机服务仍只绑回环（ADR-0004）。
+tokio = { version = "1", features = ["rt", "time", "sync", "net", "macros"] }
+tokio-tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
+http-body-util = "0.1"
+bytes = "1"

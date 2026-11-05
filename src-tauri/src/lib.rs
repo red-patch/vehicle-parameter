@@ -2,6 +2,7 @@ mod announcements;
 mod assets;
 mod excel;
 mod mobile;
+mod mobile_relay;
 mod pdf_sniff;
 mod regulations;
 
@@ -111,6 +112,8 @@ pub fn run() {
       mobile::mobile_server_status,
       mobile::create_mobile_pairing_code,
       mobile::revoke_all_mobile_devices,
+      mobile_relay::set_mobile_relay,
+      mobile_relay::regenerate_mobile_relay_token,
       regulations::read_regulation_sidecar,
       regulations::write_regulation_sidecar,
       regulations::scan_regulations,
