@@ -25,6 +25,10 @@ import { useAssetAliasResolver } from '../../hooks/useAssetAliasResolver';
 import { getVehicleSelectionStates } from '../../utils/vehicleSelectionState';
 import { buildCompareRows } from '../../utils/compareMatrix';
 import type { CompareRow } from '../../utils/compareMatrix';
+import CompareFileSummary from './CompareFileSummary';
+import { summarizeCompareFiles } from '../../utils/assetCompare';
+import { useAssetActions } from './useAssetActions';
+import { loadAssetMeta, type AssetMetaMap } from '../../utils/assetManager';
 
 interface CompareViewProps {
     onGoRepair?: () => void;
@@ -33,7 +37,7 @@ interface CompareViewProps {
 }
 
 const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
-    const { uploadedFiles, assetFiles, activeAssets, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion } = useVehicleStore(useShallow(state => ({
+    const { uploadedFiles, assetFiles, activeAssets, selectedProductNames, localSelection, setLocalSelection, setPurifyProduct, setRepairContext, fieldGroupsVersion, assetLibraryPath, assetVersion } = useVehicleStore(useShallow(state => ({
         uploadedFiles: state.uploadedFiles,
         assetFiles: state.assetFiles,
         activeAssets: state.activeAssets,
@@ -43,6 +47,8 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
         setPurifyProduct: state.setPurifyProduct,
         setRepairContext: state.setRepairContext,
         fieldGroupsVersion: state.fieldGroupsVersion,
+        assetLibraryPath: state.assetLibraryPath,
+        assetVersion: state.assetVersion,
     })));
     // 过滤状态
     const [diffFilter, setDiffFilter] = useState<'all' | 'diff' | 'same' | 'required'>('all');
@@ -104,6 +110,39 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
     const pendingSelectionCount = useMemo(() => {
         return Array.from(selectionStates.values()).filter((state) => state.status === 'pending').length;
     }, [selectionStates]);
+
+    // ===== 文件维度汇总（设计：资产治理补强，放在字段表之前） =====
+    // 生命周期状态（历史版本/废弃）读 `_asset_meta.json`；动作走资产对象动作，落盘后
+    // bumpAssetVersion，本 effect 随之重读，状态列自动刷新。
+    const { setStatus } = useAssetActions({ focusedFile: null, onFocusFile: () => {} });
+    const [assetMeta, setAssetMeta] = useState<AssetMetaMap>({});
+    useEffect(() => {
+        let cancelled = false;
+        if (!assetLibraryPath) {
+            setAssetMeta({});
+            return;
+        }
+        loadAssetMeta(assetLibraryPath).then(meta => {
+            if (!cancelled) setAssetMeta(meta);
+        });
+        return () => { cancelled = true; };
+    }, [assetLibraryPath, assetVersion]);
+
+    const fileSummary = useMemo(() => {
+        if (localSelection.length < 2) return null;
+        return summarizeCompareFiles(localSelection.map(instanceKey => ({
+            instanceKey,
+            params: selectionStates.get(instanceKey)?.data || [],
+        })));
+    }, [localSelection, selectionStates]);
+
+    const statusByFile = useMemo(() => {
+        const map: Record<string, 'superseded' | 'deprecated' | undefined> = {};
+        Object.entries(assetMeta).forEach(([fileName, meta]) => {
+            if (meta.status) map[fileName] = meta.status;
+        });
+        return map;
+    }, [assetMeta]);
 
     /** 「清除筛选」只看筛选行（差异视图/字段组/搜索）；③ 段两个显示开关不算 */
     const filtersActive = diffFilter !== 'all' || fieldGroupFilter !== 'all' || searchText.trim() !== '';
@@ -181,6 +220,14 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
         () => buildVehicleDisplayLabels(localSelection, aliasResolver),
         [localSelection, aliasResolver]
     );
+    /** 文件维度表的「文件」列：与字段表列头同一套显示名 */
+    const summaryLabels = useMemo(() => {
+        const map = new Map<string, string>();
+        localSelection.forEach(key => {
+            map.set(key, selectionDisplayLabels.get(key)?.shortLabel || getVehicleProductName(key));
+        });
+        return map;
+    }, [localSelection, selectionDisplayLabels]);
 
     const triggerRepair = (instanceKey: string, fieldName: string) => {
         const sourceFileName = assetSourceByProduct.get(instanceKey);
@@ -456,15 +503,27 @@ const CompareView: React.FC<CompareViewProps> = ({ onGoRepair, onGoPool }) => {
                 }
             >
                 {comparisonData.length > 0 ? (
-                    <div ref={tableWrapRef} className="flex-1 min-h-0">
-                        <DataTable
-                            dataSource={filteredData}
-                            columns={columns}
-                            rowKey="key"
-                            rowClassName={(record: CompareRow) => record.hasDiff ? 'diff-row' : ''}
-                            scrollY={tableBodyHeight}
-                        />
-                    </div>
+                    <>
+                        {fileSummary && pendingSelectionCount === 0 && (
+                            <CompareFileSummary
+                                rows={fileSummary.rows}
+                                labels={summaryLabels}
+                                contentClassCount={fileSummary.contentClassCount}
+                                unionSize={fileSummary.unionSize}
+                                statusByFile={statusByFile}
+                                onSetStatus={(fileName, status) => { void setStatus({ fileName }, status); }}
+                            />
+                        )}
+                        <div ref={tableWrapRef} className="flex-1 min-h-0">
+                            <DataTable
+                                dataSource={filteredData}
+                                columns={columns}
+                                rowKey="key"
+                                rowClassName={(record: CompareRow) => record.hasDiff ? 'diff-row' : ''}
+                                scrollY={tableBodyHeight}
+                            />
+                        </div>
+                    </>
                 ) : pendingSelectionCount > 0 ? (
                     <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-3 text-center">
                         <Spin />

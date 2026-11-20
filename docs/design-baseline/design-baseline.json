@@ -1,0 +1,1180 @@
+{
+  "meta": {
+    "baselineDate": "2026-11-20",
+    "product": "整车产品工作台 VPW",
+    "theme": "曜蓝 Obsidian Blue v4.1",
+    "extraction": "由 ../extract-tokens.mjs 从源码解析，非手工抄录",
+    "sources": [
+      {
+        "file": "src/index.css",
+        "role": "CSS 自定义属性（明暗两套）+ 组件级样式"
+      },
+      {
+        "file": "src/theme/themeConfig.ts",
+        "role": "antd v6 token、组件覆盖、字号阶梯、表格密度"
+      },
+      {
+        "file": "tailwind.config.js",
+        "role": "工具类阴影与语义色入口（仅登记阴影）"
+      }
+    ],
+    "notes": [
+      "颜色/字号以 src/index.css 的 CSS 变量为运行时事实源；themeConfig 的 Palette 与它同值同步（文件头注明「改色两边同步」）。",
+      "暗色块只覆盖差异变量，未列出的变量继承 :root（如 --font-* / --fs-* / --lh-* / --ease-ui）。",
+      "间距没有独立 token 体系，只有表格密度、控件高度、组件内边距等散落在 themeConfig 与 index.css 的具体值。",
+      "本 JSON 只覆盖桌面端（≥1024px）基线；窄屏布局断点为 index.css 的 max-width: 1360px（仅收紧导航内边距）。"
+    ]
+  },
+  "color": {
+    "cssVariables": {
+      "light": {
+        "--surface-1": {
+          "value": "#F7F8FA",
+          "line": 15
+        },
+        "--surface-2": {
+          "value": "#FFFFFF",
+          "line": 16
+        },
+        "--surface-3": {
+          "value": "#F1F3F6",
+          "line": 17
+        },
+        "--surface-elevated": {
+          "value": "#FFFFFF",
+          "line": 18
+        },
+        "--border-default": {
+          "value": "#E4E7EC",
+          "line": 19
+        },
+        "--border-strong": {
+          "value": "#CCD1D9",
+          "line": 20
+        },
+        "--border-control": {
+          "value": "#CCD1D9",
+          "line": 21
+        },
+        "--border-popover": {
+          "value": "#E4E7EC",
+          "line": 22
+        },
+        "--text-1": {
+          "value": "#1A1D26",
+          "line": 25
+        },
+        "--text-2": {
+          "value": "#454C5C",
+          "line": 26
+        },
+        "--text-3": {
+          "value": "#6F7787",
+          "line": 27
+        },
+        "--text-4": {
+          "value": "#C3C8D2",
+          "line": 29
+        },
+        "--text-on-brand": {
+          "value": "#FFFFFF",
+          "line": 30
+        },
+        "--brand": {
+          "value": "#2F44D8",
+          "line": 42
+        },
+        "--brand-weak": {
+          "value": "rgba(47, 68, 216, 0.08)",
+          "line": 43
+        },
+        "--brand-strong": {
+          "value": "#2738B4",
+          "line": 44
+        },
+        "--brand-ring": {
+          "value": "#7386F1",
+          "line": 45
+        },
+        "--brand-fill": {
+          "value": "#2F44D8",
+          "line": 46
+        },
+        "--brand-fill-hover": {
+          "value": "#2738B4",
+          "line": 47
+        },
+        "--brand-border": {
+          "value": "#C7D1FB",
+          "line": 48
+        },
+        "--brand-glow": {
+          "value": "rgba(77, 100, 233, 0.10)",
+          "line": 49
+        },
+        "--success": {
+          "value": "#0C9A68",
+          "line": 52
+        },
+        "--success-weak": {
+          "value": "rgba(12, 154, 104, 0.10)",
+          "line": 53
+        },
+        "--warning": {
+          "value": "#E8930C",
+          "line": 54
+        },
+        "--warning-weak": {
+          "value": "rgba(232, 147, 12, 0.12)",
+          "line": 55
+        },
+        "--danger": {
+          "value": "#E5484D",
+          "line": 56
+        },
+        "--danger-weak": {
+          "value": "rgba(229, 72, 77, 0.08)",
+          "line": 57
+        },
+        "--info": {
+          "value": "#0E7C8C",
+          "line": 58
+        },
+        "--info-weak": {
+          "value": "rgba(14, 124, 140, 0.10)",
+          "line": 59
+        },
+        "--success-text": {
+          "value": "#0A7A52",
+          "line": 62
+        },
+        "--warning-text": {
+          "value": "#9A5806",
+          "line": 63
+        },
+        "--danger-text": {
+          "value": "#C92A2A",
+          "line": 64
+        },
+        "--info-text": {
+          "value": "#0E7C8C",
+          "line": 65
+        },
+        "--diff-added-bg": {
+          "value": "#E9F7F0",
+          "line": 69
+        },
+        "--diff-added-chip-bg": {
+          "value": "#D4EEE2",
+          "line": 70
+        },
+        "--diff-added-bar": {
+          "value": "#0C9A68",
+          "line": 71
+        },
+        "--diff-added-text": {
+          "value": "#0A7A52",
+          "line": 72
+        },
+        "--diff-removed-bg": {
+          "value": "#FDECEC",
+          "line": 73
+        },
+        "--diff-removed-chip-bg": {
+          "value": "#F9D7D8",
+          "line": 74
+        },
+        "--diff-removed-bar": {
+          "value": "#E5484D",
+          "line": 75
+        },
+        "--diff-removed-text": {
+          "value": "#A32222",
+          "line": 76
+        },
+        "--diff-modified-bg": {
+          "value": "#FEF4E2",
+          "line": 77
+        },
+        "--diff-modified-chip-bg": {
+          "value": "#FAE6C4",
+          "line": 78
+        },
+        "--diff-modified-bar": {
+          "value": "#E8930C",
+          "line": 79
+        },
+        "--diff-modified-text": {
+          "value": "#9A5806",
+          "line": 80
+        },
+        "--conf-high": {
+          "value": "#0C9A68",
+          "line": 83
+        },
+        "--conf-mid": {
+          "value": "#E8930C",
+          "line": 84
+        },
+        "--conf-low": {
+          "value": "#E5484D",
+          "line": 85
+        },
+        "--req-missing-bg": {
+          "value": "#FDECEC",
+          "line": 87
+        },
+        "--req-missing-border": {
+          "value": "#E5484D",
+          "line": 88
+        },
+        "--req-missing-text": {
+          "value": "#C92A2A",
+          "line": 89
+        },
+        "--src-announcement-bg": {
+          "value": "#E4F4F7",
+          "line": 92
+        },
+        "--src-announcement-text": {
+          "value": "#0E7C8C",
+          "line": 93
+        },
+        "--src-asset-bg": {
+          "value": "#F0EBFB",
+          "line": 94
+        },
+        "--src-asset-text": {
+          "value": "#7048C8",
+          "line": 95
+        },
+        "--src-excel-bg": {
+          "value": "#F1F3F6",
+          "line": 96
+        },
+        "--src-excel-text": {
+          "value": "#4B5261",
+          "line": 97
+        },
+        "--table-header-bg": {
+          "value": "#F1F3F6",
+          "line": 100
+        },
+        "--table-row-hover": {
+          "value": "#F1F3F6",
+          "line": 101
+        },
+        "--table-stripe": {
+          "value": "#FAFBFC",
+          "line": 102
+        },
+        "--mask": {
+          "value": "rgba(16, 18, 24, 0.45)",
+          "line": 105
+        },
+        "--scrollbar-thumb": {
+          "value": "#CCD1D9",
+          "line": 111
+        },
+        "--scrollbar-hover": {
+          "value": "#8A91A0",
+          "line": 112
+        },
+        "--selection-bg": {
+          "value": "rgba(47, 68, 216, 0.14)",
+          "line": 114
+        },
+        "--code-inline-bg": {
+          "value": "#F1F3F6",
+          "line": 116
+        },
+        "--code-inline-text": {
+          "value": "#4B5261",
+          "line": 117
+        },
+        "--code-bg": {
+          "value": "#1A1D26",
+          "line": 118
+        },
+        "--code-text": {
+          "value": "#D6DBE5",
+          "line": 119
+        },
+        "--code-comment": {
+          "value": "#8A93A5",
+          "line": 120
+        },
+        "--code-keyword": {
+          "value": "#8DA1F7",
+          "line": 121
+        },
+        "--code-string": {
+          "value": "#7FD8A4",
+          "line": 122
+        },
+        "--toast-bg": {
+          "value": "#1A1D26",
+          "line": 124
+        },
+        "--toast-text": {
+          "value": "#F5F7FB",
+          "line": 125
+        },
+        "--swatch-border": {
+          "value": "rgba(0, 0, 0, 0.08)",
+          "line": 127
+        },
+        "--chart-1": {
+          "value": "#2F44D8",
+          "line": 130
+        },
+        "--chart-2": {
+          "value": "#0C9A68",
+          "line": 131
+        },
+        "--chart-3": {
+          "value": "#C87A08",
+          "line": 132
+        },
+        "--chart-4": {
+          "value": "#E5484D",
+          "line": 133
+        },
+        "--chart-5": {
+          "value": "#0E7C8C",
+          "line": 134
+        },
+        "--chart-6": {
+          "value": "#7048C8",
+          "line": 135
+        },
+        "--asset-active-bar": {
+          "value": "var(--success)",
+          "line": 138
+        },
+        "--asset-active-dot": {
+          "value": "var(--success)",
+          "line": 139
+        }
+      },
+      "dark": {
+        "--surface-1": {
+          "value": "#0E1116",
+          "line": 161
+        },
+        "--surface-2": {
+          "value": "#161B23",
+          "line": 162
+        },
+        "--surface-3": {
+          "value": "#202734",
+          "line": 163
+        },
+        "--surface-elevated": {
+          "value": "#202734",
+          "line": 164
+        },
+        "--border-default": {
+          "value": "#2C3442",
+          "line": 165
+        },
+        "--border-strong": {
+          "value": "#3A4354",
+          "line": 166
+        },
+        "--border-control": {
+          "value": "#5B6684",
+          "line": 167
+        },
+        "--border-popover": {
+          "value": "#333C4D",
+          "line": 168
+        },
+        "--text-1": {
+          "value": "#E6E9EF",
+          "line": 170
+        },
+        "--text-2": {
+          "value": "#AAB2C0",
+          "line": 171
+        },
+        "--text-3": {
+          "value": "#8A93A5",
+          "line": 172
+        },
+        "--text-4": {
+          "value": "#5E6675",
+          "line": 173
+        },
+        "--text-on-brand": {
+          "value": "#FFFFFF",
+          "line": 174
+        },
+        "--brand": {
+          "value": "#8DA1F7",
+          "line": 176
+        },
+        "--brand-weak": {
+          "value": "rgba(141, 161, 247, 0.14)",
+          "line": 177
+        },
+        "--brand-strong": {
+          "value": "#A8B7F9",
+          "line": 178
+        },
+        "--brand-ring": {
+          "value": "#A0AFF8",
+          "line": 179
+        },
+        "--brand-fill": {
+          "value": "#4D64E9",
+          "line": 180
+        },
+        "--brand-fill-hover": {
+          "value": "#5569EB",
+          "line": 181
+        },
+        "--brand-border": {
+          "value": "rgba(141, 161, 247, 0.30)",
+          "line": 182
+        },
+        "--brand-glow": {
+          "value": "rgba(141, 161, 247, 0.12)",
+          "line": 183
+        },
+        "--success": {
+          "value": "#3DBD8A",
+          "line": 185
+        },
+        "--success-weak": {
+          "value": "rgba(61, 189, 138, 0.14)",
+          "line": 186
+        },
+        "--warning": {
+          "value": "#F0A83C",
+          "line": 187
+        },
+        "--warning-weak": {
+          "value": "rgba(240, 168, 60, 0.14)",
+          "line": 188
+        },
+        "--danger": {
+          "value": "#F06A6E",
+          "line": 189
+        },
+        "--danger-weak": {
+          "value": "rgba(240, 106, 110, 0.12)",
+          "line": 190
+        },
+        "--info": {
+          "value": "#3FA8B8",
+          "line": 191
+        },
+        "--info-weak": {
+          "value": "rgba(63, 168, 184, 0.14)",
+          "line": 192
+        },
+        "--success-text": {
+          "value": "#5BD0A2",
+          "line": 194
+        },
+        "--warning-text": {
+          "value": "#F5BC66",
+          "line": 195
+        },
+        "--danger-text": {
+          "value": "#F58A8D",
+          "line": 196
+        },
+        "--info-text": {
+          "value": "#63BECB",
+          "line": 197
+        },
+        "--diff-added-bg": {
+          "value": "rgba(61, 189, 138, 0.12)",
+          "line": 200
+        },
+        "--diff-added-chip-bg": {
+          "value": "rgba(61, 189, 138, 0.22)",
+          "line": 201
+        },
+        "--diff-added-bar": {
+          "value": "#3DBD8A",
+          "line": 202
+        },
+        "--diff-added-text": {
+          "value": "#5BD0A2",
+          "line": 203
+        },
+        "--diff-removed-bg": {
+          "value": "rgba(240, 106, 110, 0.12)",
+          "line": 204
+        },
+        "--diff-removed-chip-bg": {
+          "value": "rgba(240, 106, 110, 0.22)",
+          "line": 205
+        },
+        "--diff-removed-bar": {
+          "value": "#F06A6E",
+          "line": 206
+        },
+        "--diff-removed-text": {
+          "value": "#F58A8D",
+          "line": 207
+        },
+        "--diff-modified-bg": {
+          "value": "rgba(240, 168, 60, 0.12)",
+          "line": 208
+        },
+        "--diff-modified-chip-bg": {
+          "value": "rgba(240, 168, 60, 0.22)",
+          "line": 209
+        },
+        "--diff-modified-bar": {
+          "value": "#F0A83C",
+          "line": 210
+        },
+        "--diff-modified-text": {
+          "value": "#F5BC66",
+          "line": 211
+        },
+        "--conf-high": {
+          "value": "#3DBD8A",
+          "line": 213
+        },
+        "--conf-mid": {
+          "value": "#F0A83C",
+          "line": 214
+        },
+        "--conf-low": {
+          "value": "#F06A6E",
+          "line": 215
+        },
+        "--req-missing-bg": {
+          "value": "rgba(240, 106, 110, 0.10)",
+          "line": 217
+        },
+        "--req-missing-border": {
+          "value": "#F06A6E",
+          "line": 218
+        },
+        "--req-missing-text": {
+          "value": "#F58A8D",
+          "line": 219
+        },
+        "--src-announcement-bg": {
+          "value": "rgba(63, 168, 184, 0.14)",
+          "line": 221
+        },
+        "--src-announcement-text": {
+          "value": "#63BECB",
+          "line": 222
+        },
+        "--src-asset-bg": {
+          "value": "rgba(150, 120, 220, 0.14)",
+          "line": 223
+        },
+        "--src-asset-text": {
+          "value": "#B79CED",
+          "line": 224
+        },
+        "--src-excel-bg": {
+          "value": "#202734",
+          "line": 225
+        },
+        "--src-excel-text": {
+          "value": "#B9C1CE",
+          "line": 226
+        },
+        "--table-header-bg": {
+          "value": "#202734",
+          "line": 228
+        },
+        "--table-row-hover": {
+          "value": "#202734",
+          "line": 229
+        },
+        "--table-stripe": {
+          "value": "#191F28",
+          "line": 230
+        },
+        "--mask": {
+          "value": "rgba(0, 0, 0, 0.62)",
+          "line": 232
+        },
+        "--scrollbar-thumb": {
+          "value": "#3F4959",
+          "line": 235
+        },
+        "--scrollbar-hover": {
+          "value": "#5B6684",
+          "line": 236
+        },
+        "--selection-bg": {
+          "value": "rgba(141, 161, 247, 0.26)",
+          "line": 238
+        },
+        "--code-inline-bg": {
+          "value": "#202734",
+          "line": 240
+        },
+        "--code-inline-text": {
+          "value": "#B9C1CE",
+          "line": 241
+        },
+        "--code-bg": {
+          "value": "#10151C",
+          "line": 242
+        },
+        "--code-text": {
+          "value": "#D6DBE5",
+          "line": 243
+        },
+        "--code-comment": {
+          "value": "#7C8698",
+          "line": 244
+        },
+        "--code-keyword": {
+          "value": "#8DA1F7",
+          "line": 245
+        },
+        "--code-string": {
+          "value": "#7FD8A4",
+          "line": 246
+        },
+        "--toast-bg": {
+          "value": "#2C3442",
+          "line": 248
+        },
+        "--toast-text": {
+          "value": "#F2F4F8",
+          "line": 249
+        },
+        "--swatch-border": {
+          "value": "rgba(255, 255, 255, 0.10)",
+          "line": 251
+        },
+        "--chart-1": {
+          "value": "#8DA1F7",
+          "line": 254
+        },
+        "--chart-2": {
+          "value": "#3DBD8A",
+          "line": 255
+        },
+        "--chart-3": {
+          "value": "#F0A83C",
+          "line": 256
+        },
+        "--chart-4": {
+          "value": "#F06A6E",
+          "line": 257
+        },
+        "--chart-5": {
+          "value": "#63BECB",
+          "line": 258
+        },
+        "--chart-6": {
+          "value": "#B79CED",
+          "line": 259
+        },
+        "--asset-active-bar": {
+          "value": "var(--success)",
+          "line": 261
+        },
+        "--asset-active-dot": {
+          "value": "var(--success)",
+          "line": 262
+        }
+      }
+    },
+    "antdTokens": {
+      "light": {
+        "colorPrimary": {
+          "value": "#2F44D8",
+          "line": 32
+        },
+        "colorInfo": {
+          "value": "#0E7C8C",
+          "line": 33
+        },
+        "colorSuccess": {
+          "value": "#0C9A68",
+          "line": 34
+        },
+        "colorWarning": {
+          "value": "#E8930C",
+          "line": 35
+        },
+        "colorError": {
+          "value": "#E5484D",
+          "line": 36
+        },
+        "colorTextBase": {
+          "value": "#1A1D26",
+          "line": 37
+        },
+        "colorText": {
+          "value": "#1A1D26",
+          "line": 38
+        },
+        "colorTextSecondary": {
+          "value": "#454C5C",
+          "line": 39
+        },
+        "colorTextTertiary": {
+          "value": "#6F7787",
+          "line": 40
+        },
+        "colorTextQuaternary": {
+          "value": "#C3C8D2",
+          "line": 41
+        },
+        "colorBgLayout": {
+          "value": "#F7F8FA",
+          "line": 42
+        },
+        "colorBgContainer": {
+          "value": "#FFFFFF",
+          "line": 43
+        },
+        "colorBgElevated": {
+          "value": "#FFFFFF",
+          "line": 44
+        },
+        "colorFillAlter": {
+          "value": "#F1F3F6",
+          "line": 45
+        },
+        "colorBorder": {
+          "value": "#CCD1D9",
+          "line": 46
+        },
+        "colorBorderSecondary": {
+          "value": "#E4E7EC",
+          "line": 47
+        },
+        "colorBgMask": {
+          "value": "rgba(16, 18, 24, 0.45)",
+          "line": 48
+        },
+        "Table.headerBg": {
+          "value": "#F1F3F6",
+          "line": 49
+        },
+        "Layout.headerBg": {
+          "value": "#FFFFFF",
+          "line": 50
+        },
+        "Tabs.itemSelectedColor": {
+          "value": "#2F44D8",
+          "line": 51
+        },
+        "Button.colorPrimary": {
+          "value": "#2F44D8",
+          "line": 52
+        },
+        "Button.colorPrimaryHover": {
+          "value": "#2738B4",
+          "line": 53
+        }
+      },
+      "dark": {
+        "colorPrimary": {
+          "value": "#8DA1F7",
+          "line": 57
+        },
+        "colorInfo": {
+          "value": "#3FA8B8",
+          "line": 58
+        },
+        "colorSuccess": {
+          "value": "#3DBD8A",
+          "line": 59
+        },
+        "colorWarning": {
+          "value": "#F0A83C",
+          "line": 60
+        },
+        "colorError": {
+          "value": "#F06A6E",
+          "line": 61
+        },
+        "colorTextBase": {
+          "value": "#E6E9EF",
+          "line": 62
+        },
+        "colorText": {
+          "value": "#E6E9EF",
+          "line": 63
+        },
+        "colorTextSecondary": {
+          "value": "#AAB2C0",
+          "line": 64
+        },
+        "colorTextTertiary": {
+          "value": "#8A93A5",
+          "line": 65
+        },
+        "colorTextQuaternary": {
+          "value": "#5E6675",
+          "line": 66
+        },
+        "colorBgLayout": {
+          "value": "#0E1116",
+          "line": 67
+        },
+        "colorBgContainer": {
+          "value": "#161B23",
+          "line": 68
+        },
+        "colorBgElevated": {
+          "value": "#202734",
+          "line": 69
+        },
+        "colorFillAlter": {
+          "value": "#202734",
+          "line": 70
+        },
+        "colorBorder": {
+          "value": "#5B6684",
+          "line": 71
+        },
+        "colorBorderSecondary": {
+          "value": "#2C3442",
+          "line": 72
+        },
+        "colorBgMask": {
+          "value": "rgba(0, 0, 0, 0.62)",
+          "line": 73
+        },
+        "Table.headerBg": {
+          "value": "#202734",
+          "line": 74
+        },
+        "Layout.headerBg": {
+          "value": "#161B23",
+          "line": 75
+        },
+        "Tabs.itemSelectedColor": {
+          "value": "#8DA1F7",
+          "line": 76
+        },
+        "Button.colorPrimary": {
+          "value": "#4D64E9",
+          "line": 77
+        },
+        "Button.colorPrimaryHover": {
+          "value": "#5569EB",
+          "line": 78
+        }
+      }
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans": {
+        "value": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
+        "line": 33
+      },
+      "mono": {
+        "value": "\"SF Mono\", ui-monospace, Menlo, Consolas, \"Liberation Mono\", monospace",
+        "line": 35
+      },
+      "antdFontSans": {
+        "value": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
+        "line": 93,
+        "note": "themeConfig.ts 显式覆盖 antd fontFamily，与 --font-sans 同值"
+      }
+    },
+    "scale": {
+      "normal": {
+        "--font-sans": {
+          "value": "-apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Noto Sans CJK SC\", sans-serif",
+          "line": 33
+        },
+        "--font-mono": {
+          "value": "\"SF Mono\", ui-monospace, Menlo, Consolas, \"Liberation Mono\", monospace",
+          "line": 35
+        },
+        "--fs-caption": {
+          "value": "11px",
+          "line": 37
+        },
+        "--fs-aux": {
+          "value": "12px",
+          "line": 37
+        },
+        "--fs-body": {
+          "value": "13px",
+          "line": 37
+        },
+        "--fs-title": {
+          "value": "14px",
+          "line": 37
+        },
+        "--fs-section": {
+          "value": "16px",
+          "line": 38
+        },
+        "--fs-page": {
+          "value": "20px",
+          "line": 38
+        },
+        "--fs-stat": {
+          "value": "26px",
+          "line": 38
+        },
+        "--fs-hero": {
+          "value": "32px",
+          "line": 38
+        },
+        "--lh-tight": {
+          "value": "1.25",
+          "line": 39
+        },
+        "--lh-normal": {
+          "value": "1.5",
+          "line": 39
+        },
+        "--lh-loose": {
+          "value": "1.75",
+          "line": 39
+        }
+      },
+      "small": {
+        "--fs-caption": {
+          "value": "10px",
+          "line": 147
+        },
+        "--fs-aux": {
+          "value": "11px",
+          "line": 147
+        },
+        "--fs-body": {
+          "value": "12px",
+          "line": 147
+        },
+        "--fs-title": {
+          "value": "13px",
+          "line": 147
+        },
+        "--fs-section": {
+          "value": "15px",
+          "line": 148
+        },
+        "--fs-page": {
+          "value": "18px",
+          "line": 148
+        },
+        "--fs-stat": {
+          "value": "24px",
+          "line": 148
+        },
+        "--fs-hero": {
+          "value": "30px",
+          "line": 148
+        }
+      },
+      "large": {
+        "--fs-caption": {
+          "value": "12px",
+          "line": 151
+        },
+        "--fs-aux": {
+          "value": "14px",
+          "line": 151
+        },
+        "--fs-body": {
+          "value": "15px",
+          "line": 151
+        },
+        "--fs-title": {
+          "value": "16px",
+          "line": 151
+        },
+        "--fs-section": {
+          "value": "18px",
+          "line": 152
+        },
+        "--fs-page": {
+          "value": "23px",
+          "line": 152
+        },
+        "--fs-stat": {
+          "value": "30px",
+          "line": 152
+        },
+        "--fs-hero": {
+          "value": "36px",
+          "line": 152
+        }
+      }
+    },
+    "antd": {
+      "fontSizeOptions": [
+        12,
+        13,
+        15
+      ],
+      "defaultFontSize": 13,
+      "fontSizeSMByOption": {
+        "12": 11,
+        "13": 12,
+        "15": 14
+      },
+      "cardHeaderByOption": {
+        "12": 13,
+        "13": 14,
+        "15": 16
+      },
+      "tableCellFontSize": "与界面字号同档（Table.cellFontSize = fontSize）",
+      "tableHeaderFontSize": "var(--fs-aux)",
+      "tableHeaderFontWeight": 600
+    }
+  },
+  "spacing": {
+    "theme": {
+      "tableCellPaddingBlock": {
+        "value": 7,
+        "unit": "px",
+        "source": "src/theme/themeConfig.ts TABLE_DENSITY"
+      },
+      "tableCellPaddingInline": {
+        "value": 8,
+        "unit": "px",
+        "source": "src/theme/themeConfig.ts TABLE_DENSITY"
+      },
+      "tableHeadHeight": {
+        "value": "36px",
+        "source": "src/index.css :root --table-head-h",
+        "line": 479
+      },
+      "tableRowHeight": {
+        "value": "40px",
+        "source": "src/index.css :root --table-row-h",
+        "line": 480
+      },
+      "controlHeight": {
+        "value": 32,
+        "unit": "px",
+        "source": "src/theme/themeConfig.ts Button.controlHeight",
+        "line": 139
+      },
+      "layoutHeaderHeight": {
+        "value": 48,
+        "unit": "px",
+        "source": "src/theme/themeConfig.ts Layout.headerHeight",
+        "line": 167
+      },
+      "cardPaddingLG": {
+        "value": 16,
+        "unit": "px",
+        "source": "src/theme/themeConfig.ts Card.paddingLG",
+        "line": 149
+      }
+    },
+    "components": {
+      "chipPadding": {
+        "value": "0 8px",
+        "source": "src/index.css .ant-tag.chip-md",
+        "line": 358
+      },
+      "contextMenuPadding": {
+        "value": "4px 0",
+        "source": "src/index.css .vp-context-menu",
+        "line": 651
+      },
+      "contextMenuItemPadding": {
+        "value": "5px 12px",
+        "source": "src/index.css .vp-context-menu__item",
+        "line": 666
+      },
+      "scrollbarWidth": {
+        "value": "8px",
+        "source": "src/index.css ::-webkit-scrollbar",
+        "line": 391
+      }
+    }
+  },
+  "radius": {
+    "global": {
+      "value": 6,
+      "unit": "px",
+      "source": "src/theme/themeConfig.ts token.borderRadius",
+      "line": 118
+    },
+    "button": {
+      "value": 6,
+      "unit": "px",
+      "source": "src/theme/themeConfig.ts Button.borderRadius",
+      "line": 140
+    },
+    "card": {
+      "value": 8,
+      "unit": "px",
+      "source": "src/theme/themeConfig.ts Card.borderRadiusLG",
+      "line": 148
+    },
+    "table": {
+      "value": 8,
+      "unit": "px",
+      "source": "src/theme/themeConfig.ts Table.borderRadiusLG",
+      "line": 158
+    },
+    "chip": {
+      "value": "6px",
+      "source": "src/index.css .ant-tag.chip-md",
+      "line": 359
+    },
+    "contextMenu": {
+      "value": "8px",
+      "source": "src/index.css .vp-context-menu",
+      "line": 654
+    },
+    "focusRing": {
+      "value": "4px",
+      "source": "src/index.css :focus-visible",
+      "line": 314
+    },
+    "scrollbar": {
+      "value": "4px",
+      "source": "src/index.css ::-webkit-scrollbar-thumb",
+      "line": 314
+    },
+    "legendBar": {
+      "value": "3px",
+      "source": "src/index.css .legend-bar",
+      "line": 368
+    }
+  },
+  "shadow": {
+    "popover": {
+      "light": {
+        "value": "0 4px 16px rgba(16, 18, 24, 0.10), 0 1px 3px rgba(16, 18, 24, 0.06)",
+        "line": 106
+      },
+      "dark": {
+        "value": "0 6px 20px rgba(0, 0, 0, 0.55)",
+        "line": 233
+      },
+      "source": "src/index.css"
+    },
+    "primaryButtonHover": {
+      "value": "0 2px 6px var(--brand-weak)",
+      "source": "src/index.css .ant-btn-primary:hover",
+      "line": 579
+    },
+    "tailwind": {
+      "sm": {
+        "value": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+        "source": "tailwind.config.js boxShadow.sm",
+        "note": "列表区护栏禁用 shadow-sm"
+      },
+      "md": {
+        "value": "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+        "source": "tailwind.config.js boxShadow.md"
+      }
+    }
+  }
+}

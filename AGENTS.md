@@ -16,7 +16,7 @@
 ## 项目简介
 
 面向整车产品工作的桌面工具（产品名 **整车产品工作台 VPW**）：车型资产治理与筛选、公告记录归档与比对、法规标准库、参数导入（Excel/CSV）、智能填报、数据体检与修复、版本对比、导出。名称刻意中性，不绑定单一品牌或单一角色。
-技术栈：**Tauri 2 + React 19 + TypeScript + Vite 7 + Tailwind 3 + Ant Design v6**，状态用 Zustand，后端逻辑在 Rust（`src-tauri/`）。
+技术栈：**Tauri 2 + React 19 + TypeScript + Vite 7 + Tailwind 3 + Ant Design v6 + Zustand**，Excel 解析/导出用 `xlsx`（SheetJS）、模糊匹配用 `fuse.js`、整车设计页用 three.js（React Three Fiber），后端逻辑在 Rust（`src-tauri/`）。
 
 ## 验证（改完必须跑）
 
@@ -40,6 +40,7 @@ npm run check      # lint → typecheck → test → build 一次跑完（CI 必
 - `npm run dev:mock`，浏览器打开 `http://localhost:5173`：Tauri 换成内存文件系统（`scripts/dev-mock/tauri-mock.js`），自带一个空资产库，刷新即清空。只在 mock 模式注入，不影响 `npm run dev` / `tauri dev` / 构建
 - 数据从界面导入（车型资产 → 左栏「导入车型数据」）；要预置文件（如枚举词表 `custom_enums.json`）用 `window.__VPW_MOCK_FILES__`，见脚本头注释
 - 改了表格 / 弹窗 / 列表：用**真实规模**数据回归——一次导入可达约 500 车型 × 500 参数，车型名、参数名都可能很长；亮 / 暗色都看
+- 视觉对照：[docs/design-baseline/README.md](docs/design-baseline/README.md)（2026-11-20 基线；token 由源码提取，颜色以 `design-baseline.json` 为准，不从截图吸色）
 - 性能只在生产构建下测（`npm run build && npm run preview`）：dev 模式页面切换要 2-3s，生产仅 17-70ms
 
 ## 提交与 PR
@@ -98,6 +99,27 @@ npm run check      # lint → typecheck → test → build 一次跑完（CI 必
 - **资产管理页组件链**：`MainLayout('pool')` → `ParameterWorkbench` → `AssetPoolLayout` → `AssetSidebar` / `AssetFilterBar` / `AssetGroupTree`；`src/components/AssetLibrary/` 只装筛选面板和弹窗抽屉，不是页面入口
 - **设计类 skill**：`.agent/skills/` 下的 frontend-design、ui-ux-pro-max 只用于**全新界面**的方案探索；与本文件或 UI 护栏冲突时以本文件为准，不得据此改既有页面的字体、配色、密度、布局
 - **产品改名**：按 [docs/产品名落点.md](docs/产品名落点.md) 逐条执行（TS 侧共用 `src/constants/app.ts` 的 `APP_NAME`；拉丁后缀「VPW」不可省）
+
+## 信息架构导航
+
+> 按「用户能看到的页面 / 功能区」定位源码，不用先翻代码。顶层 tab 由 `src/App.tsx` 分发；`pool` / `compare` / `fill` / `purify` 共用 `ParameterWorkbench`，其余各是一页。目录级说明见下节「目录地图」。
+
+| 功能区（tab） | 入口与源码目录 | Zustand 状态 | 后端命令（`src-tauri/src/`） | 相关 utils |
+|---|---|---|---|---|
+| 车型资产（`pool`） | `src/components/ParameterWorkbench/AssetPool/`：入口 `AssetPoolLayout.tsx`，三栏为 `AssetSidebar.tsx` / 列表 / `AssetCart.tsx`；导入与文件管理在 `AssetSidebar` → `FileManager.tsx` | `vehicleStore`（`activeAssets`、`selectedProductNames`、`assetLibraryPath`）；公告关联读 `announcementStore` | `scan_asset_library`、`save_assets_batch`（`assets.rs`）；导入走 `read_workbook`（`excel.rs`） | `assetManager`、`assetGrouping`、`assetSort`、`assetViews`、`assetFacets`、`facetFilters`、`assetGovernance`、`assetAlias`、`assetKeyHeal`、`assetTagGroups`、`assetImportDedup`；hooks `useAssetLibrarySnapshot` / `useRequiredBaseline` |
+| 版本对比（`compare`） | `src/components/ParameterWorkbench/`：入口 `CompareView.tsx`，文件摘要 `CompareFileSummary.tsx`；旧版整表比对 `src/components/DiffViewer/LegacyDiffPanel.tsx`（隐藏 tab `diff`） | `vehicleStore`（`baseFile`、`targetFile`、`diffResult`、`compareMode`、`currentCompareProducts`） | 无专属命令；HTML / Markdown 报告由前端 `saveTextReport` 导出 | `compareMatrix`、`compareReport`、`assetCompare`、`comparator`、`diffReport`、`requiredBaseline`、`vehicleSelectionState` |
+| 智能填报（`fill`） | `SmartFillView.tsx`；`Segmented` 三模式：单车填报 → `src/components/SmartFiller/MatchResultTable.tsx`，多车取数 → `BidPullView.tsx`，自由多车整理 → `MultiVehicleView.tsx` | `vehicleStore`（`matchResults`、`currentSmartFillProduct` / `currentBidPullProducts` / `currentMultiVehicleProducts`、`miitData`） | `read_workbook`（读需求表）、`export_xlsx`（车上云模板导出） | `matcher`、`matchingEngine`、`fieldMapping`、`bidFieldMapping`、`productConfidence`、`excelParserAsync`；导出 `SmartFiller/useFieldGroupExport.ts` |
+| 数据体检与修复（`purify`） | `src/components/DataPurify/`：入口 `DataPurifyView.tsx`，异常归类 `purifyAnomaly.ts`，参照车型同步 `ReferenceSync.tsx` | `vehicleStore`（`currentPurifyProduct`、`purifyReferenceProduct`、`repairContext`） | 无专属命令；资产读写走 `assetManager` + FS 插件 | `vehicleFieldDiff`、`attributeEnums`、`fieldLists`、`assetSourceTags`、`requiredBaseline` |
+| 公告中心（`announcement`） | `src/components/AnnouncementQuery/`：入口 `AnnouncementQuery.tsx`；归档 / 分组表、批量导入、迁移、批次比对分别在 `AnnouncementArchiveList.tsx`、`AnnouncementGroupedTable.tsx`、`AnnouncementBatchImportModal.tsx`、`AnnouncementMigrationModal.tsx`、`AnnouncementBatchDiffDrawer.tsx` | `announcementStore`（扫描结果缓存，磁盘即事实源、不持久化） | `scan_announcements`、`move_to_trash`、`copy_files_to_clipboard`（`announcements.rs`）；新 PDF 探测 `scan_pdf_candidates` / `probe_downloads` / `cancel_pdf_scan`（`pdf_sniff.rs`） | `announcementRecord`、`announcementParamParse`、`announcementScan`、`announcementGrouping`、`announcementCompare`、`announcementMigration` |
+| 法规标准（`regulation`） | `src/components/RegulationLibrary/`：入口 `RegulationLibrary.tsx`；表格 / 筛选 / 详情 / 导入为 `RegulationTable.tsx`、`RegulationFilterPanel.tsx`、`RegulationDetailDrawer.tsx`、`RegulationImportModal.tsx` | `regulationStore`（持久化 `rootPath`，记录与词表在 `_regulations.json` sidecar） | `read_regulation_sidecar`、`write_regulation_sidecar`、`scan_regulations`、`extract_regulation_hints`（`regulations.rs`） | `regulationIO`、`regulationTypes` |
+| 字段与词表（`dict`） | 入口不在 `Settings/`：`src/components/SmartFiller/ConfigManagerView.tsx`；三个 Tab 为枚举字典配置、核心字段配置、标签分组配置。招标映射不在这里，在智能填报 → `BidMappingDrawer.tsx` | `vehicleStore`（库路径）+ `attributeEnums` 的模块级缓存 | 无专属命令；配置文件（如 `custom_enums.json`）走 FS 插件 | `fieldLists`、`attributeEnums`、`fieldMapping`、`enumImportRowMapping`、`assetTagGroups` |
+| 整车设计（`designer`） | `src/components/VehicleDesigner/`：入口 `VehicleDesigner.tsx`；`Canvas/`、`ParameterPanel/`、`modals/` | `useSavedConfigs.ts`（页内保存配置）；不写 `vehicleStore` | 无 | `parseParams`、`deriveParams`；3D 用 three.js / React Three Fiber |
+| 全局搜索（`⌘K`） | `src/components/GlobalSearch/`：入口 `GlobalSearchModal.tsx`，由 `src/components/Layout/MainLayout.tsx` 挂载 | `globalSearchStore`（只管面板开合）；三域数据读 `useAssetLibrarySnapshot` / `announcementStore` / `regulationStore`；跳页信号 `vehicleStore.pendingGlobalSearch` | 无 | `globalSearch`、`assetAlias`、`assetGovernance` |
+| 设置（含手机查看 / 中继） | `src/components/Settings/`：入口 `SettingsModal.tsx` → `sections/`（`AppearanceSection` / `PathsSection` / `MobileSection` / `ShortcutsSection` / `DataSection`） | `settingsStore`（开关、字号、当前分区）、`themeStore`；资产库路径在 `vehicleStore.assetLibraryPath` | 手机查看：`start_mobile_server`、`mobile_server_status`、`set_mobile_server_enabled`、`set_mobile_public_url`、`create_mobile_pairing_code`、`revoke_all_mobile_devices`（`mobile.rs`）；自建中继：`set_mobile_relay`、`regenerate_mobile_relay_token`（`mobile_relay.rs`） | `constants/shortcuts`、`libraryPathPrompt` |
+| 参数导入（跨页面，不占顶层 tab） | 现行入口在车型资产左栏 `AssetSidebar.tsx` → `FileManager.tsx`；`src/components/FileUpload/ExcelUploader.tsx` 只服务旧版 `LegacyDiffPanel` | `vehicleStore`（工作集；会话由 `sessionPersistence` 恢复到 `appDataDir/session.json`） | `read_workbook`（`excel.rs`） | `excelParser`、`excelParserAsync`、`excelParserHorizontal`、`src/workers/excelParser.worker.ts`、`assetImportDedup`、`importTransients` |
+
+- **共用底座**：`App.tsx` 负责 tab 分发与全局主题；`Layout/MainLayout.tsx` 挂全局搜索、设置、快捷键；`common/` 是列表页与控件的统一构件（见「UI 构件」）；车辆身份键与显示名统一走 `vehicleInstance` + `store/vehicleSelectors`，各页不要自己拼。
+- **改功能先找页**：先在上表定位入口组件，再顺着它的 import 找 utils / store；`src/components/AssetLibrary/` 只装筛选面板和弹窗抽屉，不是页面入口。
 
 ## 目录地图
 
