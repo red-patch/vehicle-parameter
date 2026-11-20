@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 /**
  * 组头「对比本组」入口回归。
@@ -67,6 +67,21 @@ const seed = () => {
 
 const keyOf = (fileName: string, productName: string) =>
     buildVehicleInstanceKey('asset', fileName, productName);
+
+// 组件树必须在使用例结束前卸载：AssetPoolLayout 挂载后会发起多个异步 effect
+// （资产库快照 / 词表 / 公告扫描…）。本项目没开 vitest globals，RTL 的自动 cleanup
+// 不生效；若不卸载，晚到的 Promise 会在 test environment 已销毁后继续 setState，
+// React 19 的 Scheduler 回调随即读 `window.event` → 偶发 "window is not defined"。
+// 卸载让 effect 的 cancelled 标记置位；再让出一个 check 阶段，把已排队的 Scheduler
+// 回调在 jsdom 销毁前跑完。
+afterEach(async () => {
+    cleanup();
+    await new Promise<void>(resolve => {
+        const realSetImmediate = (globalThis as { setImmediate?: (cb: () => void) => unknown }).setImmediate;
+        if (realSetImmediate) realSetImmediate(resolve);
+        else setTimeout(resolve, 0);
+    });
+});
 
 describe('组头「对比本组」', () => {
     beforeEach(() => {
