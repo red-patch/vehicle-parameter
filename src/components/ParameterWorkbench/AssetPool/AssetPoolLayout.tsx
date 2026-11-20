@@ -914,6 +914,26 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
         onGoCompare?.();
     }, [setCompareProducts, onGoCompare]);
 
+    // ===== 对比本组（组头操作）：把该组当前可见文件带进对比页 =====
+    // 对比页只消费工作集（selectedProductNames）里的车型，所以必须先激活再跳；
+    // 用 displayInfos 而不是全量组，保证「看到的」和「对比的」是同一批（筛选后对比筛选结果）。
+    const handleCompareGroup = useCallback((group: VehicleGroup) => {
+        const infos = displayInfos.filter(info =>
+            resolveVehicleGroupKey(info, snapshot.meta[info.fileName], brandNames) === group.groupKey);
+        if (infos.length < 2) {
+            message.info('该组只有 1 份资产，无需对比');
+            return;
+        }
+        const keys: string[] = [];
+        infos.forEach(info => {
+            addActiveAsset(info.fileName, info.productName);
+            keys.push(buildVehicleInstanceKey('asset', info.fileName, info.productName));
+        });
+        setCompareProducts(keys);
+        message.success(`已把 ${infos.length} 份资产加入工作集，正在打开对比`);
+        onGoCompare?.();
+    }, [displayInfos, snapshot.meta, brandNames, addActiveAsset, setCompareProducts, onGoCompare]);
+
     // ===== 批量模式 =====
     const enterBatchMode = useCallback((fileName: string) => {
         setBatchMode(true);
@@ -1400,6 +1420,7 @@ const AssetPoolLayout: React.FC<AssetPoolLayoutProps> = ({ onGoCompare }) => {
                             onActivateLatest={handleActivateLatest}
                             onRenameGroup={openGroupRename}
                             onBulkEditFields={handleBulkEditGroup}
+                            onCompareGroup={handleCompareGroup}
                             gridTemplateColumns={gridTemplateColumns}
                             renderCard={info => (
                                 <AssetCard

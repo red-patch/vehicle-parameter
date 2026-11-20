@@ -48,7 +48,8 @@ export interface AssetActions {
     /** 直接改名（快捷修复命名用）；displayName 不含扩展名 */
     renameTo: (info: AssetFileInfo, displayName: string, successMessage?: string | ((result: { fileName: string; productName: string }) => string)) => Promise<void>;
     toggleKeyVehicle: (info: AssetFileInfo) => Promise<void>;
-    setStatus: (info: AssetFileInfo, status: 'superseded' | 'deprecated') => Promise<void>;
+    /** 只用到 fileName，其它来源（如版本对比页）可传最小对象 */
+    setStatus: (info: Pick<AssetFileInfo, 'fileName'>, status: 'superseded' | 'deprecated') => Promise<void>;
     saveTags: (fileName: string, tags: string[]) => Promise<void>;
     copyAnnounceNo: (info: AssetFileInfo) => void;
     viewAnnouncementPdf: (info: AssetFileInfo) => void;
@@ -202,7 +203,7 @@ export function useAssetActions({ focusedFile, onFocusFile }: UseAssetActionsOpt
         }
     };
 
-    const setStatus = async (info: AssetFileInfo, status: 'superseded' | 'deprecated') => {
+    const setStatus = async (info: Pick<AssetFileInfo, 'fileName'>, status: 'superseded' | 'deprecated') => {
         if (!assetLibraryPath) return;
         const meta = await loadAssetMeta(assetLibraryPath);
         const current = meta[info.fileName] || {};

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tooltip } from 'antd';
-import { CaretRightOutlined, CaretDownOutlined, EditOutlined, FormOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, CaretDownOutlined, DiffOutlined, EditOutlined, FormOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import type { VehicleGroup } from '../../../utils/assetGovernance';
 
 /**
@@ -29,6 +29,8 @@ export interface AssetGroupHeaderProps {
     onRenameGroup?: (group: VehicleGroup) => void;
     /** 批量维护本组资产字段值（仅车型维度；参数行 + 受控属性） */
     onBulkEditFields?: (group: VehicleGroup) => void;
+    /** 把本组资产带进版本对比（文件维度 + 字段差异）；仅车型维度 */
+    onCompareGroup?: (group: VehicleGroup) => void;
     onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -36,7 +38,7 @@ export interface AssetGroupHeaderProps {
 const LEVEL_INDENT = 16;
 
 const AssetGroupHeader: React.FC<AssetGroupHeaderProps> = ({
-    label, count, expanded, onToggle, level = 0, dimLabel, vehicleGroup, onActivateLatest, onRenameGroup, onBulkEditFields, onContextMenu,
+    label, count, expanded, onToggle, level = 0, dimLabel, vehicleGroup, onActivateLatest, onRenameGroup, onBulkEditFields, onCompareGroup, onContextMenu,
 }) => (
     <div
         className="flex items-center gap-2 py-1.5 cursor-pointer select-none group/header rounded hover:surface-inset transition-colors duration-150"
@@ -64,6 +66,19 @@ const AssetGroupHeader: React.FC<AssetGroupHeaderProps> = ({
                     onClick={e => { e.stopPropagation(); onActivateLatest(vehicleGroup); }}
                 >
                     <ThunderboltOutlined />
+                </span>
+            </Tooltip>
+        )}
+
+        {/* 车型维度：对比本组（hover 渐显；文件维度 + 字段差异） */}
+        {vehicleGroup && onCompareGroup && (
+            <Tooltip title="对比本组资产（有效字段 / 重点字段 / 字段差异）">
+                <span
+                    aria-label="对比本组"
+                    className="opacity-0 group-hover/header:opacity-100 text-[12px] text-3 hover:text-brand flex-shrink-0 transition-opacity duration-150"
+                    onClick={e => { e.stopPropagation(); onCompareGroup(vehicleGroup); }}
+                >
+                    <DiffOutlined />
                 </span>
             </Tooltip>
         )}
