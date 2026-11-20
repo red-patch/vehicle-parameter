@@ -50,7 +50,7 @@ fi
 
 CURRENT="$(git symbolic-ref --short HEAD 2>/dev/null || echo '')"
 
-echo -e "\n${BLUE}=== 🧹 分支清理（基线 $BASE）===${NC}\n"
+echo -e "\n${BLUE}=== 🧹 分支清理（基线 ${BASE}）===${NC}\n"
 [ "$APPLY" = "1" ] || echo -e "${YELLOW}dry-run：只列出，加 --apply 才真删${NC}\n"
 
 # 基线历史里出现过的所有 tree —— 内容层面的「已进主干」集合
@@ -73,7 +73,7 @@ while IFS= read -r br; do
 done < <(git for-each-ref --format='%(refname:short)' refs/heads | sort)
 
 if [ ${#merged_local[@]} -gt 0 ]; then
-    echo -e "${GREEN}已合进 $BASE（内容一致，可删）：${NC}"
+    echo -e "${GREEN}已合进 ${BASE}（内容一致，可删）：${NC}"
     for br in "${merged_local[@]}"; do
         echo "  $br  ($(git log -1 --format='%h %s' "$br" | cut -c1-72))"
     done
@@ -82,7 +82,7 @@ else
 fi
 
 if [ ${#unmerged_local[@]} -gt 0 ]; then
-    echo -e "\n${YELLOW}内容不在 $BASE（保留，可能有未合并的工作）：${NC}"
+    echo -e "\n${YELLOW}内容不在 ${BASE}（保留，可能有未合并的工作）：${NC}"
     for br in "${unmerged_local[@]}"; do
         tracking="$(git for-each-ref --format='%(upstream:track)' "refs/heads/$br")"
         [ -n "$tracking" ] && tracking="  $tracking"
@@ -124,6 +124,6 @@ if [ "$APPLY" = "1" ]; then
         done
     fi
     echo -e "\n${GREEN}完成${NC}"
-else
-    [ ${#merged_local[@]} -gt 0 ] && echo -e "\n加 ${BLUE}--apply${NC} 执行删除"
+elif [ ${#merged_local[@]} -gt 0 ]; then
+    echo -e "\n加 ${BLUE}--apply${NC} 执行删除"
 fi
